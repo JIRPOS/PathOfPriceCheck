@@ -43,6 +43,32 @@ FetchContent_Declare(doctest
   GIT_TAG v2.4.12
   GIT_SHALLOW TRUE)
 
+# libcurl: system package where there is one, source build on Windows. Static with Schannel
+# so the release stays a single .exe with no DLL beside it and no CA bundle to ship.
+find_package(CURL QUIET)
+if(NOT CURL_FOUND)
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
+  set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+  set(CURL_DISABLE_TESTS ON CACHE BOOL "" FORCE)
+  set(CURL_ENABLE_EXPORT_TARGET OFF CACHE BOOL "" FORCE)
+  if(WIN32)
+    set(CURL_USE_SCHANNEL ON CACHE BOOL "" FORCE)
+  endif()
+  set(CURL_USE_LIBPSL OFF CACHE BOOL "" FORCE)
+  set(CURL_ZLIB ON CACHE BOOL "" FORCE)
+  # One JSON GET and a few file downloads; everything else is dead weight.
+  foreach(proto DICT FILE FTP GOPHER IMAP LDAP LDAPS MQTT POP3 RTSP SMB SMTP TELNET TFTP)
+    set(CURL_DISABLE_${proto} ON CACHE BOOL "" FORCE)
+  endforeach()
+  FetchContent_Declare(curl
+    GIT_REPOSITORY https://github.com/curl/curl.git
+    GIT_TAG curl-8_11_1
+    GIT_SHALLOW TRUE)
+  FetchContent_MakeAvailable(curl)
+  add_library(CURL::libcurl ALIAS libcurl_static)
+endif()
+
 FetchContent_MakeAvailable(SDL3 imgui nlohmann_json doctest)
 
 # Dear ImGui ships no CMake target we want; compile core + backends ourselves.
@@ -75,6 +101,7 @@ set(APP_SOURCES
   src/app.cpp
   src/fonts.cpp
   src/overlay.cpp
+  src/net/http.cpp
   src/platform/keymap_sdl.cpp
   src/screens/settings_screen.cpp
   src/screens/pricecheck_screen.cpp)
@@ -91,7 +118,8 @@ endif()
 add_executable(PathOfPriceCheck ${APP_SOURCES})
 target_include_directories(PathOfPriceCheck PRIVATE src)
 target_compile_definitions(PathOfPriceCheck PRIVATE APP_VERSION="${APP_VERSION}" SDL_MAIN_HANDLED)
-target_link_libraries(PathOfPriceCheck PRIVATE ppc_core SDL3::SDL3 imgui nlohmann_json::nlohmann_json)
+target_link_libraries(PathOfPriceCheck PRIVATE ppc_core SDL3::SDL3 imgui
+                                               nlohmann_json::nlohmann_json CURL::libcurl)
 
 find_package(OpenGL REQUIRED)
 target_link_libraries(PathOfPriceCheck PRIVATE OpenGL::GL)
