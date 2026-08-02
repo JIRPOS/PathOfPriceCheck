@@ -22,28 +22,38 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
   variant*, never as the primary/only toolchain.)
 - **Build:** CMake. Clang/GCC on Linux, MSVC or Clang on Windows. `-fsanitize=address,undefined` in
   debug builds.
-- **Overlay UI:** [Dear ImGui](https://github.com/ocornut/imgui) rendered on a **transparent,
-  click-through, always-on-top** window via **SDL2 + OpenGL**.
-- **HTTP:** libcurl. **JSON:** nlohmann/json (swap parse-hot paths to simdjson only if profiling says so).
+- **Overlay UI:** [Dear ImGui](https://github.com/ocornut/imgui) on a borderless, always-on-top
+  **SDL3 + OpenGL** window. (SDL3, not SDL2 — first-class transparent/always-on-top window flags and a
+  smoother Wayland path later. True transparency + click-through is a later step; today it's an opaque
+  panel.)
+- **Dependencies:** CMake **FetchContent** builds SDL3 + ImGui + nlohmann/json from source (pinned
+  tags in `CMakeLists.txt`), so CI needs no system packages beyond Linux dev headers (see Build).
+- **HTTP (later):** libcurl. **JSON:** nlohmann/json. **Clipboard:** SDL3's `SDL_GetClipboardText()` —
+  cross-platform, so *not* a platform seam.
 - **Cross-platform target:** Windows + Linux **X11 first**. Wayland is a later stretch goal — it
   blocks arbitrary global hotkeys and click-through overlays without compositor portals / evdev
   access, so do not gate v1 on it.
 
 ## Where the real difficulty is
 
-Parsing and HTTP are the easy 80%. The hard, platform-specific 20% is **global input capture** and
-the **overlay window**, and both require per-OS native code regardless of anything else. Isolate that
-code behind narrow interfaces so the cross-platform core never sees `#ifdef _WIN32`.
+Parsing and HTTP are the easy 80%. The hard, platform-specific 20% is **global hotkey capture** and
+**foreground-window detection** — both need per-OS native code. They live behind narrow headers in
+`src/platform/` with X11 and Win32 implementations, so the cross-platform core never sees `#ifdef`.
+The only two seams (clipboard and windowing come free from SDL3):
 
-- **Global hotkey + read-clipboard-on-copy:** Windows `RegisterHotKey` / low-level keyboard hook;
-  Linux/X11 `XGrabKey`. The tool does not read the game — it reacts to the clipboard changing after
-  the user's in-game copy. Debounce and only act on clipboard payloads that look like PoE item text.
-- **Transparent overlay:** Windows layered window (`WS_EX_LAYERED | WS_EX_TRANSPARENT |
-  WS_EX_TOPMOST`); Linux/X11 an override-redirect or dock-hinted window with an ARGB visual and a
-  running compositor. Click-through must toggle off while the user interacts with the panel.
+- **`platform/hotkeys.hpp` — `HotkeyListener`:** system-wide hotkeys. X11 `XGrabKey` on root from a
+  dedicated thread (grabbed with all NumLock/CapsLock combos; rebind via a self-sent `ClientMessage`);
+  Win32 `RegisterHotKey` on a thread with its own message loop (rebind via `PostThreadMessage`). The
+  callback fires on that OS thread and is marshaled to the main loop as an SDL user event.
+- **`platform/foreground.hpp` — `foreground_title_contains()`:** X11 reads `_NET_ACTIVE_WINDOW` +
+  `_NET_WM_NAME`; Win32 `GetForegroundWindow` + `GetWindowTextW`. Matched against a configurable
+  title (default "Path of Exile"). The overlay only shows / reacts while that window — or our own
+  overlay — is focused.
+- **`platform/platform.hpp` — `platform_init()`:** one-time init (X11 calls `XInitThreads`).
 
-Suggested seams (keep these as abstract interfaces with per-OS implementations under `platform/`):
-`IHotkeyListener`, `IClipboard`, `IOverlayWindow`.
+Key naming is canonical strings ("D", "Space", "F5"); `key_name_from_sdl` (capture), the X11 keysym
+lookup, and the Win32 VK lookup each translate them. OS hotkey APIs are **side-agnostic** on
+modifiers, so "LShift" registers as "Shift".
 
 ## Conventions
 
@@ -52,9 +62,16 @@ Suggested seams (keep these as abstract interfaces with per-OS implementations u
   code plainly says.
 - **Commit messages / PRs:** precise, not verbose. State what changed and why; skip the essay.
 
-## Architecture (planned module boundaries)
+## Architecture
 
-Pipeline: **hotkey → clipboard → parse → identify → price → render**.
+Pipeline: **hotkey → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`) owns the
+SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`; global hotkeys switch
+screens, and nothing renders unless a screen is active *and* PoE (or our overlay) is focused. `Overlay`
+wraps the SDL3+GL+ImGui window; `Config` persists to JSON at the platform config dir; screen renderers
+live in `src/screens/`. `PPC_DEV_OVERLAY=1` bypasses focus gating and opens Settings for local dev.
+
+The parser/pricing modules below are **not built yet** — they're the planned next layers. The
+price-check screen currently just dumps the raw clipboard text where the parser will slot in.
 
 - **Item parser** — the domain core. PoE clipboard text is UTF-8 with sections split by lines of
   `--------`. First section holds `Item Class`, `Rarity`, name, and base type; later sections hold
@@ -104,15 +121,21 @@ GGG returns rate-limit state in response **headers** (`X-Rate-Limit-Rules`, per-
 headers, tracks each active window, and **proactively delays** rather than reactively eating 429s.
 Never fire the search→fetch flow without going through it.
 
-## Build & test (planned — update once CMake exists)
+## Build & test
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug   # first run fetches + builds SDL3 (slow, cached after)
 cmake --build build -j
-ctest --test-dir build                       # all tests
-ctest --test-dir build -R <name> -V          # a single test
-./build/<binary>                             # run the tool
+ctest --test-dir build                         # all tests
+ctest --test-dir build -R <name> -V            # a single test
+./build/PathOfPriceCheck                       # run (add PPC_DEV_OVERLAY=1 to see the UI w/o PoE)
 ```
 
-Debug builds should enable `-fsanitize=address,undefined`. The item parser must be runnable and
-tested without any windowing or network dependency.
+SDL3 builds from source, so **Linux needs dev headers**: `libx11-dev libxext-dev libxrandr-dev
+libxcursor-dev libxi-dev libxfixes-dev libxkbcommon-dev libwayland-dev wayland-protocols
+libgl1-mesa-dev libegl1-mesa-dev libasound2-dev libpulse-dev libdbus-1-dev libudev-dev` (the CI
+workflows install exactly these). Windows needs only MSVC. The CI still validates the Windows build on
+every push/PR — trust it for the Win32 platform code, which can't be compiled locally here.
+
+`-fsanitize=address,undefined` for debug builds is not wired into CMake yet. The item parser (when it
+lands) must be runnable and tested without any windowing or network dependency.

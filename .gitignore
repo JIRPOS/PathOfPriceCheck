@@ -5,3 +5,6 @@
 compile_commands.json
 *.user
 .DS_Store
+
+# Runtime-generated ImGui layout
+imgui.ini

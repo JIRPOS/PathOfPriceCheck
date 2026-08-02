@@ -1,6 +1,5 @@
-#include <cstdio>
+#include "app.hpp"
 
 int main() {
-    std::printf("PathOfPriceCheck %s\n", APP_VERSION);
-    return 0;
+    return ppc::App{}.run();
 }
