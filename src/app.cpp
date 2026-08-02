@@ -69,10 +69,13 @@ void draw_idle_marker() {
 int App::run() {
     platform_init();
     SDL_SetMainReady();
+#ifndef _WIN32
     // v1 targets Linux/X11; under Wayland this runs via XWayland, which shares a
     // (non focus-gated) X11 clipboard with the game and matches our X11 platform
-    // seams. Overridable via the SDL_VIDEO_DRIVER env var.
+    // seams. Overridable via the SDL_VIDEO_DRIVER env var. Windows has no x11
+    // backend at all, so the hint there makes SDL_Init fail outright.
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
+#endif
     SDL_SetHint(SDL_HINT_APP_ID, "PathOfPriceCheck"); // stable WM_CLASS
     // Do NOT let showing/raising steal focus from the game: the overlay is override-
     // redirect and stacks above via the compositor, and we only ever want keyboard
