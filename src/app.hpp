@@ -5,6 +5,7 @@
 #include <string>
 
 #include "config.hpp"
+#include "league_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
 
@@ -29,6 +30,8 @@ public:
     const std::string& clipboard_text() const { return clipboard_; }
     bool copying() const { return copy_pending_; } ///< price-check is awaiting the clipboard
     bool copy_late() const { return copy_late_; } ///< the copy is overdue; still watching for it
+    const LeagueService& leagues() const { return leagues_; }
+    void refresh_leagues() { leagues_.refresh(true); }
 
     void begin_capture(Action which);        ///< next key press rebinds this action
     bool capturing(Action which) const { return capturing_ && capture_which_ == which; }
@@ -52,6 +55,7 @@ private:
 
     Config config_ = Config::load();
     Overlay overlay_;
+    LeagueService leagues_;
     std::unique_ptr<HotkeyListener> hotkeys_;
     SDL_Tray* tray_ = nullptr;
     Screen screen_ = Screen::Hidden;
@@ -70,9 +74,14 @@ private:
     uint64_t last_clipboard_poll_ms_ = 0; ///< throttles the clipboard re-read while waiting
     bool mouse_was_down_ = false;   ///< prior global mouse button state, for click-away edges
 
-    bool dev_mode_ = false;   ///< PPC_DEV_OVERLAY: keep overlay up regardless of focus
-    bool had_focus_ = false;  ///< overlay has gained focus since it was shown
-    uint32_t user_event_ = 0; ///< SDL user-event type carrying an Action
+    bool dev_mode_ = false;  ///< PPC_DEV_OVERLAY: keep overlay up regardless of focus
+    bool had_focus_ = false; ///< overlay has gained focus since it was shown
+
+    // One contiguous block from SDL_RegisterEvents. Kept as distinct types rather than
+    // widening Action: handle_action() gates on the game being foreground, which would
+    // silently swallow an async result whenever PoE isn't in front.
+    uint32_t hotkey_event_ = 0; ///< carries an Action, pushed from the hotkey thread
+    uint32_t league_event_ = 0; ///< carries a LeagueService::Result*
 
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry

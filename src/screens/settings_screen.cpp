@@ -54,6 +54,63 @@ void hotkey_row(App& app, const char* label, Action which, Hotkey& hk) {
     ImGui::PopID();
 }
 
+constexpr float kRefreshW = 84.0f;
+
+void league_row(App& app, Config& c) {
+    const LeagueService& svc = app.leagues();
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("League");
+    ImGui::SameLine(kLabelW);
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - kRefreshW -
+                            ImGui::GetStyle().ItemSpacing.x);
+    // The preview is the configured value, not a list index. A league the list doesn't have
+    // — an ended challenge league, or a hand-edited config — must still display, and must
+    // survive a Save. Same reason it's appended as a selectable below.
+    if (ImGui::BeginCombo("##league", c.league.c_str())) {
+        bool seen = false;
+        for (const std::string& id : svc.list()) {
+            const bool sel = id == c.league;
+            seen = seen || sel;
+            if (ImGui::Selectable(id.c_str(), sel)) c.league = id;
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        if (!seen && !c.league.empty()) {
+            ImGui::Separator();
+            ImGui::Selectable(c.league.c_str(), true);
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::SameLine();
+    const int cd = svc.cooldown_s();
+    const bool busy = svc.state() == LeagueState::Loading;
+    ImGui::BeginDisabled(busy || cd > 0);
+    if (ImGui::Button("Refresh", ImVec2(kRefreshW, 0))) app.refresh_leagues();
+    ImGui::EndDisabled();
+    if (cd > 0 && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("Just refreshed \xe2\x80\x94 wait %ds", cd);
+
+    row_gutter();
+    switch (svc.state()) {
+    case LeagueState::Loading:
+        ImGui::TextDisabled("Fetching league list\xe2\x80\xa6");
+        break;
+    case LeagueState::Ok:
+        ImGui::TextDisabled("%zu leagues", svc.list().size());
+        break;
+    case LeagueState::Error:
+        // curl's messages run past the panel edge, so wrap rather than clip.
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextColored(kWarn, "Couldn't reach the trade API (%s)", svc.error().c_str());
+        ImGui::PopTextWrapPos();
+        break;
+    case LeagueState::Idle:
+        ImGui::TextDisabled("Offline list");
+        break;
+    }
+}
+
 /// Discards characters that can never appear in "Name#1234". Rejecting a *keystroke* that
 /// could never be part of a valid value is safe; rejecting a whole-string state is not —
 /// you cannot reach "Foo#1" without passing through the invalid "Foo" and "Foo#".
@@ -81,7 +138,7 @@ void draw_settings_screen(App& app) {
     if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
 
     section(app, "General");
-    ImGui::InputText(row("League"), &c.league);
+    league_row(app, c);
 
     const NameCheck nc = check_account_name(c.account_name);
     if (nc == NameCheck::Malformed) ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.42f, 0.13f, 0.13f, 1.0f));

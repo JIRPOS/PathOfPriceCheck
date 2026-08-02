@@ -8,6 +8,7 @@
 #include <SDL3/SDL_main.h>
 #include <imgui.h>
 
+#include "net/http.hpp"
 #include "platform/clipboard.hpp"
 #include "platform/foreground.hpp"
 #include "platform/input_sim.hpp"
@@ -86,13 +87,26 @@ int App::run() {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return 1;
     }
-    user_event_ = SDL_RegisterEvents(1);
+    // SDL hands back a contiguous range, so the +1 is guaranteed.
+    const uint32_t event_base = SDL_RegisterEvents(2);
+    if (!event_base) {
+        SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+    hotkey_event_ = event_base;
+    league_event_ = event_base + 1;
+
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
         SDL_Quit();
         return 1;
     }
     init_tray();
+
+    net::init();
+    leagues_.init(league_event_);
+    leagues_.load_cache(); // file read only; the network is touched when Settings opens
 
     hotkeys_ = HotkeyListener::create([this](Action a) { on_hotkey(a); });
     rebind_hotkeys();
@@ -145,6 +159,8 @@ int App::run() {
 
     if (tray_) SDL_DestroyTray(tray_);
     hotkeys_.reset();
+    leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
+    net::shutdown();
     overlay_.shutdown();
     SDL_Quit();
     return 0;
@@ -171,7 +187,7 @@ bool App::init_tray() {
 
 void App::on_hotkey(Action a) {
     SDL_Event ev{};
-    ev.type = user_event_;
+    ev.type = hotkey_event_;
     ev.user.code = static_cast<int32_t>(a);
     SDL_PushEvent(&ev);
 }
@@ -179,8 +195,10 @@ void App::on_hotkey(Action a) {
 void App::handle_event(const SDL_Event& e) {
     if (e.type == SDL_EVENT_QUIT) {
         running_ = false;
-    } else if (e.type == user_event_) {
+    } else if (e.type == hotkey_event_) {
         handle_action(static_cast<Action>(e.user.code));
+    } else if (e.type == league_event_) {
+        leagues_.on_done(e);
     } else if (e.type == SDL_EVENT_KEY_DOWN && capturing_) {
         if (e.key.key == SDLK_ESCAPE) {
             end_capture(); // cancel capture, don't bind Escape
@@ -395,10 +413,14 @@ void App::set_screen(Screen s) {
     }
     // Settings needs keyboard focus immediately (text fields); price-check grabs it only
     // after the copy (see handle_action). Closing hands focus back to the game.
-    if (s == Screen::Settings)
+    if (s == Screen::Settings) {
         overlay_take_keyboard_focus(overlay_.window());
-    else if (s == Screen::Hidden && overlay_.has_focus())
+        // TTL-gated, so a warm cache makes this a no-op. A user who never opens Settings
+        // never makes a network request at all.
+        leagues_.refresh(false);
+    } else if (s == Screen::Hidden && overlay_.has_focus()) {
         focus_game_window(config_.poe_window_title); // only hand back focus we actually took
+    }
     need_redraw_ = true;
 }
 
