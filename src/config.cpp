@@ -1,5 +1,6 @@
 #include "config.hpp"
 
+#include <cctype>
 #include <fstream>
 
 #include <nlohmann/json.hpp>
@@ -9,6 +10,20 @@
 using json = nlohmann::json;
 
 namespace ppc {
+
+// Hand-rolled rather than <regex>, which costs ~100KB of binary and seconds of compile
+// time for a pattern this trivial.
+NameCheck check_account_name(std::string_view s) {
+    if (s.empty()) return NameCheck::Empty;
+    const size_t hash = s.find('#');
+    if (hash == std::string_view::npos || hash == 0 || hash + 1 == s.size())
+        return NameCheck::Malformed;
+    for (char ch : s.substr(0, hash))
+        if (!std::isalnum(static_cast<unsigned char>(ch))) return NameCheck::Malformed;
+    for (char ch : s.substr(hash + 1))
+        if (!std::isdigit(static_cast<unsigned char>(ch))) return NameCheck::Malformed;
+    return NameCheck::Ok;
+}
 
 std::string Config::path() { return (config_dir() / "config.json").string(); }
 

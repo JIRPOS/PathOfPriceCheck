@@ -1,15 +1,26 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 #include "platform/input.hpp"
 
 namespace ppc {
 
+enum class NameCheck { Empty, Ok, Malformed };
+
+/// PoE account handles are "Name#1234": an alphanumeric name, '#', then digits.
+/// Empty is valid — the field is optional.
+NameCheck check_account_name(std::string_view s);
+
 struct Config {
     std::string league = "Standard";
-    std::string account_name;                       // optional
-    std::string poe_window_title = "Path of Exile"; // focus-detection match
+    std::string account_name; ///< optional; "Name#1234", see check_account_name
+
+    /// Substring matched against the foreground window title. Deliberately not in the
+    /// Settings UI — it only needs changing when Wine/Lutris renames the window, which is
+    /// rare enough to be worth a config-file edit rather than a knob everyone else scrolls past.
+    std::string poe_window_title = "Path of Exile";
 
     Hotkey price_check{Mod::Ctrl, "D"};
     Hotkey settings{Mod::Shift, "Space"};
