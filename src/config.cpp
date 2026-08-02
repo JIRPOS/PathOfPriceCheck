@@ -1,32 +1,14 @@
 #include "config.hpp"
 
-#include <cstdlib>
-#include <filesystem>
 #include <fstream>
 
 #include <nlohmann/json.hpp>
 
-namespace fs = std::filesystem;
+#include "paths.hpp"
+
 using json = nlohmann::json;
 
 namespace ppc {
-
-static fs::path config_dir() {
-#ifdef _WIN32
-    const char* appdata = std::getenv("APPDATA");
-    fs::path base = appdata ? fs::path(appdata) : fs::path(".");
-#else
-    const char* xdg = std::getenv("XDG_CONFIG_HOME");
-    fs::path base;
-    if (xdg && *xdg) {
-        base = xdg;
-    } else {
-        const char* home = std::getenv("HOME");
-        base = fs::path(home ? home : ".") / ".config";
-    }
-#endif
-    return base / "PathOfPriceCheck";
-}
 
 std::string Config::path() { return (config_dir() / "config.json").string(); }
 
@@ -55,8 +37,7 @@ Config Config::load() {
 }
 
 bool Config::save() const {
-    std::error_code ec;
-    fs::create_directories(config_dir(), ec);
+    ensure_dir(config_dir());
     json j;
     j["league"] = league;
     j["account_name"] = account_name;

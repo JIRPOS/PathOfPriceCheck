@@ -38,7 +38,12 @@ FetchContent_Declare(nlohmann_json
   GIT_TAG v3.12.0
   GIT_SHALLOW TRUE)
 
-FetchContent_MakeAvailable(SDL3 imgui nlohmann_json)
+FetchContent_Declare(doctest
+  GIT_REPOSITORY https://github.com/doctest/doctest.git
+  GIT_TAG v2.4.12
+  GIT_SHALLOW TRUE)
+
+FetchContent_MakeAvailable(SDL3 imgui nlohmann_json doctest)
 
 # Dear ImGui ships no CMake target we want; compile core + backends ourselves.
 add_library(imgui STATIC
@@ -52,13 +57,21 @@ target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/
 target_link_libraries(imgui PUBLIC SDL3::SDL3)
 target_compile_definitions(imgui PUBLIC SDL_MAIN_HANDLED)
 
+# Everything that needs neither a window nor a network lives here, so it can be unit-tested.
+# The rule: ppc_core links no SDL3, no ImGui, no X11, no libcurl.
+add_library(ppc_core STATIC
+  src/paths.cpp
+  src/config.cpp
+  src/platform/input.cpp)
+target_include_directories(ppc_core PUBLIC src)
+target_compile_definitions(ppc_core PUBLIC APP_VERSION="${APP_VERSION}")
+target_link_libraries(ppc_core PUBLIC nlohmann_json::nlohmann_json)
+
 set(APP_SOURCES
   src/main.cpp
   src/app.cpp
-  src/config.cpp
   src/fonts.cpp
   src/overlay.cpp
-  src/platform/input.cpp
   src/platform/keymap_sdl.cpp
   src/screens/settings_screen.cpp
   src/screens/pricecheck_screen.cpp)
@@ -75,7 +88,7 @@ endif()
 add_executable(PathOfPriceCheck ${APP_SOURCES})
 target_include_directories(PathOfPriceCheck PRIVATE src)
 target_compile_definitions(PathOfPriceCheck PRIVATE APP_VERSION="${APP_VERSION}" SDL_MAIN_HANDLED)
-target_link_libraries(PathOfPriceCheck PRIVATE SDL3::SDL3 imgui nlohmann_json::nlohmann_json)
+target_link_libraries(PathOfPriceCheck PRIVATE ppc_core SDL3::SDL3 imgui nlohmann_json::nlohmann_json)
 
 find_package(OpenGL REQUIRED)
 target_link_libraries(PathOfPriceCheck PRIVATE OpenGL::GL)
@@ -96,5 +109,17 @@ else()
 endif()
 
 enable_testing()
-add_executable(smoke_test tests/smoke_test.cpp)
-add_test(NAME smoke COMMAND smoke_test)
+
+# Tests link ppc_core only, so they run headless in CI — no display, no network.
+function(ppc_add_test name)
+  add_executable(${name} tests/${name}.cpp)
+  target_link_libraries(${name} PRIVATE ppc_core doctest::doctest)
+  # doctest 2.4.12 includes <ciso646>, which libstdc++ warns about under C++20.
+  # Quoted: an unquoted '#' starts a CMake comment and eats the closing paren.
+  if(NOT MSVC)
+    target_compile_options(${name} PRIVATE "-Wno-#warnings")
+  endif()
+  add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+ppc_add_test(paths_test)
