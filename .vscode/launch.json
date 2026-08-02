@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug PathOfPriceCheck",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/PathOfPriceCheck",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      // Set PPC_DEV_OVERLAY=1 here to bring up Settings without the game running.
+      "environment": [],
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "cmake-build"
+    }
+  ]
+}

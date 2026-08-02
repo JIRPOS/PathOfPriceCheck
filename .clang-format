@@ -1,0 +1,12 @@
+# Matches the existing style: 4-space indent, 100-col, left-aligned pointers.
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 100
+AccessModifierOffset: -4
+PointerAlignment: Left
+DerivePointerAlignment: false
+SpacesBeforeTrailingComments: 1
+AllowShortFunctionsOnASingleLine: All
+AllowShortCaseLabelsOnASingleLine: true
+# The platform code hand-orders headers (windows.h / X11 ordering is load-bearing).
+SortIncludes: false
