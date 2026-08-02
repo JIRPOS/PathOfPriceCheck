@@ -1,6 +1,8 @@
 #include "platform/foreground.hpp"
 #include "platform/platform.hpp"
 
+#include <vector>
+
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 
@@ -61,6 +63,45 @@ std::string window_title(Display* d, Window w) {
     return title;
 }
 
+std::vector<Window> client_list(Display* d) {
+    Atom prop = XInternAtom(d, "_NET_CLIENT_LIST", True);
+    if (prop == None) return {};
+    Atom type;
+    int format;
+    unsigned long n = 0, bytes = 0;
+    unsigned char* data = nullptr;
+    if (XGetWindowProperty(d, DefaultRootWindow(d), prop, 0, 4096, False, XA_WINDOW, &type, &format,
+                           &n, &bytes, &data) != Success ||
+        !data)
+        return {};
+    Window* w = reinterpret_cast<Window*>(data);
+    std::vector<Window> out(w, w + n);
+    XFree(data);
+    return out;
+}
+
+bool window_geometry(Display* d, Window w, int& x, int& y, int& width, int& height) {
+    XWindowAttributes a;
+    if (!XGetWindowAttributes(d, w, &a)) return false;
+    Window child;
+    int rx = 0, ry = 0;
+    // Attributes' x/y are relative to the WM frame; translate the origin to the root.
+    XTranslateCoordinates(d, w, DefaultRootWindow(d), 0, 0, &rx, &ry, &child);
+    x = rx;
+    y = ry;
+    width = a.width;
+    height = a.height;
+    return a.map_state == IsViewable;
+}
+
+Window matching_window(Display* d, const std::string& needle) {
+    for (Window w : client_list(d)) {
+        std::string t = window_title(d, w);
+        if (!t.empty() && t.find(needle) != std::string::npos) return w;
+    }
+    return 0;
+}
+
 } // namespace
 
 void platform_init() { XInitThreads(); }
@@ -70,6 +111,33 @@ bool foreground_title_contains(const std::string& needle) {
     if (!d) return false;
     std::string t = window_title(d, active_window(d));
     return !t.empty() && t.find(needle) != std::string::npos;
+}
+
+GameWindow find_game_window(const std::string& needle) {
+    GameWindow g;
+    Display* d = display();
+    if (!d) return g;
+    Window active = active_window(d);
+    for (Window w : client_list(d)) {
+        std::string t = window_title(d, w);
+        if (t.empty() || t.find(needle) == std::string::npos) continue;
+        if (!window_geometry(d, w, g.x, g.y, g.w, g.h)) continue;
+        g.present = true;
+        g.focused = (w == active);
+        break;
+    }
+    return g;
+}
+
+void focus_game_window(const std::string& needle) {
+    Display* d = display();
+    if (!d) return;
+    if (Window w = matching_window(d, needle)) {
+        XSetInputFocus(d, w, RevertToParent, CurrentTime);
+        // Sync, not flush: simulate_copy() injects on a *different* X connection, so
+        // without a round trip the keystroke can beat the focus change to the server.
+        XSync(d, False);
+    }
 }
 
 } // namespace ppc

@@ -11,6 +11,7 @@
 #include <sys/select.h>
 #include <unistd.h>
 
+#include <X11/XKBlib.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 
@@ -61,6 +62,9 @@ public:
         dpy_ = XOpenDisplay(nullptr);
         if (!dpy_) return;
         XSetErrorHandler(ignore_xerror);
+        // Without this a held key repeats as KeyRelease/KeyPress pairs, and wait_for_release
+        // would mistake the first repeat for the user letting go.
+        XkbSetDetectableAutoRepeat(dpy_, True, nullptr);
         root_ = DefaultRootWindow(dpy_);
         if (pipe(pipe_) != 0) return;
         fcntl(pipe_[0], F_SETFL, O_NONBLOCK);
@@ -124,10 +128,42 @@ private:
         XFlush(dpy_);
     }
 
+    /// Block until the hotkey's own key comes up. The grab is still active, so the release
+    /// is guaranteed to reach this connection. Bounded only so a release we somehow never
+    /// see can't wedge the thread.
+    void wait_for_release(unsigned int keycode) {
+        int xfd = ConnectionNumber(dpy_);
+        for (int guard = 0; guard < 200; ++guard) { // ~2s
+            while (XPending(dpy_)) {
+                XEvent ev;
+                XNextEvent(dpy_, &ev);
+                if (ev.type == KeyRelease && ev.xkey.keycode == keycode) return;
+            }
+            fd_set r;
+            FD_ZERO(&r);
+            FD_SET(xfd, &r);
+            timeval tv{0, 10000};
+            if (select(xfd + 1, &r, nullptr, nullptr, &tv) < 0 && errno != EINTR) return;
+        }
+    }
+
     void dispatch(const XKeyEvent& k) {
         unsigned int st = k.state & kRelevantMods;
         for (auto& g : grabs_)
             if (g.keycode == k.keycode && g.mods == st) {
+                // A passive XGrabKey *activates* into a real keyboard grab on press and
+                // holds it until the keys come up. Two reasons to sit out the hold rather
+                // than fire immediately: while the grab is active every keyboard event —
+                // including XTest-injected ones — is redirected to us, so a synthetic Ctrl+C
+                // would never reach the game; and the game must not be handed the hotkey's
+                // own letter and C at the same time. The grab also swallows auto-repeat,
+                // so leaning on the hotkey can't spam price checks.
+                wait_for_release(k.keycode);
+                // Released keys end the grab on their own; this covers the timeout path.
+                // UngrabKeyboard also releases a grab that came from GrabKey, and must be
+                // called on the connection that owns it — hence doing it here.
+                XUngrabKeyboard(dpy_, CurrentTime);
+                XFlush(dpy_);
                 cb_(g.action);
                 break;
             }

@@ -48,6 +48,9 @@ Config Config::load() {
         if (h.contains("price_check")) c.price_check = parse_hotkey(h["price_check"].get<std::string>());
         if (h.contains("settings")) c.settings = parse_hotkey(h["settings"].get<std::string>());
     }
+    c.panel_width = j.value("panel_width", c.panel_width);
+    c.stash_edge = j.value("stash_edge", c.stash_edge);
+    c.inventory_edge = j.value("inventory_edge", c.inventory_edge);
     return c;
 }
 
@@ -60,6 +63,9 @@ bool Config::save() const {
     j["poe_window_title"] = poe_window_title;
     j["hotkeys"]["price_check"] = to_string(price_check);
     j["hotkeys"]["settings"] = to_string(settings);
+    j["panel_width"] = panel_width;
+    j["stash_edge"] = stash_edge;
+    j["inventory_edge"] = inventory_edge;
     std::ofstream out(path());
     if (!out) return false;
     out << j.dump(2) << "\n";

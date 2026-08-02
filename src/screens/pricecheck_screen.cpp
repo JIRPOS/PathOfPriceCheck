@@ -15,16 +15,30 @@ void draw_pricecheck_screen(App& app) {
     ImGui::Begin("Price check", nullptr,
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
 
+    ImGui::PushFont(app.fonts().bold, 0.0f);
     ImGui::TextUnformatted("Copied item (clipboard)");
+    ImGui::PopFont();
     ImGui::SameLine(ImGui::GetWindowWidth() - 34);
     if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
     ImGui::Separator();
 
     const std::string& clip = app.clipboard_text();
-    if (clip.empty())
+    if (app.copy_late()) {
+        // Still watching — the game's clipboard handover sometimes lands seconds late.
+        ImGui::TextDisabled("Waiting for the game to hand over the clipboard\xe2\x80\xa6");
+    } else if (app.copying()) {
+        ImGui::TextDisabled("Copying item\xe2\x80\xa6");
+    } else if (clip.empty()) {
         ImGui::TextDisabled("Clipboard is empty. Hover an item in-game and press the price-check hotkey.");
-    else
+    } else {
+        // Item text in small caps, the way the game renders it. Wrapped: the panel is a
+        // narrow full-height dock and long mod lines would otherwise run off the edge.
+        ImGui::PushFont(app.fonts().small_caps, 0.0f);
+        ImGui::PushTextWrapPos(0.0f);
         ImGui::TextUnformatted(clip.c_str(), clip.c_str() + clip.size());
+        ImGui::PopTextWrapPos();
+        ImGui::PopFont();
+    }
 
     ImGui::End();
 }

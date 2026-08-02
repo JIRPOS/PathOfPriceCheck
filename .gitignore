@@ -8,3 +8,8 @@ compile_commands.json
 
 # Runtime-generated ImGui layout
 imgui.ini
+
+# Fontin is free to use but not to redistribute — fetched, never committed.
+assets/fonts/*.ttf
+assets/fonts/*.otf
+assets/fonts/Fontin-LICENSE.txt

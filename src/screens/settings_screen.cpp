@@ -26,7 +26,9 @@ void draw_settings_screen(App& app) {
     ImGui::Begin("Settings", nullptr,
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
 
+    ImGui::PushFont(app.fonts().bold, 0.0f);
     ImGui::TextUnformatted("PathOfPriceCheck \xe2\x80\x94 Settings");
+    ImGui::PopFont();
     ImGui::SameLine(ImGui::GetWindowWidth() - 34);
     if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
     ImGui::Separator();
@@ -44,9 +46,22 @@ void draw_settings_screen(App& app) {
     if (ImGui::InputText("PoE window title", title, sizeof title)) c.poe_window_title = title;
 
     ImGui::Separator();
+    ImGui::PushFont(app.fonts().bold, 0.0f);
     ImGui::TextUnformatted("Hotkeys");
+    ImGui::PopFont();
     hotkey_row(app, "Price check", Action::PriceCheck, c.price_check);
     hotkey_row(app, "Settings", Action::ToggleSettings, c.settings);
+
+    ImGui::Separator();
+    ImGui::PushFont(app.fonts().bold, 0.0f);
+    ImGui::TextUnformatted("Price-check panel");
+    ImGui::PopFont();
+    ImGui::TextDisabled("Docks beside whichever game panel the cursor was over.");
+    ImGui::SliderInt("Width", &c.panel_width, 280, 900, "%d px");
+    // Fractions of the game's height, not its width — see Config. Raise one if the panel
+    // overlaps that side's frame; the next price check picks up the change.
+    ImGui::SliderFloat("Stash edge", &c.stash_edge, 0.40f, 0.90f, "%.3f");
+    ImGui::SliderFloat("Inventory edge", &c.inventory_edge, 0.40f, 0.90f, "%.3f");
 
     ImGui::Separator();
     if (ImGui::Button("Save", ImVec2(120, 0))) app.apply_and_save_config();

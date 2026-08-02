@@ -13,9 +13,11 @@ bool Overlay::init(const char* title) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8); // transparent framebuffer
 
     SDL_WindowFlags flags = SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP |
-                            SDL_WINDOW_UTILITY | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+                            SDL_WINDOW_UTILITY | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY |
+                            SDL_WINDOW_TRANSPARENT;
     window_ = SDL_CreateWindow(title, 520, 680, flags);
     if (!window_) return false;
 
@@ -32,6 +34,7 @@ bool Overlay::init(const char* title) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
+    fonts_ = load_fonts(18.0f);
     ImGui_ImplSDL3_InitForOpenGL(window_, ctx);
     ImGui_ImplOpenGL3_Init("#version 150");
     return true;
@@ -60,7 +63,7 @@ void Overlay::end_frame() {
     int w, h;
     SDL_GetWindowSizeInPixels(window_, &w, &h);
     glViewport(0, 0, w, h);
-    glClearColor(0.06f, 0.06f, 0.07f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // transparent; ImGui paints the opaque panels
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     SDL_GL_SwapWindow(window_);

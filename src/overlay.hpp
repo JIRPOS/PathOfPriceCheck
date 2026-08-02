@@ -1,5 +1,7 @@
 #pragma once
 
+#include "fonts.hpp"
+
 struct SDL_Window;
 union SDL_Event;
 
@@ -21,11 +23,13 @@ public:
     bool visible() const { return visible_; }
     bool has_focus() const;
     SDL_Window* window() const { return window_; }
+    const Fonts& fonts() const { return fonts_; }
 
 private:
     SDL_Window* window_ = nullptr;
     void* gl_ = nullptr; // SDL_GLContext
     bool visible_ = false;
+    Fonts fonts_;
 };
 
 } // namespace ppc

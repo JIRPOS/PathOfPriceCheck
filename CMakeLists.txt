@@ -56,6 +56,7 @@ set(APP_SOURCES
   src/main.cpp
   src/app.cpp
   src/config.cpp
+  src/fonts.cpp
   src/overlay.cpp
   src/platform/input.cpp
   src/platform/keymap_sdl.cpp
@@ -63,10 +64,12 @@ set(APP_SOURCES
   src/screens/pricecheck_screen.cpp)
 if(WIN32)
   list(APPEND APP_SOURCES
-    src/platform/hotkeys_win.cpp src/platform/foreground_win.cpp src/platform/input_sim_win.cpp)
+    src/platform/hotkeys_win.cpp src/platform/foreground_win.cpp src/platform/input_sim_win.cpp
+    src/platform/overlay_native_win.cpp src/platform/clipboard_win.cpp)
 else()
   list(APPEND APP_SOURCES
-    src/platform/hotkeys_x11.cpp src/platform/foreground_x11.cpp src/platform/input_sim_x11.cpp)
+    src/platform/hotkeys_x11.cpp src/platform/foreground_x11.cpp src/platform/input_sim_x11.cpp
+    src/platform/overlay_native_x11.cpp src/platform/clipboard_x11.cpp)
 endif()
 
 add_executable(PathOfPriceCheck ${APP_SOURCES})
@@ -86,7 +89,10 @@ else()
   if(NOT TARGET X11::Xtst)
     message(FATAL_ERROR "libXtst (libxtst-dev) is required for synthetic input")
   endif()
-  target_link_libraries(PathOfPriceCheck PRIVATE X11::X11 X11::Xtst)
+  if(NOT TARGET X11::Xext)
+    message(FATAL_ERROR "libXext (libxext-dev) is required for the overlay input shape")
+  endif()
+  target_link_libraries(PathOfPriceCheck PRIVATE X11::X11 X11::Xtst X11::Xext)
 endif()
 
 enable_testing()

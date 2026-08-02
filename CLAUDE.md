@@ -28,8 +28,8 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
   panel.)
 - **Dependencies:** CMake **FetchContent** builds SDL3 + ImGui + nlohmann/json from source (pinned
   tags in `CMakeLists.txt`), so CI needs no system packages beyond Linux dev headers (see Build).
-- **HTTP (later):** libcurl. **JSON:** nlohmann/json. **Clipboard:** SDL3's `SDL_GetClipboardText()` —
-  cross-platform, so *not* a platform seam.
+- **HTTP (later):** libcurl. **JSON:** nlohmann/json. **Clipboard:** a platform seam of our own
+  (`platform/clipboard.hpp`) — SDL3's `SDL_GetClipboardText()` was tried and abandoned, see below.
 - **Cross-platform target:** Windows + Linux **X11 first**. Wayland is a later stretch goal — it
   blocks arbitrary global hotkeys and click-through overlays without compositor portals / evdev
   access, so do not gate v1 on it.
@@ -39,7 +39,7 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
 Parsing and HTTP are the easy 80%. The hard, platform-specific 20% is **global hotkey capture** and
 **foreground-window detection** — both need per-OS native code. They live behind narrow headers in
 `src/platform/` with X11 and Win32 implementations, so the cross-platform core never sees `#ifdef`.
-The only two seams (clipboard and windowing come free from SDL3):
+The seams (windowing still comes free from SDL3; the clipboard did not — see below):
 
 - **`platform/hotkeys.hpp` — `HotkeyListener`:** system-wide hotkeys. X11 `XGrabKey` on root from a
   dedicated thread (grabbed with all NumLock/CapsLock combos). The `Display` is touched **only** by
@@ -47,12 +47,39 @@ The only two seams (clipboard and windowing come free from SDL3):
   cross-thread Xlib (that combo aborts with `xcb_xlib_threads_sequence_lost`). Win32 uses
   `RegisterHotKey` on a thread with its own message loop (rebind via `PostThreadMessage`). The callback
   fires on the OS thread and is marshaled to the main loop as an SDL user event.
+  X11 fires on **key release, not press**: a passive `XGrabKey` activates into a real keyboard grab
+  that would swallow our own injected Ctrl+C, and the game must not get the hotkey's letter and C at
+  once. So `dispatch()` holds the grab until the `KeyRelease` arrives, then ungrabs and fires — which
+  also swallows auto-repeat. Needs `XkbSetDetectableAutoRepeat`, or the first repeat looks like a release.
 - **`platform/foreground.hpp` — `foreground_title_contains()`:** X11 reads `_NET_ACTIVE_WINDOW` +
   `_NET_WM_NAME`; Win32 `GetForegroundWindow` + `GetWindowTextW`. Matched against a configurable title
   (default "Path of Exile") to decide whether to auto-copy.
 - **`platform/input_sim.hpp` — `simulate_copy()`:** synthesizes Ctrl+C to the focused window so the
   price-check hotkey grabs the hovered item itself (no manual copy). X11 uses `XTestFakeKeyEvent`
-  (libXtst); Win32 uses `SendInput`.
+  (libXtst); Win32 uses `SendInput`. The chord must look like a *human* keypress or the game ignores
+  it: a ~16ms tap falls between two of the game's input samples, so C is held `PPC_COPY_HOLD_MS`
+  (60) with `PPC_COPY_GAP_MS` (40) either side, each event `XSync`'d separately.
+  **Only ever release a key you pressed, and only ever press one that is up.** The hotkey is Ctrl+D,
+  so the user is usually holding Ctrl at injection time; send the bare C and ride their modifier
+  rather than re-pressing it. A fake press is cancelled *only* by a fake release, so if they let go
+  between the `XQueryKeymap` and that release, the server holds Ctrl down with no physical key left
+  to clear it — Alt+Tab, Super and our own hotkeys all silently stop matching, and Wine only
+  re-syncs the game's modifier state on focus change. (Tapping Ctrl clears a wedged server.)
+  Riding their Ctrl has the opposite, benign failure: they drop it mid-injection and the game gets a
+  bare C, so re-check after the gap and take over — taking over means we own the release too.
+- **`platform/clipboard.hpp` — `clipboard_text(timeout_ms)`:** reads the clipboard ourselves.
+  **Do not go back to `SDL_GetClipboardText()`.** Its X11 backend gates every read on
+  `_this->clipboard_mime_types`, filled only by a single unretried `TARGETS` probe at `SDL_Init`
+  and by XFixes owner-change notifications — so if that probe goes unanswered (fullscreen game
+  mid-frame) and the owner never *re-asserts* ownership on later copies, reads return `""` with no
+  X traffic for the life of the process. Symptom: a fresh run never sees the item until you click
+  out of the game once, then works forever. Its `WaitForSelection` is worse — 1s timeout *per mime
+  type*, after which SDL seizes the CLIPBOARD selection and serves empty text, destroying the real
+  clipboard. Ours does its own `XConvertSelection` on a private `InputOnly` requestor window,
+  trying `UTF8_STRING` → `text/plain;charset=utf-8` → `STRING` against one shared deadline, handles
+  `INCR`, and never calls `XSetSelectionOwner`. Win32 is plain `OpenClipboard`/`CF_UNICODETEXT`,
+  retried while the lock is held. Verified against a stub owner: live owner <1ms, frozen owner
+  returns empty exactly at the deadline, no owner returns instantly.
 - **`platform/platform.hpp` — `platform_init()`:** one-time init (X11 calls `XInitThreads`).
 
 Key naming is canonical strings ("D", "Space", "F5"); `key_name_from_sdl` (capture), the X11 keysym
@@ -70,12 +97,52 @@ modifiers, so "LShift" registers as "Shift".
 
 Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`)
 owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`. Price-check
-hotkey → `simulate_copy()` (if PoE focused) → poll clipboard for the change → show. The overlay is
+hotkey → `simulate_copy()` → watch the clipboard → show. Watching means **both**
+`SDL_EVENT_CLIPBOARD_UPDATE` and a 100ms poll of `clipboard_text()`: SDL only raises that event once
+the *new* selection owner answers a `TARGETS` conversion, so a handover nobody answers is silent —
+the event is an accelerator, the poll is what's load-bearing. Accepted text must
+look like item text (`Item Class:`/`Rarity:`) — never fall back to the pre-copy clipboard, which is
+whatever the user last copied anywhere and reads as a successful but wrong price check. Past the
+2.5s deadline the panel says so but keeps watching; the game's X11 handover can land seconds late.
+`PPC_DEBUG_COPY=1` traces the whole timeline. The overlay is
 **dismiss-on-focus-loss**: once shown it stays until you click away, hit Escape, the X button, or the
 toggle hotkey — keeping logical state in sync with what's visible (a stale "still open" state was the
-two-press bug). A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
+two-press bug).
+
+**Focus is a gate, never something to take.** The hotkeys are grabbed system-wide, so `handle_action()`
+drops any action fired while PoE is not the foreground window — otherwise they go off in the user's
+browser. The lone exception is the Settings hotkey while Settings is open: that panel holds the
+keyboard focus itself, so the game *can't* be foreground, and the hotkey has to be able to close it.
+The idle "● PPC" marker follows the same rule and unmaps whenever the game isn't in front, so it
+never floats over other applications. In the other direction we never force focus: the copy path used
+to call `focus_game_window()` on a window it had just confirmed was foreground, and `XSetInputFocus`
+on the toplevel can land somewhere Wine didn't put it. Focus is handed back to the game on close
+**only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
+
+`App::place_overlay()` gives each screen its own geometry: Settings is a 520×680 dialog centered over
+the game, price-check is a **full-height panel docked beside the item's own frame** — right of the
+stash if the cursor was in the left half of the game window at hotkey time, left of the inventory if
+in the right half (`App::cursor_side()`, sampled before the copy; the user has moved on by the time
+the clipboard lands). Panels straddling the middle — vendor, quest rewards — have no correct answer,
+so the cursor's half just wins. The frame edges are `Config::stash_edge`/`inventory_edge`, fractions
+of the game's **height**, not width: PoE scales its UI with height, so those hold on ultrawide. The
+two frames are mirror images — hand-tuned against the live game they came out at 0.617 and 0.616, so
+both default to **0.615**; they stay separate knobs only because GGG moves the UI between leagues.
+They and `panel_width` are sliders in Settings, which is how to set them: eyeballing them off a
+screenshot is not accurate to the pixel, and two rounds of doing exactly that both missed.
+
+A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
 the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev.
+
+**Fonts** (`src/fonts.cpp`): the UI renders in **Fontin**, the typeface the game itself uses. Four
+faces (Regular/Bold/Italic/SmallCaps) are embedded in the executable as base85 blobs in the generated
+`src/fontin_data.inc` — no runtime asset dependency. Regular is the default; Bold marks panel headers;
+**SmallCaps renders item text**, matching the game. SmallCaps is a separate family, *not* an OpenType
+`smcp` feature — load-bearing, since ImGui does no shaping or feature substitution. ImGui 1.92 fonts
+are dynamically scalable, so it's one `ImFont*` per face at any size: `PushFont(fonts.bold, 22.0f)`.
+`$PPC_FONT_DIR` overrides the embedded faces with on-disk TTFs. Fontin's license nominally forbids
+redistribution; bundling it is a deliberate maintainer decision — see `assets/fonts/README.md`.
 
 The parser/pricing modules below are **not built yet** — they're the planned next layers. The
 price-check screen currently just dumps the raw clipboard text where the parser will slot in.
@@ -143,6 +210,10 @@ libxcursor-dev libxi-dev libxfixes-dev libxkbcommon-dev libwayland-dev wayland-p
 libgl1-mesa-dev libegl1-mesa-dev libasound2-dev libpulse-dev libdbus-1-dev libudev-dev` (the CI
 workflows install exactly these). Windows needs only MSVC. The CI still validates the Windows build on
 every push/PR — trust it for the Win32 platform code, which can't be compiled locally here.
+
+The bundled font data is committed, so a normal build needs nothing extra. To change the typeface:
+`./scripts/fetch-fonts.sh` (downloads the TTFs into the gitignored `assets/fonts/`) then
+`./scripts/gen-font-data.sh` (rewrites `src/fontin_data.inc`).
 
 `-fsanitize=address,undefined` for debug builds is not wired into CMake yet. The item parser (when it
 lands) must be runnable and tested without any windowing or network dependency.
