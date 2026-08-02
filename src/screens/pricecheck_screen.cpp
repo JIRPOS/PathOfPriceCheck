@@ -16,6 +16,8 @@ void draw_pricecheck_screen(App& app) {
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
 
     ImGui::TextUnformatted("Copied item (clipboard)");
+    ImGui::SameLine(ImGui::GetWindowWidth() - 34);
+    if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
     ImGui::Separator();
 
     const std::string& clip = app.clipboard_text();

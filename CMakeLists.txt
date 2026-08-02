@@ -62,9 +62,11 @@ set(APP_SOURCES
   src/screens/settings_screen.cpp
   src/screens/pricecheck_screen.cpp)
 if(WIN32)
-  list(APPEND APP_SOURCES src/platform/hotkeys_win.cpp src/platform/foreground_win.cpp)
+  list(APPEND APP_SOURCES
+    src/platform/hotkeys_win.cpp src/platform/foreground_win.cpp src/platform/input_sim_win.cpp)
 else()
-  list(APPEND APP_SOURCES src/platform/hotkeys_x11.cpp src/platform/foreground_x11.cpp)
+  list(APPEND APP_SOURCES
+    src/platform/hotkeys_x11.cpp src/platform/foreground_x11.cpp src/platform/input_sim_x11.cpp)
 endif()
 
 add_executable(PathOfPriceCheck ${APP_SOURCES})
@@ -81,7 +83,10 @@ if(WIN32)
   target_link_libraries(PathOfPriceCheck PRIVATE user32)
 else()
   find_package(X11 REQUIRED)
-  target_link_libraries(PathOfPriceCheck PRIVATE X11::X11)
+  if(NOT TARGET X11::Xtst)
+    message(FATAL_ERROR "libXtst (libxtst-dev) is required for synthetic input")
+  endif()
+  target_link_libraries(PathOfPriceCheck PRIVATE X11::X11 X11::Xtst)
 endif()
 
 enable_testing()

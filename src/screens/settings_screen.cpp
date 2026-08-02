@@ -27,6 +27,8 @@ void draw_settings_screen(App& app) {
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
 
     ImGui::TextUnformatted("PathOfPriceCheck \xe2\x80\x94 Settings");
+    ImGui::SameLine(ImGui::GetWindowWidth() - 34);
+    if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
     ImGui::Separator();
 
     char league[64];

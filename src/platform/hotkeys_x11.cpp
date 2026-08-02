@@ -1,9 +1,15 @@
 #include "platform/hotkeys.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cerrno>
 #include <mutex>
 #include <thread>
+
+#include <fcntl.h>
+#include <sys/select.h>
+#include <unistd.h>
 
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -47,6 +53,8 @@ KeySym keysym_from_name(const std::string& name) {
 const unsigned int kLockMasks[] = {0, LockMask, Mod2Mask, LockMask | Mod2Mask};
 const unsigned int kRelevantMods = ShiftMask | ControlMask | Mod1Mask | Mod4Mask;
 
+// The Display is owned exclusively by the internal thread. The main thread only
+// pokes a self-pipe (never Xlib), which avoids the multi-threaded-Xlib abort.
 class X11Hotkeys final : public HotkeyListener {
 public:
     explicit X11Hotkeys(std::function<void(Action)> cb) : cb_(std::move(cb)) {
@@ -54,8 +62,8 @@ public:
         if (!dpy_) return;
         XSetErrorHandler(ignore_xerror);
         root_ = DefaultRootWindow(dpy_);
-        self_ = XCreateSimpleWindow(dpy_, root_, 0, 0, 1, 1, 0, 0, 0);
-        wakeup_ = XInternAtom(dpy_, "PPC_HOTKEY_WAKEUP", False);
+        if (pipe(pipe_) != 0) return;
+        fcntl(pipe_[0], F_SETFL, O_NONBLOCK);
         running_ = true;
         thread_ = std::thread([this] { run(); });
     }
@@ -63,9 +71,10 @@ public:
     ~X11Hotkeys() override {
         if (!dpy_) return;
         running_ = false;
-        send_wakeup(kQuit);
+        poke();
         if (thread_.joinable()) thread_.join();
-        XDestroyWindow(dpy_, self_);
+        if (pipe_[0] >= 0) close(pipe_[0]);
+        if (pipe_[1] >= 0) close(pipe_[1]);
         XCloseDisplay(dpy_);
     }
 
@@ -76,23 +85,17 @@ public:
             pending_ = b;
             have_pending_ = true;
         }
-        send_wakeup(kRebind);
+        poke();
         return true;
     }
 
 private:
     struct Grab { unsigned int keycode, mods; Action action; };
-    enum WakeKind : long { kRebind = 1, kQuit = 2 };
 
-    void send_wakeup(long kind) {
-        XClientMessageEvent ev{};
-        ev.type = ClientMessage;
-        ev.window = self_;
-        ev.message_type = wakeup_;
-        ev.format = 32;
-        ev.data.l[0] = kind;
-        XSendEvent(dpy_, self_, False, 0, reinterpret_cast<XEvent*>(&ev));
-        XFlush(dpy_);
+    void poke() {
+        char c = 1;
+        ssize_t n = write(pipe_[1], &c, 1);
+        (void)n;
     }
 
     void apply_pending() {
@@ -121,20 +124,36 @@ private:
         XFlush(dpy_);
     }
 
+    void dispatch(const XKeyEvent& k) {
+        unsigned int st = k.state & kRelevantMods;
+        for (auto& g : grabs_)
+            if (g.keycode == k.keycode && g.mods == st) {
+                cb_(g.action);
+                break;
+            }
+    }
+
     void run() {
-        XEvent ev;
+        int xfd = ConnectionNumber(dpy_);
         while (running_) {
-            XNextEvent(dpy_, &ev);
-            if (ev.type == KeyPress) {
-                unsigned int st = ev.xkey.state & kRelevantMods;
-                for (auto& g : grabs_)
-                    if (g.keycode == ev.xkey.keycode && g.mods == st) {
-                        cb_(g.action);
-                        break;
-                    }
-            } else if (ev.type == ClientMessage &&
-                       static_cast<Atom>(ev.xclient.message_type) == wakeup_) {
-                if (ev.xclient.data.l[0] == kQuit) break;
+            while (XPending(dpy_)) {
+                XEvent ev;
+                XNextEvent(dpy_, &ev);
+                if (ev.type == KeyPress) dispatch(ev.xkey);
+            }
+            fd_set r;
+            FD_ZERO(&r);
+            FD_SET(xfd, &r);
+            FD_SET(pipe_[0], &r);
+            int n = select(std::max(xfd, pipe_[0]) + 1, &r, nullptr, nullptr, nullptr);
+            if (n < 0) {
+                if (errno == EINTR) continue;
+                break;
+            }
+            if (FD_ISSET(pipe_[0], &r)) {
+                char buf[16];
+                while (read(pipe_[0], buf, sizeof buf) > 0) {} // drain
+                if (!running_) break;
                 apply_pending();
             }
         }
@@ -142,8 +161,8 @@ private:
 
     std::function<void(Action)> cb_;
     Display* dpy_ = nullptr;
-    Window root_ = 0, self_ = 0;
-    Atom wakeup_ = 0;
+    Window root_ = 0;
+    int pipe_[2] = {-1, -1};
     std::thread thread_;
     std::atomic<bool> running_{false};
     std::mutex mu_;

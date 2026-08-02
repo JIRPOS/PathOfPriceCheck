@@ -42,13 +42,17 @@ Parsing and HTTP are the easy 80%. The hard, platform-specific 20% is **global h
 The only two seams (clipboard and windowing come free from SDL3):
 
 - **`platform/hotkeys.hpp` — `HotkeyListener`:** system-wide hotkeys. X11 `XGrabKey` on root from a
-  dedicated thread (grabbed with all NumLock/CapsLock combos; rebind via a self-sent `ClientMessage`);
-  Win32 `RegisterHotKey` on a thread with its own message loop (rebind via `PostThreadMessage`). The
-  callback fires on that OS thread and is marshaled to the main loop as an SDL user event.
+  dedicated thread (grabbed with all NumLock/CapsLock combos). The `Display` is touched **only** by
+  that thread; the main thread signals rebind/quit via a **self-pipe** watched with `select()` — never
+  cross-thread Xlib (that combo aborts with `xcb_xlib_threads_sequence_lost`). Win32 uses
+  `RegisterHotKey` on a thread with its own message loop (rebind via `PostThreadMessage`). The callback
+  fires on the OS thread and is marshaled to the main loop as an SDL user event.
 - **`platform/foreground.hpp` — `foreground_title_contains()`:** X11 reads `_NET_ACTIVE_WINDOW` +
-  `_NET_WM_NAME`; Win32 `GetForegroundWindow` + `GetWindowTextW`. Matched against a configurable
-  title (default "Path of Exile"). The overlay only shows / reacts while that window — or our own
-  overlay — is focused.
+  `_NET_WM_NAME`; Win32 `GetForegroundWindow` + `GetWindowTextW`. Matched against a configurable title
+  (default "Path of Exile") to decide whether to auto-copy.
+- **`platform/input_sim.hpp` — `simulate_copy()`:** synthesizes Ctrl+C to the focused window so the
+  price-check hotkey grabs the hovered item itself (no manual copy). X11 uses `XTestFakeKeyEvent`
+  (libXtst); Win32 uses `SendInput`.
 - **`platform/platform.hpp` — `platform_init()`:** one-time init (X11 calls `XInitThreads`).
 
 Key naming is canonical strings ("D", "Space", "F5"); `key_name_from_sdl` (capture), the X11 keysym
@@ -64,11 +68,14 @@ modifiers, so "LShift" registers as "Shift".
 
 ## Architecture
 
-Pipeline: **hotkey → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`) owns the
-SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`; global hotkeys switch
-screens, and nothing renders unless a screen is active *and* PoE (or our overlay) is focused. `Overlay`
-wraps the SDL3+GL+ImGui window; `Config` persists to JSON at the platform config dir; screen renderers
-live in `src/screens/`. `PPC_DEV_OVERLAY=1` bypasses focus gating and opens Settings for local dev.
+Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`)
+owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`. Price-check
+hotkey → `simulate_copy()` (if PoE focused) → poll clipboard for the change → show. The overlay is
+**dismiss-on-focus-loss**: once shown it stays until you click away, hit Escape, the X button, or the
+toggle hotkey — keeping logical state in sync with what's visible (a stale "still open" state was the
+two-press bug). A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
+the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
+dismiss-on-blur for local dev.
 
 The parser/pricing modules below are **not built yet** — they're the planned next layers. The
 price-check screen currently just dumps the raw clipboard text where the parser will slot in.
