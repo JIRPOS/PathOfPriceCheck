@@ -1,0 +1,7 @@
+/build/
+/dist/
+/out/
+.cache/
+compile_commands.json
+*.user
+.DS_Store

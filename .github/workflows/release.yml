@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {} # dispatched by the Version bump workflow after it edits VERSION
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "version=$(cat VERSION).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+          - os: windows-latest
+            name: win64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAPP_BUILD=${{ github.run_number }}
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          ver="${{ needs.version.outputs.version }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp build/Release/PathOfPriceCheck.exe dist/
+            (cd dist && 7z a "PathOfPriceCheck-${ver}-${{ matrix.name }}.zip" PathOfPriceCheck.exe)
+          else
+            cp build/PathOfPriceCheck dist/
+            (cd dist && tar czf "PathOfPriceCheck-${ver}-${{ matrix.name }}.tar.gz" PathOfPriceCheck)
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/PathOfPriceCheck-*
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ver="${{ needs.version.outputs.version }}"
+          gh release create "v${ver}" artifacts/* --title "v${ver}" --generate-notes
