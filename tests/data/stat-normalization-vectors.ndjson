@@ -1,0 +1,373 @@
+{"candidates": ["# to maximum Life", "+42 to maximum Life"], "generic": "# to maximum Life", "line": "+42 to maximum Life"}
+{"candidates": ["#% increased Physical Damage", "23% increased Physical Damage"], "generic": "#% increased Physical Damage", "line": "23% increased Physical Damage"}
+{"candidates": ["Adds # to # Physical Damage", "Adds # to 12 Physical Damage", "Adds 5 to # Physical Damage", "Adds 5 to 12 Physical Damage"], "generic": "Adds # to # Physical Damage", "line": "Adds 5 to 12 Physical Damage"}
+{"candidates": ["Adds # to # Physical Damage", "Adds # to 12 Physical Damage", "Adds 5 to # Physical Damage", "Adds 5 to 12 Physical Damage", "Adds 5(4-6) to 12(10-14) Physical Damage"], "generic": "Adds # to # Physical Damage", "line": "Adds 5(4-6) to 12(10-14) Physical Damage"}
+{"candidates": ["#% to Cold Resistance", "+25% to Cold Resistance", "+25(20-30)% to Cold Resistance"], "generic": "#% to Cold Resistance", "line": "+25(20-30)% to Cold Resistance"}
+{"candidates": ["# Added Passive Skill is a Jewel Socket", "1 Added Passive Skill is a Jewel Socket"], "generic": "# Added Passive Skill is a Jewel Socket", "line": "1 Added Passive Skill is a Jewel Socket"}
+{"candidates": ["No Physical Damage"], "generic": "No Physical Damage", "line": "No Physical Damage"}
+{"candidates": ["Grants #-# Life per Enemy Hit", "Grants #-30 Life per Enemy Hit", "Grants 1-# Life per Enemy Hit", "Grants 1-30 Life per Enemy Hit"], "generic": "Grants #-# Life per Enemy Hit", "line": "Grants 1-30 Life per Enemy Hit"}
+{"candidates": ["#% to Fire Resistance", "-20% to Fire Resistance"], "generic": "#% to Fire Resistance", "line": "-20% to Fire Resistance"}
+{"candidates": ["#% of Physical Attack Damage Leeched as Life", "0.5% of Physical Attack Damage Leeched as Life"], "generic": "#% of Physical Attack Damage Leeched as Life", "line": "0.5% of Physical Attack Damage Leeched as Life"}
+{"candidates": ["# to Level of all Fire Skill Gems", "+1 to Level of all Fire Skill Gems"], "generic": "# to Level of all Fire Skill Gems", "line": "+1 to Level of all Fire Skill Gems"}
+{"candidates": ["#% reduced Attack Speed", "12% reduced Attack Speed"], "generic": "#% reduced Attack Speed", "line": "12% reduced Attack Speed"}
+{"candidates": ["Adds # to # Lightning Damage to Attacks", "Adds # to 2 Lightning Damage to Attacks", "Adds 1 to # Lightning Damage to Attacks", "Adds 1 to 2 Lightning Damage to Attacks"], "generic": "Adds # to # Lightning Damage to Attacks", "line": "Adds 1 to 2 Lightning Damage to Attacks"}
+{"candidates": ["#% increased Rarity of Items found", "100% increased Rarity of Items found"], "generic": "#% increased Rarity of Items found", "line": "100% increased Rarity of Items found"}
+{"candidates": ["#% to Critical Strike Chance", "+3.5% to Critical Strike Chance"], "generic": "#% to Critical Strike Chance", "line": "+3.5% to Critical Strike Chance"}
+{"candidates": ["Regenerate # Life per second", "Regenerate 1.4 Life per second"], "generic": "Regenerate # Life per second", "line": "Regenerate 1.4 Life per second"}
+{"candidates": ["#% total to Cold Resistance", "7% total to Cold Resistance"], "generic": "#% total to Cold Resistance", "line": "7% total to Cold Resistance"}
+{"candidates": ["#% total to Fire Resistance", "7% total to Fire Resistance"], "generic": "#% total to Fire Resistance", "line": "7% total to Fire Resistance"}
+{"candidates": ["#% total to Lightning Resistance", "7% total to Lightning Resistance"], "generic": "#% total to Lightning Resistance", "line": "7% total to Lightning Resistance"}
+{"candidates": ["#% total Elemental Resistance", "7% total Elemental Resistance"], "generic": "#% total Elemental Resistance", "line": "7% total Elemental Resistance"}
+{"candidates": ["#% total to Chaos Resistance", "7% total to Chaos Resistance"], "generic": "#% total to Chaos Resistance", "line": "7% total to Chaos Resistance"}
+{"candidates": ["#% total Resistance", "7% total Resistance"], "generic": "#% total Resistance", "line": "7% total Resistance"}
+{"candidates": ["# total Resistances", "7 total Resistances"], "generic": "# total Resistances", "line": "7 total Resistances"}
+{"candidates": ["# total Elemental Resistances", "7 total Elemental Resistances"], "generic": "# total Elemental Resistances", "line": "7 total Elemental Resistances"}
+{"candidates": ["#% total to all Elemental Resistances", "7% total to all Elemental Resistances"], "generic": "#% total to all Elemental Resistances", "line": "7% total to all Elemental Resistances"}
+{"candidates": ["# total to Strength", "7 total to Strength"], "generic": "# total to Strength", "line": "7 total to Strength"}
+{"candidates": ["# total to Dexterity", "7 total to Dexterity"], "generic": "# total to Dexterity", "line": "7 total to Dexterity"}
+{"candidates": ["# total to Intelligence", "7 total to Intelligence"], "generic": "# total to Intelligence", "line": "7 total to Intelligence"}
+{"candidates": ["# total to all Attributes", "7 total to all Attributes"], "generic": "# total to all Attributes", "line": "7 total to all Attributes"}
+{"candidates": ["# total maximum Life", "7 total maximum Life"], "generic": "# total maximum Life", "line": "7 total maximum Life"}
+{"candidates": ["# total maximum Mana", "7 total maximum Mana"], "generic": "# total maximum Mana", "line": "7 total maximum Mana"}
+{"candidates": ["# total maximum Energy Shield", "7 total maximum Energy Shield"], "generic": "# total maximum Energy Shield", "line": "7 total maximum Energy Shield"}
+{"candidates": ["#% total increased maximum Energy Shield", "7% total increased maximum Energy Shield"], "generic": "#% total increased maximum Energy Shield", "line": "7% total increased maximum Energy Shield"}
+{"candidates": ["#% total Attack Speed", "7% total Attack Speed"], "generic": "#% total Attack Speed", "line": "7% total Attack Speed"}
+{"candidates": ["#% total Cast Speed", "7% total Cast Speed"], "generic": "#% total Cast Speed", "line": "7% total Cast Speed"}
+{"candidates": ["#% increased Movement Speed", "7% increased Movement Speed"], "generic": "#% increased Movement Speed", "line": "7% increased Movement Speed"}
+{"candidates": ["#% total increased Physical Damage", "7% total increased Physical Damage"], "generic": "#% total increased Physical Damage", "line": "7% total increased Physical Damage"}
+{"candidates": ["#% Global Critical Strike Chance", "7% Global Critical Strike Chance"], "generic": "#% Global Critical Strike Chance", "line": "7% Global Critical Strike Chance"}
+{"candidates": ["#% total Critical Strike Chance for Spells", "7% total Critical Strike Chance for Spells"], "generic": "#% total Critical Strike Chance for Spells", "line": "7% total Critical Strike Chance for Spells"}
+{"candidates": ["#% Global Critical Strike Multiplier", "7% Global Critical Strike Multiplier"], "generic": "#% Global Critical Strike Multiplier", "line": "7% Global Critical Strike Multiplier"}
+{"candidates": ["Adds # to # Physical Damage", "Adds 7 to # Physical Damage"], "generic": "Adds # to # Physical Damage", "line": "Adds 7 to # Physical Damage"}
+{"candidates": ["Adds # to # Lightning Damage", "Adds 7 to # Lightning Damage"], "generic": "Adds # to # Lightning Damage", "line": "Adds 7 to # Lightning Damage"}
+{"candidates": ["Adds # to # Cold Damage", "Adds 7 to # Cold Damage"], "generic": "Adds # to # Cold Damage", "line": "Adds 7 to # Cold Damage"}
+{"candidates": ["Adds # to # Fire Damage", "Adds 7 to # Fire Damage"], "generic": "Adds # to # Fire Damage", "line": "Adds 7 to # Fire Damage"}
+{"candidates": ["Adds # to # Elemental Damage", "Adds 7 to # Elemental Damage"], "generic": "Adds # to # Elemental Damage", "line": "Adds 7 to # Elemental Damage"}
+{"candidates": ["Adds # to # Chaos Damage", "Adds 7 to # Chaos Damage"], "generic": "Adds # to # Chaos Damage", "line": "Adds 7 to # Chaos Damage"}
+{"candidates": ["Adds # to # Damage", "Adds 7 to # Damage"], "generic": "Adds # to # Damage", "line": "Adds 7 to # Damage"}
+{"candidates": ["Adds # to # Physical Damage to Attacks", "Adds 7 to # Physical Damage to Attacks"], "generic": "Adds # to # Physical Damage to Attacks", "line": "Adds 7 to # Physical Damage to Attacks"}
+{"candidates": ["Adds # to # Lightning Damage to Attacks", "Adds 7 to # Lightning Damage to Attacks"], "generic": "Adds # to # Lightning Damage to Attacks", "line": "Adds 7 to # Lightning Damage to Attacks"}
+{"candidates": ["Adds # to # Cold Damage to Attacks", "Adds 7 to # Cold Damage to Attacks"], "generic": "Adds # to # Cold Damage to Attacks", "line": "Adds 7 to # Cold Damage to Attacks"}
+{"candidates": ["Adds # to # Fire Damage to Attacks", "Adds 7 to # Fire Damage to Attacks"], "generic": "Adds # to # Fire Damage to Attacks", "line": "Adds 7 to # Fire Damage to Attacks"}
+{"candidates": ["Adds # to # Elemental Damage to Attacks", "Adds 7 to # Elemental Damage to Attacks"], "generic": "Adds # to # Elemental Damage to Attacks", "line": "Adds 7 to # Elemental Damage to Attacks"}
+{"candidates": ["Adds # to # Chaos Damage to Attacks", "Adds 7 to # Chaos Damage to Attacks"], "generic": "Adds # to # Chaos Damage to Attacks", "line": "Adds 7 to # Chaos Damage to Attacks"}
+{"candidates": ["Adds # to # Damage to Attacks", "Adds 7 to # Damage to Attacks"], "generic": "Adds # to # Damage to Attacks", "line": "Adds 7 to # Damage to Attacks"}
+{"candidates": ["Adds # to # Physical Damage to Spells", "Adds 7 to # Physical Damage to Spells"], "generic": "Adds # to # Physical Damage to Spells", "line": "Adds 7 to # Physical Damage to Spells"}
+{"candidates": ["Adds # to # Lightning Damage to Spells", "Adds 7 to # Lightning Damage to Spells"], "generic": "Adds # to # Lightning Damage to Spells", "line": "Adds 7 to # Lightning Damage to Spells"}
+{"candidates": ["Adds # to # Cold Damage to Spells", "Adds 7 to # Cold Damage to Spells"], "generic": "Adds # to # Cold Damage to Spells", "line": "Adds 7 to # Cold Damage to Spells"}
+{"candidates": ["Adds # to # Fire Damage to Spells", "Adds 7 to # Fire Damage to Spells"], "generic": "Adds # to # Fire Damage to Spells", "line": "Adds 7 to # Fire Damage to Spells"}
+{"candidates": ["Adds # to # Elemental Damage to Spells", "Adds 7 to # Elemental Damage to Spells"], "generic": "Adds # to # Elemental Damage to Spells", "line": "Adds 7 to # Elemental Damage to Spells"}
+{"candidates": ["Adds # to # Chaos Damage to Spells", "Adds 7 to # Chaos Damage to Spells"], "generic": "Adds # to # Chaos Damage to Spells", "line": "Adds 7 to # Chaos Damage to Spells"}
+{"candidates": ["Adds # to # Damage to Spells", "Adds 7 to # Damage to Spells"], "generic": "Adds # to # Damage to Spells", "line": "Adds 7 to # Damage to Spells"}
+{"candidates": ["#% increased Elemental Damage", "7% increased Elemental Damage"], "generic": "#% increased Elemental Damage", "line": "7% increased Elemental Damage"}
+{"candidates": ["#% increased Lightning Damage", "7% increased Lightning Damage"], "generic": "#% increased Lightning Damage", "line": "7% increased Lightning Damage"}
+{"candidates": ["#% increased Cold Damage", "7% increased Cold Damage"], "generic": "#% increased Cold Damage", "line": "7% increased Cold Damage"}
+{"candidates": ["#% increased Fire Damage", "7% increased Fire Damage"], "generic": "#% increased Fire Damage", "line": "7% increased Fire Damage"}
+{"candidates": ["#% increased Spell Damage", "7% increased Spell Damage"], "generic": "#% increased Spell Damage", "line": "7% increased Spell Damage"}
+{"candidates": ["#% increased Lightning Spell Damage", "7% increased Lightning Spell Damage"], "generic": "#% increased Lightning Spell Damage", "line": "7% increased Lightning Spell Damage"}
+{"candidates": ["#% increased Cold Spell Damage", "7% increased Cold Spell Damage"], "generic": "#% increased Cold Spell Damage", "line": "7% increased Cold Spell Damage"}
+{"candidates": ["#% increased Fire Spell Damage", "7% increased Fire Spell Damage"], "generic": "#% increased Fire Spell Damage", "line": "7% increased Fire Spell Damage"}
+{"candidates": ["#% increased Lightning Damage with Attack Skills", "7% increased Lightning Damage with Attack Skills"], "generic": "#% increased Lightning Damage with Attack Skills", "line": "7% increased Lightning Damage with Attack Skills"}
+{"candidates": ["#% increased Cold Damage with Attack Skills", "7% increased Cold Damage with Attack Skills"], "generic": "#% increased Cold Damage with Attack Skills", "line": "7% increased Cold Damage with Attack Skills"}
+{"candidates": ["#% increased Fire Damage with Attack Skills", "7% increased Fire Damage with Attack Skills"], "generic": "#% increased Fire Damage with Attack Skills", "line": "7% increased Fire Damage with Attack Skills"}
+{"candidates": ["#% increased Elemental Damage with Attack Skills", "7% increased Elemental Damage with Attack Skills"], "generic": "#% increased Elemental Damage with Attack Skills", "line": "7% increased Elemental Damage with Attack Skills"}
+{"candidates": ["#% increased Rarity of Items found", "7% increased Rarity of Items found"], "generic": "#% increased Rarity of Items found", "line": "7% increased Rarity of Items found"}
+{"candidates": ["#% increased Burning Damage", "7% increased Burning Damage"], "generic": "#% increased Burning Damage", "line": "7% increased Burning Damage"}
+{"candidates": ["# Life Regenerated per Second", "7 Life Regenerated per Second"], "generic": "# Life Regenerated per Second", "line": "7 Life Regenerated per Second"}
+{"candidates": ["#% of Life Regenerated per Second", "7% of Life Regenerated per Second"], "generic": "#% of Life Regenerated per Second", "line": "7% of Life Regenerated per Second"}
+{"candidates": ["#% of Physical Attack Damage Leeched as Life", "7% of Physical Attack Damage Leeched as Life"], "generic": "#% of Physical Attack Damage Leeched as Life", "line": "7% of Physical Attack Damage Leeched as Life"}
+{"candidates": ["#% of Physical Attack Damage Leeched as Mana", "7% of Physical Attack Damage Leeched as Mana"], "generic": "#% of Physical Attack Damage Leeched as Mana", "line": "7% of Physical Attack Damage Leeched as Mana"}
+{"candidates": ["#% increased Mana Regeneration Rate", "7% increased Mana Regeneration Rate"], "generic": "#% increased Mana Regeneration Rate", "line": "7% increased Mana Regeneration Rate"}
+{"candidates": ["# total to Level of Socketed Gems", "7 total to Level of Socketed Gems"], "generic": "# total to Level of Socketed Gems", "line": "7 total to Level of Socketed Gems"}
+{"candidates": ["# total to Level of Socketed Elemental Gems", "7 total to Level of Socketed Elemental Gems"], "generic": "# total to Level of Socketed Elemental Gems", "line": "7 total to Level of Socketed Elemental Gems"}
+{"candidates": ["# total to Level of Socketed Fire Gems", "7 total to Level of Socketed Fire Gems"], "generic": "# total to Level of Socketed Fire Gems", "line": "7 total to Level of Socketed Fire Gems"}
+{"candidates": ["# total to Level of Socketed Cold Gems", "7 total to Level of Socketed Cold Gems"], "generic": "# total to Level of Socketed Cold Gems", "line": "7 total to Level of Socketed Cold Gems"}
+{"candidates": ["# total to Level of Socketed Lightning Gems", "7 total to Level of Socketed Lightning Gems"], "generic": "# total to Level of Socketed Lightning Gems", "line": "7 total to Level of Socketed Lightning Gems"}
+{"candidates": ["# total to Level of Socketed Chaos Gems", "7 total to Level of Socketed Chaos Gems"], "generic": "# total to Level of Socketed Chaos Gems", "line": "7 total to Level of Socketed Chaos Gems"}
+{"candidates": ["# total to Level of Socketed Spell Gems", "7 total to Level of Socketed Spell Gems"], "generic": "# total to Level of Socketed Spell Gems", "line": "7 total to Level of Socketed Spell Gems"}
+{"candidates": ["# total to Level of Socketed Projectile Gems", "7 total to Level of Socketed Projectile Gems"], "generic": "# total to Level of Socketed Projectile Gems", "line": "7 total to Level of Socketed Projectile Gems"}
+{"candidates": ["# total to Level of Socketed Bow Gems", "7 total to Level of Socketed Bow Gems"], "generic": "# total to Level of Socketed Bow Gems", "line": "7 total to Level of Socketed Bow Gems"}
+{"candidates": ["# total to Level of Socketed Melee Gems", "7 total to Level of Socketed Melee Gems"], "generic": "# total to Level of Socketed Melee Gems", "line": "7 total to Level of Socketed Melee Gems"}
+{"candidates": ["# total to Level of Socketed Minion Gems", "7 total to Level of Socketed Minion Gems"], "generic": "# total to Level of Socketed Minion Gems", "line": "7 total to Level of Socketed Minion Gems"}
+{"candidates": ["# total to Level of Socketed Strength Gems", "7 total to Level of Socketed Strength Gems"], "generic": "# total to Level of Socketed Strength Gems", "line": "7 total to Level of Socketed Strength Gems"}
+{"candidates": ["# total to Level of Socketed Dexterity Gems", "7 total to Level of Socketed Dexterity Gems"], "generic": "# total to Level of Socketed Dexterity Gems", "line": "7 total to Level of Socketed Dexterity Gems"}
+{"candidates": ["# total to Level of Socketed Intelligence Gems", "7 total to Level of Socketed Intelligence Gems"], "generic": "# total to Level of Socketed Intelligence Gems", "line": "7 total to Level of Socketed Intelligence Gems"}
+{"candidates": ["# total to Level of Socketed Aura Gems", "7 total to Level of Socketed Aura Gems"], "generic": "# total to Level of Socketed Aura Gems", "line": "7 total to Level of Socketed Aura Gems"}
+{"candidates": ["# total to Level of Socketed Movement Gems", "7 total to Level of Socketed Movement Gems"], "generic": "# total to Level of Socketed Movement Gems", "line": "7 total to Level of Socketed Movement Gems"}
+{"candidates": ["# total to Level of Socketed Curse Gems", "7 total to Level of Socketed Curse Gems"], "generic": "# total to Level of Socketed Curse Gems", "line": "7 total to Level of Socketed Curse Gems"}
+{"candidates": ["# total to Level of Socketed Vaal Gems", "7 total to Level of Socketed Vaal Gems"], "generic": "# total to Level of Socketed Vaal Gems", "line": "7 total to Level of Socketed Vaal Gems"}
+{"candidates": ["# total to Level of Socketed Support Gems", "7 total to Level of Socketed Support Gems"], "generic": "# total to Level of Socketed Support Gems", "line": "7 total to Level of Socketed Support Gems"}
+{"candidates": ["# total to Level of Socketed Skill Gems", "7 total to Level of Socketed Skill Gems"], "generic": "# total to Level of Socketed Skill Gems", "line": "7 total to Level of Socketed Skill Gems"}
+{"candidates": ["# total to Level of Socketed Warcry Gems", "7 total to Level of Socketed Warcry Gems"], "generic": "# total to Level of Socketed Warcry Gems", "line": "7 total to Level of Socketed Warcry Gems"}
+{"candidates": ["# total to Level of Socketed Golem Gems", "7 total to Level of Socketed Golem Gems"], "generic": "# total to Level of Socketed Golem Gems", "line": "7 total to Level of Socketed Golem Gems"}
+{"candidates": ["# Enchant Modifiers", "7 Enchant Modifiers"], "generic": "# Enchant Modifiers", "line": "7 Enchant Modifiers"}
+{"candidates": ["# Implicit Modifiers", "7 Implicit Modifiers"], "generic": "# Implicit Modifiers", "line": "7 Implicit Modifiers"}
+{"candidates": ["Searing Exarch Implicit Modifier (#)", "Searing Exarch Implicit Modifier (7)"], "generic": "Searing Exarch Implicit Modifier (#)", "line": "Searing Exarch Implicit Modifier (7)"}
+{"candidates": ["Eater of Worlds Implicit Modifier (#)", "Eater of Worlds Implicit Modifier (7)"], "generic": "Eater of Worlds Implicit Modifier (#)", "line": "Eater of Worlds Implicit Modifier (7)"}
+{"candidates": ["# Prefix Modifiers", "7 Prefix Modifiers"], "generic": "# Prefix Modifiers", "line": "7 Prefix Modifiers"}
+{"candidates": ["# Suffix Modifiers", "7 Suffix Modifiers"], "generic": "# Suffix Modifiers", "line": "7 Suffix Modifiers"}
+{"candidates": ["# Modifiers", "7 Modifiers"], "generic": "# Modifiers", "line": "7 Modifiers"}
+{"candidates": ["# Crafted Prefix Modifiers", "7 Crafted Prefix Modifiers"], "generic": "# Crafted Prefix Modifiers", "line": "7 Crafted Prefix Modifiers"}
+{"candidates": ["# Crafted Suffix Modifiers", "7 Crafted Suffix Modifiers"], "generic": "# Crafted Suffix Modifiers", "line": "7 Crafted Suffix Modifiers"}
+{"candidates": ["# Crafted Modifiers", "7 Crafted Modifiers"], "generic": "# Crafted Modifiers", "line": "7 Crafted Modifiers"}
+{"candidates": ["# Empty Prefix Modifiers", "7 Empty Prefix Modifiers"], "generic": "# Empty Prefix Modifiers", "line": "7 Empty Prefix Modifiers"}
+{"candidates": ["# Empty Suffix Modifiers", "7 Empty Suffix Modifiers"], "generic": "# Empty Suffix Modifiers", "line": "7 Empty Suffix Modifiers"}
+{"candidates": ["# Empty Modifiers", "7 Empty Modifiers"], "generic": "# Empty Modifiers", "line": "7 Empty Modifiers"}
+{"candidates": ["#% Base Defence Percentile", "7% Base Defence Percentile"], "generic": "#% Base Defence Percentile", "line": "7% Base Defence Percentile"}
+{"candidates": ["Has # Influences", "Has 7 Influences"], "generic": "Has # Influences", "line": "Has 7 Influences"}
+{"candidates": ["# Fractured Modifiers", "7 Fractured Modifiers"], "generic": "# Fractured Modifiers", "line": "7 Fractured Modifiers"}
+{"candidates": ["# Notable Passive Skills", "7 Notable Passive Skills"], "generic": "# Notable Passive Skills", "line": "7 Notable Passive Skills"}
+{"candidates": ["Mirrored Tablet has # Islands", "Mirrored Tablet has 7 Islands"], "generic": "Mirrored Tablet has # Islands", "line": "Mirrored Tablet has 7 Islands"}
+{"candidates": ["Unique Monsters (Blood-Filled Vessel): #", "Unique Monsters (Blood-Filled Vessel): 7"], "generic": "Unique Monsters (Blood-Filled Vessel): #", "line": "Unique Monsters (Blood-Filled Vessel): 7"}
+{"candidates": ["Non-Unique Monsters (Blood-Filled Vessel): #", "Non-Unique Monsters (Blood-Filled Vessel): 7"], "generic": "Non-Unique Monsters (Blood-Filled Vessel): #", "line": "Non-Unique Monsters (Blood-Filled Vessel): 7"}
+{"candidates": ["Quality (Elemental Damage Modifiers): #%", "Quality (Elemental Damage Modifiers): 7%"], "generic": "Quality (Elemental Damage Modifiers): #%", "line": "Quality (Elemental Damage Modifiers): 7%"}
+{"candidates": ["Quality (Caster Modifiers): #%", "Quality (Caster Modifiers): 7%"], "generic": "Quality (Caster Modifiers): #%", "line": "Quality (Caster Modifiers): 7%"}
+{"candidates": ["Quality (Attack Modifiers): #%", "Quality (Attack Modifiers): 7%"], "generic": "Quality (Attack Modifiers): #%", "line": "Quality (Attack Modifiers): 7%"}
+{"candidates": ["Quality (Defence Modifiers): #%", "Quality (Defence Modifiers): 7%"], "generic": "Quality (Defence Modifiers): #%", "line": "Quality (Defence Modifiers): 7%"}
+{"candidates": ["Quality (Life and Mana Modifiers): #%", "Quality (Life and Mana Modifiers): 7%"], "generic": "Quality (Life and Mana Modifiers): #%", "line": "Quality (Life and Mana Modifiers): 7%"}
+{"candidates": ["Quality (Resistance Modifiers): #%", "Quality (Resistance Modifiers): 7%"], "generic": "Quality (Resistance Modifiers): #%", "line": "Quality (Resistance Modifiers): 7%"}
+{"candidates": ["Quality (Attribute Modifiers): #%", "Quality (Attribute Modifiers): 7%"], "generic": "Quality (Attribute Modifiers): #%", "line": "Quality (Attribute Modifiers): 7%"}
+{"candidates": ["Quality (Physical and Chaos Damage Modifiers): #%", "Quality (Physical and Chaos Damage Modifiers): 7%"], "generic": "Quality (Physical and Chaos Damage Modifiers): #%", "line": "Quality (Physical and Chaos Damage Modifiers): 7%"}
+{"candidates": ["Quality (Speed Modifiers): #%", "Quality (Speed Modifiers): 7%"], "generic": "Quality (Speed Modifiers): #%", "line": "Quality (Speed Modifiers): 7%"}
+{"candidates": ["Quality (Critical Modifiers): #%", "Quality (Critical Modifiers): 7%"], "generic": "Quality (Critical Modifiers): #%", "line": "Quality (Critical Modifiers): 7%"}
+{"candidates": ["Quality (Prefix Modifiers): #%", "Quality (Prefix Modifiers): 7%"], "generic": "Quality (Prefix Modifiers): #%", "line": "Quality (Prefix Modifiers): 7%"}
+{"candidates": ["Quality (Suffix Modifiers): #%", "Quality (Suffix Modifiers): 7%"], "generic": "Quality (Suffix Modifiers): #%", "line": "Quality (Suffix Modifiers): 7%"}
+{"candidates": ["#% chance for dropped Maps to convert to Shaper Maps", "7% chance for dropped Maps to convert to Shaper Maps"], "generic": "#% chance for dropped Maps to convert to Shaper Maps", "line": "7% chance for dropped Maps to convert to Shaper Maps"}
+{"candidates": ["#% chance for dropped Maps to convert to Elder Maps", "7% chance for dropped Maps to convert to Elder Maps"], "generic": "#% chance for dropped Maps to convert to Elder Maps", "line": "7% chance for dropped Maps to convert to Elder Maps"}
+{"candidates": ["#% chance for dropped Maps to convert to Conqueror Maps", "7% chance for dropped Maps to convert to Conqueror Maps"], "generic": "#% chance for dropped Maps to convert to Conqueror Maps", "line": "7% chance for dropped Maps to convert to Conqueror Maps"}
+{"candidates": ["#% chance for dropped Maps to convert to Unique Maps", "7% chance for dropped Maps to convert to Unique Maps"], "generic": "#% chance for dropped Maps to convert to Unique Maps", "line": "7% chance for dropped Maps to convert to Unique Maps"}
+{"candidates": ["#% chance for dropped Maps to convert to Scarabs", "7% chance for dropped Maps to convert to Scarabs"], "generic": "#% chance for dropped Maps to convert to Scarabs", "line": "7% chance for dropped Maps to convert to Scarabs"}
+{"candidates": ["#% chance for dropped Maps to convert to Maven Invitations", "7% chance for dropped Maps to convert to Maven Invitations"], "generic": "#% chance for dropped Maps to convert to Maven Invitations", "line": "7% chance for dropped Maps to convert to Maven Invitations"}
+{"candidates": ["#% chance for dropped Maps to convert to Atlas Memories", "7% chance for dropped Maps to convert to Atlas Memories"], "generic": "#% chance for dropped Maps to convert to Atlas Memories", "line": "7% chance for dropped Maps to convert to Atlas Memories"}
+{"candidates": ["Quality (Rarity): #%", "Quality (Rarity): 7%"], "generic": "Quality (Rarity): #%", "line": "Quality (Rarity): 7%"}
+{"candidates": ["Quality (Pack Size): #%", "Quality (Pack Size): 7%"], "generic": "Quality (Pack Size): #%", "line": "Quality (Pack Size): 7%"}
+{"candidates": ["Quality (Divination Cards): #%", "Quality (Divination Cards): 7%"], "generic": "Quality (Divination Cards): #%", "line": "Quality (Divination Cards): 7%"}
+{"candidates": ["Quality (Scarabs): #%", "Quality (Scarabs): 7%"], "generic": "Quality (Scarabs): #%", "line": "Quality (Scarabs): 7%"}
+{"candidates": ["Quality (Currency): #%", "Quality (Currency): 7%"], "generic": "Quality (Currency): #%", "line": "Quality (Currency): 7%"}
+{"candidates": ["More Maps: #%", "More Maps: 7%"], "generic": "More Maps: #%", "line": "More Maps: 7%"}
+{"candidates": ["More Scarabs: #%", "More Scarabs: 7%"], "generic": "More Scarabs: #%", "line": "More Scarabs: 7%"}
+{"candidates": ["More Currency: #%", "More Currency: 7%"], "generic": "More Currency: #%", "line": "More Currency: 7%"}
+{"candidates": ["More Divination Cards: #%", "More Divination Cards: 7%"], "generic": "More Divination Cards: #%", "line": "More Divination Cards: 7%"}
+{"candidates": ["Has Room: Poison Garden (Tier #)", "Has Room: Poison Garden (Tier 7)"], "generic": "Has Room: Poison Garden (Tier #)", "line": "Has Room: Poison Garden (Tier 7)"}
+{"candidates": ["Has Room: Sacrificial Chamber (Tier #)", "Has Room: Sacrificial Chamber (Tier 7)"], "generic": "Has Room: Sacrificial Chamber (Tier #)", "line": "Has Room: Sacrificial Chamber (Tier 7)"}
+{"candidates": ["Has Room: Tempest Generator (Tier #)", "Has Room: Tempest Generator (Tier 7)"], "generic": "Has Room: Tempest Generator (Tier #)", "line": "Has Room: Tempest Generator (Tier 7)"}
+{"candidates": ["Has Room: Trap Workshop (Tier #)", "Has Room: Trap Workshop (Tier 7)"], "generic": "Has Room: Trap Workshop (Tier #)", "line": "Has Room: Trap Workshop (Tier 7)"}
+{"candidates": ["Has Room: Surveyor's Study (Tier #)", "Has Room: Surveyor's Study (Tier 7)"], "generic": "Has Room: Surveyor's Study (Tier #)", "line": "Has Room: Surveyor's Study (Tier 7)"}
+{"candidates": ["Has Room: Royal Meeting Room (Tier #)", "Has Room: Royal Meeting Room (Tier 7)"], "generic": "Has Room: Royal Meeting Room (Tier #)", "line": "Has Room: Royal Meeting Room (Tier 7)"}
+{"candidates": ["Has Room: Storage Room (Tier #)", "Has Room: Storage Room (Tier 7)"], "generic": "Has Room: Storage Room (Tier #)", "line": "Has Room: Storage Room (Tier 7)"}
+{"candidates": ["Has Room: Corruption Chamber (Tier #)", "Has Room: Corruption Chamber (Tier 7)"], "generic": "Has Room: Corruption Chamber (Tier #)", "line": "Has Room: Corruption Chamber (Tier 7)"}
+{"candidates": ["Has Room: Explosives Room (Tier #)", "Has Room: Explosives Room (Tier 7)"], "generic": "Has Room: Explosives Room (Tier #)", "line": "Has Room: Explosives Room (Tier 7)"}
+{"candidates": ["Has Room: Armourer's Workshop (Tier #)", "Has Room: Armourer's Workshop (Tier 7)"], "generic": "Has Room: Armourer's Workshop (Tier #)", "line": "Has Room: Armourer's Workshop (Tier 7)"}
+{"candidates": ["Has Room: Sparring Room (Tier #)", "Has Room: Sparring Room (Tier 7)"], "generic": "Has Room: Sparring Room (Tier #)", "line": "Has Room: Sparring Room (Tier 7)"}
+{"candidates": ["Has Room: Guardhouse (Tier #)", "Has Room: Guardhouse (Tier 7)"], "generic": "Has Room: Guardhouse (Tier #)", "line": "Has Room: Guardhouse (Tier 7)"}
+{"candidates": ["Has Room: Splinter Research Lab (Tier #)", "Has Room: Splinter Research Lab (Tier 7)"], "generic": "Has Room: Splinter Research Lab (Tier #)", "line": "Has Room: Splinter Research Lab (Tier 7)"}
+{"candidates": ["Has Room: Gemcutter's Workshop (Tier #)", "Has Room: Gemcutter's Workshop (Tier 7)"], "generic": "Has Room: Gemcutter's Workshop (Tier #)", "line": "Has Room: Gemcutter's Workshop (Tier 7)"}
+{"candidates": ["Has Room: Vault (Tier #)", "Has Room: Vault (Tier 7)"], "generic": "Has Room: Vault (Tier #)", "line": "Has Room: Vault (Tier 7)"}
+{"candidates": ["Has Room: Jeweller's Workshop (Tier #)", "Has Room: Jeweller's Workshop (Tier 7)"], "generic": "Has Room: Jeweller's Workshop (Tier #)", "line": "Has Room: Jeweller's Workshop (Tier 7)"}
+{"candidates": ["Has Room: Workshop (Tier #)", "Has Room: Workshop (Tier 7)"], "generic": "Has Room: Workshop (Tier #)", "line": "Has Room: Workshop (Tier 7)"}
+{"candidates": ["Has Room: Shrine of Empowerment (Tier #)", "Has Room: Shrine of Empowerment (Tier 7)"], "generic": "Has Room: Shrine of Empowerment (Tier #)", "line": "Has Room: Shrine of Empowerment (Tier 7)"}
+{"candidates": ["Has Room: Pools of Restoration (Tier #)", "Has Room: Pools of Restoration (Tier 7)"], "generic": "Has Room: Pools of Restoration (Tier #)", "line": "Has Room: Pools of Restoration (Tier 7)"}
+{"candidates": ["Has Room: Hatchery (Tier #)", "Has Room: Hatchery (Tier 7)"], "generic": "Has Room: Hatchery (Tier #)", "line": "Has Room: Hatchery (Tier 7)"}
+{"candidates": ["Has Room: Flame Workshop (Tier #)", "Has Room: Flame Workshop (Tier 7)"], "generic": "Has Room: Flame Workshop (Tier #)", "line": "Has Room: Flame Workshop (Tier 7)"}
+{"candidates": ["Has Room: Lightning Workshop (Tier #)", "Has Room: Lightning Workshop (Tier 7)"], "generic": "Has Room: Lightning Workshop (Tier #)", "line": "Has Room: Lightning Workshop (Tier 7)"}
+{"candidates": ["Has Room: Cultivar Chamber (Tier #)", "Has Room: Cultivar Chamber (Tier 7)"], "generic": "Has Room: Cultivar Chamber (Tier #)", "line": "Has Room: Cultivar Chamber (Tier 7)"}
+{"candidates": ["Has Room: Hall of Offerings (Tier #)", "Has Room: Hall of Offerings (Tier 7)"], "generic": "Has Room: Hall of Offerings (Tier #)", "line": "Has Room: Hall of Offerings (Tier 7)"}
+{"candidates": ["Has Room: Hurricane Engine (Tier #)", "Has Room: Hurricane Engine (Tier 7)"], "generic": "Has Room: Hurricane Engine (Tier #)", "line": "Has Room: Hurricane Engine (Tier 7)"}
+{"candidates": ["Has Room: Temple Defense Workshop (Tier #)", "Has Room: Temple Defense Workshop (Tier 7)"], "generic": "Has Room: Temple Defense Workshop (Tier #)", "line": "Has Room: Temple Defense Workshop (Tier 7)"}
+{"candidates": ["Has Room: Office of Cartography (Tier #)", "Has Room: Office of Cartography (Tier 7)"], "generic": "Has Room: Office of Cartography (Tier #)", "line": "Has Room: Office of Cartography (Tier 7)"}
+{"candidates": ["Has Room: Hall of Lords (Tier #)", "Has Room: Hall of Lords (Tier 7)"], "generic": "Has Room: Hall of Lords (Tier #)", "line": "Has Room: Hall of Lords (Tier 7)"}
+{"candidates": ["Has Room: Warehouses (Tier #)", "Has Room: Warehouses (Tier 7)"], "generic": "Has Room: Warehouses (Tier #)", "line": "Has Room: Warehouses (Tier 7)"}
+{"candidates": ["Has Room: Catalyst of Corruption (Tier #)", "Has Room: Catalyst of Corruption (Tier 7)"], "generic": "Has Room: Catalyst of Corruption (Tier #)", "line": "Has Room: Catalyst of Corruption (Tier 7)"}
+{"candidates": ["Has Room: Demolition Lab (Tier #)", "Has Room: Demolition Lab (Tier 7)"], "generic": "Has Room: Demolition Lab (Tier #)", "line": "Has Room: Demolition Lab (Tier 7)"}
+{"candidates": ["Has Room: Armoury (Tier #)", "Has Room: Armoury (Tier 7)"], "generic": "Has Room: Armoury (Tier #)", "line": "Has Room: Armoury (Tier 7)"}
+{"candidates": ["Has Room: Arena of Valour (Tier #)", "Has Room: Arena of Valour (Tier 7)"], "generic": "Has Room: Arena of Valour (Tier #)", "line": "Has Room: Arena of Valour (Tier 7)"}
+{"candidates": ["Has Room: Barracks (Tier #)", "Has Room: Barracks (Tier 7)"], "generic": "Has Room: Barracks (Tier #)", "line": "Has Room: Barracks (Tier 7)"}
+{"candidates": ["Has Room: Breach Containment Chamber (Tier #)", "Has Room: Breach Containment Chamber (Tier 7)"], "generic": "Has Room: Breach Containment Chamber (Tier #)", "line": "Has Room: Breach Containment Chamber (Tier 7)"}
+{"candidates": ["Has Room: Department of Thaumaturgy (Tier #)", "Has Room: Department of Thaumaturgy (Tier 7)"], "generic": "Has Room: Department of Thaumaturgy (Tier #)", "line": "Has Room: Department of Thaumaturgy (Tier 7)"}
+{"candidates": ["Has Room: Treasury (Tier #)", "Has Room: Treasury (Tier 7)"], "generic": "Has Room: Treasury (Tier #)", "line": "Has Room: Treasury (Tier 7)"}
+{"candidates": ["Has Room: Jewellery Forge (Tier #)", "Has Room: Jewellery Forge (Tier 7)"], "generic": "Has Room: Jewellery Forge (Tier #)", "line": "Has Room: Jewellery Forge (Tier 7)"}
+{"candidates": ["Has Room: Engineering Department (Tier #)", "Has Room: Engineering Department (Tier 7)"], "generic": "Has Room: Engineering Department (Tier #)", "line": "Has Room: Engineering Department (Tier 7)"}
+{"candidates": ["Has Room: Sanctum of Unity (Tier #)", "Has Room: Sanctum of Unity (Tier 7)"], "generic": "Has Room: Sanctum of Unity (Tier #)", "line": "Has Room: Sanctum of Unity (Tier 7)"}
+{"candidates": ["Has Room: Sanctum of Vitality (Tier #)", "Has Room: Sanctum of Vitality (Tier 7)"], "generic": "Has Room: Sanctum of Vitality (Tier #)", "line": "Has Room: Sanctum of Vitality (Tier 7)"}
+{"candidates": ["Has Room: Automaton Lab (Tier #)", "Has Room: Automaton Lab (Tier 7)"], "generic": "Has Room: Automaton Lab (Tier #)", "line": "Has Room: Automaton Lab (Tier 7)"}
+{"candidates": ["Has Room: Omnitect Forge (Tier #)", "Has Room: Omnitect Forge (Tier 7)"], "generic": "Has Room: Omnitect Forge (Tier #)", "line": "Has Room: Omnitect Forge (Tier 7)"}
+{"candidates": ["Has Room: Omnitect Reactor Plant (Tier #)", "Has Room: Omnitect Reactor Plant (Tier 7)"], "generic": "Has Room: Omnitect Reactor Plant (Tier #)", "line": "Has Room: Omnitect Reactor Plant (Tier 7)"}
+{"candidates": ["Has Room: Toxic Grove (Tier #)", "Has Room: Toxic Grove (Tier 7)"], "generic": "Has Room: Toxic Grove (Tier #)", "line": "Has Room: Toxic Grove (Tier 7)"}
+{"candidates": ["Has Room: Apex of Ascension (Tier #)", "Has Room: Apex of Ascension (Tier 7)"], "generic": "Has Room: Apex of Ascension (Tier #)", "line": "Has Room: Apex of Ascension (Tier 7)"}
+{"candidates": ["Has Room: Storm of Corruption (Tier #)", "Has Room: Storm of Corruption (Tier 7)"], "generic": "Has Room: Storm of Corruption (Tier #)", "line": "Has Room: Storm of Corruption (Tier 7)"}
+{"candidates": ["Has Room: Defense Research Lab (Tier #)", "Has Room: Defense Research Lab (Tier 7)"], "generic": "Has Room: Defense Research Lab (Tier #)", "line": "Has Room: Defense Research Lab (Tier 7)"}
+{"candidates": ["Has Room: Atlas of Worlds (Tier #)", "Has Room: Atlas of Worlds (Tier 7)"], "generic": "Has Room: Atlas of Worlds (Tier #)", "line": "Has Room: Atlas of Worlds (Tier 7)"}
+{"candidates": ["Has Room: Throne of Atziri (Tier #)", "Has Room: Throne of Atziri (Tier 7)"], "generic": "Has Room: Throne of Atziri (Tier #)", "line": "Has Room: Throne of Atziri (Tier 7)"}
+{"candidates": ["Has Room: Museum of Artefacts (Tier #)", "Has Room: Museum of Artefacts (Tier 7)"], "generic": "Has Room: Museum of Artefacts (Tier #)", "line": "Has Room: Museum of Artefacts (Tier 7)"}
+{"candidates": ["Has Room: Locus of Corruption (Tier #)", "Has Room: Locus of Corruption (Tier 7)"], "generic": "Has Room: Locus of Corruption (Tier #)", "line": "Has Room: Locus of Corruption (Tier 7)"}
+{"candidates": ["Has Room: Shrine of Unmaking (Tier #)", "Has Room: Shrine of Unmaking (Tier 7)"], "generic": "Has Room: Shrine of Unmaking (Tier #)", "line": "Has Room: Shrine of Unmaking (Tier 7)"}
+{"candidates": ["Has Room: Chamber of Iron (Tier #)", "Has Room: Chamber of Iron (Tier 7)"], "generic": "Has Room: Chamber of Iron (Tier #)", "line": "Has Room: Chamber of Iron (Tier 7)"}
+{"candidates": ["Has Room: Hall of Champions (Tier #)", "Has Room: Hall of Champions (Tier 7)"], "generic": "Has Room: Hall of Champions (Tier #)", "line": "Has Room: Hall of Champions (Tier 7)"}
+{"candidates": ["Has Room: Hall of War (Tier #)", "Has Room: Hall of War (Tier 7)"], "generic": "Has Room: Hall of War (Tier #)", "line": "Has Room: Hall of War (Tier 7)"}
+{"candidates": ["Has Room: House of the Others (Tier #)", "Has Room: House of the Others (Tier 7)"], "generic": "Has Room: House of the Others (Tier #)", "line": "Has Room: House of the Others (Tier 7)"}
+{"candidates": ["Has Room: Doryani's Institute (Tier #)", "Has Room: Doryani's Institute (Tier 7)"], "generic": "Has Room: Doryani's Institute (Tier #)", "line": "Has Room: Doryani's Institute (Tier 7)"}
+{"candidates": ["Has Room: Wealth of the Vaal (Tier #)", "Has Room: Wealth of the Vaal (Tier 7)"], "generic": "Has Room: Wealth of the Vaal (Tier #)", "line": "Has Room: Wealth of the Vaal (Tier 7)"}
+{"candidates": ["Has Room: Glittering Halls (Tier #)", "Has Room: Glittering Halls (Tier 7)"], "generic": "Has Room: Glittering Halls (Tier #)", "line": "Has Room: Glittering Halls (Tier 7)"}
+{"candidates": ["Has Room: Factory (Tier #)", "Has Room: Factory (Tier 7)"], "generic": "Has Room: Factory (Tier #)", "line": "Has Room: Factory (Tier 7)"}
+{"candidates": ["Has Room: Temple Nexus (Tier #)", "Has Room: Temple Nexus (Tier 7)"], "generic": "Has Room: Temple Nexus (Tier #)", "line": "Has Room: Temple Nexus (Tier 7)"}
+{"candidates": ["Has Room: Sanctum of Immortality (Tier #)", "Has Room: Sanctum of Immortality (Tier 7)"], "generic": "Has Room: Sanctum of Immortality (Tier #)", "line": "Has Room: Sanctum of Immortality (Tier 7)"}
+{"candidates": ["Has Room: Hybridisation Chamber (Tier #)", "Has Room: Hybridisation Chamber (Tier 7)"], "generic": "Has Room: Hybridisation Chamber (Tier #)", "line": "Has Room: Hybridisation Chamber (Tier 7)"}
+{"candidates": ["Has Room: Crucible of Flame (Tier #)", "Has Room: Crucible of Flame (Tier 7)"], "generic": "Has Room: Crucible of Flame (Tier #)", "line": "Has Room: Crucible of Flame (Tier 7)"}
+{"candidates": ["Has Room: Conduit of Lightning (Tier #)", "Has Room: Conduit of Lightning (Tier 7)"], "generic": "Has Room: Conduit of Lightning (Tier #)", "line": "Has Room: Conduit of Lightning (Tier 7)"}
+{"candidates": ["Has Room: Torment Cells (Tier #)", "Has Room: Torment Cells (Tier 7)"], "generic": "Has Room: Torment Cells (Tier #)", "line": "Has Room: Torment Cells (Tier 7)"}
+{"candidates": ["Has Room: Torture Cages (Tier #)", "Has Room: Torture Cages (Tier 7)"], "generic": "Has Room: Torture Cages (Tier #)", "line": "Has Room: Torture Cages (Tier 7)"}
+{"candidates": ["Has Room: Sadist's Den (Tier #)", "Has Room: Sadist's Den (Tier 7)"], "generic": "Has Room: Sadist's Den (Tier #)", "line": "Has Room: Sadist's Den (Tier 7)"}
+{"candidates": ["Has Room: Strongbox Chamber (Tier #)", "Has Room: Strongbox Chamber (Tier 7)"], "generic": "Has Room: Strongbox Chamber (Tier #)", "line": "Has Room: Strongbox Chamber (Tier 7)"}
+{"candidates": ["Has Room: Hall of Locks (Tier #)", "Has Room: Hall of Locks (Tier 7)"], "generic": "Has Room: Hall of Locks (Tier #)", "line": "Has Room: Hall of Locks (Tier 7)"}
+{"candidates": ["Has Room: Court of Sealed Death (Tier #)", "Has Room: Court of Sealed Death (Tier 7)"], "generic": "Has Room: Court of Sealed Death (Tier #)", "line": "Has Room: Court of Sealed Death (Tier 7)"}
+{"candidates": ["Has Room: Hall of Mettle (Tier #)", "Has Room: Hall of Mettle (Tier 7)"], "generic": "Has Room: Hall of Mettle (Tier #)", "line": "Has Room: Hall of Mettle (Tier 7)"}
+{"candidates": ["Has Room: Hall of Heroes (Tier #)", "Has Room: Hall of Heroes (Tier 7)"], "generic": "Has Room: Hall of Heroes (Tier #)", "line": "Has Room: Hall of Heroes (Tier 7)"}
+{"candidates": ["Has Room: Hall of Legends (Tier #)", "Has Room: Hall of Legends (Tier 7)"], "generic": "Has Room: Hall of Legends (Tier #)", "line": "Has Room: Hall of Legends (Tier 7)"}
+{"candidates": ["Reflection of Breach (Difficulty #)", "Reflection of Breach (Difficulty 7)"], "generic": "Reflection of Breach (Difficulty #)", "line": "Reflection of Breach (Difficulty 7)"}
+{"candidates": ["Reflection of the Dream (Difficulty #)", "Reflection of the Dream (Difficulty 7)"], "generic": "Reflection of the Dream (Difficulty #)", "line": "Reflection of the Dream (Difficulty 7)"}
+{"candidates": ["Reflection of the Breachlord (Difficulty #)", "Reflection of the Breachlord (Difficulty 7)"], "generic": "Reflection of the Breachlord (Difficulty #)", "line": "Reflection of the Breachlord (Difficulty 7)"}
+{"candidates": ["Reflection of Delirium (Difficulty #)", "Reflection of Delirium (Difficulty 7)"], "generic": "Reflection of Delirium (Difficulty #)", "line": "Reflection of Delirium (Difficulty 7)"}
+{"candidates": ["Reflection of Flame (Difficulty #)", "Reflection of Flame (Difficulty 7)"], "generic": "Reflection of Flame (Difficulty #)", "line": "Reflection of Flame (Difficulty 7)"}
+{"candidates": ["Reflection of Camaraderie (Difficulty #)", "Reflection of Camaraderie (Difficulty 7)"], "generic": "Reflection of Camaraderie (Difficulty #)", "line": "Reflection of Camaraderie (Difficulty 7)"}
+{"candidates": ["Reflection of Conflict (Difficulty #)", "Reflection of Conflict (Difficulty 7)"], "generic": "Reflection of Conflict (Difficulty #)", "line": "Reflection of Conflict (Difficulty 7)"}
+{"candidates": ["Reflection of Power (Difficulty #)", "Reflection of Power (Difficulty 7)"], "generic": "Reflection of Power (Difficulty #)", "line": "Reflection of Power (Difficulty 7)"}
+{"candidates": ["Reflection of Tyranny (Difficulty #)", "Reflection of Tyranny (Difficulty 7)"], "generic": "Reflection of Tyranny (Difficulty #)", "line": "Reflection of Tyranny (Difficulty 7)"}
+{"candidates": ["Reflection of Frost (Difficulty #)", "Reflection of Frost (Difficulty 7)"], "generic": "Reflection of Frost (Difficulty #)", "line": "Reflection of Frost (Difficulty 7)"}
+{"candidates": ["Reflection of the Storm (Difficulty #)", "Reflection of the Storm (Difficulty 7)"], "generic": "Reflection of the Storm (Difficulty #)", "line": "Reflection of the Storm (Difficulty 7)"}
+{"candidates": ["Reflection of Brutality (Difficulty #)", "Reflection of Brutality (Difficulty 7)"], "generic": "Reflection of Brutality (Difficulty #)", "line": "Reflection of Brutality (Difficulty 7)"}
+{"candidates": ["Reflection of Chaos (Difficulty #)", "Reflection of Chaos (Difficulty 7)"], "generic": "Reflection of Chaos (Difficulty #)", "line": "Reflection of Chaos (Difficulty 7)"}
+{"candidates": ["Reflection of Ambush (Difficulty #)", "Reflection of Ambush (Difficulty 7)"], "generic": "Reflection of Ambush (Difficulty #)", "line": "Reflection of Ambush (Difficulty 7)"}
+{"candidates": ["Reflection of Entrapment (Difficulty #)", "Reflection of Entrapment (Difficulty 7)"], "generic": "Reflection of Entrapment (Difficulty #)", "line": "Reflection of Entrapment (Difficulty 7)"}
+{"candidates": ["Reflection of the Trove (Difficulty #)", "Reflection of the Trove (Difficulty 7)"], "generic": "Reflection of the Trove (Difficulty #)", "line": "Reflection of the Trove (Difficulty 7)"}
+{"candidates": ["Reflection of Essence (Difficulty #)", "Reflection of Essence (Difficulty 7)"], "generic": "Reflection of Essence (Difficulty #)", "line": "Reflection of Essence (Difficulty 7)"}
+{"candidates": ["Reflection of Imprisonment (Difficulty #)", "Reflection of Imprisonment (Difficulty 7)"], "generic": "Reflection of Imprisonment (Difficulty #)", "line": "Reflection of Imprisonment (Difficulty 7)"}
+{"candidates": ["Reflection of Thralldom (Difficulty #)", "Reflection of Thralldom (Difficulty 7)"], "generic": "Reflection of Thralldom (Difficulty #)", "line": "Reflection of Thralldom (Difficulty 7)"}
+{"candidates": ["Reflection of the Harbingers (Difficulty #)", "Reflection of the Harbingers (Difficulty 7)"], "generic": "Reflection of the Harbingers (Difficulty #)", "line": "Reflection of the Harbingers (Difficulty 7)"}
+{"candidates": ["Reflection of Fractured Dimensions (Difficulty #)", "Reflection of Fractured Dimensions (Difficulty 7)"], "generic": "Reflection of Fractured Dimensions (Difficulty #)", "line": "Reflection of Fractured Dimensions (Difficulty 7)"}
+{"candidates": ["Reflection of Phaaryl (Difficulty #)", "Reflection of Phaaryl (Difficulty 7)"], "generic": "Reflection of Phaaryl (Difficulty #)", "line": "Reflection of Phaaryl (Difficulty 7)"}
+{"candidates": ["Reflection of Domination (Difficulty #)", "Reflection of Domination (Difficulty 7)"], "generic": "Reflection of Domination (Difficulty #)", "line": "Reflection of Domination (Difficulty 7)"}
+{"candidates": ["Reflection of Occultism (Difficulty #)", "Reflection of Occultism (Difficulty 7)"], "generic": "Reflection of Occultism (Difficulty #)", "line": "Reflection of Occultism (Difficulty 7)"}
+{"candidates": ["Reflection of Perverted Faith (Difficulty #)", "Reflection of Perverted Faith (Difficulty 7)"], "generic": "Reflection of Perverted Faith (Difficulty #)", "line": "Reflection of Perverted Faith (Difficulty 7)"}
+{"candidates": ["Reflection of Kalandra (Difficulty #)", "Reflection of Kalandra (Difficulty 7)"], "generic": "Reflection of Kalandra (Difficulty #)", "line": "Reflection of Kalandra (Difficulty 7)"}
+{"candidates": ["Reflection of Metamorph (Difficulty #)", "Reflection of Metamorph (Difficulty 7)"], "generic": "Reflection of Metamorph (Difficulty #)", "line": "Reflection of Metamorph (Difficulty 7)"}
+{"candidates": ["Reflection of Catalysis (Difficulty #)", "Reflection of Catalysis (Difficulty 7)"], "generic": "Reflection of Catalysis (Difficulty #)", "line": "Reflection of Catalysis (Difficulty 7)"}
+{"candidates": ["Reflection of Experimentation (Difficulty #)", "Reflection of Experimentation (Difficulty 7)"], "generic": "Reflection of Experimentation (Difficulty #)", "line": "Reflection of Experimentation (Difficulty 7)"}
+{"candidates": ["Reflection of Abyss (Difficulty #)", "Reflection of Abyss (Difficulty 7)"], "generic": "Reflection of Abyss (Difficulty #)", "line": "Reflection of Abyss (Difficulty 7)"}
+{"candidates": ["Reflection of the Chasm (Difficulty #)", "Reflection of the Chasm (Difficulty 7)"], "generic": "Reflection of the Chasm (Difficulty #)", "line": "Reflection of the Chasm (Difficulty 7)"}
+{"candidates": ["Reflection of Darkness (Difficulty #)", "Reflection of Darkness (Difficulty 7)"], "generic": "Reflection of Darkness (Difficulty #)", "line": "Reflection of Darkness (Difficulty 7)"}
+{"candidates": ["Reflection of Bestiary (Difficulty #)", "Reflection of Bestiary (Difficulty 7)"], "generic": "Reflection of Bestiary (Difficulty #)", "line": "Reflection of Bestiary (Difficulty 7)"}
+{"candidates": ["Reflection of the Hunter (Difficulty #)", "Reflection of the Hunter (Difficulty 7)"], "generic": "Reflection of the Hunter (Difficulty #)", "line": "Reflection of the Hunter (Difficulty 7)"}
+{"candidates": ["Reflection of the Wilderness (Difficulty #)", "Reflection of the Wilderness (Difficulty 7)"], "generic": "Reflection of the Wilderness (Difficulty #)", "line": "Reflection of the Wilderness (Difficulty 7)"}
+{"candidates": ["Reflection of the Broken Circle (Difficulty #)", "Reflection of the Broken Circle (Difficulty 7)"], "generic": "Reflection of the Broken Circle (Difficulty #)", "line": "Reflection of the Broken Circle (Difficulty 7)"}
+{"candidates": ["Reflection of the Black Scythe (Difficulty #)", "Reflection of the Black Scythe (Difficulty 7)"], "generic": "Reflection of the Black Scythe (Difficulty #)", "line": "Reflection of the Black Scythe (Difficulty 7)"}
+{"candidates": ["Reflection of the Chalice (Difficulty #)", "Reflection of the Chalice (Difficulty 7)"], "generic": "Reflection of the Chalice (Difficulty #)", "line": "Reflection of the Chalice (Difficulty 7)"}
+{"candidates": ["Reflection of the Sun (Difficulty #)", "Reflection of the Sun (Difficulty 7)"], "generic": "Reflection of the Sun (Difficulty #)", "line": "Reflection of the Sun (Difficulty 7)"}
+{"candidates": ["Reflection of Legion (Difficulty #)", "Reflection of Legion (Difficulty 7)"], "generic": "Reflection of Legion (Difficulty #)", "line": "Reflection of Legion (Difficulty 7)"}
+{"candidates": ["Reflection of Stasis (Difficulty #)", "Reflection of Stasis (Difficulty 7)"], "generic": "Reflection of Stasis (Difficulty #)", "line": "Reflection of Stasis (Difficulty 7)"}
+{"candidates": ["Reflection of the Monolith (Difficulty #)", "Reflection of the Monolith (Difficulty 7)"], "generic": "Reflection of the Monolith (Difficulty #)", "line": "Reflection of the Monolith (Difficulty 7)"}
+{"candidates": ["Reflection of Scourge (Difficulty #)", "Reflection of Scourge (Difficulty 7)"], "generic": "Reflection of Scourge (Difficulty #)", "line": "Reflection of Scourge (Difficulty 7)"}
+{"candidates": ["Reflection of Demonfire (Difficulty #)", "Reflection of Demonfire (Difficulty 7)"], "generic": "Reflection of Demonfire (Difficulty #)", "line": "Reflection of Demonfire (Difficulty 7)"}
+{"candidates": ["Reflection of the Nightmare (Difficulty #)", "Reflection of the Nightmare (Difficulty 7)"], "generic": "Reflection of the Nightmare (Difficulty #)", "line": "Reflection of the Nightmare (Difficulty 7)"}
+{"candidates": ["Reflection of Torment (Difficulty #)", "Reflection of Torment (Difficulty 7)"], "generic": "Reflection of Torment (Difficulty #)", "line": "Reflection of Torment (Difficulty 7)"}
+{"candidates": ["Reflection of Possession (Difficulty #)", "Reflection of Possession (Difficulty 7)"], "generic": "Reflection of Possession (Difficulty #)", "line": "Reflection of Possession (Difficulty 7)"}
+{"candidates": ["Reflection of Guilt (Difficulty #)", "Reflection of Guilt (Difficulty 7)"], "generic": "Reflection of Guilt (Difficulty #)", "line": "Reflection of Guilt (Difficulty 7)"}
+{"candidates": ["Reflection of Delve (Difficulty #)", "Reflection of Delve (Difficulty 7)"], "generic": "Reflection of Delve (Difficulty #)", "line": "Reflection of Delve (Difficulty 7)"}
+{"candidates": ["Reflection of Sulphite (Difficulty #)", "Reflection of Sulphite (Difficulty 7)"], "generic": "Reflection of Sulphite (Difficulty #)", "line": "Reflection of Sulphite (Difficulty 7)"}
+{"candidates": ["Reflection of Azurite (Difficulty #)", "Reflection of Azurite (Difficulty 7)"], "generic": "Reflection of Azurite (Difficulty #)", "line": "Reflection of Azurite (Difficulty 7)"}
+{"candidates": ["Reflection of Paradise (Difficulty #)", "Reflection of Paradise (Difficulty 7)"], "generic": "Reflection of Paradise (Difficulty #)", "line": "Reflection of Paradise (Difficulty 7)"}
+{"candidates": ["Reflection of Angling (Difficulty #)", "Reflection of Angling (Difficulty 7)"], "generic": "Reflection of Angling (Difficulty #)", "line": "Reflection of Angling (Difficulty 7)"}
+{"candidates": ["# to maximum Life", "7 to maximum Life"], "generic": "# to maximum Life", "line": "7 to maximum Life"}
+{"candidates": ["#% to Cold Resistance", "7% to Cold Resistance"], "generic": "#% to Cold Resistance", "line": "7% to Cold Resistance"}
+{"candidates": ["#% to Fire Resistance", "7% to Fire Resistance"], "generic": "#% to Fire Resistance", "line": "7% to Fire Resistance"}
+{"candidates": ["# to maximum Mana", "7 to maximum Mana"], "generic": "# to maximum Mana", "line": "7 to maximum Mana"}
+{"candidates": ["#% to Lightning Resistance", "7% to Lightning Resistance"], "generic": "#% to Lightning Resistance", "line": "7% to Lightning Resistance"}
+{"candidates": ["# to Dexterity", "7 to Dexterity"], "generic": "# to Dexterity", "line": "7 to Dexterity"}
+{"candidates": ["# to Strength", "7 to Strength"], "generic": "# to Strength", "line": "7 to Strength"}
+{"candidates": ["# to maximum Energy Shield", "7 to maximum Energy Shield"], "generic": "# to maximum Energy Shield", "line": "7 to maximum Energy Shield"}
+{"candidates": ["#% to all Elemental Resistances", "7% to all Elemental Resistances"], "generic": "#% to all Elemental Resistances", "line": "7% to all Elemental Resistances"}
+{"candidates": ["Regenerate # Life per second", "Regenerate 7 Life per second"], "generic": "Regenerate # Life per second", "line": "Regenerate 7 Life per second"}
+{"candidates": ["# to Intelligence", "7 to Intelligence"], "generic": "# to Intelligence", "line": "7 to Intelligence"}
+{"candidates": ["#% increased Stun and Block Recovery", "7% increased Stun and Block Recovery"], "generic": "#% increased Stun and Block Recovery", "line": "7% increased Stun and Block Recovery"}
+{"candidates": ["#% to Chaos Resistance", "7% to Chaos Resistance"], "generic": "#% to Chaos Resistance", "line": "7% to Chaos Resistance"}
+{"candidates": ["# to maximum Energy Shield (Local)", "7 to maximum Energy Shield (Local)"], "generic": "# to maximum Energy Shield (Local)", "line": "7 to maximum Energy Shield (Local)"}
+{"candidates": ["# to Accuracy Rating", "7 to Accuracy Rating"], "generic": "# to Accuracy Rating", "line": "7 to Accuracy Rating"}
+{"candidates": ["#% to Global Critical Strike Multiplier", "7% to Global Critical Strike Multiplier"], "generic": "#% to Global Critical Strike Multiplier", "line": "7% to Global Critical Strike Multiplier"}
+{"candidates": ["#% increased Cast Speed", "7% increased Cast Speed"], "generic": "#% increased Cast Speed", "line": "7% increased Cast Speed"}
+{"candidates": ["#% increased Attack Speed (Local)", "7% increased Attack Speed (Local)"], "generic": "#% increased Attack Speed (Local)", "line": "7% increased Attack Speed (Local)"}
+{"candidates": ["#% increased Attack Speed", "7% increased Attack Speed"], "generic": "#% increased Attack Speed", "line": "7% increased Attack Speed"}
+{"candidates": ["# to all Attributes", "7 to all Attributes"], "generic": "# to all Attributes", "line": "7 to all Attributes"}
+{"candidates": ["#% increased maximum Life", "7% increased maximum Life"], "generic": "#% increased maximum Life", "line": "7% increased maximum Life"}
+{"candidates": ["Adds # to # Physical Damage (Local)", "Adds 7 to # Physical Damage (Local)"], "generic": "Adds # to # Physical Damage (Local)", "line": "Adds 7 to # Physical Damage (Local)"}
+{"candidates": ["# to Evasion Rating", "7 to Evasion Rating"], "generic": "# to Evasion Rating", "line": "7 to Evasion Rating"}
+{"candidates": ["#% increased Global Critical Strike Chance", "7% increased Global Critical Strike Chance"], "generic": "#% increased Global Critical Strike Chance", "line": "7% increased Global Critical Strike Chance"}
+{"candidates": ["# to Evasion Rating (Local)", "7 to Evasion Rating (Local)"], "generic": "# to Evasion Rating (Local)", "line": "7 to Evasion Rating (Local)"}
+{"candidates": ["#% increased Evasion Rating (Local)", "7% increased Evasion Rating (Local)"], "generic": "#% increased Evasion Rating (Local)", "line": "7% increased Evasion Rating (Local)"}
+{"candidates": ["#% increased Armour (Local)", "7% increased Armour (Local)"], "generic": "#% increased Armour (Local)", "line": "7% increased Armour (Local)"}
+{"candidates": ["# to Armour (Local)", "7 to Armour (Local)"], "generic": "# to Armour (Local)", "line": "7 to Armour (Local)"}
+{"candidates": ["#% increased Energy Shield (Local)", "7% increased Energy Shield (Local)"], "generic": "#% increased Energy Shield (Local)", "line": "7% increased Energy Shield (Local)"}
+{"candidates": ["#% increased maximum Energy Shield", "7% increased maximum Energy Shield"], "generic": "#% increased maximum Energy Shield", "line": "7% increased maximum Energy Shield"}
+{"candidates": ["#% increased Armour and Evasion (Local)", "7% increased Armour and Evasion (Local)"], "generic": "#% increased Armour and Evasion (Local)", "line": "7% increased Armour and Evasion (Local)"}
+{"candidates": ["#% increased Light Radius", "7% increased Light Radius"], "generic": "#% increased Light Radius", "line": "7% increased Light Radius"}
+{"candidates": ["Adds # to # Lightning Damage (Local)", "Adds 7 to # Lightning Damage (Local)"], "generic": "Adds # to # Lightning Damage (Local)", "line": "Adds 7 to # Lightning Damage (Local)"}
+{"candidates": ["#% increased Evasion and Energy Shield (Local)", "7% increased Evasion and Energy Shield (Local)"], "generic": "#% increased Evasion and Energy Shield (Local)", "line": "7% increased Evasion and Energy Shield (Local)"}
+{"candidates": ["#% increased Armour and Energy Shield (Local)", "7% increased Armour and Energy Shield (Local)"], "generic": "#% increased Armour and Energy Shield (Local)", "line": "7% increased Armour and Energy Shield (Local)"}
+{"candidates": ["Adds # to # Cold Damage (Local)", "Adds 7 to # Cold Damage (Local)"], "generic": "Adds # to # Cold Damage (Local)", "line": "Adds 7 to # Cold Damage (Local)"}
+{"candidates": ["Gain # Mana per Enemy Killed", "Gain 7 Mana per Enemy Killed"], "generic": "Gain # Mana per Enemy Killed", "line": "Gain 7 Mana per Enemy Killed"}
+{"candidates": ["#% increased Stun Duration on Enemies", "7% increased Stun Duration on Enemies"], "generic": "#% increased Stun Duration on Enemies", "line": "7% increased Stun Duration on Enemies"}
+{"candidates": ["#% increased Critical Strike Chance", "7% increased Critical Strike Chance"], "generic": "#% increased Critical Strike Chance", "line": "7% increased Critical Strike Chance"}
+{"candidates": ["# to Armour", "7 to Armour"], "generic": "# to Armour", "line": "7 to Armour"}
+{"candidates": ["#% increased Global Physical Damage", "7% increased Global Physical Damage"], "generic": "#% increased Global Physical Damage", "line": "7% increased Global Physical Damage"}
+{"candidates": ["# to Accuracy Rating (Local)", "7 to Accuracy Rating (Local)"], "generic": "# to Accuracy Rating (Local)", "line": "7 to Accuracy Rating (Local)"}
+{"candidates": ["Gain # Life per Enemy Killed", "Gain 7 Life per Enemy Killed"], "generic": "Gain # Life per Enemy Killed", "line": "Gain 7 Life per Enemy Killed"}
+{"candidates": ["Adds # to # Fire Damage (Local)", "Adds 7 to # Fire Damage (Local)"], "generic": "Adds # to # Fire Damage (Local)", "line": "Adds 7 to # Fire Damage (Local)"}
+{"candidates": ["#% increased maximum Mana", "7% increased maximum Mana"], "generic": "#% increased maximum Mana", "line": "7% increased maximum Mana"}
+{"candidates": ["#% increased Projectile Speed", "7% increased Projectile Speed"], "generic": "#% increased Projectile Speed", "line": "7% increased Projectile Speed"}
+{"candidates": ["#% more Monster Life", "7% more Monster Life"], "generic": "#% more Monster Life", "line": "7% more Monster Life"}
+{"candidates": ["#% chance to Suppress Spell Damage", "7% chance to Suppress Spell Damage"], "generic": "#% chance to Suppress Spell Damage", "line": "7% chance to Suppress Spell Damage"}
+{"candidates": ["Gain # Life per Enemy Hit with Attacks", "Gain 7 Life per Enemy Hit with Attacks"], "generic": "Gain # Life per Enemy Hit with Attacks", "line": "Gain 7 Life per Enemy Hit with Attacks"}
+{"candidates": ["#% increased Global Accuracy Rating", "7% increased Global Accuracy Rating"], "generic": "#% increased Global Accuracy Rating", "line": "7% increased Global Accuracy Rating"}
+{"candidates": ["#% increased Evasion Rating", "7% increased Evasion Rating"], "generic": "#% increased Evasion Rating", "line": "7% increased Evasion Rating"}
+{"candidates": ["#% increased Duration", "7% increased Duration"], "generic": "#% increased Duration", "line": "7% increased Duration"}
+{"candidates": ["#% increased Spell Critical Strike Chance", "7% increased Spell Critical Strike Chance"], "generic": "#% increased Spell Critical Strike Chance", "line": "7% increased Spell Critical Strike Chance"}
+{"candidates": ["Reflects # Physical Damage to Melee Attackers", "Reflects 7 Physical Damage to Melee Attackers"], "generic": "Reflects # Physical Damage to Melee Attackers", "line": "Reflects 7 Physical Damage to Melee Attackers"}
+{"candidates": ["Minions have #% increased maximum Life", "Minions have 7% increased maximum Life"], "generic": "Minions have #% increased maximum Life", "line": "Minions have 7% increased maximum Life"}
+{"candidates": ["#% increased Projectile Damage", "7% increased Projectile Damage"], "generic": "#% increased Projectile Damage", "line": "7% increased Projectile Damage"}
+{"candidates": ["#% chance to Ignite", "7% chance to Ignite"], "generic": "#% chance to Ignite", "line": "7% chance to Ignite"}
+{"candidates": ["#% increased Damage over Time", "7% increased Damage over Time"], "generic": "#% increased Damage over Time", "line": "7% increased Damage over Time"}
+{"candidates": ["#% reduced Enemy Stun Threshold", "7% reduced Enemy Stun Threshold"], "generic": "#% reduced Enemy Stun Threshold", "line": "7% reduced Enemy Stun Threshold"}
+{"candidates": ["#% increased Damage", "7% increased Damage"], "generic": "#% increased Damage", "line": "7% increased Damage"}
+{"candidates": ["Minions deal #% increased Damage", "Minions deal 7% increased Damage"], "generic": "Minions deal #% increased Damage", "line": "Minions deal 7% increased Damage"}
+{"candidates": ["#% increased Armour", "7% increased Armour"], "generic": "#% increased Armour", "line": "7% increased Armour"}
+{"candidates": ["Area has #% chance to contain an Ultimatum Encounter", "Area has 7% chance to contain an Ultimatum Encounter"], "generic": "Area has #% chance to contain an Ultimatum Encounter", "line": "Area has 7% chance to contain an Ultimatum Encounter"}
+{"candidates": ["Your Maps have #% chance to contain an Ultimatum Encounter", "Your Maps have 7% chance to contain an Ultimatum Encounter"], "generic": "Your Maps have #% chance to contain an Ultimatum Encounter", "line": "Your Maps have 7% chance to contain an Ultimatum Encounter"}
+{"candidates": ["Your Maps have #% chance to contain a Mirror of Delirium", "Your Maps have 7% chance to contain a Mirror of Delirium"], "generic": "Your Maps have #% chance to contain a Mirror of Delirium", "line": "Your Maps have 7% chance to contain a Mirror of Delirium"}
+{"candidates": ["#% increased Monster Damage", "7% increased Monster Damage"], "generic": "#% increased Monster Damage", "line": "7% increased Monster Damage"}
+{"candidates": ["Your Maps have #% chance to contain a Legion Encounter", "Your Maps have 7% chance to contain a Legion Encounter"], "generic": "Your Maps have #% chance to contain a Legion Encounter", "line": "Your Maps have 7% chance to contain a Legion Encounter"}
+{"candidates": ["#% chance to contain an Expedition Encounter", "7% chance to contain an Expedition Encounter"], "generic": "#% chance to contain an Expedition Encounter", "line": "7% chance to contain an Expedition Encounter"}
+{"candidates": ["Your Maps have #% chance to contain an Expedition Encounter", "Your Maps have 7% chance to contain an Expedition Encounter"], "generic": "Your Maps have #% chance to contain an Expedition Encounter", "line": "Your Maps have 7% chance to contain an Expedition Encounter"}
+{"candidates": ["#% to Fire and Lightning Resistances", "7% to Fire and Lightning Resistances"], "generic": "#% to Fire and Lightning Resistances", "line": "7% to Fire and Lightning Resistances"}
+{"candidates": ["#% increased Area Damage", "7% increased Area Damage"], "generic": "#% increased Area Damage", "line": "7% increased Area Damage"}
+{"candidates": ["Area has #% chance to contain Ritual Altars", "Area has 7% chance to contain Ritual Altars"], "generic": "Area has #% chance to contain Ritual Altars", "line": "Area has 7% chance to contain Ritual Altars"}
+{"candidates": ["Your Maps have #% chance to contain Ritual Altars", "Your Maps have 7% chance to contain Ritual Altars"], "generic": "Your Maps have #% chance to contain Ritual Altars", "line": "Your Maps have 7% chance to contain Ritual Altars"}
+{"candidates": ["Your Maps have #% chance to contain an Abyss", "Your Maps have 7% chance to contain an Abyss"], "generic": "Your Maps have #% chance to contain an Abyss", "line": "Your Maps have 7% chance to contain an Abyss"}
+{"candidates": ["#% increased Monster Movement Speed", "7% increased Monster Movement Speed"], "generic": "#% increased Monster Movement Speed", "line": "7% increased Monster Movement Speed"}
+{"candidates": ["Your Maps have #% chance to contain The Sacred Grove", "Your Maps have 7% chance to contain The Sacred Grove"], "generic": "Your Maps have #% chance to contain The Sacred Grove", "line": "Your Maps have 7% chance to contain The Sacred Grove"}
+{"candidates": ["#% increased Monster Attack Speed", "7% increased Monster Attack Speed"], "generic": "#% increased Monster Attack Speed", "line": "7% increased Monster Attack Speed"}
+{"candidates": ["Your Maps have #% chance to contain a Blight Encounter", "Your Maps have 7% chance to contain a Blight Encounter"], "generic": "Your Maps have #% chance to contain a Blight Encounter", "line": "Your Maps have 7% chance to contain a Blight Encounter"}
+{"candidates": ["Monsters deal #% extra Physical Damage as Lightning", "Monsters deal 7% extra Physical Damage as Lightning"], "generic": "Monsters deal #% extra Physical Damage as Lightning", "line": "Monsters deal 7% extra Physical Damage as Lightning"}
+{"candidates": ["# to Strength and Intelligence", "7 to Strength and Intelligence"], "generic": "# to Strength and Intelligence", "line": "7 to Strength and Intelligence"}
+{"candidates": ["# to Level of Socketed Gems", "7 to Level of Socketed Gems"], "generic": "# to Level of Socketed Gems", "line": "7 to Level of Socketed Gems"}
+{"candidates": ["#% increased Area of Effect", "7% increased Area of Effect"], "generic": "#% increased Area of Effect", "line": "7% increased Area of Effect"}
+{"candidates": ["#% to Damage over Time Multiplier", "7% to Damage over Time Multiplier"], "generic": "#% to Damage over Time Multiplier", "line": "7% to Damage over Time Multiplier"}
+{"candidates": ["#% Chance to Block (Shields)", "7% Chance to Block (Shields)"], "generic": "#% Chance to Block (Shields)", "line": "7% Chance to Block (Shields)"}
+{"candidates": ["# to Dexterity and Intelligence", "7 to Dexterity and Intelligence"], "generic": "# to Dexterity and Intelligence", "line": "7 to Dexterity and Intelligence"}
+{"candidates": ["# to Strength and Dexterity", "7 to Strength and Dexterity"], "generic": "# to Strength and Dexterity", "line": "7 to Strength and Dexterity"}
+{"candidates": ["#% increased Flask Effect Duration", "7% increased Flask Effect Duration"], "generic": "#% increased Flask Effect Duration", "line": "7% increased Flask Effect Duration"}
+{"candidates": ["#% increased Charges per use", "7% increased Charges per use"], "generic": "#% increased Charges per use", "line": "7% increased Charges per use"}
+{"candidates": ["Regenerate # Mana per second", "Regenerate 7 Mana per second"], "generic": "Regenerate # Mana per second", "line": "Regenerate 7 Mana per second"}
+{"candidates": ["Grants # Life per Enemy Hit", "Grants 7 Life per Enemy Hit"], "generic": "Grants # Life per Enemy Hit", "line": "Grants 7 Life per Enemy Hit"}
+{"candidates": ["Your Maps have #% chance to contain a Smuggler's Cache", "Your Maps have 7% chance to contain a Smuggler's Cache"], "generic": "Your Maps have #% chance to contain a Smuggler's Cache", "line": "Your Maps have 7% chance to contain a Smuggler's Cache"}
+{"candidates": ["#% increased Melee Damage", "7% increased Melee Damage"], "generic": "#% increased Melee Damage", "line": "7% increased Melee Damage"}
+{"candidates": ["#% increased Chaos Damage", "7% increased Chaos Damage"], "generic": "#% increased Chaos Damage", "line": "7% increased Chaos Damage"}
+{"candidates": ["#% increased Monster Cast Speed", "7% increased Monster Cast Speed"], "generic": "#% increased Monster Cast Speed", "line": "7% increased Monster Cast Speed"}
+{"candidates": ["Your Maps have #% chance to contain Alva", "Your Maps have 7% chance to contain Alva"], "generic": "Your Maps have #% chance to contain Alva", "line": "Your Maps have 7% chance to contain Alva"}

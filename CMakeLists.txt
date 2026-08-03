@@ -93,6 +93,7 @@ add_library(ppc_core STATIC
   src/leagues.cpp
   src/util/sha256.cpp
   src/data/index.cpp
+  src/data/stat_normalize.cpp
   $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
@@ -149,6 +150,9 @@ enable_testing()
 function(ppc_add_test name)
   add_executable(${name} tests/${name}.cpp)
   target_link_libraries(${name} PRIVATE ppc_core doctest::doctest)
+  # Fixtures live beside the sources so tests do not depend on the working directory.
+  target_compile_definitions(${name} PRIVATE
+    PPC_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
   # doctest 2.4.12 includes <ciso646>, which libstdc++ warns about under C++20.
   # Quoted: an unquoted '#' starts a CMake comment and eats the closing paren.
   if(NOT MSVC)
@@ -162,3 +166,4 @@ ppc_add_test(account_name_test)
 ppc_add_test(leagues_test)
 ppc_add_test(hash_test)
 ppc_add_test(index_test)
+ppc_add_test(normalize_test)
