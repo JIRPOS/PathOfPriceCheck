@@ -1,0 +1,3 @@
+// Windows executable icon. Configured into the build tree so the path resolves
+// without adding an rc include directory.
+1 ICON "@PPC_ICO_PATH@"

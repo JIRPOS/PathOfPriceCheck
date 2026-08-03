@@ -1,0 +1,16 @@
+# Git for Windows defaults to core.autocrlf=true — the GitHub runners included — so without
+# this the whole tree checks out CRLF there.
+* text=auto eol=lf
+
+# Load-bearing, not cosmetic: the byte offsets published in the .index.bin files address the
+# ndjson exactly as the data builder wrote it, so one extra byte per line shifts every record
+# and every lookup lands mid-JSON. It fails as null lookups, not as a diff. Spelled out rather
+# than left to text=auto so it holds even for a fixture git guesses is binary, and so a CRLF
+# copy is normalized on the way in instead of committed.
+tests/data/**/*.ndjson text eol=lf
+tests/data/**/*.json   text eol=lf
+
+*.bin  binary
+*.png  binary
+*.ico  binary
+*.ttf  binary

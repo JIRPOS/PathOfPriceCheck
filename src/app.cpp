@@ -8,6 +8,10 @@
 #include <SDL3/SDL_main.h>
 #include <imgui.h>
 
+#include "data/install.hpp"
+#include "icon.hpp"
+#include "net/http.hpp"
+#include "paths.hpp"
 #include "platform/clipboard.hpp"
 #include "platform/foreground.hpp"
 #include "platform/input_sim.hpp"
@@ -86,13 +90,36 @@ int App::run() {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return 1;
     }
-    user_event_ = SDL_RegisterEvents(1);
+    // SDL hands back a contiguous range, so the offsets are guaranteed.
+    const uint32_t event_base = SDL_RegisterEvents(3);
+    if (!event_base) {
+        SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+    hotkey_event_ = event_base;
+    league_event_ = event_base + 1;
+    data_event_ = event_base + 2;
+
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
         SDL_Quit();
         return 1;
     }
-    init_tray();
+    SDL_Surface* icon = load_app_icon();
+    if (icon) SDL_SetWindowIcon(overlay_.window(), icon);
+    init_tray(icon);
+    if (icon) SDL_DestroySurface(icon);
+
+    net::init();
+    leagues_.init(league_event_);
+    leagues_.load_cache(); // file read only; the network is touched when Settings opens
+
+    // Reclaim superseded bundles and map the installed one before anything else can hold a
+    // mapping — on Windows a mapped directory cannot be removed.
+    updater_.init(cache_dir() / "data", data_event_);
+    data_ = updater_.load_installed();
+    updater_.start_check(); // background; the panel degrades gracefully until it lands
 
     hotkeys_ = HotkeyListener::create([this](Action a) { on_hotkey(a); });
     rebind_hotkeys();
@@ -145,20 +172,16 @@ int App::run() {
 
     if (tray_) SDL_DestroyTray(tray_);
     hotkeys_.reset();
+    leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
+    updater_.shutdown();
+    net::shutdown();
     overlay_.shutdown();
     SDL_Quit();
     return 0;
 }
 
-bool App::init_tray() {
-    SDL_Surface* icon = SDL_CreateSurface(32, 32, SDL_PIXELFORMAT_RGBA32);
-    if (icon) {
-        SDL_FillSurfaceRect(icon, nullptr, SDL_MapSurfaceRGB(icon, 32, 32, 38));
-        SDL_Rect inner{5, 5, 22, 22};
-        SDL_FillSurfaceRect(icon, &inner, SDL_MapSurfaceRGB(icon, 201, 158, 74)); // PoE-ish gold
-    }
+bool App::init_tray(SDL_Surface* icon) {
     tray_ = SDL_CreateTray(icon, "PathOfPriceCheck");
-    if (icon) SDL_DestroySurface(icon);
     if (!tray_) {
         SDL_Log("tray unavailable (no system tray host?)");
         return false;
@@ -171,7 +194,7 @@ bool App::init_tray() {
 
 void App::on_hotkey(Action a) {
     SDL_Event ev{};
-    ev.type = user_event_;
+    ev.type = hotkey_event_;
     ev.user.code = static_cast<int32_t>(a);
     SDL_PushEvent(&ev);
 }
@@ -179,8 +202,12 @@ void App::on_hotkey(Action a) {
 void App::handle_event(const SDL_Event& e) {
     if (e.type == SDL_EVENT_QUIT) {
         running_ = false;
-    } else if (e.type == user_event_) {
+    } else if (e.type == hotkey_event_) {
         handle_action(static_cast<Action>(e.user.code));
+    } else if (e.type == league_event_) {
+        leagues_.on_done(e);
+    } else if (e.type == data_event_) {
+        if (auto gd = updater_.take_ready_bundle()) data_ = std::move(gd);
     } else if (e.type == SDL_EVENT_KEY_DOWN && capturing_) {
         if (e.key.key == SDLK_ESCAPE) {
             end_capture(); // cancel capture, don't bind Escape
@@ -395,10 +422,14 @@ void App::set_screen(Screen s) {
     }
     // Settings needs keyboard focus immediately (text fields); price-check grabs it only
     // after the copy (see handle_action). Closing hands focus back to the game.
-    if (s == Screen::Settings)
+    if (s == Screen::Settings) {
         overlay_take_keyboard_focus(overlay_.window());
-    else if (s == Screen::Hidden && overlay_.has_focus())
+        // TTL-gated, so a warm cache makes this a no-op. A user who never opens Settings
+        // never makes a network request at all.
+        leagues_.refresh(false);
+    } else if (s == Screen::Hidden && overlay_.has_focus()) {
         focus_game_window(config_.poe_window_title); // only hand back focus we actually took
+    }
     need_redraw_ = true;
 }
 

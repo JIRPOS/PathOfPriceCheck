@@ -1,31 +1,28 @@
 #include "config.hpp"
 
-#include <cstdlib>
-#include <filesystem>
+#include <cctype>
 #include <fstream>
 
 #include <nlohmann/json.hpp>
 
-namespace fs = std::filesystem;
+#include "paths.hpp"
+
 using json = nlohmann::json;
 
 namespace ppc {
 
-static fs::path config_dir() {
-#ifdef _WIN32
-    const char* appdata = std::getenv("APPDATA");
-    fs::path base = appdata ? fs::path(appdata) : fs::path(".");
-#else
-    const char* xdg = std::getenv("XDG_CONFIG_HOME");
-    fs::path base;
-    if (xdg && *xdg) {
-        base = xdg;
-    } else {
-        const char* home = std::getenv("HOME");
-        base = fs::path(home ? home : ".") / ".config";
-    }
-#endif
-    return base / "PathOfPriceCheck";
+// Hand-rolled rather than <regex>, which costs ~100KB of binary and seconds of compile
+// time for a pattern this trivial.
+NameCheck check_account_name(std::string_view s) {
+    if (s.empty()) return NameCheck::Empty;
+    const size_t hash = s.find('#');
+    if (hash == std::string_view::npos || hash == 0 || hash + 1 == s.size())
+        return NameCheck::Malformed;
+    for (char ch : s.substr(0, hash))
+        if (!std::isalnum(static_cast<unsigned char>(ch))) return NameCheck::Malformed;
+    for (char ch : s.substr(hash + 1))
+        if (!std::isdigit(static_cast<unsigned char>(ch))) return NameCheck::Malformed;
+    return NameCheck::Ok;
 }
 
 std::string Config::path() { return (config_dir() / "config.json").string(); }
@@ -55,8 +52,7 @@ Config Config::load() {
 }
 
 bool Config::save() const {
-    std::error_code ec;
-    fs::create_directories(config_dir(), ec);
+    ensure_dir(config_dir());
     json j;
     j["league"] = league;
     j["account_name"] = account_name;

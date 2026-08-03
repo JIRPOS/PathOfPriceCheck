@@ -1,5 +1,6 @@
 #include "screens/pricecheck_screen.hpp"
 
+#include <memory>
 #include <string>
 
 #include <imgui.h>
@@ -21,6 +22,22 @@ void draw_pricecheck_screen(App& app) {
     ImGui::SameLine(ImGui::GetWindowWidth() - 34);
     if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
     ImGui::Separator();
+
+    // Copy the snapshot once: the updater can swap the bundle in from its own thread
+    // between two reads, and the second would dangle.
+    const std::shared_ptr<data::GameData> gd = app.game_data();
+    if (!gd) {
+        const data::DataUpdater::Status st = app.data_status();
+        if (st.state == data::DataUpdater::State::Failed)
+            ImGui::TextColored(ImVec4(0.90f, 0.55f, 0.25f, 1.0f),
+                               "Pricing data unavailable (%s)", st.error.c_str());
+        else if (st.bytes_total)
+            ImGui::TextDisabled("Pricing data is downloading (%.1f / %.1f MB)\xe2\x80\xa6",
+                                st.bytes_done / 1e6, st.bytes_total / 1e6);
+        else
+            ImGui::TextDisabled("Pricing data is downloading\xe2\x80\xa6");
+        ImGui::Separator();
+    }
 
     const std::string& clip = app.clipboard_text();
     if (app.copy_late()) {

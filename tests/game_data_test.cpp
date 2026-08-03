@@ -1,0 +1,140 @@
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest/doctest.h>
+
+#include <string>
+
+#include "data/game_data.hpp"
+#include "data/stat_normalize.hpp"
+
+namespace fs = std::filesystem;
+using namespace ppc::data;
+
+namespace {
+
+/// A committed slice of a real bundle — small enough to read in a diff, real enough that
+/// the record shapes are the ones the builder actually emits.
+std::shared_ptr<GameData> fixture() {
+    std::string err;
+    auto gd = GameData::open(fs::path(PPC_TEST_DATA_DIR) / "bundle", "en", &err);
+    REQUIRE_MESSAGE(gd != nullptr, "opening the fixture bundle failed: " << err);
+    return gd;
+}
+
+} // namespace
+
+TEST_CASE("open reports what is missing rather than crashing") {
+    std::string err;
+    CHECK(GameData::open(fs::path(PPC_TEST_DATA_DIR) / "no-such-bundle", "en", &err) == nullptr);
+    CHECK_FALSE(err.empty());
+}
+
+TEST_CASE("a plain stat resolves to its trade hash") {
+    auto gd = fixture();
+    const Stat* s = gd->find_stat("# to maximum Life", ModType::Explicit);
+    REQUIRE(s != nullptr);
+    CHECK(s->ref == "# to maximum Life");
+    CHECK(s->trade_ids(ModType::Explicit) ==
+          std::vector<std::string>{"explicit.stat_3299347043"});
+    // The same underlying stat is indexed separately per namespace.
+    CHECK(s->trade_ids(ModType::Implicit) ==
+          std::vector<std::string>{"implicit.stat_3299347043"});
+}
+
+TEST_CASE("mod type picks between namespaces of one wording") {
+    auto gd = fixture();
+    const Stat* e = gd->find_stat("#% increased Physical Damage", ModType::Explicit);
+    REQUIRE(e != nullptr);
+    CHECK(e->trade_ids(ModType::Explicit).front() == "explicit.stat_1509134228");
+    CHECK(e->trade_ids(ModType::Crafted).front() == "crafted.stat_1509134228");
+}
+
+TEST_CASE("negate and fixed-value wordings reach the same record") {
+    auto gd = fixture();
+    const Stat* inc = gd->find_stat("#% increased Physical Damage", ModType::Explicit);
+    const Stat* red = gd->find_stat("#% reduced Physical Damage", ModType::Explicit);
+    const Stat* none = gd->find_stat("No Physical Damage", ModType::Explicit);
+    REQUIRE(inc != nullptr);
+    CHECK(red == inc);
+    CHECK(none == inc);
+
+    // ...and each wording carries how it should be interpreted.
+    const StatMatcher* m_red = inc->matcher_for("#% reduced Physical Damage");
+    REQUIRE(m_red != nullptr);
+    CHECK(m_red->negate);
+
+    const StatMatcher* m_none = inc->matcher_for("No Physical Damage");
+    REQUIRE(m_none != nullptr);
+    REQUIRE(m_none->value.has_value());
+    CHECK(*m_none->value == doctest::Approx(-100.0));
+
+    const StatMatcher* m_inc = inc->matcher_for("#% increased Physical Damage");
+    REQUIRE(m_inc != nullptr);
+    CHECK_FALSE(m_inc->negate);
+    CHECK_FALSE(m_inc->value.has_value());
+}
+
+TEST_CASE("a wording the bundle does not have returns null") {
+    auto gd = fixture();
+    CHECK(gd->find_stat("#% increased Nonsense", ModType::Explicit) == nullptr);
+    CHECK(gd->find_stats("#% increased Nonsense").empty());
+}
+
+TEST_CASE("asking for a namespace the stat is not searchable in returns null") {
+    auto gd = fixture();
+    // maximum Life is not an enchantment.
+    CHECK(gd->find_stat("# to maximum Life", ModType::Enchant) == nullptr);
+}
+
+TEST_CASE("lookup by canonical wording") {
+    auto gd = fixture();
+    const Stat* s = gd->find_stat_by_ref("# to maximum Life");
+    REQUIRE(s != nullptr);
+    CHECK(s->ref == "# to maximum Life");
+    CHECK(gd->find_stat_by_ref("nothing at all") == nullptr);
+}
+
+TEST_CASE("base types carry what disambiguates them") {
+    auto gd = fixture();
+    const auto rings = gd->find_bases(Namespace::Item, "Two-Stone Ring");
+    REQUIRE_FALSE(rings.empty());
+    CHECK(rings.front()->category == "Rings");
+
+    // Two-Toned Boots is the family that can only be told apart by which defences it rolls.
+    const auto boots = gd->find_bases(Namespace::Item, "Two-Toned Boots");
+    REQUIRE_FALSE(boots.empty());
+    CHECK(boots.front()->evasion.has_value());
+    CHECK(boots.front()->energy_shield.has_value());
+    CHECK_FALSE(boots.front()->armour.has_value());
+}
+
+TEST_CASE("uniques record the base they roll on") {
+    auto gd = fixture();
+    const auto u = gd->find_bases(Namespace::Unique, "Abberath's Hooves");
+    REQUIRE_FALSE(u.empty());
+    CHECK(u.front()->unique_base == "Goathide Boots");
+}
+
+TEST_CASE("the namespace is part of the key") {
+    auto gd = fixture();
+    // A unique name must not resolve as a plain base.
+    CHECK(gd->find_bases(Namespace::Item, "Abberath's Hooves").empty());
+}
+
+TEST_CASE("Item Class maps to a trade category") {
+    auto gd = fixture();
+    CHECK(gd->trade_category_for("Rings") == "accessory.ring");
+    CHECK(gd->trade_category_for("Body Armours") == "armour.chest");
+    // An unknown class is not an error; it just does not constrain the search.
+    CHECK(gd->trade_category_for("Nonexistent Class").empty());
+}
+
+TEST_CASE("normalizer output feeds straight into lookup") {
+    auto gd = fixture();
+    // The end-to-end path the parser will take: clipboard line -> candidates -> stat.
+    const Stat* found = nullptr;
+    for (const std::string& c : candidates("+42 to maximum Life")) {
+        if ((found = gd->find_stat(c, ModType::Explicit))) break;
+    }
+    REQUIRE(found != nullptr);
+    CHECK(found->trade_ids(ModType::Explicit).front() == "explicit.stat_3299347043");
+}
