@@ -302,4 +302,6 @@ what `ppc_core` is for.
 
 `tests/data/stat-normalization-vectors.ndjson` and `tests/data/bundle/` are slices of a real data
 release, committed so the suite runs offline. Refresh them from a built bundle in the data repo when
-its schema changes.
+its schema changes. Keep the ndjson **LF and byte-exact** — the `.index.bin` files address it by
+byte offset, so one extra byte per line silently shifts every record out from under every lookup.
+`.gitattributes` pins that down; do not remove those entries.
