@@ -1,0 +1,39 @@
+Item Class: Body Armours
+Rarity: Rare
+Rift Carapace
+Twilight Regalia
+--------
+Quality: +20% (augmented)
+Energy Shield: 1003 (augmented)
+Intangibility: 31%
+--------
+Requirements:
+Level: 84
+Str: 70 (unmet)
+Dex: 111 (unmet)
+Int: 293 (unmet)
+--------
+Sockets: B-W-W-W-B-W 
+--------
+Item Level: 84
+--------
+{ Searing Exarch Implicit Modifier (Lesser) }
++20(20-21)% to Critical Strike Multiplier for Spell Damage
+{ Eater of Worlds Implicit Modifier (Lesser) — Physical, Chaos }
+10% of Physical Damage from Hits taken as Chaos Damage
+--------
+{ Prefix Modifier "Incandescent" (Tier: 2) — Defences, Energy Shield }
++86(77-90) to maximum Energy Shield
+{ Prefix Modifier "Indomitable" (Tier: 3) — Defences, Energy Shield }
+87(80-91)% increased Energy Shield
+{ Prefix Modifier "Seraphim's" (Tier: 1) — Defences, Energy Shield }
+42(39-42)% increased Energy Shield
+16(16-17)% increased Stun and Block Recovery
+{ Suffix Modifier "of Ephij" (Tier: 1) — Elemental, Lightning, Resistance }
++46(46-48)% to Lightning Resistance
+{ Suffix Modifier "of Tzteosh" (Tier: 1) — Elemental, Fire, Resistance }
++48(46-48)% to Fire Resistance
+{ Suffix Modifier "of Galvanising" (Tier: 3) — Defences, Energy Shield }
+45(43-50)% faster start of Energy Shield Recharge
+Searing Exarch Item
+Eater of Worlds Item

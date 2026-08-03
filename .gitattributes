@@ -12,5 +12,6 @@ tests/data/**/*.json   text eol=lf
 
 *.bin  binary
 *.png  binary
+*.jpeg binary
 *.ico  binary
 *.ttf  binary

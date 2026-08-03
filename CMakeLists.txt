@@ -117,6 +117,11 @@ add_library(ppc_core STATIC
   src/data/stat_matcher.cpp
   src/data/manifest.cpp
   src/data/install.cpp
+  src/item/item.cpp
+  src/item/parse.cpp
+  src/item/resolve.cpp
+  src/item/derive.cpp
+  src/item/plan.cpp
   $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
@@ -134,7 +139,8 @@ set(APP_SOURCES
   src/net/http.cpp
   src/platform/keymap_sdl.cpp
   src/screens/settings_screen.cpp
-  src/screens/pricecheck_screen.cpp)
+  src/screens/pricecheck_screen.cpp
+  src/screens/item_view.cpp)
 if(WIN32)
   list(APPEND APP_SOURCES
     src/platform/hotkeys_win.cpp src/platform/foreground_win.cpp src/platform/input_sim_win.cpp
@@ -200,3 +206,5 @@ ppc_add_test(normalize_test)
 ppc_add_test(game_data_test)
 ppc_add_test(stat_matcher_test)
 ppc_add_test(install_test)
+ppc_add_test(item_parse_test)
+ppc_add_test(item_pricing_test)

@@ -1,0 +1,24 @@
+Item Class: Two Hand Maces
+Rarity: Magic
+Piledriver of the Brute
+--------
+Two Handed Mace
+Physical Damage: 77-115
+Critical Strike Chance: 5.00%
+Attacks per Second: 1.35
+Weapon Range: 1.3 metres
+--------
+Requirements:
+Level: 61
+Str: 212 (unmet)
+--------
+Sockets: B-R 
+--------
+Item Level: 70
+--------
+{ Implicit Modifier }
+20% reduced Enemy Stun Threshold
+(The Stun Threshold determines how much Damage can Stun something)
+--------
+{ Suffix Modifier "of the Brute" (Tier: 9) — Attribute }
++11(8-12) to Strength

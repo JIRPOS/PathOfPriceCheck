@@ -1,0 +1,31 @@
+Item Class: Thrusting One Hand Swords
+Rarity: Rare
+Sorrow Saw
+Wyrmbone Rapier
+--------
+One Handed Sword
+Physical Damage: 25-98 (augmented)
+Elemental Damage: 23-42 (augmented), 3-50 (augmented)
+Critical Strike Chance: 5.00%
+Attacks per Second: 1.79 (augmented)
+Weapon Range: 1.3 metres
+--------
+Requirements:
+Level: 43 (gem)
+Str: 98 (gem)
+Dex: 122
+--------
+Sockets: R-G-B
+--------
+Item Level: 67
+--------
++20% to Global Critical Strike Multiplier (implicit)
+--------
+128% increased Physical Damage
+Adds 23 to 42 Fire Damage
+Adds 3 to 50 Lightning Damage
+15% increased Attack Speed
++24% to Global Critical Strike Multiplier
+7% reduced Enemy Stun Threshold
+--------
+Has Vampiric Weapon Effect

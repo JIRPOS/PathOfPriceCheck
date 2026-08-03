@@ -23,6 +23,10 @@ struct StatMatch {
     ModType mod_type = ModType::Explicit;
 
     std::vector<double> rolls;      ///< one per '#' that survived in the matched wording
+    /// Per-roll Advanced Mod Descriptions bounds, parallel to `rolls`; empty when the game
+    /// printed none. Kept per roll because a mod's numbers do not share a range — "Adds
+    /// 5(4-6) to 12(10-14)" is filtered on the average of the two, not on 4..14.
+    std::vector<std::pair<double, double>> roll_bounds;
     double value = 0;               ///< the filter roll; the mean for a two-number mod
     std::optional<double> min, max; ///< bounds, sign-corrected and ordered
 

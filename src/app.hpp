@@ -4,9 +4,13 @@
 #include <memory>
 #include <string>
 
+#include <optional>
+
 #include "config.hpp"
 #include "data/game_data.hpp"
 #include "data/updater.hpp"
+#include "item/derive.hpp"
+#include "item/plan.hpp"
 #include "league_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
@@ -41,6 +45,15 @@ public:
     data::DataUpdater::Status data_status() const { return updater_.status(); }
     void check_for_data() { updater_.start_check(); }
 
+    /// The item the current price check is about, or null while there is none. Valid until
+    /// the next price check: it points into the bundle snapshot `item_data_` pins.
+    const item::Item* item() const { return item_ ? &*item_ : nullptr; }
+    const item::Derived& derived() const { return derived_; }
+    item::SearchPlan& plan() { return plan_; }
+    /// Re-derive the plan for a different pricing strategy — a rare is sometimes worth more
+    /// as a base than as its rolls, and only the user knows which they meant.
+    void set_strategy(item::Strategy s);
+
     void begin_capture(Action which);        ///< next key press rebinds this action
     bool capturing(Action which) const { return capturing_ && capture_which_ == which; }
     void apply_and_save_config();            ///< persist config + re-register hotkeys
@@ -53,6 +66,8 @@ private:
     void handle_action(Action a);            ///< handled on the main thread
     void end_capture();                      ///< stop capturing and re-grab hotkeys
     void poll_pending_copy();                ///< fill the price-check text once the copy lands
+    void accept_clipboard(std::string text); ///< take item text: parse, resolve, plan
+    void rebuild_plan();                     ///< re-resolve and re-plan the item in hand
     void poll_click_away();                  ///< dismiss price-check on a click outside it
     void update_overlay_placement();         ///< track the game window; move the overlay over it
     void place_overlay();                    ///< size + position the overlay for the current screen
@@ -66,6 +81,14 @@ private:
     LeagueService leagues_;
     data::DataUpdater updater_;
     std::shared_ptr<data::GameData> data_;
+    /// The snapshot the item in hand was resolved against. Held separately from `data_`
+    /// because the updater can swap that out mid-price-check, and the item points into the
+    /// bundle it was resolved with.
+    std::shared_ptr<data::GameData> item_data_;
+    std::optional<item::Item> item_;
+    item::Derived derived_;
+    item::SearchPlan plan_;
+    std::optional<item::Strategy> strategy_override_; ///< the user's choice, until the next item
     std::unique_ptr<HotkeyListener> hotkeys_;
     SDL_Tray* tray_ = nullptr;
     Screen screen_ = Screen::Hidden;
