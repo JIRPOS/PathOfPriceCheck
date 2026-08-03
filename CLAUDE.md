@@ -155,6 +155,11 @@ A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay
 the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev.
 
+**Icon** (`src/icon.cpp`): `assets/popc_icon.png` embedded as a base85 blob in the generated
+`src/icon_data.inc` and decoded at startup with SDL3's own `SDL_LoadPNG_IO` — no image library, no
+runtime asset. One surface feeds both the tray and `SDL_SetWindowIcon`. The Windows executable icon
+is separate: `assets/popc_icon.ico` via an `.rc` resource configured from `assets/app.rc.in`.
+
 **Fonts** (`src/fonts.cpp`): the UI renders in **Fontin**, the typeface the game itself uses. Four
 faces (Regular/Bold/Italic/SmallCaps) are embedded in the executable as base85 blobs in the generated
 `src/fontin_data.inc` — no runtime asset dependency. Regular is the default; Bold marks panel headers;
@@ -271,7 +276,9 @@ every push/PR — trust it for the Win32 platform code, which can't be compiled 
 
 The bundled font data is committed, so a normal build needs nothing extra. To change the typeface:
 `./scripts/fetch-fonts.sh` (downloads the TTFs into the gitignored `assets/fonts/`) then
-`./scripts/gen-font-data.sh` (rewrites `src/fontin_data.inc`).
+`./scripts/gen-font-data.sh` (rewrites `src/fontin_data.inc`). The icon is the same deal — after
+changing `assets/popc_icon.png`, run `./scripts/gen-icon-data.sh` (rewrites `src/icon_data.inc` and
+`assets/popc_icon.ico`; needs ImageMagick for the latter).
 
 `-fsanitize=address,undefined` for debug builds is not wired into CMake yet; pass it by hand:
 

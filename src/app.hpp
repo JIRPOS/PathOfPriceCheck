@@ -11,6 +11,7 @@
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
 
+struct SDL_Surface;
 struct SDL_Tray;
 union SDL_Event;
 
@@ -58,7 +59,7 @@ private:
     Side cursor_side() const;                ///< which half of the game window the mouse is in
     void set_screen(Screen s);
     void rebind_hotkeys();
-    bool init_tray();
+    bool init_tray(SDL_Surface* icon);
 
     Config config_ = Config::load();
     Overlay overlay_;

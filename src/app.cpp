@@ -9,6 +9,7 @@
 #include <imgui.h>
 
 #include "data/install.hpp"
+#include "icon.hpp"
 #include "net/http.hpp"
 #include "paths.hpp"
 #include "platform/clipboard.hpp"
@@ -105,7 +106,10 @@ int App::run() {
         SDL_Quit();
         return 1;
     }
-    init_tray();
+    SDL_Surface* icon = load_app_icon();
+    if (icon) SDL_SetWindowIcon(overlay_.window(), icon);
+    init_tray(icon);
+    if (icon) SDL_DestroySurface(icon);
 
     net::init();
     leagues_.init(league_event_);
@@ -176,15 +180,8 @@ int App::run() {
     return 0;
 }
 
-bool App::init_tray() {
-    SDL_Surface* icon = SDL_CreateSurface(32, 32, SDL_PIXELFORMAT_RGBA32);
-    if (icon) {
-        SDL_FillSurfaceRect(icon, nullptr, SDL_MapSurfaceRGB(icon, 32, 32, 38));
-        SDL_Rect inner{5, 5, 22, 22};
-        SDL_FillSurfaceRect(icon, &inner, SDL_MapSurfaceRGB(icon, 201, 158, 74)); // PoE-ish gold
-    }
+bool App::init_tray(SDL_Surface* icon) {
     tray_ = SDL_CreateTray(icon, "PathOfPriceCheck");
-    if (icon) SDL_DestroySurface(icon);
     if (!tray_) {
         SDL_Log("tray unavailable (no system tray host?)");
         return false;

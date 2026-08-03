@@ -108,6 +108,7 @@ set(APP_SOURCES
   src/main.cpp
   src/app.cpp
   src/fonts.cpp
+  src/icon.cpp
   src/overlay.cpp
   src/league_service.cpp
   src/data/updater.cpp
@@ -119,6 +120,11 @@ if(WIN32)
   list(APPEND APP_SOURCES
     src/platform/hotkeys_win.cpp src/platform/foreground_win.cpp src/platform/input_sim_win.cpp
     src/platform/overlay_native_win.cpp src/platform/clipboard_win.cpp)
+  # Explorer/taskbar icon for the .exe; the tray and window icons come from src/icon.cpp.
+  enable_language(RC)
+  set(PPC_ICO_PATH "${CMAKE_SOURCE_DIR}/assets/popc_icon.ico")
+  configure_file(assets/app.rc.in "${CMAKE_BINARY_DIR}/app.rc" @ONLY)
+  list(APPEND APP_SOURCES "${CMAKE_BINARY_DIR}/app.rc")
 else()
   list(APPEND APP_SOURCES
     src/platform/hotkeys_x11.cpp src/platform/foreground_x11.cpp src/platform/input_sim_x11.cpp
