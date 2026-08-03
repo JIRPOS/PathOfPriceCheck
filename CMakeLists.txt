@@ -96,6 +96,8 @@ add_library(ppc_core STATIC
   src/data/stat_normalize.cpp
   src/data/game_data.cpp
   src/data/stat_matcher.cpp
+  src/data/manifest.cpp
+  src/data/install.cpp
   $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
@@ -171,3 +173,4 @@ ppc_add_test(index_test)
 ppc_add_test(normalize_test)
 ppc_add_test(game_data_test)
 ppc_add_test(stat_matcher_test)
+ppc_add_test(install_test)
