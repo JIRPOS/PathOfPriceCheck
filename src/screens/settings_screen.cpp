@@ -111,6 +111,59 @@ void league_row(App& app, Config& c) {
     }
 }
 
+void data_row(App& app) {
+    using State = data::DataUpdater::State;
+    const data::DataUpdater::Status st = app.data_status();
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Bundle");
+    ImGui::SameLine(kLabelW);
+
+    const bool busy = st.state == State::Checking || st.state == State::Downloading ||
+                      st.state == State::Installing;
+    switch (st.state) {
+    case State::Downloading:
+        if (st.bytes_total)
+            ImGui::Text("Downloading %.1f / %.1f MB", st.bytes_done / 1e6, st.bytes_total / 1e6);
+        else
+            ImGui::TextUnformatted("Downloading\xe2\x80\xa6");
+        break;
+    case State::Checking:
+        ImGui::TextUnformatted("Checking for updates\xe2\x80\xa6");
+        break;
+    case State::Installing:
+        ImGui::TextUnformatted("Installing\xe2\x80\xa6");
+        break;
+    case State::Failed:
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextColored(kWarn, "%s (%s)",
+                           st.data_version.empty() ? "No data installed" : st.data_version.c_str(),
+                           st.error.c_str());
+        ImGui::PopTextWrapPos();
+        break;
+    default:
+        if (st.data_version.empty())
+            ImGui::TextDisabled("Not downloaded yet");
+        else
+            ImGui::Text("%s", st.data_version.c_str());
+        break;
+    }
+
+    // Right-aligned: the status text left of it varies in width every frame while a
+    // download runs, and a button that slides around is unclickable.
+    constexpr float kCheckW = 110.0f;
+    ImGui::SameLine(ImGui::GetWindowWidth() - kCheckW - 18.0f);
+    ImGui::BeginDisabled(busy);
+    if (ImGui::Button("Check now", ImVec2(kCheckW, 0))) app.check_for_data();
+    ImGui::EndDisabled();
+
+    row_gutter();
+    if (auto gd = app.game_data())
+        ImGui::TextDisabled("%zu stat wordings indexed", gd->stat_count());
+    else
+        ImGui::TextDisabled("Item parsing works without this; pricing needs it.");
+}
+
 /// Discards characters that can never appear in "Name#1234". Rejecting a *keystroke* that
 /// could never be part of a valid value is safe; rejecting a whole-string state is not —
 /// you cannot reach "Foo#1" without passing through the invalid "Foo" and "Foo#".
@@ -161,6 +214,9 @@ void draw_settings_screen(App& app) {
     // overlaps that side's frame; the next price check picks up the change.
     ImGui::SliderFloat(row("Stash edge"), &c.stash_edge, 0.40f, 0.90f, "%.3f");
     ImGui::SliderFloat(row("Inventory edge"), &c.inventory_edge, 0.40f, 0.90f, "%.3f");
+
+    section(app, "Game data");
+    data_row(app);
 
     ImGui::Separator();
     if (ImGui::Button("Save", ImVec2(120, 0))) app.apply_and_save_config();

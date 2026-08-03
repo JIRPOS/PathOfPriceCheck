@@ -8,7 +8,9 @@
 #include <SDL3/SDL_main.h>
 #include <imgui.h>
 
+#include "data/install.hpp"
 #include "net/http.hpp"
+#include "paths.hpp"
 #include "platform/clipboard.hpp"
 #include "platform/foreground.hpp"
 #include "platform/input_sim.hpp"
@@ -87,8 +89,8 @@ int App::run() {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return 1;
     }
-    // SDL hands back a contiguous range, so the +1 is guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(2);
+    // SDL hands back a contiguous range, so the offsets are guaranteed.
+    const uint32_t event_base = SDL_RegisterEvents(3);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -96,6 +98,7 @@ int App::run() {
     }
     hotkey_event_ = event_base;
     league_event_ = event_base + 1;
+    data_event_ = event_base + 2;
 
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
@@ -107,6 +110,12 @@ int App::run() {
     net::init();
     leagues_.init(league_event_);
     leagues_.load_cache(); // file read only; the network is touched when Settings opens
+
+    // Reclaim superseded bundles and map the installed one before anything else can hold a
+    // mapping — on Windows a mapped directory cannot be removed.
+    updater_.init(cache_dir() / "data", data_event_);
+    data_ = updater_.load_installed();
+    updater_.start_check(); // background; the panel degrades gracefully until it lands
 
     hotkeys_ = HotkeyListener::create([this](Action a) { on_hotkey(a); });
     rebind_hotkeys();
@@ -160,6 +169,7 @@ int App::run() {
     if (tray_) SDL_DestroyTray(tray_);
     hotkeys_.reset();
     leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
+    updater_.shutdown();
     net::shutdown();
     overlay_.shutdown();
     SDL_Quit();
@@ -199,6 +209,8 @@ void App::handle_event(const SDL_Event& e) {
         handle_action(static_cast<Action>(e.user.code));
     } else if (e.type == league_event_) {
         leagues_.on_done(e);
+    } else if (e.type == data_event_) {
+        if (auto gd = updater_.take_ready_bundle()) data_ = std::move(gd);
     } else if (e.type == SDL_EVENT_KEY_DOWN && capturing_) {
         if (e.key.key == SDLK_ESCAPE) {
             end_capture(); // cancel capture, don't bind Escape

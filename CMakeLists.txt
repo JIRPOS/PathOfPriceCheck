@@ -110,6 +110,7 @@ set(APP_SOURCES
   src/fonts.cpp
   src/overlay.cpp
   src/league_service.cpp
+  src/data/updater.cpp
   src/net/http.cpp
   src/platform/keymap_sdl.cpp
   src/screens/settings_screen.cpp

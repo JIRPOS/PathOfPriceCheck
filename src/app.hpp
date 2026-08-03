@@ -5,6 +5,8 @@
 #include <string>
 
 #include "config.hpp"
+#include "data/game_data.hpp"
+#include "data/updater.hpp"
 #include "league_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
@@ -32,6 +34,11 @@ public:
     bool copy_late() const { return copy_late_; } ///< the copy is overdue; still watching for it
     const LeagueService& leagues() const { return leagues_; }
     void refresh_leagues() { leagues_.refresh(true); }
+    /// The loaded bundle, or null while none is installed. Renderers must copy the
+    /// shared_ptr once per frame — a mid-frame swap would otherwise dangle.
+    std::shared_ptr<data::GameData> game_data() const { return data_; }
+    data::DataUpdater::Status data_status() const { return updater_.status(); }
+    void check_for_data() { updater_.start_check(); }
 
     void begin_capture(Action which);        ///< next key press rebinds this action
     bool capturing(Action which) const { return capturing_ && capture_which_ == which; }
@@ -56,6 +63,8 @@ private:
     Config config_ = Config::load();
     Overlay overlay_;
     LeagueService leagues_;
+    data::DataUpdater updater_;
+    std::shared_ptr<data::GameData> data_;
     std::unique_ptr<HotkeyListener> hotkeys_;
     SDL_Tray* tray_ = nullptr;
     Screen screen_ = Screen::Hidden;
@@ -82,6 +91,7 @@ private:
     // silently swallow an async result whenever PoE isn't in front.
     uint32_t hotkey_event_ = 0; ///< carries an Action, pushed from the hotkey thread
     uint32_t league_event_ = 0; ///< carries a LeagueService::Result*
+    uint32_t data_event_ = 0;   ///< the data updater changed state
 
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry
