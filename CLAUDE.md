@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-**Greenfield / not yet scaffolded.** As of this writing the repo is empty — this document is the
-architectural plan agreed with the maintainer, not a description of existing code. When you scaffold
-files, keep this file in sync with reality (replace "planned" sections with real commands/paths).
+The overlay, Settings, the league list and the **static game-data layer** are built and tested. The
+**item parser is the next piece of work** — the data it needs is in place and documented below.
+
+Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
 ## What this is
 
@@ -26,9 +27,15 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
   **SDL3 + OpenGL** window. (SDL3, not SDL2 — first-class transparent/always-on-top window flags and a
   smoother Wayland path later. True transparency + click-through is a later step; today it's an opaque
   panel.)
-- **Dependencies:** CMake **FetchContent** builds SDL3 + ImGui + nlohmann/json from source (pinned
-  tags in `CMakeLists.txt`), so CI needs no system packages beyond Linux dev headers (see Build).
-- **HTTP (later):** libcurl. **JSON:** nlohmann/json. **Clipboard:** a platform seam of our own
+- **Dependencies:** CMake **FetchContent** builds SDL3 + ImGui + nlohmann/json + doctest from source
+  (pinned tags in `CMakeLists.txt`), so CI needs no system packages beyond Linux dev headers and
+  libcurl (see Build).
+- **Game data:** never baked into the binary. Built and published by the separate public repo
+  **[JIRPOS/PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data)** and downloaded
+  at runtime, so a new league needs a data build rather than a new release.
+- **HTTP:** libcurl behind `src/net/http.hpp`. System package where one exists; a static
+  Schannel build via FetchContent on Windows, so the release stays a single `.exe` with no DLL
+  beside it. **JSON:** nlohmann/json. **Tests:** doctest. **Clipboard:** a platform seam of our own
   (`platform/clipboard.hpp`) — SDL3's `SDL_GetClipboardText()` was tried and abandoned, see below.
 - **Cross-platform target:** Windows + Linux **X11 first**. Wayland is a later stretch goal — it
   blocks arbitrary global hotkeys and click-through overlays without compositor portals / evdev
@@ -131,6 +138,19 @@ both default to **0.615**; they stay separate knobs only because GGG moves the U
 They and `panel_width` are sliders in Settings, which is how to set them: eyeballing them off a
 screenshot is not accurate to the pixel, and two rounds of doing exactly that both missed.
 
+**Settings** lays every row out on one grid via `row()` in `settings_screen.cpp` — ImGui draws a
+control's own label to its *right*, which is why nothing passes a visible label. League is a combo
+fed by `LeagueService` from `/api/trade/data/leagues`, cached 24h under `cache_dir()`; the payload
+repeats each id per realm so it is filtered to `pc`, hardcoded because this binary can only be
+driven by a PC client. Two invariants: the dropdown is never empty (fallback → cache → fetch), and
+the configured league is never lost — it is the combo preview and is appended as a selectable when
+a fetch does not contain it, which is exactly what happens on league-launch day. No request is made
+unless Settings is opened. `poe_window_title` is config-file-only, deliberately not in the UI.
+
+Three SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
+data-updater state. Async results are **not** routed through `Action` — `handle_action()` gates on
+the game being foreground and would silently swallow them whenever PoE is not in front.
+
 A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
 the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev.
@@ -144,8 +164,41 @@ are dynamically scalable, so it's one `ImFont*` per face at any size: `PushFont(
 `$PPC_FONT_DIR` overrides the embedded faces with on-disk TTFs. Fontin's license nominally forbids
 redistribution; bundling it is a deliberate maintainer decision — see `assets/fonts/README.md`.
 
-The parser/pricing modules below are **not built yet** — they're the planned next layers. The
-price-check screen currently just dumps the raw clipboard text where the parser will slot in.
+**`ppc_core`** is the static library holding everything that needs neither a window nor a network,
+so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/`, and all
+of `data/` except the updater. The rule is that `ppc_core` links no SDL3, no ImGui, no X11 and no
+libcurl. Tests use doctest and link only `ppc_core`. The item parser belongs here when it lands.
+
+### Static game data (built)
+
+`src/data/` turns clipboard text into things the trade API understands. It is fed by a bundle
+downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data)**
+— nothing is baked into the binary, so a league only needs a data build.
+
+- **`data/updater`** fetches `releases/latest/download/manifest.json` at startup on a worker thread,
+  downloads and sha256-verifies each asset, installs, and maps it. Deliberately *not* the GitHub
+  API: unauthenticated `api.github.com` allows 60 requests an hour per IP.
+- **`data/install`** writes a fresh `<cache>/data/<version>/` directory and flips a one-line
+  `current` file by rename. **Never write over a live bundle** — Windows will not replace or delete
+  a memory-mapped file. Superseded directories are reclaimed by `prune()` at the next startup,
+  before anything is mapped. `manifest.json` is untrusted input: asset names are restricted to a
+  flat `[A-Za-z0-9._-]`, https is required, and sizes are capped.
+- **`data/game_data`** memory-maps the ndjson and parses records on first hit, so a loaded bundle
+  costs about a megabyte resident and no startup time. Lookups go through published fnv1a32 indices
+  (`data/index`); a hit is a *run*, because colliding keys are kept and re-verified.
+- **`data/stat_normalize`** turns `+42 to maximum Life` into `# to maximum Life` and its fallbacks.
+  **`NORMALIZATION.md` in the data repo is normative** and this must reproduce it exactly — a
+  divergence does not crash, it silently mismatches a mod and returns a confident wrong price.
+  `normalize_test` replays the conformance vectors shipped with every data release.
+- **`data/stat_matcher`** joins clipboard lines into one modifier and resolves it to a stat and a
+  roll. Mod type is the primary disambiguator: explicit/implicit/fractured/crafted/enchant variants
+  share a wording and differ only by trade namespace. Two separate negation concepts —
+  `matcher.negate` (the *wording* is inverse; store the roll canonically) and `trade.inverted` (the
+  *trade site* indexes the opposite sign; applied at query-build time, not here).
+
+### Still to build
+
+The price-check screen currently dumps raw clipboard text where the parser will slot in.
 
 - **Item parser** — the domain core. PoE clipboard text is UTF-8 with sections split by lines of
   `--------`. First section holds `Item Class`, `Rarity`, name, and base type; later sections hold
@@ -160,8 +213,12 @@ price-check screen currently just dumps the raw clipboard text where the parser 
 - **poe.ninja client** — reference pricing for categorized items; see below.
 - **Rate limiter** — a single shared component every outbound GGG request goes through. Non-optional;
   see "Rate limits".
-- **Static data cache** — GGG's stat/item/league metadata, fetched once and cached on disk with a TTL.
 - **Overlay UI** — ImGui panels; presentation only, no network or parsing logic.
+
+The item parser's job is to produce, per modifier, the lines and a `data::MatchContext` (mod type
+plus any Advanced Mod Descriptions roll scaling) and hand them to `data::match_stat`. Section
+splitting, the `{...}` info lines, and the ` (implicit)` / ` (enchant)` / ` (scourge)` suffixes are
+its business; the matcher deliberately knows nothing about clipboard structure.
 
 ## External APIs — the load-bearing domain knowledge
 
@@ -207,7 +264,8 @@ ctest --test-dir build -R <name> -V            # a single test
 
 SDL3 builds from source, so **Linux needs dev headers**: `libx11-dev libxext-dev libxrandr-dev
 libxcursor-dev libxi-dev libxfixes-dev libxkbcommon-dev libwayland-dev wayland-protocols
-libgl1-mesa-dev libegl1-mesa-dev libasound2-dev libpulse-dev libdbus-1-dev libudev-dev` (the CI
+libgl1-mesa-dev libegl1-mesa-dev libasound2-dev libpulse-dev libdbus-1-dev libudev-dev
+libcurl4-openssl-dev` (the CI
 workflows install exactly these). Windows needs only MSVC. The CI still validates the Windows build on
 every push/PR — trust it for the Win32 platform code, which can't be compiled locally here.
 
@@ -215,5 +273,23 @@ The bundled font data is committed, so a normal build needs nothing extra. To ch
 `./scripts/fetch-fonts.sh` (downloads the TTFs into the gitignored `assets/fonts/`) then
 `./scripts/gen-font-data.sh` (rewrites `src/fontin_data.inc`).
 
-`-fsanitize=address,undefined` for debug builds is not wired into CMake yet. The item parser (when it
-lands) must be runnable and tested without any windowing or network dependency.
+`-fsanitize=address,undefined` for debug builds is not wired into CMake yet; pass it by hand:
+
+```sh
+cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address"
+```
+
+Note that a background job started from a non-interactive shell inherits `SIGINT` **ignored**, so
+`kill -INT` will not exercise the shutdown path — launch it in a way that restores the default
+disposition, or you will misread "still running" as a hang.
+
+The item parser must be runnable and tested without any windowing or network dependency; that is
+what `ppc_core` is for.
+
+### Regenerating the test fixtures
+
+`tests/data/stat-normalization-vectors.ndjson` and `tests/data/bundle/` are slices of a real data
+release, committed so the suite runs offline. Refresh them from a built bundle in the data repo when
+its schema changes.
