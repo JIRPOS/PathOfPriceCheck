@@ -83,6 +83,12 @@ std::optional<StatMatch> match_stat(const GameData& gd, std::span<const std::str
                 hi = have_bounds ? std::max(hi, t.bound_max) : t.bound_max;
                 have_bounds = true;
             }
+            // Per roll as well: which of a mod's numbers a filter is built from is the
+            // caller's business, and the merged pair above cannot answer it.
+            if (have_bounds)
+                for (const NumberToken& t : toks)
+                    out.roll_bounds.emplace_back(t.numeric_bounds ? t.bound_min : t.value,
+                                                 t.numeric_bounds ? t.bound_max : t.value);
 
             // A wording with no number still stands for a roll.
             if (out.rolls.empty() && m->value) out.rolls.push_back(*m->value);
@@ -94,6 +100,11 @@ std::optional<StatMatch> match_stat(const GameData& gd, std::span<const std::str
             if (m->negate) {
                 out.negated = true;
                 for (double& r : out.rolls) r = -r;
+                for (auto& [blo, bhi] : out.roll_bounds) {
+                    const double a = -bhi, b = -blo;
+                    blo = a;
+                    bhi = b;
+                }
                 if (have_bounds) {
                     const double a = -hi, b = -lo;
                     lo = a;
@@ -101,8 +112,19 @@ std::optional<StatMatch> match_stat(const GameData& gd, std::span<const std::str
                 }
             }
 
-            if (ctx.roll_incr != 0 && !out.unscalable)
+            // A catalyst scales the mods it applies to, and the clipboard prints the *unscaled*
+            // roll and range while the tooltip — and trade — carry the scaled one.
+            if (ctx.roll_incr != 0 && !out.unscalable) {
                 for (double& r : out.rolls) r = incr_roll(r, ctx.roll_incr, s->dp);
+                for (auto& [blo, bhi] : out.roll_bounds) {
+                    blo = incr_roll(blo, ctx.roll_incr, s->dp);
+                    bhi = incr_roll(bhi, ctx.roll_incr, s->dp);
+                }
+                if (have_bounds) {
+                    lo = incr_roll(lo, ctx.roll_incr, s->dp);
+                    hi = incr_roll(hi, ctx.roll_incr, s->dp);
+                }
+            }
 
             if (!out.rolls.empty()) {
                 // A two-number mod ("Adds 5 to 12") is filtered on its average.

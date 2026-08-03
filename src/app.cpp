@@ -1,7 +1,10 @@
 #include "app.hpp"
 
 #include <algorithm>
+#include <clocale>
 #include <cstdlib>
+#include <fstream>
+#include <sstream>
 #include <string_view>
 
 #include <SDL3/SDL.h>
@@ -10,6 +13,7 @@
 
 #include "data/install.hpp"
 #include "icon.hpp"
+#include "item/resolve.hpp"
 #include "net/http.hpp"
 #include "paths.hpp"
 #include "platform/clipboard.hpp"
@@ -30,11 +34,10 @@ bool trace_copy() {
 }
 
 /// Cheap sniff for PoE clipboard text. Guards against latching whatever the user last
-/// copied elsewhere when the game's own copy is slow or never arrives.
+/// copied elsewhere when the game's own copy is slow or never arrives. Only the head is
+/// examined: the marker is in the first two lines or the text is not an item.
 bool looks_like_item(const std::string& s) {
-    std::string_view head(s.data(), std::min<size_t>(s.size(), 256));
-    return head.find("Item Class:") != std::string_view::npos ||
-           head.find("Rarity:") != std::string_view::npos;
+    return item::looks_like_item(std::string_view(s.data(), std::min<size_t>(s.size(), 256)));
 }
 
 std::string read_clipboard() {
@@ -110,6 +113,11 @@ int App::run() {
     if (icon) SDL_SetWindowIcon(overlay_.window(), icon);
     init_tray(icon);
     if (icon) SDL_DestroySurface(icon);
+    // Every number this program prints is game data, not prose, and the game writes '.': a
+    // cs_CZ LC_NUMERIC renders "1.79 attacks per second" as "1,79". This has to come last —
+    // both SDL's X11 backend (XIM) and the tray's GTK call setlocale(LC_ALL, "") during init
+    // and undo an earlier attempt. Parsing never consults the locale (from_chars).
+    std::setlocale(LC_NUMERIC, "C");
 
     net::init();
     leagues_.init(league_event_);
@@ -134,7 +142,22 @@ int App::run() {
     dev_mode_ = std::getenv("PPC_DEV_OVERLAY") != nullptr;
     if (dev_mode_) { // local UI dev, no game needed
         overlay_.set_visible(true);
-        set_screen(Screen::Settings);
+        // PPC_DEV_ITEM=<file> opens the price-check panel on a captured clipboard instead,
+        // which is the only way to iterate on it without the game running.
+        if (const char* path = std::getenv("PPC_DEV_ITEM")) {
+            std::ifstream in(path, std::ios::binary);
+            if (in) {
+                std::ostringstream ss;
+                ss << in.rdbuf();
+                accept_clipboard(ss.str());
+                set_screen(Screen::PriceCheck);
+            } else {
+                SDL_Log("PPC_DEV_ITEM: cannot read %s", path);
+                set_screen(Screen::Settings);
+            }
+        } else {
+            set_screen(Screen::Settings);
+        }
     }
 
     SDL_Event e;
@@ -207,7 +230,12 @@ void App::handle_event(const SDL_Event& e) {
     } else if (e.type == league_event_) {
         leagues_.on_done(e);
     } else if (e.type == data_event_) {
-        if (auto gd = updater_.take_ready_bundle()) data_ = std::move(gd);
+        if (auto gd = updater_.take_ready_bundle()) {
+            data_ = std::move(gd);
+            // The first bundle often lands after the first price check of a session; the item
+            // on screen was parsed without one and is not priceable until it is re-resolved.
+            if (item_ && item_data_ != data_) rebuild_plan();
+        }
     } else if (e.type == SDL_EVENT_KEY_DOWN && capturing_) {
         if (e.key.key == SDLK_ESCAPE) {
             end_capture(); // cancel capture, don't bind Escape
@@ -258,7 +286,7 @@ void App::poll_pending_copy() {
     // otherwise it's the previous owner still serving, mid-handover.
     if (looks_like_item(now) && (now != copy_before_ || by_event)) {
         if (trace_copy()) SDL_Log("[copy] done after %llums", (unsigned long long)elapsed);
-        clipboard_ = std::move(now);
+        accept_clipboard(std::move(now));
         copy_pending_ = false;
         copy_late_ = false;
     } else if (elapsed >= 2500 && !copy_late_) {
@@ -269,6 +297,38 @@ void App::poll_pending_copy() {
         SDL_Log("no item text on the clipboard yet %llums after the copy", (unsigned long long)elapsed);
         copy_late_ = true;
     }
+    need_redraw_ = true;
+}
+
+void App::accept_clipboard(std::string text) {
+    clipboard_ = std::move(text);
+    strategy_override_.reset(); // a choice belongs to the item it was made for
+    rebuild_plan();
+}
+
+void App::rebuild_plan() {
+    item_ = item::parse_item(clipboard_);
+    // Pin the snapshot the item is resolved against: the updater swaps `data_` from its own
+    // thread, and every stat the item points at lives in the bundle it was matched in.
+    item_data_ = data_;
+    plan_ = {};
+    derived_ = {};
+    if (!item_) return;
+    if (item_data_) {
+        item::resolve_item(*item_data_, *item_);
+        derived_ = item::derive(item_data_.get(), *item_);
+        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+    } else {
+        // No bundle yet: the item still parses and renders, it just cannot be priced.
+        derived_ = item::derive(nullptr, *item_);
+    }
+    need_redraw_ = true;
+}
+
+void App::set_strategy(item::Strategy s) {
+    strategy_override_ = s;
+    if (item_ && item_data_)
+        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
     need_redraw_ = true;
 }
 
@@ -321,13 +381,13 @@ void App::handle_action(Action a) {
             if (trace_copy())
                 SDL_Log("[copy]   simulate_copy took %llums",
                         (unsigned long long)(SDL_GetTicks() - t0));
-            clipboard_.clear(); // show "copying…" until the item lands
+            accept_clipboard({}); // show "copying…" until the item lands
             copy_pending_ = true;
             copy_late_ = false;
             clipboard_dirty_ = false;
             copy_started_ms_ = last_clipboard_poll_ms_ = SDL_GetTicks();
         } else { // dev mode: no game to copy from, just show what's already there
-            clipboard_ = read_clipboard();
+            accept_clipboard(read_clipboard());
             copy_pending_ = false;
             copy_late_ = false;
         }

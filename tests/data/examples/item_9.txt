@@ -1,0 +1,24 @@
+Item Class: Maps
+Rarity: Rare
+Forbidden Toil
+Map (Tier 16)
+--------
+Item Quantity: +52% (augmented)
+Item Rarity: +31% (augmented)
+Monster Pack Size: +20% (augmented)
+--------
+Item Level: 85
+--------
+Monster Level: 83
+--------
+{ Prefix Modifier "Empowered" (Tier: 1) — Elemental, Fire, Cold, Lightning, Ailment }
+Monsters have a 20% chance to Ignite, Freeze and Shock on Hit
+{ Suffix Modifier "of Temporal Chains" (Tier: 1) — Caster, Curse }
+Players are Cursed with Temporal Chains
+(Temporal Chains is a Hex which reduces Action Speed by 15%, or 9% on Rare or Unique targets, and makes other effects on the target expire 40% slower. It has 50% less effect on Players and lasts 5 seconds)
+{ Suffix Modifier "of Stasis" (Tier: 1) — Life, Mana, Defences, Energy Shield }
+Players cannot Regenerate Life, Mana or Energy Shield
+{ Suffix Modifier "of Toughness" (Tier: 1) — Damage, Critical }
+Monsters take 36(36-40)% reduced Extra Damage from Critical Strikes
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 

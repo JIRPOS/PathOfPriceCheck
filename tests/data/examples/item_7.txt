@@ -1,0 +1,34 @@
+Item Class: Gloves
+Rarity: Rare
+Behemoth Caress
+Infiltrator Mitts
+--------
+Evasion Rating: 219 (augmented)
+Energy Shield: 44 (augmented)
+--------
+Requirements:
+Level: 78
+Dex: 70 (unmet)
+Int: 70
+--------
+Sockets: W 
+--------
+Item Level: 78
+--------
+{ Corruption Implicit Modifier — Gem }
++2 to Level of Socketed AoE Gems
+--------
+{ Prefix Modifier "Moth's" (Tier: 5) — Defences, Evasion, Energy Shield }
+15(14-20)% increased Evasion and Energy Shield
+8(8-9)% increased Stun and Block Recovery
+{ Fractured Suffix Modifier "of the Underground" — Elemental, Lightning, Ailment }
+25(15-25)% increased Effect of Lightning Ailments
+(Lightning Ailments are Shocked and Sapped)
+{ Suffix Modifier "of the Lynx" (Tier: 9) — Attribute }
++15(13-17) to Dexterity
+{ Suffix Modifier "of the Lightning" (Tier: 2) — Elemental, Lightning, Resistance }
++42(42-45)% to Lightning Resistance
+--------
+Corrupted
+--------
+Fractured Item

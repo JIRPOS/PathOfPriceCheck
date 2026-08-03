@@ -1,0 +1,28 @@
+Item Class: Skill Gems
+Rarity: Gem
+Zealotry
+--------
+Aura, Critical, Spell, AoE
+Level: 1
+Reservation: 50% Mana
+Cooldown Time: 1.20 sec
+Cast Time: Instant
+Quality: +8% (augmented)
+--------
+Requirements:
+Level: 24
+Int: 58
+--------
+Casts an aura that grants bonuses to damage and critical strike chance of spells to you and your allies, and gives a chance to create Consecrated Ground against stronger enemies.
+--------
+You and nearby Non-Minion Allies have a 10% chance to create Consecrated Ground on Hitting a Rare or Unique Enemy, lasting 8 seconds
+(Allies on your Consecrated Ground Regenerate a percentage of their Maximum Life per second, and Curses have 50% reduced effect on them)
+You and nearby allies have 20% increased Spell Critical Strike Chance
+You and nearby allies deal 10% more Spell Damage
+
+Additional Effects From Quality:
+16(0-40)% increased Area of Effect
+--------
+Experience: 1/118,383
+--------
+Place into an item socket to gain this skill. Right click to remove from a socket.

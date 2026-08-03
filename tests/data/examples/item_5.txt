@@ -1,0 +1,33 @@
+Item Class: Boots
+Rarity: Unique
+Ralakesh's Impatience
+Riveted Boots
+--------
+Quality: +20% (augmented)
+Armour: 80 (augmented)
+Energy Shield: 17 (augmented)
+--------
+Requirements:
+Level: 70
+Str: 79 (unmet)
+Dex: 68 (unmet)
+Int: 98
+--------
+Sockets: W-B-B-R 
+--------
+Item Level: 83
+--------
+{ Unique Modifier — Elemental, Cold, Resistance }
++22(15-25)% to Cold Resistance
+{ Unique Modifier — Chaos, Resistance }
++21(15-25)% to Chaos Resistance
+{ Unique Modifier — Speed }
+25(15-25)% increased Movement Speed
+{ Unique Modifier — Physical, Ailment }
+Corrupted Blood cannot be inflicted on you
+{ Unique Modifier }
+Count as having maximum number of Power Charges
+--------
+The Master of a Million Faces lived by one
+simple ethos: why make the effort, when
+you can simply mimic what others have?

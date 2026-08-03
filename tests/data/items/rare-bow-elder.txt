@@ -1,0 +1,30 @@
+Item Class: Bows
+Rarity: Rare
+Rage Song
+Citadel Bow
+--------
+Bow
+Quality: +41% (augmented)
+Physical Damage: 142-393 (augmented)
+Critical Strike Chance: 6.00%
+Attacks per Second: 1.36 (augmented)
+--------
+Requirements:
+Level: 58
+Dex: 185
+--------
+Sockets: G-G-G
+--------
+Item Level: 72
+--------
+Item sells for much more to vendors (implicit)
+--------
+132% increased Physical Damage
+Adds 27 to 43 Physical Damage
++295 to Accuracy Rating
+Attacks have 20% chance to cause Bleeding
+27% increased Damage with Bleeding
+9% increased Attack Speed
++11% to Quality (crafted)
+--------
+Elder Item

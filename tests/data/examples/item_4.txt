@@ -1,0 +1,36 @@
+Item Class: Wands
+Rarity: Unique
+Tulfall
+Opal Wand
+--------
+Wand
+Physical Damage: 30-56
+Critical Strike Chance: 8.00%
+Attacks per Second: 1.45
+--------
+Requirements:
+Level: 70
+Dex: 68 (unmet)
+Int: 212
+--------
+Sockets: W-B-B 
+--------
+Item Level: 83
+--------
+{ Implicit Modifier — Damage, Caster }
+35(31-35)% increased Spell Damage
+--------
+{ Unique Modifier }
+Gain a Frenzy Charge on reaching Maximum Power Charges
+{ Unique Modifier }
+Lose all Power Charges on reaching Maximum Power Charges
+{ Unique Modifier — Damage, Elemental, Cold, Caster }
+Adds 50 to 70 Cold Damage to Spells per Power Charge
+{ Unique Modifier }
+Gain a Power Charge on Killing a Frozen Enemy
+{ Unique Modifier — Caster, Speed }
+20(10-20)% increased Cast Speed
+--------
+We fracture and splinter.
+We pierce our sides.
+But in the great freeze we are forged anew.

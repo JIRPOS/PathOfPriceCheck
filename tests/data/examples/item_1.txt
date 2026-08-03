@@ -1,0 +1,28 @@
+Item Class: Utility Flasks
+Rarity: Unique
+Rumi's Concoction
+Granite Flask
+--------
+Quality: +20% (augmented)
+Lasts 7.20 (augmented) Seconds
+Consumes 30 of 60 Charges on use
+Currently has 60 Charges
++1500 to Armour
+--------
+Requirements:
+Level: 68
+--------
+Item Level: 80
+--------
+Used when Charges reach full (enchant)
+--------
+{ Unique Modifier }
++12(8-12)% Chance to Block Attack Damage during Effect
+{ Unique Modifier }
++4(4-6)% Chance to Block Spell Damage during Effect
+--------
+"Yesterday I was clever, so I wanted to change the world.
+Today I am wise, so I am changing myself."
+-Rumi of the Vaal
+--------
+Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.

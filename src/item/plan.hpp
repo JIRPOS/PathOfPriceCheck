@@ -1,0 +1,85 @@
+#pragma once
+
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "data/game_data.hpp"
+#include "item/derive.hpp"
+#include "item/item.hpp"
+
+namespace ppc::item {
+
+/// How an item gets priced. What matters about an item depends entirely on this: a rare is
+/// its modifiers, a unique is its name, and a white item is its base plus what a crafter
+/// could do with it.
+enum class Strategy : uint8_t {
+    BaseItem,    ///< the base type itself: influences, item level, fractured mods, implicits
+    Modifiers,   ///< a rolled item: every modifier, bounded by the tier it rolled
+    Unique,      ///< the named item, with its variable rolls
+    Currency,    ///< priced in bulk, not searched  (not implemented yet)
+    Gem,         ///< level / quality / alternate quality  (not implemented yet)
+    Unsupported
+};
+
+std::string_view to_string(Strategy s);
+
+/// One modifier turned into a trade stat filter.
+struct StatFilter {
+    size_t mod_index = 0;   ///< into `Item::mods`
+    std::string id;         ///< trade stat id, "explicit.stat_3299347043"
+    std::string text;       ///< the wording, for display
+    data::ModType type = data::ModType::Explicit;
+    bool enabled = false;
+    std::optional<double> min, max;
+    /// The bounds are the affix tier's own range, from Advanced Mod Descriptions. Without
+    /// them all we can say is "at least what it rolled".
+    bool tiered = false;
+    /// The trade site indexes this stat with the opposite sign; the query builder flips it.
+    bool inverted = false;
+    int dp = 0;
+};
+
+/// A numeric trade filter: `key` is the name in the trade query's filter groups.
+struct NumericFilter {
+    std::string key;   ///< "ilvl", "quality", "ar", "pdps", …
+    std::string label; ///< "Item Level"
+    std::optional<double> min, max;
+    bool enabled = false;
+    int dp = 0;
+    std::string note;  ///< why the value is what it is, e.g. "at 20% quality"
+};
+
+/// Everything a search for this item would ask for. Purely declarative — building the trade
+/// query JSON out of this, and running it, is the next layer up.
+struct SearchPlan {
+    Strategy strategy = Strategy::Unsupported;
+    std::string category; ///< trade `category` option, e.g. "weapon.bow"
+    std::string name;     ///< trade `name` term — the unique's name
+    std::string type;     ///< trade `type` term — the base type
+    std::string discriminator; ///< set when the base's name alone is ambiguous on trade
+
+    std::optional<bool> corrupted; ///< match exactly; corruption always matters
+    bool synthesised = false, fractured = false, mirrored = false;
+    std::vector<Influence> influences;
+
+    std::vector<StatFilter> stats;
+    std::vector<NumericFilter> numerics;
+    /// What was deliberately left out, or could not be honoured. Shown to the user: a silently
+    /// dropped filter reads as a successful price check on the wrong item.
+    std::vector<std::string> notes;
+
+    bool has_enabled_stats() const;
+};
+
+/// The strategy an item gets unless the user overrides it.
+Strategy default_strategy(const Item& it);
+
+/// Build the plan. `force` overrides the strategy — a rare with a fractured mod or a good
+/// base is often worth more as a base item than as the sum of its rolls, and only the user
+/// knows which they meant.
+SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d,
+                      std::optional<Strategy> force = std::nullopt);
+
+} // namespace ppc::item
