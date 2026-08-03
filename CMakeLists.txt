@@ -92,6 +92,8 @@ add_library(ppc_core STATIC
   src/config.cpp
   src/leagues.cpp
   src/util/sha256.cpp
+  src/data/index.cpp
+  $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
 target_compile_definitions(ppc_core PUBLIC APP_VERSION="${APP_VERSION}")
@@ -159,3 +161,4 @@ ppc_add_test(paths_test)
 ppc_add_test(account_name_test)
 ppc_add_test(leagues_test)
 ppc_add_test(hash_test)
+ppc_add_test(index_test)
