@@ -1,0 +1,6 @@
+{"craftable":{"category":"Rings"},"dropLevel":20,"h":1,"name":"Two-Stone Ring","namespace":"ITEM","refName":"Two-Stone Ring","w":1}
+{"armour":{"es":[171,197]},"craftable":{"category":"Body Armours"},"dropLevel":68,"h":3,"name":"Vaal Regalia","namespace":"ITEM","refName":"Vaal Regalia","w":2}
+{"armour":{"es":[26,30],"ev":[126,145]},"craftable":{"category":"Boots"},"dropLevel":70,"h":2,"name":"Two-Toned Boots","namespace":"ITEM","refName":"Two-Toned Boots","w":2}
+{"name":"Abberath's Hooves","namespace":"UNIQUE","refName":"Abberath's Hooves","unique":{"base":"Goathide Boots"}}
+{"craftable":{"category":"Divination Cards"},"dropLevel":75,"h":1,"name":"The Doctor","namespace":"DIVINATION_CARD","refName":"The Doctor","w":1}
+{"craftable":{"category":"Stackable Currency"},"dropLevel":12,"h":1,"name":"Chaos Orb","namespace":"ITEM","refName":"Chaos Orb","w":1}

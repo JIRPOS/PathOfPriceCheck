@@ -1,0 +1,5 @@
+{"id":"Ring","itemClass":"Rings","tradeCategory":"accessory.ring"}
+{"id":"Boots","itemClass":"Boots","tradeCategory":"armour.boots"}
+{"id":"Body Armour","itemClass":"Body Armours","tradeCategory":"armour.chest"}
+{"id":"StackableCurrency","itemClass":"Stackable Currency","tradeCategory":"currency"}
+{"id":"DivinationCard","itemClass":"Divination Cards","tradeCategory":"card"}
