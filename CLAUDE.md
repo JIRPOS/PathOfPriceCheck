@@ -35,7 +35,10 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
   at runtime, so a new league needs a data build rather than a new release.
 - **HTTP:** libcurl behind `src/net/http.hpp`. System package where one exists; a static
   Schannel build via FetchContent on Windows, so the release stays a single `.exe` with no DLL
-  beside it. **JSON:** nlohmann/json. **Tests:** doctest. **Clipboard:** a platform seam of our own
+  beside it. That path also fetches zlib and hands it to curl through `ZLIB::ZLIB` — gzip is
+  required, not `AUTO`, so the trade-data endpoints never silently fall back to identity on a
+  machine that happens to lack the library. Do not re-add a `CURL::libcurl` alias: curl declares
+  that name itself. **JSON:** nlohmann/json. **Tests:** doctest. **Clipboard:** a platform seam of our own
   (`platform/clipboard.hpp`) — SDL3's `SDL_GetClipboardText()` was tried and abandoned, see below.
 - **Cross-platform target:** Windows + Linux **X11 first**. Wayland is a later stretch goal — it
   blocks arbitrary global hotkeys and click-through overlays without compositor portals / evdev

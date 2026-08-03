@@ -56,7 +56,25 @@ if(NOT CURL_FOUND)
     set(CURL_USE_SCHANNEL ON CACHE BOOL "" FORCE)
   endif()
   set(CURL_USE_LIBPSL OFF CACHE BOOL "" FORCE)
-  set(CURL_ZLIB ON CACHE BOOL "" FORCE)
+  # CURL_ZLIB=ON is find_package(ZLIB REQUIRED) inside curl, and Windows has no system zlib, so
+  # bring our own: gzip stays on for the multi-megabyte trade-data endpoints on every platform
+  # rather than silently degrading to identity wherever the dependency happens to be missing.
+  set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+  set(ZLIB_BUILD_STATIC ON CACHE BOOL "" FORCE)
+  set(ZLIB_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+  set(ZLIB_INSTALL OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(zlib
+    GIT_REPOSITORY https://github.com/madler/zlib.git
+    GIT_TAG v1.3.2
+    GIT_SHALLOW TRUE)
+  FetchContent_MakeAvailable(zlib)
+  # Only the shared build gets a ZLIB::ZLIB alias upstream, and curl links that name. Pointing
+  # FindZLIB's two result variables at the fetched tree short-circuits its search; the target
+  # already existing stops it importing a second one over ours.
+  add_library(ZLIB::ZLIB ALIAS zlibstatic)
+  set(ZLIB_INCLUDE_DIR "${zlib_SOURCE_DIR}" CACHE PATH "" FORCE)
+  set(ZLIB_LIBRARY zlibstatic CACHE STRING "" FORCE)
+  set(CURL_ZLIB ON CACHE STRING "" FORCE)
   # One JSON GET and a few file downloads; everything else is dead weight.
   foreach(proto DICT FILE FTP GOPHER IMAP LDAP LDAPS MQTT POP3 RTSP SMB SMTP TELNET TFTP)
     set(CURL_DISABLE_${proto} ON CACHE BOOL "" FORCE)
@@ -65,8 +83,9 @@ if(NOT CURL_FOUND)
     GIT_REPOSITORY https://github.com/curl/curl.git
     GIT_TAG curl-8_11_1
     GIT_SHALLOW TRUE)
+  # curl aliases CURL::libcurl onto the static lib itself once BUILD_SHARED_LIBS is off; declaring
+  # it here as well is a duplicate-target error, not a no-op.
   FetchContent_MakeAvailable(curl)
-  add_library(CURL::libcurl ALIAS libcurl_static)
 endif()
 
 FetchContent_MakeAvailable(SDL3 imgui nlohmann_json doctest)
