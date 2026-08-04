@@ -4,3 +4,7 @@
 {"name":"Abberath's Hooves","namespace":"UNIQUE","refName":"Abberath's Hooves","unique":{"base":"Goathide Boots"}}
 {"craftable":{"category":"Divination Cards"},"dropLevel":75,"h":1,"name":"The Doctor","namespace":"DIVINATION_CARD","refName":"The Doctor","w":1}
 {"craftable":{"category":"Stackable Currency"},"dropLevel":12,"h":1,"name":"Chaos Orb","namespace":"ITEM","refName":"Chaos Orb","w":1}
+{"armour":{"ar":[65,71],"es":[14,15]},"craftable":{"category":"Boots"},"dropLevel":36,"h":2,"name":"Riveted Boots","namespace":"ITEM","refName":"Riveted Boots","w":2}
+{"name":"Ralakesh's Impatience","namespace":"UNIQUE","refName":"Ralakesh's Impatience","unique":{"base":"Riveted Boots"}}
+{"craftable":{"category":"Jewels"},"dropLevel":20,"h":1,"name":"Crimson Jewel","namespace":"ITEM","refName":"Crimson Jewel","w":1}
+{"name":"That Which Was Taken","namespace":"UNIQUE","refName":"That Which Was Taken","unique":{"base":"Crimson Jewel"}}

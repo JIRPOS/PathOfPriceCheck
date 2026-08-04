@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The overlay, Settings, the league list, the **static game-data layer** and the **item layer**
 (parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) are built and
-tested. The **trade query builder + client and the rate limiter are the next piece of work**: the
-plan the item layer produces is exactly the input they need.
+tested, including the **per-unique modifier data** that decides which of a unique's modifiers are
+worth searching on. The **trade query builder + client and the rate limiter are the next piece of
+work**: the plan the item layer produces is exactly the input they need.
 
 Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
@@ -198,6 +199,11 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
 - **`data/game_data`** memory-maps the ndjson and parses records on first hit, so a loaded bundle
   costs about a megabyte resident and no startup time. Lookups go through published fnv1a32 indices
   (`data/index`); a hit is a *run*, because colliding keys are kept and re-verified.
+  `en-unique-mods.ndjson` and its name index are **optional**: bundles published before that dataset
+  existed simply do not have them, and `has_unique_mods()` is what tells "this unique has no record"
+  apart from "nothing here has one". The wiki attribution it is licensed on rides in the manifest's
+  `source.unique_mods_attribution` and is written through by `install`, because an attribution that
+  stays behind in the publisher's repo is not an attribution — Settings renders it.
 - **`data/stat_normalize`** turns `+42 to maximum Life` into `# to maximum Life` and its fallbacks.
   **`NORMALIZATION.md` in the data repo is normative** and this must reproduce it exactly — a
   divergence does not crash, it silently mismatches a mod and returns a confident wrong price.
@@ -276,8 +282,9 @@ bundle, and only the third and fourth encode pricing judgement.
   matters: `Modifiers` (magic/rare) enables every mod and bounds it by the tier it rolled when
   Advanced Mod Descriptions gave a range; `BaseItem` (white, or a rare the user switches over)
   searches the base with item level and influences and enables only fractured mods and non-inherent
-  implicits; `Unique` searches the name and enables only rolls that a range proves are variable, plus
-  any mod *added* to the unique — `{ Foulborn Unique Modifier }`, i.e. `Modifier::added_unique()`,
+  implicits; `Unique` searches the name and enables a roll the **per-unique modifier data** says comes
+  from a pool (see below), a roll a range proves is variable, and any mod *added* to the unique —
+  `{ Foulborn Unique Modifier }`, i.e. `Modifier::added_unique()`,
   which not every copy of that unique carries. A `Maps` item class is `Unsupported`: a map is not
   priced on its mods, and pricing one as a rare would search for gear carrying map mods.
   Two rules that are easy to get wrong: trade indexes **repeated stats as their total**, so
@@ -285,6 +292,23 @@ bundle, and only the third and fourth encode pricing judgement.
   added-damage mod is indexed as **the average of its two numbers** while every other multi-number
   wording is indexed on its **first** ("15% chance to Unnerve … for 4 seconds" is searched on 15,
   not on 9.5) — hence `StatMatch::roll_bounds` being per roll.
+- **`item/plan`'s per-unique join** (`apply_unique_mods`) is what makes a unique searchable at all.
+  A unique's modifier can be variable **without printing a range**: Ralakesh's Impatience rolls one of
+  three charge mods, each `1..1`, and the clipboard prints that exactly like the four every copy has.
+  The bundle's `en-unique-mods.ndjson` says which mods are fixed and which come from a pool, so a
+  pooled mod is enabled and labelled with the pool's own prose ("Random charge modifier"), and a mod
+  the record calls fixed is now left out *knowingly* instead of with a warning. Three rules:
+  **join on the trade id, never on the wording** (wordings are shared by two stat records, which is
+  exactly what the ids disambiguate); **never disable** — the item's own printed range outranks a
+  record about the unique in general; and **only trust a range that contains the roll**, because the
+  bundle carries no `dp` for every stat and a range can arrive 100× the roll it bounds
+  (`0.4% of Physical Attack Damage Leeched as Mana` against `40..40` — see `examples/item_3`), which
+  would otherwise call a fixed mod variable. Pool membership is a fact about the item rather than a
+  number, so it survives that check. A mod the record does not have is reported, never dropped
+  silently: it is either something added to this copy or a mod the source has not caught up with, and
+  both are what a buyer is searching for. `UniqueMods::unlisted` — a pool stated in prose but never
+  enumerated — becomes a note, so the app says what it is leaving out.
+  [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
 
 Rendering lives in `screens/item_view.cpp` (the game's palette: rarity-coloured name plate, grey
 property labels, blue mods, light blue crafted/enchant, tan fractured, magenta scourge, red
@@ -321,19 +345,17 @@ call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
   and currently only say they are not implemented.
 - **Rate limiter** — a single shared component every outbound GGG request goes through. Non-optional;
   see "Rate limits".
-- **Per-unique modifier data** — a unique's modifier can be variable without printing a range:
-  Ralakesh's Impatience rolls either Power or Frenzy charges, a Watcher's Eye picks its mods out of a
-  large pool. The clipboard prints such a mod exactly like a fixed one, and **the bundle's unique
-  records carry nothing but `{name, namespace, refName, unique.base}`** — they are built from trade's
-  `data/items`, which has no mod data — so there is no way to tell them apart today. `Strategy::Unique`
-  therefore leaves every fixed-looking mod off and says so in a note. Closing this needs a **new
-  dataset in the data repo**: per-unique modifier lists marking which mods are fixed, which come from
-  a pool, and their ranges (Path of Building's `Data/Uniques/*.lua` and the wiki's cargo tables are
-  the practical sources). An added mod is the one case the clipboard does answer — the info line names
-  it, hence `added_unique()`.
+- **Offering the pool modifiers the item does *not* have.** Reading the per-unique data is built
+  (above); the other half of what it is for is not. A Watcher's Eye search is worth little without
+  being able to add "and also has Discipline energy-shield-on-hit" — `ref` gives the wording to show,
+  `tradeId` the filter to send and `range` the bounds to seed. That needs a `StatFilter` not tied to a
+  `mod_index` and a way to pick one in the UI. Filters the record carries **without** a `tradeId` (470
+  ambiguous wordings, 695 with no id at all) belong in that list too: display them, never search them.
 - **Unidentified uniques** — the clipboard says only the base, and several uniques can share one
   (an unidentified Watcher's Eye is worth several divines more at high item level). The user has to
   pick from the base's uniques, ideally showing their art; the plan reports the gap as a note today.
+  The bundle now carries **`en-items-base.index.bin`**, base → the uniques that drop on it, which is
+  the lookup this needs; the candidates' mods come from `en-unique-mods.ndjson`.
 - **Ambiguous wordings** — two stat records can share a wording and both be searchable
   (`#% chance to gain a Flask Charge when you deal a Critical Strike`). `GameData::find_stat`
   refuses to guess, and the plan says "ambiguous wording, not searched" rather than picking whichever
@@ -341,6 +363,12 @@ call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
 - **Pseudo mods** — trade's `pseudo.*` totals (total resistances, total life) are not built; mods are
   matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance` and the
   rest), so this is a plan-layer job, not a data one.
+- **A data-repo bug, not an app one: `dp` is missing on stats whose trade wording matched no game
+  description.** `emit/stats.py` takes `dp` from the description's variant modifiers, so a stat that
+  fell back to trade's own wording gets none — `#% of Physical Attack Damage Leeched as Mana` is one,
+  and every unique-mod range for it is then emitted 100× too large (`40..40` for a roll of `0.4`).
+  The app refuses such a range rather than believing it, so the damage is contained; the fix is
+  upstream, and `examples/item_3` is the case to check it against.
 
 ## External APIs — the load-bearing domain knowledge
 
@@ -415,13 +443,16 @@ what `ppc_core` is for.
 ### Regenerating the test fixtures
 
 `tests/data/stat-normalization-vectors.ndjson` and `tests/data/bundle/` are slices of a real data
-release, committed so the suite runs offline. Refresh them from a built bundle in the data repo when
-its schema changes. Keep the ndjson **LF and byte-exact** — the `.index.bin` files address it by
-byte offset, so one extra byte per line silently shifts every record out from under every lookup.
-`.gitattributes` pins that down; do not remove those entries.
+release, committed so the suite runs offline. **`./scripts/slice-test-bundle.py
+../PathOfPriceCheck-Data/out` regenerates the bundle slice**; adding a case means adding a key to the
+lists at the top of that script, never writing a record by hand. It copies every record verbatim and
+rebuilds the indices from the offsets it just wrote, which is the point: the `.index.bin` files
+address the ndjson by byte offset, so one extra byte per line silently shifts every record out from
+under every lookup and fails as null lookups rather than as a diff. Keep the ndjson **LF and
+byte-exact**; `.gitattributes` pins that down and those entries must stay.
 
 The slice has **no `(Local)` stat record**, so the local/global disambiguation in `item/resolve` is
 not covered offline — it is verified against an installed bundle by hand. Adding one such record (and
-one weapon base) to the slice on the next refresh would close that gap. `tests/data/examples/` and
+one weapon base) to `STATS`/`ITEMS` in the slicer would close that gap. `tests/data/examples/` and
 `tests/data/items/` hold clipboard captures for the parser; those are plain text and need no byte
 discipline.

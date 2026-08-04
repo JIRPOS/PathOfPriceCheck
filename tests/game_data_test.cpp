@@ -120,6 +120,51 @@ TEST_CASE("the namespace is part of the key") {
     CHECK(gd->find_bases(Namespace::Item, "Abberath's Hooves").empty());
 }
 
+TEST_CASE("a unique's modifiers say which are fixed and which come from a pool") {
+    auto gd = fixture();
+    REQUIRE(gd->has_unique_mods());
+    const UniqueMods* u = gd->find_unique_mods("Ralakesh's Impatience");
+    REQUIRE(u != nullptr);
+    CHECK(u->base == "Riveted Boots");
+
+    // Four modifiers every copy has, and one of three charge modifiers — each rolling 1..1,
+    // which is the whole reason this dataset exists: no printed range could reveal it.
+    CHECK(u->fixed.size() == 4);
+    REQUIRE(u->pools.size() == 1);
+    CHECK(u->pools.front().hint == "Random charge modifier");
+    CHECK(u->pools.front().mods.size() == 3);
+    // The source states no count for this pool, which means "at least one, unknown".
+    CHECK_FALSE(u->pools.front().count.has_value());
+
+    REQUIRE_FALSE(u->pools.front().mods.front().filters.empty());
+    const UniqueModFilter& f = u->pools.front().mods.front().filters.front();
+    CHECK(f.trade_id == "explicit.stat_1090017486");
+    CHECK(f.ref == "Count as having maximum number of Endurance Charges");
+    REQUIRE(f.ranges.size() == 1);
+    CHECK(f.ranges.front().second == doctest::Approx(1));
+}
+
+TEST_CASE("a unique the data does not cover is null, not an error") {
+    auto gd = fixture();
+    // 43 of trade's unique names have no record and a new league outruns the source by days.
+    CHECK(gd->find_unique_mods("Abberath's Hooves") == nullptr);
+    CHECK(gd->find_unique_mods("") == nullptr);
+}
+
+TEST_CASE("a pool stated only in prose is kept, so the app can say what it is leaving out") {
+    auto gd = fixture();
+    const UniqueMods* u = gd->find_unique_mods("That Which Was Taken");
+    REQUIRE(u != nullptr);
+    CHECK(u->fixed.empty());
+    CHECK(u->pools.empty());
+    CHECK(u->unlisted == std::vector<std::string>{"4 random Charm modifiers"});
+}
+
+TEST_CASE("the attribution travels with the bundle") {
+    auto gd = fixture();
+    CHECK(gd->unique_mods_attribution() == "poewiki.net, CC BY-NC 3.0");
+}
+
 TEST_CASE("Item Class maps to a trade category") {
     auto gd = fixture();
     CHECK(gd->trade_category_for("Rings") == "accessory.ring");

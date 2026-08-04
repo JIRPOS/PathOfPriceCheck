@@ -88,7 +88,17 @@ if(NOT CURL_FOUND)
   FetchContent_MakeAvailable(curl)
 endif()
 
+# CMake 4.4 warns twice about the pinned dependencies. Both are settled here rather than in the
+# vendored trees, and unset afterwards so our own code keeps getting the diagnostics.
+# SDL 3.4.12 escapes its ELF-dlopen-note probe for pre-CMP0219 macro expansion, so OLD is the
+# behaviour it was written against; NEW hands check_c_source_compiles() a different C snippet.
+set(CMAKE_POLICY_DEFAULT_CMP0219 OLD)
+# doctest 2.4.12 still declares cmake_minimum_required(VERSION 3.5). Raising its floor is what this
+# variable is for; do not reach for CMAKE_WARN_DEPRECATED, which CMP0218 made a no-op.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
 FetchContent_MakeAvailable(SDL3 imgui nlohmann_json doctest)
+unset(CMAKE_POLICY_VERSION_MINIMUM)
+unset(CMAKE_POLICY_DEFAULT_CMP0219)
 
 # Dear ImGui ships no CMake target we want; compile core + backends ourselves.
 add_library(imgui STATIC

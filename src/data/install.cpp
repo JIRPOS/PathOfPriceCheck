@@ -106,6 +106,10 @@ bool BundleStore::commit(const Manifest& m, std::string* err) const {
     j["data_version"] = m.data_version;
     j["generated_at"] = m.generated_at;
     j["game_patch"] = m.game_patch;
+    // The attribution is a condition of using the data, so it is installed beside it and
+    // read back from there — not left behind in the manifest we downloaded and discarded.
+    if (!m.unique_mods_attribution.empty())
+        j["source"]["unique_mods_attribution"] = m.unique_mods_attribution;
     if (!write_file(staging / "manifest.json", j.dump(2) + "\n"))
         return fail("cannot write manifest.json");
 

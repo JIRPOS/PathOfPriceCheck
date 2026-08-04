@@ -60,6 +60,51 @@ struct BaseType {
     std::optional<std::pair<int, int>> armour, evasion, energy_shield, ward;
 };
 
+/// One stat a unique's modifier grants, as the per-unique modifier data states it.
+struct UniqueModFilter {
+    /// The canonical '#'-placeholder wording. Present to render: when `trade_id` is empty
+    /// this may be the client's wording only, so it is not guaranteed to resolve to a stat.
+    std::string ref;
+    /// The ready-to-use stat hash, to be sent verbatim. Empty means the modifier is real but
+    /// not searchable — its wording resolves to two trade ids, or to none.
+    std::string trade_id;
+    /// One [min, max] per '#' the wording covers — two for "Adds # to # Fire Damage", one
+    /// otherwise. Already in displayed units, so these compare directly against a roll read
+    /// off the clipboard.
+    std::vector<std::pair<double, double>> ranges;
+};
+
+/// One modifier a unique can carry, with every stat it grants.
+struct UniqueMod {
+    std::string mod;      ///< GGG's own mod id; stable across patches, for debugging
+    bool implicit = false;
+    std::vector<UniqueModFilter> filters;
+};
+
+/// A group of modifiers the unique picks from rather than always having. This is the fact
+/// nothing else has: a pooled modifier prints exactly like a fixed one, and it is the
+/// difference between a common copy of the unique and the one worth searching for.
+struct UniqueModPool {
+    std::string hint; ///< the source's own prose, "Two or Three random aura modifiers"
+    /// How many of `mods` actually roll. Absent for half the pools the source describes;
+    /// that means "at least one, unknown", never "all of them".
+    std::optional<std::pair<int, int>> count;
+    bool implicit = false;
+    std::vector<UniqueMod> mods;
+};
+
+/// What one unique can roll. Absent for a unique the source does not cover — 43 of trade's
+/// names have no record, and a league launch outruns the source by days.
+struct UniqueMods {
+    std::string name, base;
+    std::vector<UniqueMod> fixed;  ///< every copy of the item has these
+    std::vector<UniqueModPool> pools;
+    /// A pool stated in prose but never enumerated ("One to three random Synthesis implicit
+    /// modifiers"). Nothing to search; it exists so the app can say what it is leaving out
+    /// instead of implying the item has nothing more.
+    std::vector<std::string> unlisted;
+};
+
 struct ItemClass {
     std::string item_class;     ///< as printed by the clipboard, e.g. "Rings"
     std::string id;             ///< the game's internal class id

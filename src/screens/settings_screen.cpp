@@ -158,10 +158,21 @@ void data_row(App& app) {
     ImGui::EndDisabled();
 
     row_gutter();
-    if (auto gd = app.game_data())
-        ImGui::TextDisabled("%zu stat wordings indexed", gd->stat_count());
-    else
+    const std::shared_ptr<data::GameData> gd = app.game_data();
+    if (!gd) {
         ImGui::TextDisabled("Item parsing works without this; pricing needs it.");
+        return;
+    }
+    ImGui::TextDisabled("%zu stat wordings indexed", gd->stat_count());
+    // A condition of the licence the per-unique modifier data comes under, so it is shown
+    // wherever the data itself is: the bundle states the credit, this only renders it.
+    if (!gd->unique_mods_attribution().empty()) {
+        row_gutter();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("Unique modifier data from %s",
+                            std::string(gd->unique_mods_attribution()).c_str());
+        ImGui::PopTextWrapPos();
+    }
 }
 
 /// Discards characters that can never appear in "Name#1234". Rejecting a *keystroke* that

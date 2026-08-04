@@ -46,6 +46,18 @@ public:
     /// unique colliding with a base name. The caller disambiguates on the returned fields.
     std::vector<const BaseType*> find_bases(Namespace ns, std::string_view name) const;
 
+    /// What this unique can roll, or null. `name` is the same string `find_bases` is keyed
+    /// on, so it is the name the clipboard already gave us.
+    ///
+    /// Null is normal, not an error: the source does not cover every unique and lags a league
+    /// launch, and a bundle published before this dataset existed carries none of it. The
+    /// caller degrades to what a printed range can prove, never to a wrong filter.
+    const UniqueMods* find_unique_mods(std::string_view name) const;
+
+    /// False for a bundle published before the per-unique modifier data existed, which is
+    /// what tells "this unique has no record" apart from "nothing here has one".
+    bool has_unique_mods() const { return unique_mods_name_index_.valid(); }
+
     /// "Item Class: Rings" -> the trade `category` option, e.g. "accessory.ring".
     /// Empty when the class has no trade category, which is not an error.
     std::string_view trade_category_for(std::string_view item_class) const;
@@ -53,25 +65,32 @@ public:
 
     std::string_view data_version() const { return data_version_; }
     size_t stat_count() const { return stats_matcher_index_.size(); }
+    /// The credit the per-unique modifier data is licensed on, e.g. "poewiki.net, CC BY-NC
+    /// 3.0". It travels with the bundle rather than being hardcoded, because it describes
+    /// the data that is installed and not the build that renders it.
+    std::string_view unique_mods_attribution() const { return unique_mods_attribution_; }
 
 private:
     /// Parses the ndjson line at `offset`, memoising it. Records are stable for the
     /// lifetime of this GameData, so callers may hold the returned pointer.
     const Stat* stat_at(uint32_t offset) const;
     const BaseType* base_at(uint32_t offset) const;
+    const UniqueMods* unique_mods_at(uint32_t offset) const;
     std::string_view line_at(const MappedFile& f, uint32_t offset) const;
 
-    MappedFile stats_nd_, items_nd_;
-    MappedFile stats_matcher_idx_, stats_ref_idx_, items_name_idx_;
-    HashIndex stats_matcher_index_, stats_ref_index_, items_name_index_;
+    MappedFile stats_nd_, items_nd_, unique_mods_nd_;
+    MappedFile stats_matcher_idx_, stats_ref_idx_, items_name_idx_, unique_mods_name_idx_;
+    HashIndex stats_matcher_index_, stats_ref_index_, items_name_index_, unique_mods_name_index_;
 
     // Parsed on demand. mutable because lookups are logically const.
     mutable std::unordered_map<uint32_t, std::unique_ptr<Stat>> stat_cache_;
     mutable std::unordered_map<uint32_t, std::unique_ptr<BaseType>> base_cache_;
+    mutable std::unordered_map<uint32_t, std::unique_ptr<UniqueMods>> unique_mods_cache_;
 
     // Small enough (90 rows) that parsing it up front beats indexing it.
     std::unordered_map<std::string, ItemClass> classes_;
     std::string data_version_;
+    std::string unique_mods_attribution_;
 };
 
 } // namespace ppc::data

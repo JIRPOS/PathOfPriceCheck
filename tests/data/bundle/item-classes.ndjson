@@ -3,3 +3,4 @@
 {"id":"Body Armour","itemClass":"Body Armours","tradeCategory":"armour.chest"}
 {"id":"StackableCurrency","itemClass":"Stackable Currency","tradeCategory":"currency"}
 {"id":"DivinationCard","itemClass":"Divination Cards","tradeCategory":"card"}
+{"id":"Jewel","itemClass":"Jewels","tradeCategory":"jewel.base"}

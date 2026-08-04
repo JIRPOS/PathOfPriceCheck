@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <unordered_map>
 
 #include "data/stat_normalize.hpp"
 
@@ -92,11 +93,15 @@ struct Roll {
     std::optional<double> value, min, max;
 };
 
+/// True when trade indexes this mod as the average of its numbers rather than on the first.
+bool averaged_roll(const data::StatMatch& m) {
+    return m.matcher && m.matcher->string.starts_with("Adds ") && m.rolls.size() > 1;
+}
+
 Roll roll_for(const data::StatMatch& m) {
     Roll r;
     if (m.rolls.empty()) return r;
-    const bool averaged = m.matcher && m.matcher->string.starts_with("Adds ") && m.rolls.size() > 1;
-    if (averaged) {
+    if (averaged_roll(m)) {
         r.value = m.value;
         if (m.roll_bounds.size() == m.rolls.size()) {
             double lo = 0, hi = 0;
@@ -177,6 +182,122 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s) {
     return f;
 }
 
+/// What this modifier can roll on this unique, in the terms its filter is compared on: the
+/// average of both numbers for an added-damage mod and the first number otherwise, scaled by
+/// a catalyst exactly as the clipboard's own roll already was.
+Roll unique_range(const data::UniqueModFilter& uf, const Modifier& m, bool averaged) {
+    Roll r;
+    if (uf.ranges.empty()) return r;
+    double lo = uf.ranges.front().first, hi = uf.ranges.front().second;
+    if (averaged && uf.ranges.size() > 1) {
+        lo = hi = 0;
+        for (const auto& [a, b] : uf.ranges) {
+            lo += a;
+            hi += b;
+        }
+        const auto n = static_cast<double>(uf.ranges.size());
+        lo /= n;
+        hi /= n;
+    }
+    if (m.roll_incr != 0) {
+        const int dp = m.match && m.match->stat ? m.match->stat->dp : 0;
+        lo = data::incr_roll(lo, m.roll_incr, dp);
+        hi = data::incr_roll(hi, m.roll_incr, dp);
+    }
+    r.min = lo;
+    r.max = hi;
+    return r;
+}
+
+/// Fold the bundle's per-unique modifier data into the plan.
+///
+/// Without it `Strategy::Unique` can only enable a roll whose printed range proves it is
+/// variable, which leaves out the case the dataset exists for: a modifier the unique picks
+/// from a pool prints exactly like one every copy has — each of Ralakesh's three charge
+/// modifiers rolls 1..1 — and it is the difference between a chaos and a hundred divines. It
+/// also supplies the range whatever the user's Advanced Mod Descriptions setting is.
+///
+/// The join is on the trade id and never on the wording: wordings are shared by two stat
+/// records often enough that the ids are the only thing telling those apart. Nothing here
+/// ever *disables* a filter — the item's own printed range outranks a record about the
+/// unique in general.
+void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    // Unidentified, or a name the bundle does not know; both already have their own note.
+    if (p.name.empty()) return;
+
+    const data::UniqueMods* um = gd.find_unique_mods(p.name);
+    if (!um) {
+        const bool anything_left_out =
+            std::any_of(p.stats.begin(), p.stats.end(), [](const StatFilter& f) {
+                return !f.enabled && f.type == data::ModType::Explicit;
+            });
+        if (anything_left_out)
+            p.notes.push_back(
+                gd.has_unique_mods()
+                    ? "no modifier data for \"" + p.name +
+                          "\" in this bundle, so a modifier that is one of a pool of "
+                          "possibilities cannot be told from a fixed one"
+                    : "this data bundle carries no per-unique modifier data, so a modifier "
+                      "that is one of a pool of possibilities cannot be told from a fixed one");
+        return;
+    }
+
+    struct Entry {
+        const data::UniqueModFilter* filter;
+        const data::UniqueModPool* pool; ///< null for a modifier every copy has
+    };
+    std::unordered_map<std::string_view, Entry> by_id;
+    for (const data::UniqueMod& m : um->fixed)
+        for (const data::UniqueModFilter& f : m.filters)
+            if (!f.trade_id.empty()) by_id.emplace(f.trade_id, Entry{&f, nullptr});
+    // A pool wins over a fixed entry of the same stat: what is being searched for is the copy
+    // that rolled it, and the fixed half of the pair is on every copy either way.
+    for (const data::UniqueModPool& pool : um->pools)
+        for (const data::UniqueMod& m : pool.mods)
+            for (const data::UniqueModFilter& f : m.filters)
+                if (!f.trade_id.empty()) by_id[f.trade_id] = Entry{&f, &pool};
+
+    for (StatFilter& f : p.stats) {
+        const auto e = by_id.find(f.id);
+        if (e == by_id.end()) {
+            // Either something added to this copy of the item, or a modifier the source has
+            // not caught up with, or one it cannot search. Nothing says it is fixed, so it is
+            // reported rather than silently left out of the search.
+            if (!f.enabled)
+                p.notes.push_back("not in the modifier data for \"" + um->name +
+                                  "\", so not searched: " + one_line(it.mods[f.mod_index]));
+            continue;
+        }
+        const Modifier& m = it.mods[f.mod_index];
+        Roll r = unique_range(*e->second.filter, m, m.match && averaged_roll(*m.match));
+        // Only trust a range that describes the roll in front of us. The bundle carries no
+        // decimal count for every stat, so a range can arrive a hundred times the roll it
+        // bounds ("0.4% of Physical Attack Damage Leeched as Mana" against 40..40) — and a
+        // legacy roll genuinely sits outside its own. Either way the bounds are not this
+        // item's, and calling a modifier variable on them would be a guess. Pool membership
+        // is a fact about the item rather than a number, so it stands regardless.
+        const Roll printed = m.match ? roll_for(*m.match) : Roll{};
+        if (r.min && r.max && printed.value &&
+            (*printed.value < *r.min - 1e-6 || *printed.value > *r.max + 1e-6))
+            r = Roll{};
+        f.unique_min = r.min;
+        f.unique_max = r.max;
+        if (e->second.pool) {
+            f.pooled = true;
+            f.pool_hint = e->second.pool->hint;
+            f.enabled = true;
+        } else if (r.min && r.max && *r.min != *r.max) {
+            // Fixed for the item, variable in its roll: the same judgement a printed range
+            // drives, now made whether or not the game printed one.
+            f.enabled = true;
+        }
+    }
+
+    for (const std::string& u : um->unlisted)
+        p.notes.push_back("the modifier data states but does not enumerate this, so it is not "
+                          "searched: " + u);
+}
+
 /// Fold filters that share a trade id into one, summing their bounds.
 ///
 /// An item with "+28 to maximum Life" and "+89 to maximum Life" is indexed by trade as one
@@ -198,8 +319,14 @@ void merge_same_stat(std::vector<StatFilter>& stats) {
             };
             add(into.min, from.min);
             add(into.max, from.max);
+            add(into.unique_min, from.unique_min);
+            add(into.unique_max, from.unique_max);
             into.tiered = into.tiered && from.tiered;
             into.enabled = into.enabled || from.enabled;
+            if (from.pooled && !into.pooled) {
+                into.pooled = true;
+                into.pool_hint = from.pool_hint;
+            }
             into.text += "\n" + from.text;
             stats.erase(stats.begin() + static_cast<ptrdiff_t>(j));
         }
@@ -305,20 +432,10 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             else
                 p.notes.push_back("unrecognised modifier: " + one_line(m));
         }
+        // Before the merge, while every filter still points at the modifier it came from.
+        if (p.strategy == Strategy::Unique) apply_unique_mods(gd, it, p);
         merge_same_stat(p.stats);
     }
-
-    // A unique's modifier can be variable without having a range: Ralakesh's Impatience rolls
-    // either Power or Frenzy charges, an unrolled Watcher's Eye any three of a large pool. The
-    // clipboard prints such a mod exactly like a fixed one and the bundle carries no per-unique
-    // modifier lists, so this says so instead of quietly searching without it.
-    if (p.strategy == Strategy::Unique &&
-        std::any_of(p.stats.begin(), p.stats.end(), [](const StatFilter& f) {
-            return !f.enabled && f.type == data::ModType::Explicit;
-        }))
-        p.notes.emplace_back(
-            "a unique's own modifiers are not searched, and nothing in the data bundle says "
-            "which of them come from a pool of possibilities rather than being fixed");
 
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||
         p.strategy == Strategy::Unique) {

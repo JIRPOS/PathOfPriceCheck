@@ -89,8 +89,18 @@ void draw_filters(item::SearchPlan& plan) {
         item::StatFilter& f = plan.stats[i];
         std::string bounds = bounds_text(f.min, f.max, f.dp);
         if (f.tiered) bounds += " (tier)";
+        // What the unique itself can roll, which the clipboard only prints with Advanced Mod
+        // Descriptions on. A point range says nothing a reader cannot see.
+        if (f.unique_min && f.unique_max && *f.unique_min != *f.unique_max)
+            bounds += " of " + bounds_text(f.unique_min, f.unique_max, f.dp);
         std::string note;
         if (f.type != data::ModType::Explicit) note = data::trade_prefix(f.type);
+        // Why this one is ticked on a unique whose other modifiers are not: the item picked
+        // it out of a pool, so it is what separates this copy from every other.
+        if (f.pooled) {
+            if (!note.empty()) note += " \xe2\x80\x94 ";
+            note += f.pool_hint.empty() ? "one of several possible modifiers" : f.pool_hint;
+        }
         draw_filter_row(static_cast<int>(1000 + i), f.enabled, bounds, f.text, note);
     }
 }
