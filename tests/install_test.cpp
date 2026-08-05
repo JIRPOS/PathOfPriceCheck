@@ -49,6 +49,29 @@ TEST_CASE("asset names that would escape the cache directory are rejected") {
     CHECK_FALSE(is_safe_asset_name("http://x/y"));
 }
 
+TEST_CASE("a dataset this build does not read is still downloaded and installed") {
+    // The updater is manifest-driven on purpose: the publisher adds assets within a schema
+    // version and they arrive without an app release — fetched, hashed and installed whether
+    // or not this build knows what they are. `en-items-base.index.bin` is the current example,
+    // published and installed while only the unidentified-unique work will read it.
+    const std::string payload = "{\"name\":\"Watcher's Eye\"}\n";
+    const std::string body =
+        R"({"schema_version":1,"data_version":"v1","files":[{"name":"en-unique-mods.ndjson",)"
+        R"("sha256":")" + ppc::sha256_hex(payload) + R"(","size":)" +
+        std::to_string(payload.size()) +
+        R"(,"encoding":"none","url":"https://example.invalid/en-unique-mods.ndjson"}]})";
+
+    Manifest m;
+    std::string err;
+    REQUIRE_MESSAGE(parse_manifest(body, m, &err), err);
+    REQUIRE(m.find("en-unique-mods.ndjson") != nullptr);
+
+    BundleStore store(scratch_root("unknown-asset"));
+    REQUIRE_MESSAGE(store.stage("v1", m.files[0], payload, &err), err);
+    REQUIRE_MESSAGE(store.commit(m, &err), err);
+    CHECK(fs::exists(store.version_dir("v1") / "en-unique-mods.ndjson"));
+}
+
 TEST_CASE("a good manifest parses") {
     Manifest m;
     std::string err;

@@ -1,9 +1,12 @@
 {
   "schema_version": 1,
   "data_version": "fixture",
-  "game_patch": "3.29.1.2",
+  "game_patch": "3.29.1.2.2",
   "languages": [
     "en"
   ],
+  "source": {
+    "unique_mods_attribution": "poewiki.net, CC BY-NC 3.0"
+  },
   "files": []
 }

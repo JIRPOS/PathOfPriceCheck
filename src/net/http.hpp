@@ -28,6 +28,10 @@ struct Request {
     std::string if_none_match;        ///< ETag for a conditional GET; empty to skip
     int timeout_ms = 8000;            ///< total budget, connect included
 
+    /// Non-empty makes this a POST. Content-Type is application/json unless overridden
+    /// through `headers`.
+    std::string body;
+
     /// Called as bytes arrive. Return false to abort the transfer.
     std::function<bool(uint64_t done, uint64_t total)> on_progress;
 
@@ -36,7 +40,8 @@ struct Request {
     std::function<bool(const char* data, size_t n)> on_body;
 };
 
-/// Blocking GET. Thread-safe. MUST NOT be called on the UI thread.
+/// Blocking. A GET, or a POST when `Request::body` is set. Thread-safe.
+/// MUST NOT be called on the UI thread.
 Response get(const Request& r);
 
 /// GGG requires unregistered clients to identify themselves and offer a contact route.

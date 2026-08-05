@@ -5,13 +5,11 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
-#include <string_view>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <imgui.h>
 
-#include "data/install.hpp"
 #include "icon.hpp"
 #include "item/resolve.hpp"
 #include "net/http.hpp"
@@ -23,31 +21,44 @@
 #include "platform/platform.hpp"
 #include "screens/pricecheck_screen.hpp"
 #include "screens/settings_screen.hpp"
+#include "trade/query.hpp"
+#include "util/debug_log.hpp"
 
 namespace ppc {
 namespace {
 
-/// PPC_DEBUG_COPY=1 traces the whole hotkey → copy → clipboard timeline to stderr.
-bool trace_copy() {
-    static bool on = std::getenv("PPC_DEBUG_COPY") != nullptr;
-    return on;
-}
-
 /// Cheap sniff for PoE clipboard text. Guards against latching whatever the user last
 /// copied elsewhere when the game's own copy is slow or never arrives. Only the head is
 /// examined: the marker is in the first two lines or the text is not an item.
-bool looks_like_item(const std::string& s) {
-    return item::looks_like_item(std::string_view(s.data(), std::min<size_t>(s.size(), 256)));
+/// One line's worth of clipboard text for a trace line. Item text is mostly newlines, and a
+/// log where one fact spans twelve lines is not greppable.
+std::string preview(const std::string& s) {
+    std::string out;
+    for (size_t i = 0; i < s.size() && out.size() < 60; ++i)
+        out += s[i] == '\n' ? std::string("\\n") : std::string(1, s[i]);
+    return out;
 }
 
-std::string read_clipboard() {
+std::string read_clipboard(const char* label) {
     uint64_t t0 = SDL_GetTicks();
     // A live owner answers in well under a millisecond; the budget only bounds how long a
     // dead one can stall the frame loop, and we poll again shortly anyway.
     std::string s = clipboard_text(60);
-    if (trace_copy())
-        SDL_Log("[copy]   read clipboard: %zu bytes in %llums | %.60s", s.size(),
-                (unsigned long long)(SDL_GetTicks() - t0), s.c_str());
+    if (debug::tracing())
+        debug::trace("[copy]   read clipboard (%s): %zu bytes in %llums | %s", label, s.size(),
+                     (unsigned long long)(SDL_GetTicks() - t0), preview(s).c_str());
+    if (debug::enabled()) {
+        // The whole thing once per distinct value: the watch re-reads every 100ms and the
+        // interesting event is the read *changing*, not the twenty that repeat.
+        static std::string last;
+        std::string d = debug::digest(s);
+        if (d == last) {
+            debug::log("%s: unchanged (fnv=%s)", label, d.c_str());
+        } else {
+            debug::log_text(label, s);
+            last = std::move(d);
+        }
+    }
     return s;
 }
 
@@ -55,8 +66,10 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
     static_cast<App*>(userdata)->quit();
 }
 
-// Settings is a free-floating dialog, centered over the game; only price-check docks.
-constexpr int kSettingsW = 520, kSettingsH = 680;
+// Settings is a free-floating dialog, centered over the game; only price-check docks. Sized to
+// hold every section without scrolling — the panel is a form, and a form that scrolls hides the
+// Save button under whatever the user was just reading.
+constexpr int kSettingsW = 640, kSettingsH = 860;
 
 // SPIKE: a small always-on marker so we can eyeball whether the transparent,
 // click-through overlay actually floats over the (fullscreen) game. Not final UI.
@@ -75,6 +88,10 @@ void draw_idle_marker() {
 
 int App::run() {
     platform_init();
+    // Before anything else touches the clipboard or the hotkeys: this session's log has to
+    // start at the same instant the process does, since "the first price check after launch"
+    // is the failure being chased.
+    debug::set_enabled(config_.debug_log);
     SDL_SetMainReady();
 #ifndef _WIN32
     // v1 targets Linux/X11; under Wayland this runs via XWayland, which shares a
@@ -94,7 +111,7 @@ int App::run() {
         return 1;
     }
     // SDL hands back a contiguous range, so the offsets are guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(3);
+    const uint32_t event_base = SDL_RegisterEvents(4);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -103,6 +120,7 @@ int App::run() {
     hotkey_event_ = event_base;
     league_event_ = event_base + 1;
     data_event_ = event_base + 2;
+    trade_event_ = event_base + 3;
 
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
@@ -122,6 +140,9 @@ int App::run() {
     net::init();
     leagues_.init(league_event_);
     leagues_.load_cache(); // file read only; the network is touched when Settings opens
+    trade_.init(trade_event_);
+    trade_.load_cache(); // currency symbols; the search itself fetches them if they are stale
+    icons_.init();
 
     // Reclaim superseded bundles and map the installed one before anything else can hold a
     // mapping — on Windows a mapped directory cannot be removed.
@@ -140,6 +161,7 @@ int App::run() {
     if (!std::getenv("PPC_MANAGED")) overlay_set_unmanaged(overlay_.window(), true);
 
     dev_mode_ = std::getenv("PPC_DEV_OVERLAY") != nullptr;
+    log_session_start(); // after dev_mode_, which changes what every gate below does
     if (dev_mode_) { // local UI dev, no game needed
         overlay_.set_visible(true);
         // PPC_DEV_ITEM=<file> opens the price-check panel on a captured clipboard instead,
@@ -165,7 +187,9 @@ int App::run() {
         // Idle: sleep and just poll for the game a few times a second. Active (a panel
         // is open): wake ~60x/s so ImGui stays responsive. Either way we only repaint
         // when something actually changed — no busy redraw behind the running game.
-        bool active = screen_ != Screen::Hidden;
+        // A pending copy counts as active even though nothing is on screen: it is polled from
+        // this loop, and at the idle 250ms the poke and the read are both a quarter second late.
+        bool active = screen_ != Screen::Hidden || copy_pending_;
         if (SDL_WaitEventTimeout(&e, active ? 16 : 250)) {
             do {
                 handle_event(e);
@@ -180,6 +204,9 @@ int App::run() {
         // otherwise just once after a change. A static idle frame persists in the front
         // buffer, so we don't redraw it behind the game.
         active = screen_ != Screen::Hidden;
+        // Textures can only be made where the GL context is, and a symbol that arrived
+        // while nothing was repainting has to bring its own repaint with it.
+        if (icons_.pump()) need_redraw_ = true;
         if (overlay_.visible() && (active || need_redraw_)) {
             overlay_.begin_frame();
             if (screen_ == Screen::Settings)
@@ -196,6 +223,8 @@ int App::run() {
     if (tray_) SDL_DestroyTray(tray_);
     hotkeys_.reset();
     leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
+    trade_.shutdown();
+    icons_.shutdown(); // frees GL textures, so before the context goes with the overlay
     updater_.shutdown();
     net::shutdown();
     overlay_.shutdown();
@@ -216,6 +245,10 @@ bool App::init_tray(SDL_Surface* icon) {
 }
 
 void App::on_hotkey(Action a) {
+    // Mint the id here, on the hotkey thread, rather than in handle_action: everything the
+    // press causes — including the lines the hotkey and clipboard layers write before the SDL
+    // event is even drained — then carries the same tag.
+    if (a == Action::PriceCheck) debug::begin_check();
     SDL_Event ev{};
     ev.type = hotkey_event_;
     ev.user.code = static_cast<int32_t>(a);
@@ -229,6 +262,9 @@ void App::handle_event(const SDL_Event& e) {
         handle_action(static_cast<Action>(e.user.code));
     } else if (e.type == league_event_) {
         leagues_.on_done(e);
+    } else if (e.type == trade_event_) {
+        trade_.on_done(e);
+        listing_items_.clear(); // the rows they were parsed for may be gone; re-parse on hover
     } else if (e.type == data_event_) {
         if (auto gd = updater_.take_ready_bundle()) {
             data_ = std::move(gd);
@@ -252,12 +288,12 @@ void App::handle_event(const SDL_Event& e) {
         }
     } else if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) {
         set_screen(Screen::Hidden);
-    } else if (e.type == SDL_EVENT_CLIPBOARD_UPDATE) {
-        clipboard_dirty_ = true;
-        if (trace_copy()) SDL_Log("[copy]   clipboard-update event");
     } else if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
         had_focus_ = true;
+        debug::log("[app]    overlay focus gained");
     } else if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+        debug::log("[app]    overlay focus lost (screen=%d, had_focus=%d)", (int)screen_,
+                   (int)had_focus_);
         // Price-check auto-dismisses when you click back into the game; Settings stays
         // open until closed manually (its hotkey or the X button). had_focus_ avoids
         // closing before the window has actually taken focus.
@@ -267,43 +303,161 @@ void App::handle_event(const SDL_Event& e) {
     need_redraw_ = true; // an event may have changed the UI
 }
 
-// Reading is a synchronous selection round trip to whoever owns the clipboard — under
-// XWayland that is the game's Wine process — so poll on a timer rather than every frame.
+/// Wait for the clipboard to be written, then show what it holds if it is an item.
+///
+/// The stamp is the entire test, and it is why this is short. It moves only when something
+/// writes the clipboard, so there is nothing to reconcile: no snapshot of the previous text to
+/// diff against, no rule for text that happens to be byte-identical, no separate accelerators
+/// to cross-check. It costs no request to the owner either, so this can run every frame and
+/// the one real read happens once, after there is something new to read.
+///
+/// Failure is silent by design. Past the deadline, or on a clipboard that holds something that
+/// is not an item, the check is simply dropped — an overlay that reports its own plumbing is
+/// noise over a game, and the log has the detail for when it matters.
 void App::poll_pending_copy() {
     if (!copy_pending_) return;
-    const uint64_t tick = SDL_GetTicks();
-    // SDL_EVENT_CLIPBOARD_UPDATE only fires once the *new* owner answers SDL's TARGETS
-    // conversion, so a handover nobody answers is silent. Take it as an accelerator and
-    // poll alongside it — a read is a couple of milliseconds when the owner is live.
-    if (!clipboard_dirty_ && tick - last_clipboard_poll_ms_ < 100) return;
-    const bool by_event = clipboard_dirty_;
-    clipboard_dirty_ = false;
-    last_clipboard_poll_ms_ = tick;
-    const uint64_t elapsed = tick - copy_started_ms_;
+    const uint64_t elapsed = SDL_GetTicks() - copy_started_ms_;
+    const uint64_t stamp = clipboard_stamp();
 
-    std::string now = read_clipboard();
-    // Same text as before the copy is only trustworthy if ownership actually changed —
-    // otherwise it's the previous owner still serving, mid-handover.
-    if (looks_like_item(now) && (now != copy_before_ || by_event)) {
-        if (trace_copy()) SDL_Log("[copy] done after %llums", (unsigned long long)elapsed);
-        accept_clipboard(std::move(now));
-        copy_pending_ = false;
-        copy_late_ = false;
-    } else if (elapsed >= 2500 && !copy_late_) {
-        // Say so, but keep watching: the game's handover to the X11 selection can land
-        // seconds later, and latching a failure here is what made a late item look lost.
-        // Never fall back to copy_before_ — that is whatever was copied last, from any
-        // application, and showing it reads as a successful but wrong price check.
-        SDL_Log("no item text on the clipboard yet %llums after the copy", (unsigned long long)elapsed);
-        copy_late_ = true;
+    if (stamp == copy_stamp_) { // nothing has been copied yet
+        if (elapsed < kCopyTimeoutMs) {
+            // Ask, don't just listen: Wine renders the clipboard only when someone requests it,
+            // and publishes by re-asserting ownership — which is the very thing being waited on.
+            // Throttled: the loop runs at 60Hz while a copy is pending so the *reply* is seen
+            // promptly, but a hundred conversion requests at an owner mid-handover is a poke, not
+            // a nudge.
+            if (SDL_GetTicks() - copy_poked_ms_ >= kPokeIntervalMs) {
+                copy_poked_ms_ = SDL_GetTicks();
+                clipboard_poke();
+            }
+            nudge_clipboard_handover(elapsed);
+            return;
+        }
+        if (debug::enabled())
+            debug::log("[copy] gave up after %llums: the clipboard was never written. %s owner=%s"
+                       " targets=%s",
+                       (unsigned long long)elapsed, focus_info().c_str(),
+                       clipboard_owner_info().c_str(), clipboard_targets(100).c_str());
+        abandon_copy();
+        return;
     }
+
+    copy_pending_ = false;
+    if (debug::enabled())
+        debug::log("[copy] clipboard written after %llums (stamp %llu -> %llu) owner=%s",
+                   (unsigned long long)elapsed, (unsigned long long)copy_stamp_,
+                   (unsigned long long)stamp, clipboard_owner_info().c_str());
+    accept_clipboard(read_clipboard("clipboard.copy"));
+    if (!item_) {
+        debug::log("[copy] dropped: what was copied is not an item");
+        abandon_copy();
+        return;
+    }
+    set_screen(Screen::PriceCheck);
+}
+
+/// Give up on the copy in flight, leaving nothing on screen. Hands back any keyboard focus the
+/// handover nudge took, so a failed check doesn't quietly leave the game unable to receive keys.
+void App::abandon_copy() {
+    copy_pending_ = false;
+    if (overlay_.has_focus() && screen_ != Screen::Settings)
+        focus_game_window(config_.poe_window_title);
     need_redraw_ = true;
+}
+
+/// Path of Exile under Wine does not hand its copy to the X CLIPBOARD selection when it copies.
+/// It hands it over when the game loses focus — measured with a standalone watcher and this
+/// application not running at all, on a *manual* Ctrl+C, so nothing in the injection or the read
+/// path can shorten it. Until then the previous owner keeps serving the previous text and every
+/// signal we have says, correctly, that no copy has happened.
+///
+/// So take the keyboard onto the panel: the focus-out is the event the game is waiting for, and
+/// the panel is a thing the user clicks anyway. Deliberately **not** unconditional — a healthy
+/// clipboard (any Windows machine, a native X11 game) answers the first poll, and stealing the
+/// keyboard mid-fight for a copy that was never late is a worse bug than the one being fixed.
+/// Hence: once per check, only past the grace period, and only while the game is still the
+/// window in front — if the user has already alt-tabbed away, the focus-out has happened and
+/// grabbing focus would take it off whatever they moved to.
+void App::nudge_clipboard_handover(uint64_t elapsed) {
+    // Three polls of the 100ms loop. Long enough that a clipboard which works never sees this.
+    static constexpr uint64_t kGraceMs = 350;
+    if (copy_nudged_ || elapsed < kGraceMs) return;
+    copy_nudged_ = true;
+    // No screen check: nothing is on screen during a check, by design. Guarding on
+    // `screen_ == PriceCheck` is what silently disabled this after the panel stopped being
+    // shown while the copy was in flight.
+    if (dev_mode_ || !overlay_.visible()) return;
+    if (overlay_.has_focus() || !foreground_title_contains(config_.poe_window_title)) {
+        debug::log("[copy]   no handover after %llums, but the game no longer holds focus",
+                   (unsigned long long)elapsed);
+        return;
+    }
+    debug::log("[copy]   no handover after %llums — taking the keyboard onto the panel so the"
+               " game sees a focus-out",
+               (unsigned long long)elapsed);
+    overlay_take_keyboard_focus(overlay_.window());
 }
 
 void App::accept_clipboard(std::string text) {
     clipboard_ = std::move(text);
     strategy_override_.reset(); // a choice belongs to the item it was made for
+    trade_.clear();             // and so do the listings: they priced the previous item
+    listing_items_.clear();
     rebuild_plan();
+    // Off by default. A price check the user meant only to read the item with should not
+    // spend a request, which is why this is opt-in rather than the way the panel behaves.
+    if (config_.auto_search) start_search();
+}
+
+bool App::can_search() const {
+    return item_ && item_data_ && trade::searchable(plan_);
+}
+
+void App::start_search() {
+    if (!can_search()) return;
+    trade_.search(config_.league, trade::build_query(plan_, config_.listing_status),
+                  config_.result_count);
+    need_redraw_ = true;
+}
+
+/// The plan as it stands, handed to the trade site itself. Deliberately built from the
+/// filters rather than from a search we already ran: the id of a finished search would open
+/// whatever was ticked at the time, which is not what the panel is showing after the user
+/// has changed their mind about a mod.
+void App::open_search_in_browser() {
+    if (!can_search()) return;
+    const std::string url = trade::web_url_for_query(
+        config_.league, trade::build_query(plan_, config_.listing_status));
+    debug::log("[trade]  opening %s", url.c_str());
+    if (!SDL_OpenURL(url.c_str())) debug::log("[trade]  SDL_OpenURL failed: %s", SDL_GetError());
+}
+
+void App::load_more() {
+    trade_.load_more();
+    need_redraw_ = true;
+}
+
+const ListingItem* App::listing_item(size_t i) {
+    const std::vector<trade::Listing>& ls = trade_.results().listings;
+    if (i >= ls.size()) return nullptr;
+    if (listing_items_.size() != ls.size()) listing_items_.resize(ls.size());
+    std::optional<ListingItem>& slot = listing_items_[i];
+    if (slot) return &*slot;
+
+    ListingItem li;
+    li.item = item::parse_item(ls[i].item_text);
+    if (li.item) {
+        // The same snapshot the item in hand was pinned to, and for the same reason: the
+        // updater swaps `data_` from its own thread, and a resolved item points into the
+        // bundle it was matched in.
+        if (item_data_) item::resolve_item(*item_data_, *li.item);
+        li.derived = item::derive(item_data_.get(), *li.item);
+    } else if (!ls[i].item_text.empty()) {
+        debug::log("[trade]  listing %zu: %zu bytes of item text did not parse", i,
+                   ls[i].item_text.size());
+    }
+    slot = std::move(li);
+    return &*slot;
 }
 
 void App::rebuild_plan() {
@@ -313,7 +467,15 @@ void App::rebuild_plan() {
     item_data_ = data_;
     plan_ = {};
     derived_ = {};
-    if (!item_) return;
+    if (!item_) {
+        if (!clipboard_.empty())
+            debug::log("[item]   %zu bytes on the clipboard did not parse as an item",
+                       clipboard_.size());
+        return;
+    }
+    debug::log("[item]   parsed: rarity=%d class='%s' name='%s' base='%s' %zu modifiers",
+               (int)item_->rarity, item_->item_class.c_str(), item_->name.c_str(),
+               item_->base_type.c_str(), item_->mods.size());
     if (item_data_) {
         item::resolve_item(*item_data_, *item_);
         derived_ = item::derive(item_data_.get(), *item_);
@@ -339,7 +501,8 @@ void App::poll_click_away() {
     }
     // KWin doesn't reliably send focus-out to an override-redirect window, so watch the
     // global mouse directly: a press outside the panel dismisses it (X button handles
-    // presses inside). Read-only price-check never holds focus, so this is the only path.
+    // presses inside). Price-check only holds focus when the handover nudge had to take it,
+    // so the focus-lost path can't be relied on to fire at all.
     float gx = 0, gy = 0;
     bool down = (SDL_GetGlobalMouseState(&gx, &gy) & SDL_BUTTON_LMASK) != 0;
     bool pressed = down && !mouse_was_down_;
@@ -349,7 +512,11 @@ void App::poll_click_away() {
     int wx = 0, wy = 0, ww = 0, wh = 0;
     SDL_GetWindowPosition(overlay_.window(), &wx, &wy);
     SDL_GetWindowSize(overlay_.window(), &ww, &wh);
-    if (gx < wx || gy < wy || gx >= wx + ww || gy >= wy + wh) set_screen(Screen::Hidden);
+    // Against the *panel*, not the window: the window now carries a transparent gutter beside
+    // it, and a click there is a click on the game, which has to dismiss like any other.
+    const float px = wx + layout_.panel_x;
+    const float pw = layout_.panel_w > 0 ? layout_.panel_w : float(ww);
+    if (gx < px || gy < wy || gx >= px + pw || gy >= wy + wh) set_screen(Screen::Hidden);
 }
 
 void App::handle_action(Action a) {
@@ -359,9 +526,10 @@ void App::handle_action(Action a) {
     // keyboard focus itself, so the game can't be foreground while it's open, and its hotkey
     // still has to close it.
     const bool game_focused = foreground_title_contains(config_.poe_window_title);
+    if (a == Action::PriceCheck) log_state("hotkey");
     if (!game_focused && !dev_mode_ &&
         !(a == Action::ToggleSettings && screen_ == Screen::Settings)) {
-        if (trace_copy()) SDL_Log("[copy] hotkey ignored: game not focused");
+        debug::trace("[copy] hotkey ignored: game not focused");
         return;
     }
 
@@ -369,29 +537,31 @@ void App::handle_action(Action a) {
         // Sample the cursor now, while it's still on the item — the user will have moved
         // on by the time the clipboard lands.
         side_ = cursor_side();
-        if (trace_copy()) SDL_Log("[copy] price-check hotkey, game focused=%d", game_focused);
-        if (game_focused) {
-            // Copy FIRST, while the game still holds focus — the synthetic Ctrl+C must reach
-            // it. Don't touch the focus on the way: we just confirmed the game is foreground,
-            // and XSetInputFocus on its toplevel can land somewhere Wine didn't put it. Then
-            // show the panel; the text fills in asynchronously (poll_pending_copy).
-            copy_before_ = read_clipboard();
-            uint64_t t0 = SDL_GetTicks();
-            simulate_copy();
-            if (trace_copy())
-                SDL_Log("[copy]   simulate_copy took %llums",
-                        (unsigned long long)(SDL_GetTicks() - t0));
-            accept_clipboard({}); // show "copying…" until the item lands
-            copy_pending_ = true;
-            copy_late_ = false;
-            clipboard_dirty_ = false;
-            copy_started_ms_ = last_clipboard_poll_ms_ = SDL_GetTicks();
-        } else { // dev mode: no game to copy from, just show what's already there
-            accept_clipboard(read_clipboard());
-            copy_pending_ = false;
-            copy_late_ = false;
+        debug::trace("[copy] price-check hotkey, game focused=%d", game_focused);
+        if (!game_focused) { // dev mode: no game to copy from, just show what's already there
+            accept_clipboard(read_clipboard("clipboard.dev"));
+            if (item_) set_screen(Screen::PriceCheck);
+            return;
         }
-        set_screen(Screen::PriceCheck);
+        // A check already on screen is about the *previous* item. Drop it before starting:
+        // if this copy then fails silently, leaving the old panel up would read as a price
+        // check of the item now under the cursor.
+        if (screen_ == Screen::PriceCheck) set_screen(Screen::Hidden);
+        // Take the stamp before injecting, not after — simulate_copy blocks for the length of
+        // a human keypress and the copy can land inside it.
+        copy_stamp_ = clipboard_stamp();
+        // Don't touch the focus on the way in: we just confirmed the game is foreground, and
+        // XSetInputFocus on its toplevel can land somewhere Wine didn't put it.
+        const uint64_t t0 = SDL_GetTicks();
+        simulate_copy();
+        copy_pending_ = true;
+        copy_nudged_ = false;
+        copy_poked_ms_ = 0; // poke on the first poll, not one interval in
+        copy_started_ms_ = SDL_GetTicks();
+        if (debug::enabled())
+            debug::log("[copy] injected in %llums, stamp=%llu owner=%s",
+                       (unsigned long long)(copy_started_ms_ - t0),
+                       (unsigned long long)copy_stamp_, clipboard_owner_info().c_str());
     } else {
         set_screen(screen_ == Screen::Settings ? Screen::Hidden : Screen::Settings);
     }
@@ -403,6 +573,11 @@ void App::update_overlay_placement() {
     last_detect_ms_ = now;
 
     GameWindow g = find_game_window(config_.poe_window_title);
+    if (const int gs = (g.present ? 2 : 0) | (g.focused ? 1 : 0); gs != game_state_logged_) {
+        debug::log("[app]    game window: present=%d focused=%d %dx%d+%d+%d", (int)g.present,
+                   (int)g.focused, g.w, g.h, g.x, g.y);
+        game_state_logged_ = gs;
+    }
     // Go dormant when the game is gone *or* merely not in front — the idle marker has no
     // business floating over other applications. Keep polling either way. An open panel is
     // exempt: Settings holds the focus itself, so the game is never foreground while it's up,
@@ -456,18 +631,82 @@ void App::place_overlay() {
         SDL_SetWindowSize(overlay_.window(), kSettingsW, kSettingsH);
         SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2,
                               gy + (gh - kSettingsH) / 2);
+        layout_ = PanelLayout{0, kSettingsW, 0, 0};
         return;
     }
 
     const int pw = std::clamp(config_.panel_width, 200, gw);
-    const int x = side_ == Side::Stash
-                      ? gx + static_cast<int>(gh * config_.stash_edge)
-                      : gx + gw - static_cast<int>(gh * config_.inventory_edge) - pw;
-    SDL_SetWindowSize(overlay_.window(), pw, gh);
-    SDL_SetWindowPosition(overlay_.window(), std::clamp(x, gx, gx + gw - pw), gy);
+    const int px = std::clamp(side_ == Side::Stash
+                                  ? gx + static_cast<int>(gh * config_.stash_edge)
+                                  : gx + gw - static_cast<int>(gh * config_.inventory_edge) - pw,
+                              gx, gx + gw - pw);
+
+    // The window is widened by a transparent gutter for the listing tooltip, taken from the
+    // side the panel is *not* docked against — over the game, never over the results. Docked
+    // left (right of the stash) it goes right; docked right (left of the inventory) it goes
+    // left. Only what is actually free is claimed, so the overlay never spills off the game.
+    const int free = side_ == Side::Stash ? (gx + gw) - (px + pw) : px - gx;
+    const int gutter = std::clamp(free, 0, pw);
+    const int wx = side_ == Side::Stash ? px : px - gutter;
+
+    SDL_SetWindowSize(overlay_.window(), pw + gutter, gh);
+    SDL_SetWindowPosition(overlay_.window(), wx, gy);
+    layout_ = side_ == Side::Stash
+                  ? PanelLayout{0, float(pw), float(pw), float(gutter)}
+                  : PanelLayout{float(gutter), float(pw), 0, float(gutter)};
+    debug::log("[app]    placed %s: window %dx%d+%d+%d, panel x=%.0f w=%.0f, tip x=%.0f w=%.0f",
+               side_ == Side::Stash ? "stash" : "inventory", pw + gutter, gh, wx, gy,
+               layout_.panel_x, layout_.panel_w, layout_.tip_x, layout_.tip_w);
+}
+
+// The state of everything the copy path depends on, in one place, written at each hotkey press
+// and whenever the log is switched on. A price check that goes wrong is nearly always a
+// disagreement between two of these — which window is foreground, who owns the selection,
+// which screen we already think is open.
+void App::log_state(const char* when) {
+    if (!debug::enabled()) return;
+    const std::string title = foreground_title();
+    debug::log("[state]  %s: screen=%d overlay=%s focus=%d dev=%d", when, (int)screen_,
+               overlay_.visible() ? "visible" : "hidden", (int)overlay_.has_focus(),
+               (int)dev_mode_);
+    debug::log("[state]  foreground='%s' matches '%s': %d", title.c_str(),
+               config_.poe_window_title.c_str(),
+               (int)(title.find(config_.poe_window_title) != std::string::npos));
+    debug::log("[state]  game present=%d at %dx%d+%d+%d, side=%s", (int)game_present_, game_w_,
+               game_h_, game_x_, game_y_, side_ == Side::Stash ? "stash" : "inventory");
+    debug::log("[state]  copy pending=%d, clipboard stamp=%llu owner %s", (int)copy_pending_,
+               (unsigned long long)clipboard_stamp(), clipboard_owner_info().c_str());
+}
+
+void App::log_session_start() {
+    if (!debug::enabled()) return;
+    debug::log("[state]  config %s", Config::path().c_str());
+    debug::log("[state]  hotkeys: price check %s, settings %s; league '%s'; window title '%s'",
+               to_string(config_.price_check).c_str(), to_string(config_.settings).c_str(),
+               config_.league.c_str(), config_.poe_window_title.c_str());
+    debug::log("[state]  video driver %s", SDL_GetCurrentVideoDriver());
+    log_state("startup");
+}
+
+void App::set_debug_log(bool on) {
+    config_.debug_log = on;
+    debug::set_enabled(on);
+    log_session_start(); // no-op when it was just turned off
+    need_redraw_ = true;
+}
+
+// Writing the id back to the clipboard is the point — the user is reporting a check that went
+// wrong and needs its id in a message, not transcribed by hand. It does take the selection off
+// the game, which the next price check re-takes, and the log says it happened.
+void App::copy_check_id() {
+    const std::string id = debug::check_id();
+    if (id.empty()) return;
+    SDL_SetClipboardText(id.c_str());
+    debug::log("[app]    wrote the check id to the clipboard on the user's request");
 }
 
 void App::set_screen(Screen s) {
+    debug::log("[app]    screen %d -> %d", (int)screen_, (int)s);
     screen_ = s;
     bool active = s != Screen::Hidden;
     if (!active) copy_pending_ = false; // nothing left to fill in; stop watching the clipboard
@@ -480,8 +719,8 @@ void App::set_screen(Screen s) {
         had_focus_ = false; // wait for the (re)focused window to report focus
         SDL_RaiseWindow(overlay_.window());
     }
-    // Settings needs keyboard focus immediately (text fields); price-check grabs it only
-    // after the copy (see handle_action). Closing hands focus back to the game.
+    // Settings needs keyboard focus immediately (text fields); price-check takes it only if
+    // the copy stalls (nudge_clipboard_handover). Closing hands focus back to the game.
     if (s == Screen::Settings) {
         overlay_take_keyboard_focus(overlay_.window());
         // TTL-gated, so a warm cache makes this a no-op. A user who never opens Settings

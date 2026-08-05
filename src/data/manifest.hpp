@@ -28,6 +28,10 @@ struct Manifest {
     std::string data_version;
     std::string generated_at;
     std::string game_patch;
+    /// The credit the per-unique modifier data is licensed on. Carried in the bundle rather
+    /// than hardcoded here, and written through on install: it describes the data, and an
+    /// attribution that only lives in the publisher's repo is not an attribution.
+    std::string unique_mods_attribution;
     std::vector<ManifestFile> files;
 
     const ManifestFile* find(std::string_view name) const;

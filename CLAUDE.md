@@ -4,10 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-The overlay, Settings, the league list, the **static game-data layer** and the **item layer**
-(parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) are built and
-tested. The **trade query builder + client and the rate limiter are the next piece of work**: the
-plan the item layer produces is exactly the input they need.
+The overlay, Settings, the league list, the **static game-data layer**, the **item layer**
+(parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) and the
+**trade search** (query builder, two-step client, shared rate limiter, results in the panel) are
+built and tested, including the **per-unique modifier data** that decides which of a unique's
+modifiers are worth searching on. **poe.ninja pricing** — the categories a stat query cannot
+price — is the next piece of work.
 
 Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
@@ -27,8 +29,11 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
   debug builds.
 - **Overlay UI:** [Dear ImGui](https://github.com/ocornut/imgui) on a borderless, always-on-top
   **SDL3 + OpenGL** window. (SDL3, not SDL2 — first-class transparent/always-on-top window flags and a
-  smoother Wayland path later. True transparency + click-through is a later step; today it's an opaque
-  panel.)
+  smoother Wayland path later. The window **is** transparent — `SDL_WINDOW_TRANSPARENT` with an alpha
+  framebuffer cleared to 0, so only what ImGui draws is painted; **click-through is the part still
+  missing**, so the window's whole rectangle still swallows mouse input. That is why the window is
+  never made larger than it needs to be, and why the price-check gutter below is sized to what is
+  free rather than to what is wanted.)
 - **Dependencies:** CMake **FetchContent** builds SDL3 + ImGui + nlohmann/json + doctest from source
   (pinned tags in `CMakeLists.txt`), so CI needs no system packages beyond Linux dev headers and
   libcurl (see Build).
@@ -92,6 +97,25 @@ The seams (windowing still comes free from SDL3; the clipboard did not — see b
   `INCR`, and never calls `XSetSelectionOwner`. Win32 is plain `OpenClipboard`/`CF_UNICODETEXT`,
   retried while the lock is held. Verified against a stub owner: live owner <1ms, frozen owner
   returns empty exactly at the deadline, no owner returns instantly.
+  `clipboard_stamp()` is the same argument for the *write* signal: X11 selects XFixes
+  `SetSelectionOwnerNotify` on its own requestor window and keeps the `selection_timestamp` off
+  each one, so a copy is observed the moment ownership is asserted rather than after a `TARGETS`
+  round trip the game may never answer (SDL's `SDL_EVENT_CLIPBOARD_UPDATE` waits for that reply —
+  see the copy watch under Architecture); Win32 uses `GetClipboardSequenceNumber`. **It is a value,
+  not a latch** — the previous design returned a bool and cleared itself, so callers had to arm it
+  and poll every tick or lose a write between two polls. A stamp can be read as often or as rarely
+  as you like. It pairs a change counter with the timestamp so two writes in the same millisecond
+  differ; compare for equality only, the X11 time wraps. Without XFixes it never moves, so every
+  copy times out — the honest failure, since a stamp that moved on its own would vouch for the
+  stale clipboard a failed copy leaves behind. Verified against a stub owner re-asserting ownership
+  over byte-identical text: three re-copies, three distinct stamps.
+  **That target list is not cosmetic: the same copy yields two different texts.** Wine publishes
+  the Windows clipboard's `CF_UNICODETEXT` as the UTF-8 targets and `CF_TEXT` as `STRING`, and for
+  the first ~100ms after a copy PoE has often rendered only the latter — so the UTF-8 conversion
+  comes back empty, we fall through to Latin-1, and every em dash in the Advanced Mod Descriptions
+  arrives as a plain hyphen (1277 bytes against 1291 for the same item). Polling therefore sees the
+  two forms alternate, which is why one press of the hotkey used to show affixes and the next did
+  not. `parse_info_line` accepts either separator; **do not "fix" that by trusting the encoding.**
 - **`platform/platform.hpp` — `platform_init()`:** one-time init (X11 calls `XInitThreads`).
 
 Key naming is canonical strings ("D", "Space", "F5"); `key_name_from_sdl` (capture), the X11 keysym
@@ -109,15 +133,69 @@ modifiers, so "LShift" registers as "Shift".
 
 Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`)
 owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`. Price-check
-hotkey → `simulate_copy()` → watch the clipboard → show. Watching means **both**
-`SDL_EVENT_CLIPBOARD_UPDATE` and a 100ms poll of `clipboard_text()`: SDL only raises that event once
-the *new* selection owner answers a `TARGETS` conversion, so a handover nobody answers is silent —
-the event is an accelerator, the poll is what's load-bearing. Accepted text must
-look like item text (`Item Class:`/`Rarity:`) — never fall back to the pre-copy clipboard, which is
-whatever the user last copied anywhere and reads as a successful but wrong price check. Text that
-lands goes through `App::accept_clipboard` → parse, resolve, derive, plan (see "The item layer"). Past the
-2.5s deadline the panel says so but keeps watching; the game's X11 handover can land seconds late.
-`PPC_DEBUG_COPY=1` traces the whole timeline. The overlay is
+hotkey → `simulate_copy()` → wait for the clipboard to be written → parse → show if it's an item.
+**Four steps, and they are meant to stay four.** An earlier version grew a pre-copy snapshot, a
+byte comparison against it, a latching write detector, `SDL_EVENT_CLIPBOARD_UPDATE` as a third
+accelerator, a "copying…" state, an overdue state and a rule for text identical to what was already
+there. All of it existed to answer one question — *is what I'm reading the new copy or the old
+text?* — and all of it is gone, because `clipboard_stamp()` answers that question at the source.
+
+`clipboard_stamp()` is an opaque number that changes when and only when something writes the
+clipboard (X11: the `selection_timestamp` the server pushes with each XFixes ownership change,
+paired with a change counter so two writes in one millisecond still differ; Windows:
+`GetClipboardSequenceNumber()`). Take it before injecting, compare after. Equal means nothing was
+copied, whatever the clipboard holds. Different means a real copy, even if the bytes are identical
+— **which is the common case, not an edge case: re-checking the same item produces the same bytes**,
+and that is what the byte comparison could never see. It asks the owner for nothing, so it cannot
+perturb a handover and is cheap enough to check every frame; the one real read happens once, after
+there is something new to read. Compare it for equality only — the X11 half wraps.
+
+**But a stamp only listens, and Wine only speaks when spoken to** — so each poll of a pending copy
+also calls `clipboard_poke()`, one fire-and-forget `TARGETS` conversion request whose reply is never
+read. Wine's clipboard manager holds the X selection without rendering the Windows clipboard behind
+it, and it publishes by *re-asserting ownership*: exactly the event being waited on. A purely passive
+watcher therefore waits forever for a publish only its own asking would cause. This is not a guess —
+the rewrite that removed the polling read failed five checks out of five, and in every one the
+ownership change landed **0-2ms after the diagnostic `clipboard_targets()` on the give-up line**,
+tracking our deadline (which varies 166-200ms with the hotkey's release wait) rather than the
+keypress. Wine's window id incremented by exactly one per check, i.e. once per probe. `TARGETS`
+rather than a text format on purpose: the answer wanted is the stamp moving, not the previous copy
+the owner is still serving.
+
+**A separate, sticky failure lives underneath all of this, and it is not ours to fix.** On
+Wayland+KWin, a copy made in a *Wayland* application while the game is running arms a three-way
+race: the next poke wakes Wine, Wine asserts the X selection with the item, KWin's Xwayland
+clipboard bridge asserts over it 2ms later with the Wayland-side content, and 0ms after that the
+selection is dropped to **no owner at all**. Now nothing works — there is nobody to poke, nobody to
+read, and Wine still believes it owns the selection, so every later copy in the game stays inside
+the prefix. Only a real **WM-level** focus change out of the game recovers it, by making Wine
+re-export. `nudge_clipboard_handover` is *not* enough here and the log proves it: it fired, moved
+the X input focus (`input=0x9a00037 active=0x8400001`), and Wine did not re-assert — the game never
+stopped being `_NET_ACTIVE_WINDOW`. Captured in `ppc-20260805-162746.log`, checks `ECJG` (the race)
+and `3NDN` (the stuck state). A drop to no owner is deliberately **not** counted by
+`clipboard_stamp()`: it is the opposite of a write, and counting it made an empty read look like a
+successful copy of something that "is not an item".
+
+Everything else follows: no fallback to the previous clipboard (that's whatever the user last copied
+anywhere, and showing it reads as a successful but wrong price check), and **failure is silent**.
+Past `kCopyTimeoutMs` (2s), or when what was copied doesn't parse, the check is dropped and nothing
+opens — an overlay narrating its own plumbing is noise over a game, and the debug log has the detail.
+The panel is opened only once there *is* an item, so it has no waiting or failure states to draw. A
+check that starts while a panel is up hides it first: if the new copy then fails silently, leaving
+the old panel would read as a price check of the item now under the cursor.
+
+**Why the timeout is needed at all: left alone, PoE under Wine does not publish its copy to the X
+selection.** Measured, not inferred — a standalone XFixes watcher, this application not running at
+all, a *manual* Ctrl+C: nothing for ~13s, then ownership moved to Wine within 160ms of the alt-tab
+away. The debug-log capture `MMHW` shows the same shape for an injected copy (published at
++12506ms; read and parsed 1ms later). Nothing in the injection path shortens that, and ten rounds
+of trying were aimed at the wrong layer. Two things do move it, and neither is the copy: **asking**
+(`clipboard_poke`, above — the reliable one, 0-2ms) and the game **losing focus**
+(`nudge_clipboard_handover` — a focus-out makes Wine export proactively, which is what the watcher
+saw at the alt-tab; kept as a 350ms backstop for when asking doesn't work). Clearing the clipboard
+before the copy was tried as a third lever and **made it worse**; don't re-add it.
+`PPC_DEBUG_COPY=1` traces the whole timeline to stderr, and the **debug log** below records the same
+thing plus everything stderr is too narrow for. The overlay is
 **dismiss-on-focus-loss**: once shown it stays until you click away, hit Escape, the X button, or the
 toggle hotkey — keeping logical state in sync with what's visible (a stale "still open" state was the
 two-press bug).
@@ -127,10 +205,18 @@ drops any action fired while PoE is not the foreground window — otherwise they
 browser. The lone exception is the Settings hotkey while Settings is open: that panel holds the
 keyboard focus itself, so the game *can't* be foreground, and the hotkey has to be able to close it.
 The idle "● PPC" marker follows the same rule and unmaps whenever the game isn't in front, so it
-never floats over other applications. In the other direction we never force focus: the copy path used
-to call `focus_game_window()` on a window it had just confirmed was foreground, and `XSetInputFocus`
-on the toplevel can land somewhere Wine didn't put it. Focus is handed back to the game on close
-**only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
+never floats over other applications. In the other direction we never force focus *onto the game*:
+the copy path used to call `focus_game_window()` on a window it had just confirmed was foreground,
+and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
+the game on close **only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
+
+Taking focus onto **our own** panel is the one sanctioned exception, and it exists for exactly one
+reason: it is the only thing that makes Wine let go of the clipboard (above). `nudge_clipboard_handover`
+fires **once per check, at 350ms, only while the game is still in front**, and never in dev mode.
+Do not promote it to unconditional. A healthy clipboard — any Windows machine, a native X11 game —
+answers the first poll and never reaches the grace period, and taking the keyboard mid-fight for a
+copy that was not late is a worse bug than the one it fixes. Its own `[copy]` log line, and the
+`input=`/`active=` fields `focus_info()` puts on every poll line, are what says whether it worked.
 
 `App::place_overlay()` gives each screen its own geometry: Settings is a 520×680 dialog centered over
 the game, price-check is a **full-height panel docked beside the item's own frame** — right of the
@@ -144,6 +230,18 @@ both default to **0.615**; they stay separate knobs only because GGG moves the U
 They and `panel_width` are sliders in Settings, which is how to set them: eyeballing them off a
 screenshot is not accurate to the pixel, and two rounds of doing exactly that both missed.
 
+**The price-check window is wider than the panel**, by a transparent **gutter** on the side the panel
+is *not* docked against — right of a stash-side panel, left of an inventory-side one. `App::layout()`
+(`PanelLayout`) says where the panel sits inside it and where the gutter is; the panel's `Begin` uses
+that instead of the whole viewport. The gutter exists because a hovered listing's item has nowhere
+else to go: ImGui clamps every window to the viewport, and the viewport *is* the SDL window, so a
+popup wide enough to read used to land on top of the very listings it was there to be compared
+against. It is only as wide as the game actually leaves free (capped at the panel's own width), since
+the window still swallows mouse input everywhere it covers. Two consequences worth knowing:
+`poll_click_away` measures against the **panel** rect, not the window's, or a click on the game
+through the gutter would not dismiss; and `place_overlay` logs the geometry it chose, which is the
+thing to read when the panel lands somewhere unexpected.
+
 **Settings** lays every row out on one grid via `row()` in `settings_screen.cpp` — ImGui draws a
 control's own label to its *right*, which is why nothing passes a visible label. League is a combo
 fed by `LeagueService` from `/api/trade/data/leagues`, cached 24h under `cache_dir()`; the payload
@@ -153,9 +251,34 @@ the configured league is never lost — it is the combo preview and is appended 
 a fetch does not contain it, which is exactly what happens on league-launch day. No request is made
 unless Settings is opened. `poe_window_title` is config-file-only, deliberately not in the UI.
 
-Three SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
-data-updater state. Async results are **not** routed through `Action` — `handle_action()` gates on
+Four SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
+data-updater state, trade result. Async results are **not** routed through `Action` — `handle_action()` gates on
 the game being foreground and would silently swallow them whenever PoE is not in front.
+
+### The debug log (`src/util/debug_log.cpp`)
+
+The copy path's failures are rare, unreproducible on demand, and invisible after the fact — so
+instead of guessing at another fix, it is **instrumented**. `debug_log` in `config.json` (a
+Settings checkbox under Diagnostics, off for everyone by default) opens
+`<cache>/logs/ppc-<date>-<time>.log`, one file per run, newest ten kept. It is on `ppc_core`, so it
+holds no SDL/X11/curl and every layer can log into it.
+
+- **Every press of the price-check hotkey mints a four-character id** (`begin_check`, minted on the
+  *hotkey thread* so the lines the hotkey and clipboard layers write before the SDL event is drained
+  carry it too). It tags every line and is drawn in the panel's footer, where clicking it copies it
+  to the clipboard — the user reporting "check K7F2 hung" is naming a span of the file, and
+  transcribing it by hand is the step that would not happen. Its alphabet excludes `0O1I`.
+- **Clipboard contents go in whole, as base64** plus an FNV-1a-64 digest, because whitespace and the
+  UTF-8-vs-Latin-1 difference are exactly what the two-texts problem turns on and a log that trims
+  them cannot answer the question. Repeated reads of the same bytes log the digest only.
+- `debug::trace` writes to the log *and* to stderr under `PPC_DEBUG_COPY`; `debug::log` is
+  log-file-only, for the loud lines. `debug::tracing()` guards the round trips that exist only to
+  be logged.
+- `clipboard_owner_info()` is server-side only — safe to call while waiting on a handover.
+  `clipboard_targets()` is a **real conversion request to the owner** and can therefore change what
+  it does next; it is asked once, on the give-up line. That warning was not theoretical — it turned
+  out to be the *only* thing asking, which is how a diagnostic ended up being the fix (see
+  `clipboard_poke`). Suspect it first whenever turning the log on changes the behaviour being logged.
 
 A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
 the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
@@ -175,11 +298,21 @@ faces (Regular/Bold/Italic/SmallCaps) are embedded in the executable as base85 b
 are dynamically scalable, so it's one `ImFont*` per face at any size: `PushFont(fonts.bold, 22.0f)`.
 `$PPC_FONT_DIR` overrides the embedded faces with on-disk TTFs. Fontin's license nominally forbids
 redistribution; bundling it is a deliberate maintainer decision — see `assets/fonts/README.md`.
+Fontin also has **no Cyrillic, Hangul or CJK, and no `×`** — so `fonts.unicode` is a fifth face for
+text we did not write (trade account and character names, which are routinely none of them Latin),
+merged at startup from whatever the OS ships: a Latin/Cyrillic base plus a CJK collection, first hit
+from a list of well-known paths, falling back to `regular` and its boxes when there is none. Not
+embedded, because a CJK collection is ~19MB — several times the whole executable — and dead weight
+for everyone whose results are Latin. The files are **mapped, not read** (`data::MappedFile`, with
+`FontDataOwnedByAtlas = false`): ImGui 1.92 rasterizes on demand and keeps the bytes for the life of
+the atlas, so a face nothing on screen needs costs address space rather than resident memory. The
+mappings are a function-local static and must outlive the atlas.
 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
-so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/`, all of
-`item/`, and all of `data/` except the updater. The rule is that `ppc_core` links no SDL3, no ImGui,
-no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
+so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
+the debug log, which every platform seam writes into), all of `item/`, all of `data/` except the
+updater, and all of `trade/` except its client. The rule is that `ppc_core` links no SDL3, no
+ImGui, no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
 
 ### Static game data (built)
 
@@ -198,6 +331,11 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
 - **`data/game_data`** memory-maps the ndjson and parses records on first hit, so a loaded bundle
   costs about a megabyte resident and no startup time. Lookups go through published fnv1a32 indices
   (`data/index`); a hit is a *run*, because colliding keys are kept and re-verified.
+  `en-unique-mods.ndjson` and its name index are **optional**: bundles published before that dataset
+  existed simply do not have them, and `has_unique_mods()` is what tells "this unique has no record"
+  apart from "nothing here has one". The wiki attribution it is licensed on rides in the manifest's
+  `source.unique_mods_attribution` and is written through by `install`, because an attribution that
+  stays behind in the publisher's repo is not an attribution — Settings renders it.
 - **`data/stat_normalize`** turns `+42 to maximum Life` into `# to maximum Life` and its fallbacks.
   **`NORMALIZATION.md` in the data repo is normative** and this must reproduce it exactly — a
   divergence does not crash, it silently mismatches a mod and returns a confident wrong price.
@@ -207,6 +345,10 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   share a wording and differ only by trade namespace. Two separate negation concepts —
   `matcher.negate` (the *wording* is inverse; store the roll canonically) and `trade.inverted` (the
   *trade site* indexes the opposite sign; applied at query-build time, not here).
+  An inverse wording's Advanced Mod Descriptions range is **printed high to low** —
+  `64(65-60)% reduced Effect of Curses on you during Effect` — so `NumberToken::bound_min/max` are
+  ordered at parse time, not taken as printed. Negating an already-descending pair leaves it
+  descending, and a filter wanting at least -60 and at most -65 matches nothing.
 
 ### The item layer (built)
 
@@ -223,7 +365,13 @@ bundle, and only the third and fourth encode pricing judgement.
     The property block's first prose line is the item's type, later prose starting with a digit is a
     flask's own effect and anything else is a property the game writes as a sentence ("Lasts 7.20
     Seconds"). That mixed block is only recognised as **section 1**, so a flavour line that happens
-    to hold a colon ("simple ethos: why make the effort") cannot become a property.
+    to hold a colon ("simple ethos: why make the effort") cannot become a property. A property line
+    is also the evidence that section 1 *is* the property block — except on a **flask**, which
+    always has one and prints no `Label: value` line in it **unless it has quality**: an unquality
+    flask turned "Lasts 6 Seconds / Consumes 40 of 60 Charges on use / Onslaught" into modifiers,
+    so the class carries the rule instead. The type line never holds a number for the same reason.
+    A parenthetical in that block is the buff's reminder text ("(Onslaught grants 20% increased
+    Attack, Cast, and Movement Speed)") and rides on the property, as a modifier's does.
   - **Prose is not a modifier, and there are three kinds of it.** A rare's own mods can read as
     prose ("Players cannot Regenerate Life"), so flavour text needs a positive signal: a quoted
     block, or the last prose block of a *unique* that already has mods. The usage note underneath
@@ -237,7 +385,10 @@ bundle, and only the third and fourth encode pricing judgement.
     on a flask the earlier of two unsuffixed sections is the enchant.
   - The info line's em-dash segments are tags **and** "— 20% Increased", which is a catalyst saying
     it scaled this mod. The clipboard prints the *unscaled* roll and range in that case (`30(20-30)`
-    where the tooltip reads 36%), so `roll_incr` is applied to both in `match_stat`.
+    where the tooltip reads 36%), so `roll_incr` is applied to both in `match_stat`. A plain `" - "`
+    separates them too, because a Latin-1 clipboard read degrades the em dash — see the clipboard
+    seam above. Miss that and the line stays one blob: no tier, no tags, and `generation` never
+    ends in "Prefix", so the affix is unknown.
   - Influence lines sometimes arrive glued to the end of the last mod block instead of in a section
     of their own; trailing flag lines are peeled off before the block is parsed as mods.
   - A **gem** has no rolled mods: its stat lines are `inherent_lines`, its skill text `description`.
@@ -267,28 +418,205 @@ bundle, and only the third and fourth encode pricing judgement.
   form puts it at 293.3, the 78th percentile. That capture is the only real evidence either way; a
   before/after-quality capture of one item with a flat local roll would pin it down.
   Local increases and flat adds are found from the *wording* (`placeholder_form`), so they still count
-  when the stat itself is missing from the bundle. **Base percentile** is `inherent_roll` placed in
-  the base type's range; a result outside that range means a local mod was missed, and then it reports
-  nothing rather than a confident 0%. There is no weapon percentile: the bundle publishes defence
-  ranges for armour bases but no damage ranges for weapon bases.
+  when the stat itself is missing from the bundle. **Base percentile** (`Derived::base_pct`) is
+  `inherent_roll` placed in the base type's range; a result outside that range means a local mod was
+  missed, and then it reports nothing rather than a confident 0%. It is **one number per item, not
+  one per defence**: a base rolls a single value and spreads it over the defences it has, so the
+  sum of the recovered inherent values goes into the sum of the base's ranges — an armour/energy
+  shield hybrid whose two percentiles disagree is showing rounding, not two rolls. A defence with no
+  published range makes the two sums incomparable, so there is no percentile at all. There is no
+  weapon percentile: the bundle publishes defence ranges for armour bases but no damage ranges for
+  weapon bases.
 - **`item/plan`** — `SearchPlan`: strategy, category/name/type, corruption, influences, stat filters
   and numeric filters, plus **`notes` for everything deliberately left out**. Strategy decides what
   matters: `Modifiers` (magic/rare) enables every mod and bounds it by the tier it rolled when
   Advanced Mod Descriptions gave a range; `BaseItem` (white, or a rare the user switches over)
   searches the base with item level and influences and enables only fractured mods and non-inherent
-  implicits; `Unique` searches the name and enables only rolls that a range proves are variable, plus
-  any mod *added* to the unique — `{ Foulborn Unique Modifier }`, i.e. `Modifier::added_unique()`,
-  which not every copy of that unique carries. A `Maps` item class is `Unsupported`: a map is not
+  implicits; `Unique` searches the name and enables a roll the **per-unique modifier data** says comes
+  from a pool (see below), a roll a range proves is variable, any mod *added* to the unique —
+  `{ Foulborn Unique Modifier }`, i.e. `Modifier::added_unique()`,
+  which not every copy of that unique carries — and anything the player *crafted onto this copy*
+  (`added_to_copy`: enchant, crafted, fractured, scourge, veiled, crucible). An enchant costs
+  currency and is most of what an enchanted copy sells for, so leaving it out prices a different
+  item. A `Maps` item class is `Unsupported`: a map is not
   priced on its mods, and pricing one as a rare would search for gear carrying map mods.
+  An unbounded filter asks for "no worse than this", and **worse is not always smaller**: a mod
+  the game prints negative is better the more negative it is (an eldritch implicit applying `-11%`
+  to Cold Resistance — its magnitude comes from the currency tier, so the clipboard prints no range
+  to bound it with), and so is a stat the bundle marks `better: -1`. Both get the roll as a
+  **maximum**. The sign is what carries the direction for the rest, because the canonical wording
+  already does — "#% reduced Mana Cost" is stored as a negative increase. It reads wrong only for a
+  negative roll of a stat that also rolls positive, i.e. a resistance penalty, which is a drawback
+  on a unique rather than something a buyer searches for.
   Two rules that are easy to get wrong: trade indexes **repeated stats as their total**, so
   `merge_same_stat` sums two life rolls into 104–117 rather than filtering twice; and an
   added-damage mod is indexed as **the average of its two numbers** while every other multi-number
   wording is indexed on its **first** ("15% chance to Unnerve … for 4 seconds" is searched on 15,
   not on 9.5) — hence `StatMatch::roll_bounds` being per roll.
+- **`item/plan`'s per-unique join** (`apply_unique_mods`) is what makes a unique searchable at all.
+  A unique's modifier can be variable **without printing a range**: Ralakesh's Impatience rolls one of
+  three charge mods, each `1..1`, and the clipboard prints that exactly like the four every copy has.
+  The bundle's `en-unique-mods.ndjson` says which mods are fixed and which come from a pool, so a
+  pooled mod is enabled and labelled with the pool's own prose ("Random charge modifier"), and a mod
+  the record calls fixed is now left out *knowingly* instead of with a warning. Three rules:
+  **join on the trade id, never on the wording** (wordings are shared by two stat records, which is
+  exactly what the ids disambiguate); **never disable** — the item's own printed range outranks a
+  record about the unique in general; and **only trust a range that contains the roll**, because the
+  bundle carries no `dp` for every stat and a range can arrive 100× the roll it bounds
+  (`0.4% of Physical Attack Damage Leeched as Mana` against `40..40` — see `examples/item_3`), which
+  would otherwise call a fixed mod variable. Pool membership is a fact about the item rather than a
+  number, so it survives that check. A mod the record does not have is reported, never dropped
+  silently: it is either something added to this copy or a mod the source has not caught up with, and
+  both are what a buyer is searching for. **Except a mod `added_to_copy` covers** — the record
+  describes the unique, not what was crafted onto one, so its absence there is by definition and
+  "not in the modifier data" reads as a failure to recognise a modifier that is right there in the
+  filter list. `UniqueMods::unlisted` — a pool stated in prose but never
+  enumerated — becomes a note, so the app says what it is leaving out.
+  [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
+
+### The trade layer (built)
+
+`src/trade/` turns a `SearchPlan` into a search on pathofexile.com and back into listings.
+
+- **`trade/query`** — pure, no network: `build_query(plan)` is the search JSON, plus the URLs and
+  the response parsers. **`StatFilter::inverted` is applied here and nowhere earlier**, and it flips
+  the interval end for end as well as in sign: 77..90 as the game prints it is -90..-77 as the site
+  indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
+  contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
+  (`misc_filters`, `armour_filters`, `weapon_filters`) and rejects one filed in the wrong place.
+  A `Modifiers` search deliberately names no `type`: a rare is bought for its mods, and the
+  category already says where those can live.
+- **Which listings to ask for** is `Config::listing_status`, and it defaults to **Instant Buyout**
+  (`securable`) rather than the API's older `online`. Not cosmetic: on one real capture the same
+  query returned 4 matches In Person against 39 as Instant Buyout, because an offer that can be
+  taken without the seller being at their keyboard is what most people now mean by "for sale".
+  The five ids and their labels are GGG's own, copied from `status_filters` in
+  `/api/trade/data/filters` — a closed vocabulary, so it is a table in `trade/trade.hpp` rather
+  than something fetched, and unlike `league` a configured value **is** validated against it on
+  load: an id GGG does not know makes every search fail with "Unknown status type".
+- **`trade/ratelimit`** — the limits are not guessed at; GGG publishes them in the response headers
+  of every request (`X-Rate-Limit-Rules` names the groups, `X-Rate-Limit-<group>` the
+  `hits:period:restriction` rules, `-State` the server's own counters). So the first call under a
+  policy is spaced against a seeded default and every one after it against measurement. **The
+  state header outranks our own tally** rather than adding to it — it counts every client on the
+  IP, including the user's browser tab. Time is a parameter, not a call, so the whole thing is
+  unit-tested without sleeping.
+- **`trade/ratelimit_store` — the limiter survives a restart.** `snapshot`/`restore` state the
+  windows as *ages* and the restriction as *time remaining*, so they can be written under one
+  clock and read under another; the store converts to absolute wall-clock ms in
+  `<cache>/trade-ratelimit.json`, written on every request and every response. Without it,
+  closing and reopening the app clears an active restriction it never actually served, and the
+  seeded budget gets spent straight back into the lockout — repeatedly hammering through
+  restrictions is how a client stops being throttled and starts being blocked. `restore` runs
+  **before** `seed`, which then declines to overwrite it, and clamps what it reads (no negative
+  window ages, no block over six hours) so a corrupt file cannot wedge the client shut. It is not
+  a security boundary — deleting the file resets it — it stops the accidental circumvention,
+  which is the one that happens. The decisions still run on `steady_clock`; the wall clock is
+  only ever written down and read back.
+- **How many listings to fetch** is `Config::result_count`, a Settings dropdown over 10/20/50/100,
+  defaulting to **20**. This is a rate-limit choice and not a latency one: every ten listings is
+  one more fetch request, and the binding policy (`50:300:300`) allows fifty fetches per five
+  minutes before a five-minute lockout — so Top 20 is 25 price checks in that window, Top 50 is
+  10, and Top 100 is 5 *and* trips the 16-per-12-seconds rule on two checks in a row. The cost
+  also lands where the extra rows help least: only `min(want, total)` is fetched, so a rare with
+  four matches costs one request at any setting, and the bill arrives on liquid items where the
+  cheapest twenty already set the price. Settings states the cost on the row itself.
+- **`trade/client`** — the one place outbound GGG traffic goes, `LeagueService` included. Waits out
+  the limiter, issues the request, feeds the headers back in. A debt longer than 30s is returned as
+  an error instead of waited on: a price check that lands four minutes late is about an item the
+  user has sold. The wait is slept in slices against `cancel_waits()`, so shutdown does not sit out
+  a restriction. `run_search` is the two-step flow — POST the query, then GET the first
+  the requested number of hashes in batches of **at most ten**, which is a hard API limit. A batch that
+  fails after an earlier one succeeded keeps what it has: ten listings are still a price, and the
+  error explains the short list rather than replacing it. `fetch_page` is that batching loop on
+  its own, which is also what **load more** spends: the search POST returns **100 hashes however
+  large `total` is**, so paging deeper costs one /fetch and no search until those hundred run
+  out — past which there is nothing to page to and the search has to be narrowed. `fetched`
+  tracks hashes *asked for*, not listings received: a listing sold since the search comes back
+  as a null element and is dropped, so paging off the listing count would re-fetch what was
+  already seen.
+- **`TradeService`** (`src/trade_service.cpp`) is `LeagueService`'s twin, for the same reason — every
+  member on the main thread, the worker owning only its stack and the payload it hands over through
+  the SDL event queue. The query JSON is built **on the main thread** and moved to the worker: the
+  plan points into the data bundle the updater can swap at any moment.
+- **Currency symbols** come from `/api/trade/data/static` (cached a week under `cache_dir()`), whose
+  `image` paths are rooted at `web.poecdn.com`. `IconCache` (`src/icon_cache.cpp`) splits the work
+  the way the threads force: the worker downloads (through a disk cache keyed by the URL's sha256,
+  so a second launch makes no requests) and decodes to an `SDL_Surface`, and `pump()` uploads to a
+  GL texture at the top of a frame, because only the frame loop has the context. `texture()` is
+  allowed to answer "not yet" — a price with no symbol still prints its amount — and a URL that
+  failed is never retried, or a 404 would be requested every frame forever.
+
+The results are three columns — account, listing age, price — and the table takes **whatever is
+left of the panel**, asked for explicitly rather than by bottom-aligning at height 0, because it
+sits inside a child that can itself scroll and ImGui's bottom-align is not meaningful in one that
+does. Sorting is `price: asc` and the site does it by chaos-equivalent, so a page of chaos prices
+and divine ones interleave correctly and are **not** out of order.
+
+The account is the **whole** handle, `Name#1234` — the digits are what tells two players sharing a
+name apart — and is drawn in `fonts.unicode` (above), since a Cyrillic or Korean handle is boxes in
+Fontin. The price copies the site's own form, `5 x [symbol] Divine Orb`: the symbol arrives off the
+CDN in the background, so the currency is **named** as well as pictured and the row reads correctly
+before it lands. A lowercase `x` rather than the site's `×`, which Fontin draws as `?`. The
+listing's **gold fee** (`listing.fee`, a sibling of `price`, not a field of it) is shown, and
+nothing at all when there is none — a tooltip that repeats the number under the cursor is noise,
+which is also why the whisper text is no longer one: it is not something the user can act on from a
+tooltip. The whole price cell is one hover target (`BeginGroup`/`EndGroup`), or the tip would appear
+over the amount but not over the orb beside it.
+
+**Only ever one tooltip per frame.** The fee rides *inside* the item popup below whenever that is
+up, and `draw_price`'s own tooltip is suppressed — because `SetTooltip` and `BeginTooltip` build the
+same window name, `##Tooltip_%02d` off the same `TooltipOverrideCount`, and only `SetTooltip` bumps
+that counter (and only against a *previous frame's* still-active tooltip). Two of them in one frame
+therefore `Begin` the same window twice, which appends rather than restarts **and drops
+`SetNextWindowPos`/`SetNextWindowSize`**, since those are only honoured on a window's first `Begin`
+of the frame. The symptom was the fee line printed inside the item card and the card itself
+mis-sized and mis-placed. `AllowOverlap` on the row's `Selectable` is what lets both fire at once:
+hovering the price cell hovers the row too.
+
+**Hovering a row draws the seller's own item** over the panel, through the *same* renderer as the
+item in hand — because the fetch response carries `item.extended.text`, which is base64 of the
+exact clipboard bytes PoE writes on Ctrl+C. So there is no second parser and no second view:
+decode (`util/base64`) → `parse_item` → `resolve` → `derive` → `draw_item_tooltip`. Parsed lazily
+on hover and cached in `App::listing_items_`, resolved against the same pinned `item_data_`
+snapshot, and dropped whenever a trade result lands. The row is a `Selectable` with
+`SpanAllColumns | AllowOverlap` so the row is the hover target and lights up to say so, while the
+price cell's own fee tooltip still sits on top. It is drawn into the **gutter** beside the panel
+(above), aligned to the top of its own row and clamped by the height it drew at last frame so a long
+item does not run off the bottom — one frame stale, which settles immediately, and there is no way
+to know the height before drawing it. Both position and width are set explicitly:
+`SetNextWindowPos` overrides a tooltip's follow-the-mouse placement and `SetNextWindowSize`
+overrides its auto-fit **per axis**, so `(w, 0)` fixes the width and leaves the height to the item.
+The width has to be fixed either way — `draw_item_tooltip` centres every line on
+`GetContentRegionAvail()`, which in an auto-sizing window is whatever the last frame happened to be. `draw_reference_price` is the empty slot poe.ninja will fill,
+drawn only for the strategies it could ever price (unique, currency, gem) so a rare does not carry a
+permanent "not built yet".
+
+Searching is **on a button, not automatic**. `Config::auto_search` exists and defaults off: a
+price check the user meant only to read the item with should not spend a request against their
+rate limit. **Open in browser** builds the same query and hands it to the site in `?q=`, so it costs
+no API call and always matches the filters as they are ticked *now* — the id of a search already run
+would open whatever was ticked when it ran.
 
 Rendering lives in `screens/item_view.cpp` (the game's palette: rarity-coloured name plate, grey
 property labels, blue mods, light blue crafted/enchant, tan fractured, magenta scourge, red
-corruption, per-element damage colours) and the filter list in `screens/pricecheck_screen.cpp`. The
+corruption, per-element damage colours) and the filter list in `screens/pricecheck_screen.cpp`.
+The panel is competing with the game's own tooltip for the same screen, so it prints **less** than
+the clipboard does: `strip_roll_ranges` drops the range the game glues to a roll (`+86(77-90)` reads
+as `+86`) in both the item text and the filter list, and everything the game prints *about* a
+modifier rather than as part of it — what Advanced Mod Descriptions say (affix, tier, tags) and the
+reminder text under a wording ("Unnerved enemies take 10% increased Spell Damage") — is a **hover
+tooltip** on the modifier rather than lines around it. `draw_hover_tip` is that one place, and a
+property uses it too: a utility flask's buff brings reminder text the game likewise keeps out of the
+tooltip ("(Onslaught grants 20% increased Attack, Cast, and Movement Speed)"). Nothing is
+lost: `Modifier::info_text()` carries the tier's range with it (`(Tier: 2 [77-90])`), a continuation
+line repeats its affix because that is where the reader gets *its* range, and every derived number
+is a small grey line under the property block it summarises — the DPS totals under the last damage
+line, the base percentile under the last defence line. A filter row leads with where its modifier
+came from and what it asks for: `P2 [77-90]` is a tier-2 prefix, `S1` a suffix, `R` crafted, one code
+per modifier `merge_same_stat` folded in (`StatFilter::merged`). The code is **coloured by which
+half of the pool it came from** — red prefix, blue suffix, as the trade site does it — which is also
+what says whether a crafted `R` is a prefix or a suffix, since its letter no longer can. The
 item and its plan live on `App`, alongside **the bundle snapshot they were resolved against** —
 `item_data_` is held separately from `data_` because the updater swaps that from its own thread and
 the item holds raw pointers into it.
@@ -313,34 +641,45 @@ call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
 
 ### Still to build
 
-- **Trade query builder + client** — see "PoE trade API" below. Serialises a `SearchPlan` into the
-  search JSON (`StatFilter::inverted` is applied here, not earlier) and runs the two-step
-  search→fetch flow.
 - **poe.ninja client** — bulk/reference pricing for the categories a stat query cannot price:
   currency, fragments, divination cards, and uniques. `Strategy::Currency` / `Strategy::Gem` exist
-  and currently only say they are not implemented.
-- **Rate limiter** — a single shared component every outbound GGG request goes through. Non-optional;
-  see "Rate limits".
-- **Per-unique modifier data** — a unique's modifier can be variable without printing a range:
-  Ralakesh's Impatience rolls either Power or Frenzy charges, a Watcher's Eye picks its mods out of a
-  large pool. The clipboard prints such a mod exactly like a fixed one, and **the bundle's unique
-  records carry nothing but `{name, namespace, refName, unique.base}`** — they are built from trade's
-  `data/items`, which has no mod data — so there is no way to tell them apart today. `Strategy::Unique`
-  therefore leaves every fixed-looking mod off and says so in a note. Closing this needs a **new
-  dataset in the data repo**: per-unique modifier lists marking which mods are fixed, which come from
-  a pool, and their ranges (Path of Building's `Data/Uniques/*.lua` and the wiki's cargo tables are
-  the practical sources). An added mod is the one case the clipboard does answer — the info line names
-  it, hence `added_unique()`.
+  and currently only say they are not implemented; the panel already draws the empty slot the
+  price will go in (`draw_reference_price`).
+- **Offering the pool modifiers the item does *not* have.** Reading the per-unique data is built
+  (above); the other half of what it is for is not. A Watcher's Eye search is worth little without
+  being able to add "and also has Discipline energy-shield-on-hit" — `ref` gives the wording to show,
+  `tradeId` the filter to send and `range` the bounds to seed. That needs a `StatFilter` not tied to a
+  `mod_index` and a way to pick one in the UI. Filters the record carries **without** a `tradeId` (428
+  ambiguous wordings, 695 with no id at all) belong in that list too: display them, never search them.
 - **Unidentified uniques** — the clipboard says only the base, and several uniques can share one
   (an unidentified Watcher's Eye is worth several divines more at high item level). The user has to
   pick from the base's uniques, ideally showing their art; the plan reports the gap as a note today.
-- **Ambiguous wordings** — two stat records can share a wording and both be searchable
-  (`#% chance to gain a Flask Charge when you deal a Critical Strike`). `GameData::find_stat`
-  refuses to guess, and the plan says "ambiguous wording, not searched" rather than picking whichever
-  came first in the file. Telling them apart needs item-class context the bundle does not carry yet.
+  The bundle now carries **`en-items-base.index.bin`**, base → the uniques that drop on it, which is
+  the lookup this needs; the candidates' mods come from `en-unique-mods.ndjson`.
+- **Ambiguous wordings** — two stat records can share a wording and both be searchable.
+  `GameData::find_stat` refuses to guess, and the plan says "ambiguous wording, not searched" rather
+  than picking whichever came first in the file. As of the `20260805.11` bundle this is **4 wordings**
+  (the three "Grants Summon Visiting Harbinger of …" and "Attacks fire # additional Projectiles when
+  in Off Hand"), and telling those apart needs context the bundle does not carry.
+  **It used to be 59, and 55 of those were a data-repo bug rather than real ambiguity** — worth
+  knowing, because the shape recurs: `emit/stats.py` keys a record on a *trade* wording, so one game
+  stat rendered several ways ("#% chance to gain a Flask Charge when you deal a Critical Strike" and
+  its 100% form, "Recover #% of Life on Kill" and "Lose #%", one entry per option of an option stat)
+  became several records — and each was handed the whole description's matcher list, so they all
+  claimed each other's wordings. The Surgeon's prefix on every crit-charge flask went unsearched.
+  Fixed upstream: a wording trade hashes separately belongs only to the record carrying that hash,
+  and the build now reports `wordings_ambiguous_in_a_namespace` so a regression is visible.
+  **Do not "fix" the app side by picking a record.** Two ids behind one wording is a filter on the
+  wrong stat half the time, and a confident wrong price is the failure mode this whole layer avoids.
 - **Pseudo mods** — trade's `pseudo.*` totals (total resistances, total life) are not built; mods are
   matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance` and the
   rest), so this is a plan-layer job, not a data one.
+- **A data-repo bug, not an app one: `dp` is missing on stats whose trade wording matched no game
+  description.** `emit/stats.py` takes `dp` from the description's variant modifiers, so a stat that
+  fell back to trade's own wording gets none — `#% of Physical Attack Damage Leeched as Mana` is one,
+  and every unique-mod range for it is then emitted 100× too large (`40..40` for a roll of `0.4`).
+  The app refuses such a range rather than believing it, so the damage is contained; the fix is
+  upstream, and `examples/item_3` is the case to check it against.
 
 ## External APIs — the load-bearing domain knowledge
 
@@ -370,9 +709,10 @@ Cache aggressively (prices move slowly relative to how often a user hovers items
 
 GGG returns rate-limit state in response **headers** (`X-Rate-Limit-Rules`, per-policy
 `X-Rate-Limit-<policy>` giving `hits:period:window` triplets, `X-Rate-Limit-<policy>-State`, and
-`Retry-After` on 429). All GGG traffic must pass through the shared rate limiter, which parses these
-headers, tracks each active window, and **proactively delays** rather than reactively eating 429s.
-Never fire the search→fetch flow without going through it.
+`Retry-After` on 429). All GGG traffic passes through the shared rate limiter
+(`trade/ratelimit`, owned by `trade/client`), which parses these headers, tracks each active window,
+and **proactively delays** rather than reactively eating 429s. Never issue a GGG request outside
+`trade::request`.
 
 ## Build & test
 
@@ -415,13 +755,16 @@ what `ppc_core` is for.
 ### Regenerating the test fixtures
 
 `tests/data/stat-normalization-vectors.ndjson` and `tests/data/bundle/` are slices of a real data
-release, committed so the suite runs offline. Refresh them from a built bundle in the data repo when
-its schema changes. Keep the ndjson **LF and byte-exact** — the `.index.bin` files address it by
-byte offset, so one extra byte per line silently shifts every record out from under every lookup.
-`.gitattributes` pins that down; do not remove those entries.
+release, committed so the suite runs offline. **`./scripts/slice-test-bundle.py
+../PathOfPriceCheck-Data/out` regenerates the bundle slice**; adding a case means adding a key to the
+lists at the top of that script, never writing a record by hand. It copies every record verbatim and
+rebuilds the indices from the offsets it just wrote, which is the point: the `.index.bin` files
+address the ndjson by byte offset, so one extra byte per line silently shifts every record out from
+under every lookup and fails as null lookups rather than as a diff. Keep the ndjson **LF and
+byte-exact**; `.gitattributes` pins that down and those entries must stay.
 
 The slice has **no `(Local)` stat record**, so the local/global disambiguation in `item/resolve` is
 not covered offline — it is verified against an installed bundle by hand. Adding one such record (and
-one weapon base) to the slice on the next refresh would close that gap. `tests/data/examples/` and
+one weapon base) to `STATS`/`ITEMS` in the slicer would close that gap. `tests/data/examples/` and
 `tests/data/items/` hold clipboard captures for the parser; those are plain text and need no byte
 discipline.

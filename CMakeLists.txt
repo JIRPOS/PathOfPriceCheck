@@ -88,7 +88,17 @@ if(NOT CURL_FOUND)
   FetchContent_MakeAvailable(curl)
 endif()
 
+# CMake 4.4 warns twice about the pinned dependencies. Both are settled here rather than in the
+# vendored trees, and unset afterwards so our own code keeps getting the diagnostics.
+# SDL 3.4.12 escapes its ELF-dlopen-note probe for pre-CMP0219 macro expansion, so OLD is the
+# behaviour it was written against; NEW hands check_c_source_compiles() a different C snippet.
+set(CMAKE_POLICY_DEFAULT_CMP0219 OLD)
+# doctest 2.4.12 still declares cmake_minimum_required(VERSION 3.5). Raising its floor is what this
+# variable is for; do not reach for CMAKE_WARN_DEPRECATED, which CMP0218 made a no-op.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
 FetchContent_MakeAvailable(SDL3 imgui nlohmann_json doctest)
+unset(CMAKE_POLICY_VERSION_MINIMUM)
+unset(CMAKE_POLICY_DEFAULT_CMP0219)
 
 # Dear ImGui ships no CMake target we want; compile core + backends ourselves.
 add_library(imgui STATIC
@@ -111,6 +121,8 @@ add_library(ppc_core STATIC
   src/config.cpp
   src/leagues.cpp
   src/util/sha256.cpp
+  src/util/base64.cpp
+  src/util/debug_log.cpp
   src/data/index.cpp
   src/data/stat_normalize.cpp
   src/data/game_data.cpp
@@ -122,6 +134,10 @@ add_library(ppc_core STATIC
   src/item/resolve.cpp
   src/item/derive.cpp
   src/item/plan.cpp
+  src/trade/query.cpp
+  src/trade/currency.cpp
+  src/trade/ratelimit.cpp
+  src/trade/ratelimit_store.cpp
   $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
@@ -135,6 +151,9 @@ set(APP_SOURCES
   src/icon.cpp
   src/overlay.cpp
   src/league_service.cpp
+  src/trade_service.cpp
+  src/trade/client.cpp
+  src/icon_cache.cpp
   src/data/updater.cpp
   src/net/http.cpp
   src/platform/keymap_sdl.cpp
@@ -177,7 +196,10 @@ else()
   if(NOT TARGET X11::Xext)
     message(FATAL_ERROR "libXext (libxext-dev) is required for the overlay input shape")
   endif()
-  target_link_libraries(PathOfPriceCheck PRIVATE X11::X11 X11::Xtst X11::Xext)
+  if(NOT TARGET X11::Xfixes)
+    message(FATAL_ERROR "libXfixes (libxfixes-dev) is required to detect clipboard writes")
+  endif()
+  target_link_libraries(PathOfPriceCheck PRIVATE X11::X11 X11::Xtst X11::Xext X11::Xfixes)
 endif()
 
 enable_testing()
@@ -201,6 +223,7 @@ ppc_add_test(paths_test)
 ppc_add_test(account_name_test)
 ppc_add_test(leagues_test)
 ppc_add_test(hash_test)
+ppc_add_test(debug_log_test)
 ppc_add_test(index_test)
 ppc_add_test(normalize_test)
 ppc_add_test(game_data_test)
@@ -208,3 +231,5 @@ ppc_add_test(stat_matcher_test)
 ppc_add_test(install_test)
 ppc_add_test(item_parse_test)
 ppc_add_test(item_pricing_test)
+ppc_add_test(trade_query_test)
+ppc_add_test(ratelimit_test)

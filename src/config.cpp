@@ -45,9 +45,15 @@ Config Config::load() {
         if (h.contains("price_check")) c.price_check = parse_hotkey(h["price_check"].get<std::string>());
         if (h.contains("settings")) c.settings = parse_hotkey(h["settings"].get<std::string>());
     }
+    c.auto_search = j.value("auto_search", c.auto_search);
+    if (const std::string s = j.value("listing_status", c.listing_status); trade::valid_status(s))
+        c.listing_status = s;
+    if (const int n = j.value("result_count", c.result_count); trade::valid_result_count(n))
+        c.result_count = n;
     c.panel_width = j.value("panel_width", c.panel_width);
     c.stash_edge = j.value("stash_edge", c.stash_edge);
     c.inventory_edge = j.value("inventory_edge", c.inventory_edge);
+    c.debug_log = j.value("debug_log", c.debug_log);
     return c;
 }
 
@@ -59,9 +65,13 @@ bool Config::save() const {
     j["poe_window_title"] = poe_window_title;
     j["hotkeys"]["price_check"] = to_string(price_check);
     j["hotkeys"]["settings"] = to_string(settings);
+    j["auto_search"] = auto_search;
+    j["listing_status"] = listing_status;
+    j["result_count"] = result_count;
     j["panel_width"] = panel_width;
     j["stash_edge"] = stash_edge;
     j["inventory_edge"] = inventory_edge;
+    j["debug_log"] = debug_log;
     std::ofstream out(path());
     if (!out) return false;
     out << j.dump(2) << "\n";

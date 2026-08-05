@@ -1,6 +1,7 @@
 #include "platform/foreground.hpp"
 #include "platform/platform.hpp"
 
+#include <cstdio>
 #include <vector>
 
 #include <X11/Xatom.h>
@@ -111,6 +112,26 @@ bool foreground_title_contains(const std::string& needle) {
     if (!d) return false;
     std::string t = window_title(d, active_window(d));
     return !t.empty() && t.find(needle) != std::string::npos;
+}
+
+std::string foreground_title() {
+    Display* d = display();
+    if (!d) return {};
+    return window_title(d, active_window(d));
+}
+
+std::string focus_info() {
+    Display* d = display();
+    if (!d) return "no display";
+    Window focus = None;
+    int revert = 0;
+    XGetInputFocus(d, &focus, &revert);
+    const Window active = active_window(d);
+    char buf[128];
+    // The input focus is the server's own state and moves first; _NET_ACTIVE_WINDOW is the
+    // WM's story about it and can lag by a frame or two. Both, so the order is readable.
+    std::snprintf(buf, sizeof buf, "input=0x%lx active=0x%lx", focus, active);
+    return std::string(buf) + " '" + window_title(d, active) + "'";
 }
 
 GameWindow find_game_window(const std::string& needle) {

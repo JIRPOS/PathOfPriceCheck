@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 
 #include "net/http.hpp"
+#include "trade/client.hpp"
 
 namespace ppc {
 namespace {
@@ -48,10 +49,9 @@ void LeagueService::refresh(bool force) {
         // Touches nothing owned by LeagueService. Ownership of `r` transfers to the main
         // thread through the event queue.
         auto* r = new Result{};
-        // TODO(rate-limiter): route through the shared GGG limiter once it exists.
         net::Request req;
         req.url = kLeaguesUrl;
-        const net::Response resp = net::get(req);
+        const net::Response resp = trade::request(req, trade::policy::kData);
         if (!resp.ok()) {
             r->error = !resp.error.empty() ? resp.error : ("HTTP " + std::to_string(resp.status));
         } else if (r->ids = parse_leagues(resp.body, kRealm); r->ids.empty()) {

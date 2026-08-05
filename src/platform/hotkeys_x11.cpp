@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
 #include <mutex>
 #include <thread>
 
@@ -14,6 +15,8 @@
 #include <X11/XKBlib.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+
+#include "util/debug_log.hpp"
 
 namespace ppc {
 namespace {
@@ -124,6 +127,8 @@ private:
             for (unsigned int lock : kLockMasks)
                 XGrabKey(dpy_, kc, mods | lock, root_, True, GrabModeAsync, GrabModeAsync);
             grabs_.push_back({kc, mods, act});
+            debug::trace("[hotkey] grabbed %s as keycode=%u mods=0x%x action=%d",
+                         to_string(hk).c_str(), kc, mods, (int)act);
         }
         XFlush(dpy_);
     }
@@ -131,24 +136,27 @@ private:
     /// Block until the hotkey's own key comes up. The grab is still active, so the release
     /// is guaranteed to reach this connection. Bounded only so a release we somehow never
     /// see can't wedge the thread.
-    void wait_for_release(unsigned int keycode) {
+    bool wait_for_release(unsigned int keycode) {
         int xfd = ConnectionNumber(dpy_);
         for (int guard = 0; guard < 200; ++guard) { // ~2s
             while (XPending(dpy_)) {
                 XEvent ev;
                 XNextEvent(dpy_, &ev);
-                if (ev.type == KeyRelease && ev.xkey.keycode == keycode) return;
+                if (ev.type == KeyRelease && ev.xkey.keycode == keycode) return true;
             }
             fd_set r;
             FD_ZERO(&r);
             FD_SET(xfd, &r);
             timeval tv{0, 10000};
-            if (select(xfd + 1, &r, nullptr, nullptr, &tv) < 0 && errno != EINTR) return;
+            if (select(xfd + 1, &r, nullptr, nullptr, &tv) < 0 && errno != EINTR) return false;
         }
+        return false; // the guard expired: the release never reached us
     }
 
     void dispatch(const XKeyEvent& k) {
         unsigned int st = k.state & kRelevantMods;
+        debug::trace("[hotkey] KeyPress keycode=%u state=0x%x (relevant 0x%x) time=%lu",
+                     k.keycode, k.state, st, (unsigned long)k.time);
         for (auto& g : grabs_)
             if (g.keycode == k.keycode && g.mods == st) {
                 // A passive XGrabKey *activates* into a real keyboard grab on press and
@@ -158,12 +166,18 @@ private:
                 // would never reach the game; and the game must not be handed the hotkey's
                 // own letter and C at the same time. The grab also swallows auto-repeat,
                 // so leaning on the hotkey can't spam price checks.
-                wait_for_release(k.keycode);
+                const auto t0 = std::chrono::steady_clock::now();
+                const bool released = wait_for_release(k.keycode);
+                const auto held_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                         std::chrono::steady_clock::now() - t0)
+                                         .count();
                 // Released keys end the grab on their own; this covers the timeout path.
                 // UngrabKeyboard also releases a grab that came from GrabKey, and must be
                 // called on the connection that owns it — hence doing it here.
                 XUngrabKeyboard(dpy_, CurrentTime);
                 XFlush(dpy_);
+                debug::trace("[hotkey] fire action=%d after %lldms (release seen: %d)",
+                             (int)g.action, (long long)held_ms, (int)released);
                 cb_(g.action);
                 break;
             }

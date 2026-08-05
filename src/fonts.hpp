@@ -12,6 +12,12 @@ struct Fonts {
     ImFont* bold = nullptr;
     ImFont* italic = nullptr;
     ImFont* small_caps = nullptr;
+
+    /// For text we did not write — account and character names off the trade site, which are
+    /// routinely Cyrillic, Hangul or CJK. Fontin has not one of those glyphs, so a name that
+    /// is not Latin renders as a row of boxes in every other face here. Assembled from
+    /// whatever the OS ships; falls back to `regular`, boxes and all, when it ships nothing.
+    ImFont* unicode = nullptr;
 };
 
 /// Loads Fontin into the current ImGui context and makes Regular the default. Uses

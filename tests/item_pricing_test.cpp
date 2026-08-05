@@ -23,8 +23,8 @@ std::shared_ptr<GameData> fixture() {
     return gd;
 }
 
-std::string capture(const char* name) {
-    std::ifstream in(fs::path(PPC_TEST_DATA_DIR) / "items" / name, std::ios::binary);
+std::string capture(const char* name, const char* dir = "items") {
+    std::ifstream in(fs::path(PPC_TEST_DATA_DIR) / dir / name, std::ios::binary);
     REQUIRE(in.good());
     std::ostringstream ss;
     ss << in.rdbuf();
@@ -32,7 +32,7 @@ std::string capture(const char* name) {
 }
 
 /// Parse and resolve in one step. The items here are written against the committed fixture
-/// bundle, which holds a handful of stats and six bases — enough for every code path.
+/// bundle, which holds a handful of stats and bases — enough for every code path.
 Item resolved(const GameData& gd, std::string_view text) {
     std::optional<Item> it = parse_item(text);
     REQUIRE(it.has_value());
@@ -115,8 +115,8 @@ TEST_CASE("quality and local increases decide the searched defence") {
     CHECK(d.energy_shield_q20 == 486);
     CHECK(d.search_energy_shield == 486);
     // 405 / 2.2 = 184 of a base that rolls 171..197.
-    REQUIRE(d.energy_shield_pct.has_value());
-    CHECK(*d.energy_shield_pct == doctest::Approx(0.503).epsilon(0.01));
+    REQUIRE(d.base_pct.has_value());
+    CHECK(*d.base_pct == doctest::Approx(0.503).epsilon(0.01));
 
     const SearchPlan p = build_plan(*gd, it, d);
     const NumericFilter* es = numeric_for(p, "es");
@@ -170,6 +170,40 @@ Item Level: 84
     CHECK(life->tiered);
     CHECK(life->min == doctest::Approx(80));
     CHECK(life->max == doctest::Approx(89));
+}
+
+TEST_CASE("a modifier that is better the lower it goes is bounded from above") {
+    auto gd = fixture();
+    // An eldritch implicit: its magnitude comes from the currency tier that put it there, so
+    // the clipboard prints no range and all the filter has is the roll. -11 as a *minimum*
+    // asks for every weaker copy of it; the buyer wants -11 or more.
+    const Item it = resolved(*gd, R"(Item Class: Body Armours
+Rarity: Rare
+Doom Shroud
+Vaal Regalia
+--------
+Energy Shield: 200
+--------
+Item Level: 84
+--------
+{ Eater of Worlds Implicit Modifier (Lesser) }
+Inflict Cold Exposure on Hit, applying -11% to Cold Resistance
+--------
+{ Suffix Modifier "of the Sky" (Tier: 1) — Elemental, Cold, Resistance }
++47(46-48)% to Cold Resistance
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    const StatFilter* exposure = filter_for(p, "implicit.stat_3005701891");
+    REQUIRE(exposure != nullptr);
+    CHECK_FALSE(exposure->min.has_value());
+    CHECK(exposure->max == doctest::Approx(-11));
+    // A resistance is the ordinary direction, and its tier still bounds it on both sides.
+    const StatFilter* cold = filter_for(p, "explicit.stat_4220027924");
+    REQUIRE(cold != nullptr);
+    CHECK(cold->min == doctest::Approx(46));
+    CHECK(cold->max == doctest::Approx(48));
 }
 
 TEST_CASE("an added-damage mod is searched on its average, tier bounds included") {
@@ -415,6 +449,164 @@ Item Level: 60
     CHECK_FALSE(res->max.has_value());
 }
 
+TEST_CASE("a unique's pooled modifier is searched even though it printed no range") {
+    auto gd = fixture();
+    // Ralakesh's Impatience rolls one of three charge modifiers, each 1..1. The clipboard
+    // prints it exactly like the four modifiers every copy has, and it is the only thing
+    // about the item worth searching on.
+    const Item it = resolved(*gd, R"(Item Class: Boots
+Rarity: Unique
+Ralakesh's Impatience
+Riveted Boots
+--------
+Armour: 65
+Energy Shield: 14
+--------
+Item Level: 70
+--------
++20% to Cold Resistance
++20% to Chaos Resistance
+20% increased Movement Speed
+Corrupted Blood cannot be inflicted on you
+Count as having maximum number of Frenzy Charges
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.strategy == Strategy::Unique);
+    CHECK(p.name == "Ralakesh's Impatience");
+
+    const StatFilter* frenzy = filter_for(p, "explicit.stat_2046300872");
+    REQUIRE(frenzy != nullptr);
+    CHECK(frenzy->enabled);
+    CHECK(frenzy->pooled);
+    CHECK(frenzy->pool_hint == "Random charge modifier");
+
+    // A modifier every copy has is still not worth filtering on — but its roll is variable,
+    // so it is enabled at what it rolled, and the data supplies the range the clipboard did
+    // not print.
+    const StatFilter* cold = filter_for(p, "explicit.stat_4220027924");
+    REQUIRE(cold != nullptr);
+    CHECK_FALSE(cold->pooled);
+    CHECK(cold->enabled);
+    CHECK(cold->min == doctest::Approx(20));
+    CHECK(cold->unique_min == doctest::Approx(15));
+    CHECK(cold->unique_max == doctest::Approx(25));
+
+    // Fixed on the item and fixed in its roll: nothing to search for.
+    const StatFilter* blood = filter_for(p, "explicit.stat_1658498488");
+    REQUIRE(blood != nullptr);
+    CHECK_FALSE(blood->enabled);
+    CHECK_FALSE(blood->pooled);
+
+    // And with the data in hand there is nothing left to warn about.
+    CHECK(p.notes.empty());
+}
+
+TEST_CASE("an enchant on a unique is searched, not reported as missing from its data") {
+    auto gd = fixture();
+    // The enchant is crafted onto this copy, so the per-unique data has nothing to say about
+    // it by design — and saying "not in the modifier data" about a modifier that is sitting
+    // right there in the filter list reads as a failure to recognise it.
+    const Item it = resolved(*gd, capture("item_1.txt", "examples"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.strategy == Strategy::Unique);
+    CHECK(p.name == "Rumi's Concoction");
+
+    const StatFilter* instilled = filter_for(p, "enchant.stat_3287581721");
+    REQUIRE(instilled != nullptr);
+    CHECK(instilled->enabled); // most of what the flask sells for
+    CHECK(instilled->type == ppc::data::ModType::Enchant);
+
+    // Fixed for the unique, variable in their roll, so both are searched at what they rolled.
+    const StatFilter* block = filter_for(p, "explicit.stat_2519106214");
+    REQUIRE(block != nullptr);
+    CHECK(block->enabled);
+    CHECK(block->min == doctest::Approx(12));
+    CHECK(block->unique_min == doctest::Approx(8));
+    CHECK(block->unique_max == doctest::Approx(12));
+    REQUIRE(filter_for(p, "explicit.stat_215754572") != nullptr);
+    CHECK(filter_for(p, "explicit.stat_215754572")->enabled);
+
+    for (const std::string& n : p.notes)
+        CHECK_MESSAGE(n.find("not in the modifier data") == std::string::npos, n);
+}
+
+TEST_CASE("a range that does not contain the roll is not this item's range") {
+    auto gd = fixture();
+    // 40 is outside the 15..25 the data says this modifier rolls: either a legacy copy, or a
+    // record whose decimal point sits elsewhere than the clipboard's. Either way the bounds
+    // describe something other than the item in hand, and calling the roll variable on them
+    // would be a guess.
+    const Item it = resolved(*gd, R"(Item Class: Boots
+Rarity: Unique
+Ralakesh's Impatience
+Riveted Boots
+--------
+Item Level: 70
+--------
++40% to Cold Resistance
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    const StatFilter* cold = filter_for(p, "explicit.stat_4220027924");
+    REQUIRE(cold != nullptr);
+    CHECK_FALSE(cold->unique_min.has_value());
+    CHECK_FALSE(cold->unique_max.has_value());
+    CHECK_FALSE(cold->enabled);
+}
+
+TEST_CASE("a modifier the unique's record does not have is reported, not dropped") {
+    auto gd = fixture();
+    // Nothing says this one is fixed, so it cannot be left out of the search in silence:
+    // it is either something added to this copy or a modifier the source has not caught up
+    // with, and both are exactly what a buyer would be searching for.
+    const Item it = resolved(*gd, R"(Item Class: Boots
+Rarity: Unique
+Ralakesh's Impatience
+Riveted Boots
+--------
+Item Level: 70
+--------
+20% increased Movement Speed
++42 to maximum Life
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK_FALSE(filter_for(p, "explicit.stat_3299347043")->enabled);
+    REQUIRE(p.notes.size() == 1);
+    CHECK(p.notes.front() ==
+          "not in the modifier data for \"Ralakesh's Impatience\", so not searched: "
+          "+42 to maximum Life");
+}
+
+TEST_CASE("a pool the data states but does not enumerate is named rather than implied away") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, R"(Item Class: Jewels
+Rarity: Unique
+That Which Was Taken
+Crimson Jewel
+--------
+Item Level: 70
+--------
+Corrupted Blood cannot be inflicted on you
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    REQUIRE(p.notes.size() == 2);
+    // The one modifier this copy shows is not in the record either, so both notes fire: what
+    // the item has that the data does not know, and what the data knows it cannot enumerate.
+    CHECK(p.notes[0].starts_with("not in the modifier data"));
+    CHECK(p.notes[1] ==
+          "the modifier data states but does not enumerate this, so it is not searched: "
+          "4 random Charm modifiers");
+}
+
 TEST_CASE("an unidentified unique says so instead of searching for the wrong thing") {
     auto gd = fixture();
     const Item it = resolved(*gd, R"(Item Class: Boots
@@ -455,4 +647,35 @@ Item Level: 84
     CHECK(it.base_type == "Surgeon's Two-Stone Ring of the Cheetah");
     CHECK(it.base_name == "Two-Stone Ring");
     CHECK(it.base != nullptr);
+}
+
+TEST_CASE("a magic flask searches its affixes and says nothing else") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, capture("item_12.txt", "examples"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.strategy == Strategy::Modifiers);
+    CHECK(p.category == "flask");
+
+    // The Surgeon's prefix. Its wording used to reach two stat records — the game renders this
+    // stat both as a chance and as the 100% "Gain a Flask Charge…", and trade hashes each — so
+    // the matcher refused to guess and the prefix went unsearched on every crit-charge flask.
+    const StatFilter* surgeons = filter_for(p, "explicit.stat_3738001379");
+    REQUIRE(surgeons != nullptr);
+    CHECK(surgeons->enabled);
+    CHECK(surgeons->min == doctest::Approx(31));
+    CHECK(surgeons->max == doctest::Approx(35));
+
+    // The suffix is stored against the canonical "increased" wording: the roll it printed is
+    // "reduced", and only the sign carries that.
+    const StatFilter* owl = filter_for(p, "explicit.stat_4265534424");
+    REQUIRE(owl != nullptr);
+    CHECK(owl->min == doctest::Approx(-65));
+    CHECK(owl->max == doctest::Approx(-60));
+
+    REQUIRE(filter_for(p, "enchant.stat_3287581721") != nullptr);
+    // The flask's own effect is properties, so there is nothing left to warn about. Before the
+    // parser knew that, "Lasts 6 Seconds" and three more lines each came back an unrecognised mod.
+    CHECK(p.notes.empty());
 }

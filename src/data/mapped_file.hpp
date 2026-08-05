@@ -9,7 +9,7 @@ namespace ppc::data {
 
 /// A read-only memory mapping of a whole file.
 ///
-/// The bundle is ~3.8MB of ndjson that a price check touches a couple of dozen lines of.
+/// The bundle is ~5.7MB of ndjson that a price check touches a couple of dozen lines of.
 /// Mapping it and parsing lines on demand costs about a megabyte of resident memory and no
 /// startup time, where parsing it all up front costs tens of megabytes and hundreds of
 /// milliseconds — which would undo the point of a lightweight overlay.

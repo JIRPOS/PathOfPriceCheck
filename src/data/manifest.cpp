@@ -51,6 +51,8 @@ bool parse_manifest(std::string_view json_text, Manifest& out, std::string* err)
     if (out.data_version.empty()) return fail("manifest has no data_version");
     out.generated_at = j.value("generated_at", std::string());
     out.game_patch = j.value("game_patch", std::string());
+    if (const auto s = j.find("source"); s != j.end() && s->is_object())
+        out.unique_mods_attribution = s->value("unique_mods_attribution", std::string());
 
     const auto files = j.find("files");
     if (files == j.end() || !files->is_array() || files->empty())

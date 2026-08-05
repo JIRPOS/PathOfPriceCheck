@@ -114,6 +114,24 @@ Response get(const Request& r) {
     for (const std::string& line : r.headers) hdrs = curl_slist_append(hdrs, line.c_str());
     if (!r.if_none_match.empty())
         hdrs = curl_slist_append(hdrs, ("If-None-Match: " + r.if_none_match).c_str());
+    if (!r.body.empty()) {
+        curl_easy_setopt(h, CURLOPT_POST, 1L);
+        curl_easy_setopt(h, CURLOPT_POSTFIELDS, r.body.c_str());
+        curl_easy_setopt(h, CURLOPT_POSTFIELDSIZE, static_cast<long>(r.body.size()));
+        // curl's own default here is form-encoded, which GGG's trade search answers with a
+        // 400 that says nothing about why.
+        static constexpr std::string_view kCt = "content-type:";
+        const bool typed = std::any_of(r.headers.begin(), r.headers.end(), [](const std::string& l) {
+            return l.size() >= kCt.size() &&
+                   std::equal(kCt.begin(), kCt.end(), l.begin(), [](char a, char b) {
+                       return a == std::tolower(static_cast<unsigned char>(b));
+                   });
+        });
+        if (!typed) hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
+        // A 100-continue handshake on a sub-kilobyte body costs a round trip and, on a proxy
+        // that never answers it, a full second of curl waiting for the go-ahead.
+        hdrs = curl_slist_append(hdrs, "Expect:");
+    }
 
     curl_easy_setopt(h, CURLOPT_URL, r.url.c_str());
     curl_easy_setopt(h, CURLOPT_USERAGENT, user_agent());

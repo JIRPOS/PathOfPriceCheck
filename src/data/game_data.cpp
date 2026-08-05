@@ -26,6 +26,27 @@ std::optional<std::pair<int, int>> read_range(const json& j, const char* key) {
     return std::pair<int, int>{(*it)[0].get<int>(), (*it)[1].get<int>()};
 }
 
+UniqueMod read_unique_mod(const json& j) {
+    UniqueMod m;
+    m.mod = j.value("mod", std::string());
+    m.implicit = j.value("implicit", false);
+    if (const auto fs = j.find("filters"); fs != j.end() && fs->is_array()) {
+        for (const json& f : *fs) {
+            if (!f.is_object()) continue;
+            UniqueModFilter uf;
+            uf.ref = f.value("ref", std::string());
+            uf.trade_id = f.value("tradeId", std::string());
+            if (const auto r = f.find("range"); r != f.end() && r->is_array()) {
+                for (const json& pair : *r)
+                    if (pair.is_array() && pair.size() == 2)
+                        uf.ranges.emplace_back(pair[0].get<double>(), pair[1].get<double>());
+            }
+            m.filters.push_back(std::move(uf));
+        }
+    }
+    return m;
+}
+
 } // namespace
 
 std::string_view to_string(Namespace ns) { return kNamespaces[static_cast<size_t>(ns)]; }
@@ -80,6 +101,14 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         !gd->items_name_index_.attach(gd->items_name_idx_.data(), gd->items_name_idx_.size()))
         return fail("malformed index (not a whole number of rows)");
 
+    // Optional, and missing on every bundle published before the dataset existed: a unique
+    // then falls back to what a printed range can prove, which is what the app did before.
+    // Both files or neither — an index without its ndjson resolves to offsets into nothing.
+    if (gd->unique_mods_nd_.open(dir / (p + "unique-mods.ndjson")) &&
+        gd->unique_mods_name_idx_.open(dir / (p + "unique-mods-name.index.bin")))
+        gd->unique_mods_name_index_.attach(gd->unique_mods_name_idx_.data(),
+                                           gd->unique_mods_name_idx_.size());
+
     // Small table, read eagerly.
     std::ifstream cls(dir / "item-classes.ndjson");
     if (!cls) return fail("cannot read item-classes.ndjson");
@@ -98,7 +127,12 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
     std::ifstream mf(dir / "manifest.json");
     if (mf) {
         const json j = json::parse(mf, nullptr, false);
-        if (!j.is_discarded()) gd->data_version_ = j.value("data_version", std::string());
+        if (!j.is_discarded()) {
+            gd->data_version_ = j.value("data_version", std::string());
+            if (const auto s = j.find("source"); s != j.end() && s->is_object())
+                gd->unique_mods_attribution_ =
+                    s->value("unique_mods_attribution", std::string());
+        }
     }
     return gd;
 }
@@ -181,6 +215,54 @@ const BaseType* GameData::base_at(uint32_t offset) const {
         b->ward = read_range(*a, "ward");
     }
     return base_cache_.emplace(offset, std::move(b)).first->second.get();
+}
+
+const UniqueMods* GameData::unique_mods_at(uint32_t offset) const {
+    if (const auto it = unique_mods_cache_.find(offset); it != unique_mods_cache_.end())
+        return it->second.get();
+
+    const std::string_view line = line_at(unique_mods_nd_, offset);
+    if (line.empty()) return nullptr;
+    const json j = json::parse(line, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) return nullptr;
+
+    auto u = std::make_unique<UniqueMods>();
+    u->name = j.value("name", std::string());
+    u->base = j.value("base", std::string());
+    if (const auto f = j.find("fixed"); f != j.end() && f->is_array())
+        for (const json& m : *f)
+            if (m.is_object()) u->fixed.push_back(read_unique_mod(m));
+    if (const auto ps = j.find("pools"); ps != j.end() && ps->is_array()) {
+        for (const json& p : *ps) {
+            if (!p.is_object()) continue;
+            UniqueModPool pool;
+            pool.hint = p.value("hint", std::string());
+            pool.implicit = p.value("implicit", false);
+            pool.count = read_range(p, "count");
+            if (const auto ms = p.find("mods"); ms != p.end() && ms->is_array())
+                for (const json& m : *ms)
+                    if (m.is_object()) pool.mods.push_back(read_unique_mod(m));
+            u->pools.push_back(std::move(pool));
+        }
+    }
+    if (const auto un = j.find("unlisted"); un != j.end() && un->is_array())
+        for (const json& s : *un)
+            if (s.is_string()) u->unlisted.push_back(s.get<std::string>());
+    return unique_mods_cache_.emplace(offset, std::move(u)).first->second.get();
+}
+
+const UniqueMods* GameData::find_unique_mods(std::string_view name) const {
+    std::string key(to_string(Namespace::Unique));
+    key += "::";
+    key += name;
+
+    std::vector<uint32_t> offsets;
+    unique_mods_name_index_.lookup(key, offsets);
+    for (uint32_t off : offsets) {
+        const UniqueMods* u = unique_mods_at(off);
+        if (u && u->name == name) return u;
+    }
+    return nullptr;
 }
 
 std::vector<const Stat*> GameData::find_stats(std::string_view normalized) const {

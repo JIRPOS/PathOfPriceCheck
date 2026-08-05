@@ -1,6 +1,7 @@
 #include "platform/foreground.hpp"
 #include "platform/platform.hpp"
 
+#include <cstdio>
 #include <string>
 
 #include <windows.h>
@@ -48,6 +49,18 @@ bool foreground_title_contains(const std::string& needle) {
     if (!hwnd) return false;
     std::string title = window_title(hwnd);
     return title.find(needle) != std::string::npos;
+}
+
+std::string foreground_title() {
+    HWND hwnd = GetForegroundWindow();
+    return hwnd ? window_title(hwnd) : std::string{};
+}
+
+std::string focus_info() {
+    HWND fg = GetForegroundWindow();
+    char buf[128];
+    std::snprintf(buf, sizeof buf, "foreground=%p", (void*)fg);
+    return std::string(buf) + " '" + (fg ? window_title(fg) : std::string{}) + "'";
 }
 
 GameWindow find_game_window(const std::string& needle) {

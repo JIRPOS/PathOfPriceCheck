@@ -21,7 +21,13 @@ struct Derived {
 
     /// Where the base's own defence roll sits in the base type's range, 0..1. Bases roll their
     /// defences, which is what makes two identical-looking rares worth different amounts.
-    std::optional<double> armour_pct, evasion_pct, energy_shield_pct, ward_pct;
+    ///
+    /// One number per item, not per defence: a base rolls *one* value and spreads it across the
+    /// defences it has, so an armour/energy-shield hybrid whose two percentiles disagree is
+    /// reporting rounding, not two different rolls. Summed on both sides — the item's recovered
+    /// inherent values against the sum of the base's ranges. Absent unless every defence the
+    /// item displays has a published range, since a partial sum is not comparable to a full one.
+    std::optional<double> base_pct;
 
     /// What a search should ask for: the 20%-quality value, or the item's own past 20%.
     std::optional<int> search_armour, search_evasion, search_energy_shield, search_ward;

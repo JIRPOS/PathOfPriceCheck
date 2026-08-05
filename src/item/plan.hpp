@@ -28,6 +28,10 @@ std::string_view to_string(Strategy s);
 /// One modifier turned into a trade stat filter.
 struct StatFilter {
     size_t mod_index = 0;   ///< into `Item::mods`
+    /// The other modifiers folded into this filter by `merge_same_stat`, also into
+    /// `Item::mods`. Two rolls of one stat are searched as their total, but they are still two
+    /// affixes, and which two is what the tier display is about.
+    std::vector<size_t> merged;
     std::string id;         ///< trade stat id, "explicit.stat_3299347043"
     std::string text;       ///< the wording, for display
     data::ModType type = data::ModType::Explicit;
@@ -39,6 +43,16 @@ struct StatFilter {
     /// The trade site indexes this stat with the opposite sign; the query builder flips it.
     bool inverted = false;
     int dp = 0;
+
+    // From the bundle's per-unique modifier data, on a unique it has a record of.
+    /// The unique picks this modifier from a pool rather than always having it, so not every
+    /// copy carries it. The one thing worth searching a unique on that a printed range can
+    /// never reveal — Ralakesh's Impatience rolls one of three charge modifiers, each 1..1.
+    bool pooled = false;
+    std::string pool_hint; ///< the source's prose for that pool, when it states one
+    /// What this modifier can roll on this unique, whether or not the game printed a range —
+    /// the clipboard only prints one with Advanced Mod Descriptions on.
+    std::optional<double> unique_min, unique_max;
 };
 
 /// A numeric trade filter: `key` is the name in the trade query's filter groups.
