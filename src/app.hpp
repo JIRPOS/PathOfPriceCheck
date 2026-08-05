@@ -38,13 +38,15 @@ inline constexpr uint64_t kPokeIntervalMs = 100;
 enum class Side { Stash, Inventory };
 
 /// How the price-check overlay window is divided. The window is wider than the panel: the
-/// rest is a **transparent gutter** on the side away from the item frame, which is where a
-/// listing's item pops up. The overlay only paints where ImGui draws a window, so the gutter
-/// costs nothing until something is drawn into it.
+/// rest is a **gutter** on the side away from the item frame, holding the item being priced at
+/// its top and a hovered listing's item below that. The overlay only paints where ImGui draws a
+/// window, so whatever the two of them leave over stays transparent.
 ///
-/// It exists because a tooltip has nowhere else to go. ImGui clamps every window to the
+/// It exists because a tooltip had nowhere else to go. ImGui clamps every window to the
 /// viewport, and the viewport is the SDL window — so before the gutter, a popup wide enough to
-/// read landed on top of the very listings it was meant to be compared against.
+/// read landed on top of the very listings it was meant to be compared against. The item in hand
+/// moved into it for a different reason: the panel is a column on a screen that is always wider
+/// than it is tall, so height, not width, is what it runs out of.
 /// All values are ImGui viewport coordinates.
 struct PanelLayout {
     float panel_x = 0; ///< 0 when the gutter is to the right, else the gutter's width
@@ -99,6 +101,9 @@ public:
     const ListingItem* listing_item(size_t i);
     /// Where the panel sits inside the overlay window, and where the gutter beside it is.
     const PanelLayout& layout() const { return layout_; }
+    /// How far down the gutter the item card reached this frame — opaque UI of ours over the
+    /// game, so `poll_click_away` has to spare it. 0 when it was drawn in the panel instead.
+    void set_card_height(float h) { card_h_ = h; }
     /// False while there is nothing to search — no bundle, or a strategy with no stat query
     /// behind it (currency, gems, maps).
     bool can_search() const;
@@ -159,6 +164,7 @@ private:
     Screen screen_ = Screen::Hidden;
     Side side_ = Side::Inventory; ///< side the current price check docked to
     PanelLayout layout_;          ///< set by place_overlay, read by the price-check renderer
+    float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
     std::string clipboard_;
     bool running_ = true;
 

@@ -250,29 +250,56 @@ void draw_price(App& app, const trade::Listing& l, bool fee_tip) {
         ImGui::SetTooltip("Fee: %s gold", trade::gold_text(l.fee).c_str());
 }
 
+/// The item the check is about, in the **gutter beside the panel** rather than at the top of it.
+/// The panel is a column on a screen that is always wider than it is tall, so the vertical space
+/// the item used to take was the scarcest thing in it — at 1080p and below it left the filters
+/// and the listings fighting over what was left. Beside the panel it costs nothing but gutter,
+/// which is otherwise empty until a row is hovered.
+///
+/// Returns the y the rest of the gutter is free from, or 0 when there was no room to draw it and
+/// the panel has to show the item itself. Width is fixed rather than auto-fit: `draw_item_tooltip`
+/// centres every line on `GetContentRegionAvail()`, which in an auto-sizing window is whatever
+/// the last frame happened to be.
+float draw_item_card(App& app, const item::Item& it) {
+    const PanelLayout& lay = app.layout();
+    if (lay.tip_w < kMinGutter) return 0.0f;
+    ImGui::SetNextWindowPos(ImVec2(lay.tip_x, 0));
+    // (w, 0): fixed width, height auto-fit to the item. ImGui clamps the auto-fit to the
+    // viewport, so a very long item scrolls inside the card instead of running off the screen.
+    ImGui::SetNextWindowSize(ImVec2(lay.tip_w, 0.0f));
+    ImGui::Begin("##item_card", nullptr,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav);
+    draw_item_tooltip(it, app.derived(), app.fonts());
+    const float bottom = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
+    ImGui::End();
+    return bottom;
+}
+
 /// The seller's item while its row is hovered — the same renderer the panel uses for the item
 /// in hand, on an item parsed from the clipboard text the API ships with every listing. Two
 /// rows of a price table look alike; the items behind them do not, and on a rare that
 /// difference is the whole reason one is cheaper.
 ///
-/// It goes in the **gutter beside the panel** (`App::layout`), over the game rather than over
-/// the listings it is there to be compared against. Both position and width are set
-/// explicitly: `SetNextWindowPos` overrides a tooltip's follow-the-mouse placement, and
-/// `SetNextWindowSize` overrides its auto-fit per axis, so `(w, 0)` fixes the width and leaves
-/// the height to the item. The width has to be fixed either way — `draw_item_tooltip` centres
-/// every line on `GetContentRegionAvail()`, which in an auto-sizing window is whatever the
-/// last frame happened to be.
+/// It goes in the **gutter beside the panel** (`App::layout`), under the item in hand — the
+/// point of the hover is comparing the two, so the one being compared against stays on screen.
+/// Both position and width are set explicitly: `SetNextWindowPos` overrides a tooltip's
+/// follow-the-mouse placement, and `SetNextWindowSize` overrides its auto-fit per axis, so
+/// `(w, 0)` fixes the width and leaves the height to the item.
 ///
-/// Aligned to the top of its own row, clamped so a long item does not run off the bottom.
-/// The clamp uses the height this drew at last frame, which is one frame stale and settles
-/// immediately; there is no way to know it before drawing.
-void draw_listing_tooltip(App& app, const trade::Listing& l, const ListingItem& li,
-                          float row_top) {
+/// Aligned to the top of its own row, but never above `gutter_top` and never so far down that it
+/// runs off the bottom. The bottom clamp uses the height this drew at last frame, which is one
+/// frame stale and settles immediately; there is no way to know it before drawing.
+void draw_listing_tooltip(App& app, const trade::Listing& l, const ListingItem& li, float row_top,
+                          float gutter_top) {
     const PanelLayout& lay = app.layout();
     static float last_h = 0;
     if (lay.tip_w >= kMinGutter) {
         const float max_y = std::max(0.0f, ImGui::GetIO().DisplaySize.y - last_h);
-        ImGui::SetNextWindowPos(ImVec2(lay.tip_x, std::clamp(row_top, 0.0f, max_y)));
+        // Not std::clamp: on a gutter whose card leaves less room than the listing needs, the
+        // low bound is above the high one, which clamp is not defined for. The card wins.
+        ImGui::SetNextWindowPos(ImVec2(lay.tip_x, std::max(gutter_top, std::min(row_top, max_y))));
         ImGui::SetNextWindowSize(ImVec2(lay.tip_w, 0.0f));
     } else {
         // A game window too narrow to spare a gutter: fall back to the panel's own width and
@@ -312,7 +339,7 @@ void draw_load_more_row(App& app) {
     ImGui::TextDisabled("%zu left", t.remaining());
 }
 
-void draw_results(App& app) {
+void draw_results(App& app, float gutter_top) {
     const TradeService& t = app.trade();
     if (!t.error().empty()) {
         ImGui::PushTextWrapPos(0.0f);
@@ -371,7 +398,7 @@ void draw_results(App& app) {
         ImGui::PopID();
         // After the cells: the tooltip is a window of its own, and opening it mid-row would
         // leave the table's cursor inside it.
-        if (popup) draw_listing_tooltip(app, l, *li, row_top);
+        if (popup) draw_listing_tooltip(app, l, *li, row_top, gutter_top);
     }
     draw_load_more_row(app);
     ImGui::EndTable();
@@ -397,8 +424,17 @@ void draw_debug_footer(App& app) {
 
 void draw_pricecheck_screen(App& app) {
     ImGuiIO& io = ImGui::GetIO();
-    // The panel occupies its own slice of the window; the rest is the tooltip gutter, which
-    // stays transparent because nothing draws into it until a row is hovered.
+    const item::Item* it = app.item();
+    // The item itself lives in the gutter beside the panel, so the panel's own column is filters,
+    // price and listings — the things that need the height. Drawn before the panel purely for
+    // reading order; the two windows never overlap. 0 back means there was no gutter to draw it
+    // in and the panel has to.
+    const float gutter_top = it ? draw_item_card(app, *it) : 0.0f;
+    // The card is opaque UI of ours over the game, not the transient tooltip the gutter used to
+    // hold: a click on it must not read as a click away from the panel.
+    app.set_card_height(gutter_top);
+
+    // The panel occupies its own slice of the window; the rest is the gutter.
     const PanelLayout& lay = app.layout();
     const float panel_w = lay.panel_w > 0 ? lay.panel_w : io.DisplaySize.x;
     ImGui::SetNextWindowPos(ImVec2(lay.panel_x, 0));
@@ -428,7 +464,6 @@ void draw_pricecheck_screen(App& app) {
         ImGui::Separator();
     }
 
-    const item::Item* it = app.item();
     // The body is a child filling everything above the footer, which keeps the footer pinned to
     // the bottom without seeking the cursor past the content.
     const float footer_h =
@@ -440,11 +475,15 @@ void draw_pricecheck_screen(App& app) {
     if (!it) {
         ImGui::TextDisabled("Nothing to show.");
     } else {
-        draw_item_tooltip(*it, app.derived(), app.fonts());
+        // Only when the game window left no room for a gutter: then the item is still the first
+        // thing in the panel, as it was before it had anywhere else to go.
+        if (gutter_top == 0.0f) {
+            draw_item_tooltip(*it, app.derived(), app.fonts());
+            ImGui::Dummy(ImVec2(0, 8));
+            ImGui::Separator();
+        }
 
         item::SearchPlan& plan = app.plan();
-        ImGui::Dummy(ImVec2(0, 8));
-        ImGui::Separator();
         if (!gd) {
             ImGui::TextDisabled("No pricing data yet, so nothing has been matched.");
         } else {
@@ -463,7 +502,7 @@ void draw_pricecheck_screen(App& app) {
             ImGui::Separator();
             draw_reference_price(plan);
             draw_search_controls(app);
-            draw_results(app);
+            draw_results(app, gutter_top);
         }
     }
     ImGui::EndChild();

@@ -176,6 +176,9 @@ else()
 endif()
 
 add_executable(PathOfPriceCheck ${APP_SOURCES})
+# GUI subsystem on Windows: a console-subsystem binary opens a console window beside an
+# application whose whole UI is an overlay and a tray icon. Entry point is WinMain (src/main.cpp).
+set_target_properties(PathOfPriceCheck PROPERTIES WIN32_EXECUTABLE TRUE)
 target_include_directories(PathOfPriceCheck PRIVATE src)
 target_compile_definitions(PathOfPriceCheck PRIVATE APP_VERSION="${APP_VERSION}" SDL_MAIN_HANDLED)
 target_link_libraries(PathOfPriceCheck PRIVATE ppc_core SDL3::SDL3 imgui

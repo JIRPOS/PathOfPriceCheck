@@ -204,7 +204,7 @@ two-press bug).
 drops any action fired while PoE is not the foreground window — otherwise they go off in the user's
 browser. The lone exception is the Settings hotkey while Settings is open: that panel holds the
 keyboard focus itself, so the game *can't* be foreground, and the hotkey has to be able to close it.
-The idle "● PPC" marker follows the same rule and unmaps whenever the game isn't in front, so it
+The idle status marker follows the same rule and unmaps whenever the game isn't in front, so it
 never floats over other applications. In the other direction we never force focus *onto the game*:
 the copy path used to call `focus_game_window()` on a window it had just confirmed was foreground,
 and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
@@ -230,17 +230,33 @@ both default to **0.615**; they stay separate knobs only because GGG moves the U
 They and `panel_width` are sliders in Settings, which is how to set them: eyeballing them off a
 screenshot is not accurate to the pixel, and two rounds of doing exactly that both missed.
 
-**The price-check window is wider than the panel**, by a transparent **gutter** on the side the panel
+**The price-check window is wider than the panel**, by a **gutter** on the side the panel
 is *not* docked against — right of a stash-side panel, left of an inventory-side one. `App::layout()`
 (`PanelLayout`) says where the panel sits inside it and where the gutter is; the panel's `Begin` uses
 that instead of the whole viewport. The gutter exists because a hovered listing's item has nowhere
 else to go: ImGui clamps every window to the viewport, and the viewport *is* the SDL window, so a
 popup wide enough to read used to land on top of the very listings it was there to be compared
 against. It is only as wide as the game actually leaves free (capped at the panel's own width), since
-the window still swallows mouse input everywhere it covers. Two consequences worth knowing:
-`poll_click_away` measures against the **panel** rect, not the window's, or a click on the game
-through the gutter would not dismiss; and `place_overlay` logs the geometry it chose, which is the
+the window still swallows mouse input everywhere it covers.
+
+**The item being priced is drawn at the top of that gutter, not at the top of the panel**
+(`draw_item_card`), and the panel therefore begins at the filters. Every screen is wider than it is
+tall, so the panel's column runs out of *height* long before the window runs out of width — at 1080p
+and below the item, the filters and the listings were all competing for the same few hundred pixels.
+A hovered listing's item stacks underneath it, which is also the comparison the hover is for. Three
+consequences worth knowing: on a game window with no room for a readable gutter (`kMinGutter`, 260px)
+the card is not drawn at all and the item goes back to the top of the panel, so that path has to keep
+working; `poll_click_away` measures against the **panel** rect plus the card's (`App::set_card_height`)
+and not the window's, or a click on the game through the empty part of the gutter would not dismiss
+while a click on our own card would; and `place_overlay` logs the geometry it chose, which is the
 thing to read when the panel lands somewhere unexpected.
+
+The **idle status marker** replaces the old "● PPC" spike: two lines — `PoPC v<version>` and the data
+bundle's version — in outlined yellow at half opacity over the middle of the mana globe, which is
+where the game itself has nothing to say. `Config::status_right`/`status_bottom` place it, as offsets
+from the game window's bottom-right corner ÷ its height (the same reasoning as the frame edges), and
+they are config-file-only. `place_overlay` sizes the window to the text for that screen, so the idle
+overlay is a 200×48 rectangle rather than a dialog-sized one nothing is drawn into.
 
 **Settings** lays every row out on one grid via `row()` in `settings_screen.cpp` — ImGui draws a
 control's own label to its *right*, which is why nothing passes a visible label. League is a combo
@@ -283,7 +299,13 @@ holds no SDL/X11/curl and every layer can log into it.
 A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
 the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check panel on a captured
-clipboard instead.
+clipboard instead, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
+appears while the game is the window in front).
+
+The Windows binary is **GUI-subsystem** (`WIN32_EXECUTABLE`, entered at `WinMain` in `src/main.cpp`):
+a console-subsystem build pops a console window beside an application whose whole UI is an overlay
+and a tray icon. Nothing user-facing goes to stdout — `PPC_DEBUG_COPY`'s traces have nowhere to go
+there, which is what the debug log is for.
 
 **Icon** (`src/icon.cpp`): `assets/popc_icon.png` embedded as a base85 blob in the generated
 `src/icon_data.inc` and decoded at startup with SDL3's own `SDL_LoadPNG_IO` — no image library, no
@@ -582,9 +604,12 @@ on hover and cached in `App::listing_items_`, resolved against the same pinned `
 snapshot, and dropped whenever a trade result lands. The row is a `Selectable` with
 `SpanAllColumns | AllowOverlap` so the row is the hover target and lights up to say so, while the
 price cell's own fee tooltip still sits on top. It is drawn into the **gutter** beside the panel
-(above), aligned to the top of its own row and clamped by the height it drew at last frame so a long
-item does not run off the bottom — one frame stale, which settles immediately, and there is no way
-to know the height before drawing it. Both position and width are set explicitly:
+(above), aligned to the top of its own row but never above the item card the gutter opens with, and
+clamped by the height it drew at last frame so a long item does not run off the bottom — one frame
+stale, which settles immediately, and there is no way to know the height before drawing it. That
+clamp is a `max(min())` rather than `std::clamp`: on a card tall enough to leave less room than the
+listing needs, the low bound is above the high one, which `clamp` is not defined for. Both position
+and width are set explicitly:
 `SetNextWindowPos` overrides a tooltip's follow-the-mouse placement and `SetNextWindowSize`
 overrides its auto-fit **per axis**, so `(w, 0)` fixes the width and leaves the height to the item.
 The width has to be fixed either way — `draw_item_tooltip` centres every line on
