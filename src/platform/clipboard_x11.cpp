@@ -4,34 +4,34 @@
 #include <chrono>
 #include <climits>
 #include <cstdio>
-#include <cstdlib>
 
 #include <sys/select.h>
 
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/extensions/Xfixes.h>
+
+#include "util/debug_log.hpp"
 
 namespace ppc {
 namespace {
 
 using Clock = std::chrono::steady_clock;
 
-/// PPC_DEBUG_COPY=1 also traces the selection side of the copy: who owns the clipboard and
-/// what each target conversion actually did. Which of "the game never copied" and "the game
-/// copied but we can't read it" happened is otherwise invisible from the app side.
-bool trace() {
-    static bool on = std::getenv("PPC_DEBUG_COPY") != nullptr;
-    return on;
-}
+/// The debug log (or PPC_DEBUG_COPY=1) traces the selection side of the copy: who owns the
+/// clipboard and what each target conversion actually did. Which of "the game never copied"
+/// and "the game copied but we can't read it" happened is otherwise invisible from the app side.
+bool trace() { return debug::tracing(); }
 
 struct Ctx {
     Display* d = nullptr;
     Window win = None; ///< requestor; selection data is tied to a window, so we need our own
     Atom clipboard = None, utf8 = None, plain_utf8 = None, incr = None, prop = None,
          targets = None;
-    int xfixes_event = 0;      ///< 0 when the extension is missing; see clipboard_changed()
-    bool owner_changed = false; ///< latched XFixesSetSelectionOwnerNotify
+    int xfixes_event = 0;   ///< 0 when the extension is missing; see clipboard_stamp()
+    uint32_t changes = 0;   ///< ownership changes seen, so two in one millisecond differ
+    unsigned long last_change = 0; ///< selection_timestamp of the newest one
 };
 
 Ctx& ctx() {
@@ -60,7 +60,35 @@ Ctx& ctx() {
     return c;
 }
 
-/// Drain queued owner-change notifications into the latch. Also called from `clipboard_text`
+/// Who a window belongs to, from server-side properties only — no round trip to the client,
+/// so this is safe to call about an owner we are in the middle of waiting on.
+std::string window_desc(Display* d, Window w) {
+    if (!w) return "none";
+    char buf[64];
+    std::snprintf(buf, sizeof buf, "0x%lx", w);
+    std::string s = buf;
+    XClassHint ch{};
+    if (XGetClassHint(d, w, &ch)) {
+        if (ch.res_class) s += std::string(" class=") + ch.res_class;
+        if (ch.res_name) XFree(ch.res_name);
+        if (ch.res_class) XFree(ch.res_class);
+    }
+    Atom pid_atom = XInternAtom(d, "_NET_WM_PID", True);
+    Atom type = None;
+    int fmt = 0;
+    unsigned long n = 0, after = 0;
+    unsigned char* data = nullptr;
+    if (pid_atom != None &&
+        XGetWindowProperty(d, w, pid_atom, 0, 1, False, XA_CARDINAL, &type, &fmt, &n, &after,
+                           &data) == Success &&
+        data) {
+        if (fmt == 32 && n) s += " pid=" + std::to_string(*reinterpret_cast<unsigned long*>(data));
+        XFree(data);
+    }
+    return s;
+}
+
+/// Drain queued owner-change notifications into the stamp. Also called from `clipboard_text`
 /// so the queue can't grow behind a caller that only ever reads.
 void pump_owner_changes(Ctx& c) {
     if (!c.xfixes_event) return;
@@ -68,9 +96,15 @@ void pump_owner_changes(Ctx& c) {
     while (XCheckTypedWindowEvent(c.d, c.win, c.xfixes_event, &ev)) {
         auto* fe = reinterpret_cast<XFixesSelectionNotifyEvent*>(&ev);
         if (fe->subtype == XFixesSetSelectionOwnerNotify && fe->selection == c.clipboard) {
-            c.owner_changed = true;
             if (trace())
-                std::fprintf(stderr, "[copy]   selection owner asserted: 0x%lx\n", fe->owner);
+                debug::trace("[copy]   selection owner asserted: %s at t=%lu",
+                             window_desc(c.d, fe->owner).c_str(), fe->selection_timestamp);
+            // The selection being *dropped* is not a write. It is the opposite: there is now
+            // nothing on the clipboard and nobody to ask. Counting it moved the stamp, which
+            // read as a successful copy and then logged the empty read as "not an item".
+            if (fe->owner == None) continue;
+            ++c.changes;
+            c.last_change = fe->selection_timestamp;
         }
     }
 }
@@ -127,7 +161,7 @@ std::string convert(Ctx& c, Atom target, Clock::time_point deadline) {
     for (;;) {
         if (!wait_for(c.d, c.win, SelectionNotify, &ev, deadline)) {
             if (trace())
-                std::fprintf(stderr, "[copy]   %s: no reply before the deadline\n",
+                debug::trace("[copy]   %s: no reply before the deadline",
                              atom_name(c, target).c_str());
             return {};
         }
@@ -135,7 +169,7 @@ std::string convert(Ctx& c, Atom target, Clock::time_point deadline) {
     }
     if (ev.xselection.property == None) { // owner can't supply this format
         if (trace())
-            std::fprintf(stderr, "[copy]   %s: owner refused (format not offered)\n",
+            debug::trace("[copy]   %s: owner refused (format not offered)",
                          atom_name(c, target).c_str());
         return {};
     }
@@ -144,6 +178,8 @@ std::string convert(Ctx& c, Atom target, Clock::time_point deadline) {
     std::string s = read_prop(c, &type);
     if (type != c.incr) {
         XDeleteProperty(c.d, c.win, c.prop);
+        if (trace())
+            debug::trace("[copy]   %s: %zu bytes", atom_name(c, target).c_str(), s.size());
         return s;
     }
 
@@ -166,27 +202,22 @@ std::string convert(Ctx& c, Atom target, Clock::time_point deadline) {
     }
 }
 
-/// Trace-only: what the owner says it can supply right now. Wine publishes CF_UNICODETEXT
-/// and CF_TEXT as different targets and does not necessarily have both rendered, so an empty
-/// read with a live owner is a different failure from an owner that answers nothing at all.
-void trace_targets(Ctx& c) {
+/// What the owner says it can supply right now. Wine publishes CF_UNICODETEXT and CF_TEXT as
+/// different targets and does not necessarily have both rendered, so an empty read with a live
+/// owner is a different failure from an owner that answers nothing at all. This is a real
+/// conversion request, hence diagnostics-only: see the header.
+std::string targets_list(Ctx& c, int timeout_ms) {
     XEvent ev;
     while (XCheckTypedWindowEvent(c.d, c.win, SelectionNotify, &ev)) {}
     XDeleteProperty(c.d, c.win, c.prop);
     XConvertSelection(c.d, c.clipboard, c.targets, c.prop, c.win, CurrentTime);
     XFlush(c.d);
-    const auto deadline = Clock::now() + std::chrono::milliseconds(100);
+    const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_ms);
     for (;;) {
-        if (!wait_for(c.d, c.win, SelectionNotify, &ev, deadline)) {
-            std::fprintf(stderr, "[copy]   TARGETS: no reply\n");
-            return;
-        }
+        if (!wait_for(c.d, c.win, SelectionNotify, &ev, deadline)) return "(no reply)";
         if (ev.xselection.selection == c.clipboard && ev.xselection.target == c.targets) break;
     }
-    if (ev.xselection.property == None) {
-        std::fprintf(stderr, "[copy]   TARGETS: refused\n");
-        return;
-    }
+    if (ev.xselection.property == None) return "(refused)";
     Atom type = None;
     int fmt = 0;
     unsigned long count = 0, after = 0;
@@ -196,25 +227,51 @@ void trace_targets(Ctx& c) {
                            &after, &data) == Success &&
         data && fmt == 32) {
         Atom* list = reinterpret_cast<Atom*>(data);
-        for (unsigned long i = 0; i < count; ++i) line += " " + atom_name(c, list[i]);
+        for (unsigned long i = 0; i < count; ++i) line += (line.empty() ? "" : " ") +
+                                                         atom_name(c, list[i]);
     }
     if (data) XFree(data);
     XDeleteProperty(c.d, c.win, c.prop);
-    std::fprintf(stderr, "[copy]   TARGETS:%s\n", line.empty() ? " (none)" : line.c_str());
+    return line.empty() ? "(none)" : line;
 }
 
 } // namespace
 
-bool clipboard_changed() {
+void clipboard_poke() {
     Ctx& c = ctx();
-    if (!c.d) return false;
+    if (!c.d) return;
+    if (XGetSelectionOwner(c.d, c.clipboard) == None) return;
+    // TARGETS rather than a text format: we want the owner to wake up, not to hand us the
+    // previous copy. The reply is never read — it is drained by the next request on this window.
+    XEvent ev;
+    while (XCheckTypedWindowEvent(c.d, c.win, SelectionNotify, &ev)) {}
+    XConvertSelection(c.d, c.clipboard, c.targets, c.prop, c.win, CurrentTime);
+    XFlush(c.d);
+}
+
+std::string clipboard_owner_info() {
+    Ctx& c = ctx();
+    if (!c.d) return "no display";
+    std::string s = window_desc(c.d, XGetSelectionOwner(c.d, c.clipboard));
+    if (!c.xfixes_event) s += " (no XFixes: writes are undetectable)";
+    return s;
+}
+
+std::string clipboard_targets(int timeout_ms) {
+    Ctx& c = ctx();
+    if (!c.d) return "no display";
+    if (XGetSelectionOwner(c.d, c.clipboard) == None) return "(no owner)";
+    return targets_list(c, timeout_ms);
+}
+
+uint64_t clipboard_stamp() {
+    Ctx& c = ctx();
+    if (!c.d) return 0;
     pump_owner_changes(c);
-    // No XFixes: report no change rather than a change on every call. Callers use this to
-    // vouch for text they would otherwise reject, and a permanent "yes" would vouch for
-    // everything, including the stale clipboard a failed copy leaves behind.
-    bool changed = c.owner_changed;
-    c.owner_changed = false;
-    return changed;
+    // Without XFixes nothing is ever observed, so the stamp never moves and every copy times
+    // out. That is the honest failure: a stamp that changed on its own would vouch for the
+    // stale text a failed copy leaves behind, which is a confident wrong price.
+    return (static_cast<uint64_t>(c.changes) << 32) | c.last_change;
 }
 
 std::string clipboard_text(int timeout_ms) {
@@ -228,7 +285,8 @@ std::string clipboard_text(int timeout_ms) {
         static Window last_owner = None;
         static bool seen = false;
         if (!seen || owner != last_owner)
-            std::fprintf(stderr, "[copy]   clipboard owner 0x%lx -> 0x%lx\n", last_owner, owner);
+            debug::trace("[copy]   clipboard owner 0x%lx -> %s", last_owner,
+                         window_desc(c.d, owner).c_str());
         last_owner = owner;
         seen = true;
     }
@@ -240,7 +298,7 @@ std::string clipboard_text(int timeout_ms) {
         std::string s = convert(c, target, deadline);
         if (!s.empty()) return s;
     }
-    if (trace()) trace_targets(c);
+    if (trace()) debug::trace("[copy]   TARGETS: %s", targets_list(c, 100).c_str());
     return {};
 }
 

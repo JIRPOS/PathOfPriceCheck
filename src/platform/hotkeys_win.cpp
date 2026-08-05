@@ -9,6 +9,8 @@
 
 #include <windows.h>
 
+#include "util/debug_log.hpp"
+
 namespace ppc {
 namespace {
 
@@ -93,7 +95,10 @@ private:
             if (!hk.valid()) continue;
             UINT vk = win_vk(hk.key);
             if (!vk) continue;
-            if (RegisterHotKey(nullptr, id, win_mods(hk.mods), vk)) {
+            const bool ok = RegisterHotKey(nullptr, id, win_mods(hk.mods), vk);
+            debug::trace("[hotkey] register %s as vk=0x%x: %s", to_string(hk).c_str(), vk,
+                         ok ? "ok" : "refused (another application holds it)");
+            if (ok) {
                 ids_.push_back(id);
                 id_action_[id] = act;
                 ++id;
@@ -114,7 +119,10 @@ private:
         while (GetMessage(&msg, nullptr, 0, 0) > 0) {
             if (msg.message == WM_HOTKEY) {
                 auto it = id_action_.find(static_cast<int>(msg.wParam));
-                if (it != id_action_.end()) cb_(it->second);
+                if (it != id_action_.end()) {
+                    debug::trace("[hotkey] fire action=%d", (int)it->second);
+                    cb_(it->second);
+                }
             } else if (msg.message == WM_PPC_REBIND) {
                 apply_pending();
             } else if (msg.message == WM_PPC_QUIT) {

@@ -8,6 +8,7 @@
 #include <imgui_stdlib.h>
 
 #include "app.hpp"
+#include "util/debug_log.hpp"
 
 namespace ppc {
 namespace {
@@ -228,6 +229,20 @@ void draw_settings_screen(App& app) {
 
     section(app, "Game data");
     data_row(app);
+
+    section(app, "Diagnostics");
+    if (ImGui::Checkbox(row("Debug logging"), &c.debug_log)) app.set_debug_log(c.debug_log);
+    row_gutter();
+    if (c.debug_log) {
+        // The path, not just "on": the user is going to attach this file to a report, and
+        // every price check shows the id that indexes into it.
+        ImGui::PushTextWrapPos(0.0f);
+        const std::string p = debug::log_path();
+        ImGui::TextDisabled("%s", p.empty() ? "could not open a log file" : p.c_str());
+        ImGui::PopTextWrapPos();
+    } else {
+        ImGui::TextDisabled("Records the copy path, item text included. Off by default.");
+    }
 
     ImGui::Separator();
     if (ImGui::Button("Save", ImVec2(120, 0))) app.apply_and_save_config();

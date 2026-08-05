@@ -8,6 +8,18 @@ namespace ppc {
 /// Used to gate the overlay so it only reacts while Path of Exile is focused.
 bool foreground_title_contains(const std::string& needle);
 
+/// The foreground/active window's title, empty when there is none. Diagnostics: knowing the
+/// title that did *not* match is the difference between a misconfigured `poe_window_title`
+/// and the game genuinely not being in front.
+std::string foreground_title();
+
+/// Who holds the keyboard right now, as one line, for the copy log. Diagnostics only, but
+/// cheap enough to sample on every poll — which is the point: the WM's active-window property
+/// lags the server's real input focus, so at one-sample-per-second the two are the same event
+/// and it is impossible to say whether a late clipboard handover happened *before* the game
+/// lost focus or *because* it did.
+std::string focus_info();
+
 /// A located game window and its on-screen geometry (global/screen coordinates).
 struct GameWindow {
     bool present = false; ///< a window whose title contains the needle exists

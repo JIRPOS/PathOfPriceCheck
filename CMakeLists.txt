@@ -121,6 +121,7 @@ add_library(ppc_core STATIC
   src/config.cpp
   src/leagues.cpp
   src/util/sha256.cpp
+  src/util/debug_log.cpp
   src/data/index.cpp
   src/data/stat_normalize.cpp
   src/data/game_data.cpp
@@ -214,6 +215,7 @@ ppc_add_test(paths_test)
 ppc_add_test(account_name_test)
 ppc_add_test(leagues_test)
 ppc_add_test(hash_test)
+ppc_add_test(debug_log_test)
 ppc_add_test(index_test)
 ppc_add_test(normalize_test)
 ppc_add_test(game_data_test)

@@ -93,16 +93,18 @@ The seams (windowing still comes free from SDL3; the clipboard did not — see b
   `INCR`, and never calls `XSetSelectionOwner`. Win32 is plain `OpenClipboard`/`CF_UNICODETEXT`,
   retried while the lock is held. Verified against a stub owner: live owner <1ms, frozen owner
   returns empty exactly at the deadline, no owner returns instantly.
-  `clipboard_changed()` is the same argument for the *write* signal: X11 selects XFixes
-  `SetSelectionOwnerNotify` on its own requestor window and latches it, so a copy is observed the
-  moment ownership is asserted rather than after a `TARGETS` round trip the game may never answer
-  (SDL's `SDL_EVENT_CLIPBOARD_UPDATE` waits for that reply — see the copy watch under Architecture);
-  Win32 uses `GetClipboardSequenceNumber`, whose first call only establishes a baseline. It is
-  latching, so callers arm it by calling it and discarding the result, and it must be polled every
-  tick or a write between two polls is lost. Without XFixes it reports *no* change, never a
-  permanent yes — a permanent yes would vouch for the stale clipboard a failed copy leaves behind.
-  Verified against the same stub owner re-asserting ownership over byte-identical text: fires once
-  per re-copy, silent otherwise.
+  `clipboard_stamp()` is the same argument for the *write* signal: X11 selects XFixes
+  `SetSelectionOwnerNotify` on its own requestor window and keeps the `selection_timestamp` off
+  each one, so a copy is observed the moment ownership is asserted rather than after a `TARGETS`
+  round trip the game may never answer (SDL's `SDL_EVENT_CLIPBOARD_UPDATE` waits for that reply —
+  see the copy watch under Architecture); Win32 uses `GetClipboardSequenceNumber`. **It is a value,
+  not a latch** — the previous design returned a bool and cleared itself, so callers had to arm it
+  and poll every tick or lose a write between two polls. A stamp can be read as often or as rarely
+  as you like. It pairs a change counter with the timestamp so two writes in the same millisecond
+  differ; compare for equality only, the X11 time wraps. Without XFixes it never moves, so every
+  copy times out — the honest failure, since a stamp that moved on its own would vouch for the
+  stale clipboard a failed copy leaves behind. Verified against a stub owner re-asserting ownership
+  over byte-identical text: three re-copies, three distinct stamps.
   **That target list is not cosmetic: the same copy yields two different texts.** Wine publishes
   the Windows clipboard's `CF_UNICODETEXT` as the UTF-8 targets and `CF_TEXT` as `STRING`, and for
   the first ~100ms after a copy PoE has often rendered only the latter — so the UTF-8 conversion
@@ -127,23 +129,69 @@ modifiers, so "LShift" registers as "Shift".
 
 Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`)
 owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`. Price-check
-hotkey → `simulate_copy()` → watch the clipboard → show. Watching means a 100ms poll of
-`clipboard_text()` plus `clipboard_changed()`, our own write detector;
-`SDL_EVENT_CLIPBOARD_UPDATE` is kept only as a third accelerator, because SDL raises it not on
-the owner change but once the new owner answers the `TARGETS` conversion SDL fires in response —
-a fullscreen game mid-frame answers late or never, so SDL stays silent through a copy that plainly
-happened. Accepted text must
-look like item text (`Item Class:`/`Rarity:`) — never fall back to the pre-copy clipboard, which is
-whatever the user last copied anywhere and reads as a successful but wrong price check.
-**Text byte-identical to the pre-copy clipboard needs `clipboard_changed()` to vouch for it**, and
-that is not an edge case: re-checking the same item produces the same bytes, and with only SDL's
-event to go on the panel hung until the user alt-tabbed out of the game and back, which is what
-finally made the game answer SDL's probe. `clipboard_changed()` must be **armed before**
-`simulate_copy()`, which blocks for the length of a human keypress that the copy can land inside.
-Text that
-lands goes through `App::accept_clipboard` → parse, resolve, derive, plan (see "The item layer"). Past the
-2.5s deadline the panel says so but keeps watching; the game's X11 handover can land seconds late.
-`PPC_DEBUG_COPY=1` traces the whole timeline. The overlay is
+hotkey → `simulate_copy()` → wait for the clipboard to be written → parse → show if it's an item.
+**Four steps, and they are meant to stay four.** An earlier version grew a pre-copy snapshot, a
+byte comparison against it, a latching write detector, `SDL_EVENT_CLIPBOARD_UPDATE` as a third
+accelerator, a "copying…" state, an overdue state and a rule for text identical to what was already
+there. All of it existed to answer one question — *is what I'm reading the new copy or the old
+text?* — and all of it is gone, because `clipboard_stamp()` answers that question at the source.
+
+`clipboard_stamp()` is an opaque number that changes when and only when something writes the
+clipboard (X11: the `selection_timestamp` the server pushes with each XFixes ownership change,
+paired with a change counter so two writes in one millisecond still differ; Windows:
+`GetClipboardSequenceNumber()`). Take it before injecting, compare after. Equal means nothing was
+copied, whatever the clipboard holds. Different means a real copy, even if the bytes are identical
+— **which is the common case, not an edge case: re-checking the same item produces the same bytes**,
+and that is what the byte comparison could never see. It asks the owner for nothing, so it cannot
+perturb a handover and is cheap enough to check every frame; the one real read happens once, after
+there is something new to read. Compare it for equality only — the X11 half wraps.
+
+**But a stamp only listens, and Wine only speaks when spoken to** — so each poll of a pending copy
+also calls `clipboard_poke()`, one fire-and-forget `TARGETS` conversion request whose reply is never
+read. Wine's clipboard manager holds the X selection without rendering the Windows clipboard behind
+it, and it publishes by *re-asserting ownership*: exactly the event being waited on. A purely passive
+watcher therefore waits forever for a publish only its own asking would cause. This is not a guess —
+the rewrite that removed the polling read failed five checks out of five, and in every one the
+ownership change landed **0-2ms after the diagnostic `clipboard_targets()` on the give-up line**,
+tracking our deadline (which varies 166-200ms with the hotkey's release wait) rather than the
+keypress. Wine's window id incremented by exactly one per check, i.e. once per probe. `TARGETS`
+rather than a text format on purpose: the answer wanted is the stamp moving, not the previous copy
+the owner is still serving.
+
+**A separate, sticky failure lives underneath all of this, and it is not ours to fix.** On
+Wayland+KWin, a copy made in a *Wayland* application while the game is running arms a three-way
+race: the next poke wakes Wine, Wine asserts the X selection with the item, KWin's Xwayland
+clipboard bridge asserts over it 2ms later with the Wayland-side content, and 0ms after that the
+selection is dropped to **no owner at all**. Now nothing works — there is nobody to poke, nobody to
+read, and Wine still believes it owns the selection, so every later copy in the game stays inside
+the prefix. Only a real **WM-level** focus change out of the game recovers it, by making Wine
+re-export. `nudge_clipboard_handover` is *not* enough here and the log proves it: it fired, moved
+the X input focus (`input=0x9a00037 active=0x8400001`), and Wine did not re-assert — the game never
+stopped being `_NET_ACTIVE_WINDOW`. Captured in `ppc-20260805-162746.log`, checks `ECJG` (the race)
+and `3NDN` (the stuck state). A drop to no owner is deliberately **not** counted by
+`clipboard_stamp()`: it is the opposite of a write, and counting it made an empty read look like a
+successful copy of something that "is not an item".
+
+Everything else follows: no fallback to the previous clipboard (that's whatever the user last copied
+anywhere, and showing it reads as a successful but wrong price check), and **failure is silent**.
+Past `kCopyTimeoutMs` (2s), or when what was copied doesn't parse, the check is dropped and nothing
+opens — an overlay narrating its own plumbing is noise over a game, and the debug log has the detail.
+The panel is opened only once there *is* an item, so it has no waiting or failure states to draw. A
+check that starts while a panel is up hides it first: if the new copy then fails silently, leaving
+the old panel would read as a price check of the item now under the cursor.
+
+**Why the timeout is needed at all: left alone, PoE under Wine does not publish its copy to the X
+selection.** Measured, not inferred — a standalone XFixes watcher, this application not running at
+all, a *manual* Ctrl+C: nothing for ~13s, then ownership moved to Wine within 160ms of the alt-tab
+away. The debug-log capture `MMHW` shows the same shape for an injected copy (published at
++12506ms; read and parsed 1ms later). Nothing in the injection path shortens that, and ten rounds
+of trying were aimed at the wrong layer. Two things do move it, and neither is the copy: **asking**
+(`clipboard_poke`, above — the reliable one, 0-2ms) and the game **losing focus**
+(`nudge_clipboard_handover` — a focus-out makes Wine export proactively, which is what the watcher
+saw at the alt-tab; kept as a 350ms backstop for when asking doesn't work). Clearing the clipboard
+before the copy was tried as a third lever and **made it worse**; don't re-add it.
+`PPC_DEBUG_COPY=1` traces the whole timeline to stderr, and the **debug log** below records the same
+thing plus everything stderr is too narrow for. The overlay is
 **dismiss-on-focus-loss**: once shown it stays until you click away, hit Escape, the X button, or the
 toggle hotkey — keeping logical state in sync with what's visible (a stale "still open" state was the
 two-press bug).
@@ -153,10 +201,18 @@ drops any action fired while PoE is not the foreground window — otherwise they
 browser. The lone exception is the Settings hotkey while Settings is open: that panel holds the
 keyboard focus itself, so the game *can't* be foreground, and the hotkey has to be able to close it.
 The idle "● PPC" marker follows the same rule and unmaps whenever the game isn't in front, so it
-never floats over other applications. In the other direction we never force focus: the copy path used
-to call `focus_game_window()` on a window it had just confirmed was foreground, and `XSetInputFocus`
-on the toplevel can land somewhere Wine didn't put it. Focus is handed back to the game on close
-**only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
+never floats over other applications. In the other direction we never force focus *onto the game*:
+the copy path used to call `focus_game_window()` on a window it had just confirmed was foreground,
+and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
+the game on close **only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
+
+Taking focus onto **our own** panel is the one sanctioned exception, and it exists for exactly one
+reason: it is the only thing that makes Wine let go of the clipboard (above). `nudge_clipboard_handover`
+fires **once per check, at 350ms, only while the game is still in front**, and never in dev mode.
+Do not promote it to unconditional. A healthy clipboard — any Windows machine, a native X11 game —
+answers the first poll and never reaches the grace period, and taking the keyboard mid-fight for a
+copy that was not late is a worse bug than the one it fixes. Its own `[copy]` log line, and the
+`input=`/`active=` fields `focus_info()` puts on every poll line, are what says whether it worked.
 
 `App::place_overlay()` gives each screen its own geometry: Settings is a 520×680 dialog centered over
 the game, price-check is a **full-height panel docked beside the item's own frame** — right of the
@@ -183,6 +239,31 @@ Three SDL user event types are registered as one contiguous block: hotkey `Actio
 data-updater state. Async results are **not** routed through `Action` — `handle_action()` gates on
 the game being foreground and would silently swallow them whenever PoE is not in front.
 
+### The debug log (`src/util/debug_log.cpp`)
+
+The copy path's failures are rare, unreproducible on demand, and invisible after the fact — so
+instead of guessing at another fix, it is **instrumented**. `debug_log` in `config.json` (a
+Settings checkbox under Diagnostics, off for everyone by default) opens
+`<cache>/logs/ppc-<date>-<time>.log`, one file per run, newest ten kept. It is on `ppc_core`, so it
+holds no SDL/X11/curl and every layer can log into it.
+
+- **Every press of the price-check hotkey mints a four-character id** (`begin_check`, minted on the
+  *hotkey thread* so the lines the hotkey and clipboard layers write before the SDL event is drained
+  carry it too). It tags every line and is drawn in the panel's footer, where clicking it copies it
+  to the clipboard — the user reporting "check K7F2 hung" is naming a span of the file, and
+  transcribing it by hand is the step that would not happen. Its alphabet excludes `0O1I`.
+- **Clipboard contents go in whole, as base64** plus an FNV-1a-64 digest, because whitespace and the
+  UTF-8-vs-Latin-1 difference are exactly what the two-texts problem turns on and a log that trims
+  them cannot answer the question. Repeated reads of the same bytes log the digest only.
+- `debug::trace` writes to the log *and* to stderr under `PPC_DEBUG_COPY`; `debug::log` is
+  log-file-only, for the loud lines. `debug::tracing()` guards the round trips that exist only to
+  be logged.
+- `clipboard_owner_info()` is server-side only — safe to call while waiting on a handover.
+  `clipboard_targets()` is a **real conversion request to the owner** and can therefore change what
+  it does next; it is asked once, on the give-up line. That warning was not theoretical — it turned
+  out to be the *only* thing asking, which is how a diagnostic ended up being the fix (see
+  `clipboard_poke`). Suspect it first whenever turning the log on changes the behaviour being logged.
+
 A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
 the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check panel on a captured
@@ -203,7 +284,8 @@ are dynamically scalable, so it's one `ImFont*` per face at any size: `PushFont(
 redistribution; bundling it is a deliberate maintainer decision — see `assets/fonts/README.md`.
 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
-so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/`, all of
+so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
+the debug log, which every platform seam writes into), all of
 `item/`, and all of `data/` except the updater. The rule is that `ppc_core` links no SDL3, no ImGui,
 no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
 

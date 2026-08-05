@@ -10,6 +10,7 @@
 
 #include "app.hpp"
 #include "screens/item_view.hpp"
+#include "util/debug_log.hpp"
 
 namespace ppc {
 namespace {
@@ -162,6 +163,22 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan) {
     }
 }
 
+/// The id of this price check, which is also what tags its lines in the debug log — so a user
+/// reporting "this one hung" has a four-character handle for it. Only drawn when the log is on;
+/// clicking copies it, because that is easier than transcribing it into a message.
+void draw_debug_footer(App& app) {
+    const std::string id = debug::check_id();
+    ImGui::Separator();
+    ImGui::TextColored(kDim, "debug");
+    ImGui::SameLine();
+    if (id.empty()) { // PPC_DEV_ITEM: the panel is up without a hotkey press behind it
+        ImGui::TextDisabled("logging, no check yet");
+        return;
+    }
+    if (ImGui::SmallButton(("#" + id).c_str())) app.copy_check_id();
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Click to copy this id to the clipboard");
+}
+
 } // namespace
 
 void draw_pricecheck_screen(App& app) {
@@ -193,24 +210,18 @@ void draw_pricecheck_screen(App& app) {
         ImGui::Separator();
     }
 
-    const std::string& clip = app.clipboard_text();
     const item::Item* it = app.item();
-    if (app.copy_late()) {
-        // Still watching — the game's clipboard handover sometimes lands seconds late.
-        ImGui::TextDisabled("Waiting for the game to hand over the clipboard\xe2\x80\xa6");
-    } else if (app.copying()) {
-        ImGui::TextDisabled("Copying item\xe2\x80\xa6");
-    } else if (clip.empty()) {
-        ImGui::TextDisabled("Clipboard is empty. Hover an item in-game and press the price-check hotkey.");
-    } else if (!it) {
-        ImGui::TextColored(kWarn, "This does not parse as an item:");
-        ImGui::PushFont(app.fonts().small_caps, 0.0f);
-        ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextUnformatted(clip.c_str(), clip.c_str() + clip.size());
-        ImGui::PopTextWrapPos();
-        ImGui::PopFont();
+    // The body is a child filling everything above the footer, which keeps the footer pinned to
+    // the bottom without seeking the cursor past the content.
+    const float footer_h =
+        debug::enabled() ? ImGui::GetFrameHeightWithSpacing() + ImGui::GetTextLineHeight() : 0.0f;
+    ImGui::BeginChild("body", ImVec2(0, -footer_h), ImGuiChildFlags_None);
+    // The panel is only opened once there *is* an item — a check that copies nothing, or
+    // something that isn't an item, is dropped without ever showing. So this has no waiting
+    // or failure states to render; the branch is for PPC_DEV_ITEM pointed at a bad capture.
+    if (!it) {
+        ImGui::TextDisabled("Nothing to show.");
     } else {
-        ImGui::BeginChild("item", ImVec2(0, 0), ImGuiChildFlags_None);
         draw_item_tooltip(*it, app.derived(), app.fonts());
 
         item::SearchPlan& plan = app.plan();
@@ -233,8 +244,10 @@ void draw_pricecheck_screen(App& app) {
             ImGui::Dummy(ImVec2(0, 6));
             ImGui::TextDisabled("Searching is not wired up yet.");
         }
-        ImGui::EndChild();
     }
+    ImGui::EndChild();
+
+    if (footer_h > 0.0f) draw_debug_footer(app);
 
     ImGui::End();
 }

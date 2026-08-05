@@ -1,25 +1,67 @@
 #include "platform/clipboard.hpp"
 
+#include <cstdio>
+#include <utility>
+
 #include <windows.h>
 
-namespace ppc {
+#include "util/debug_log.hpp"
 
-bool clipboard_changed() {
-    // Bumped by every write, whoever makes it, and readable without opening the clipboard.
-    static DWORD last = 0;
-    static bool armed = false;
-    const DWORD seq = GetClipboardSequenceNumber();
-    const bool changed = armed && seq != last;
-    last = seq;
-    armed = true; // the first call only establishes a baseline
-    return changed;
+namespace ppc {
+namespace {
+
+std::string window_desc(HWND h) {
+    if (!h) return "none";
+    char buf[128];
+    wchar_t title[128] = L"";
+    GetWindowTextW(h, title, 128);
+    char utf8[256] = "";
+    WideCharToMultiByte(CP_UTF8, 0, title, -1, utf8, sizeof utf8, nullptr, nullptr);
+    DWORD pid = 0;
+    GetWindowThreadProcessId(h, &pid);
+    std::snprintf(buf, sizeof buf, "0x%p pid=%lu '%s'", (void*)h, (unsigned long)pid, utf8);
+    return buf;
+}
+
+} // namespace
+
+uint64_t clipboard_stamp() {
+    // Bumped by every write, whoever makes it, and readable without opening the clipboard —
+    // so it never takes the lock and never blocks the app doing the copying.
+    return GetClipboardSequenceNumber();
+}
+
+void clipboard_poke() {
+    // Nothing to do: a Windows copy renders into the clipboard immediately, and the sequence
+    // number moves with it. The X11 half needs this because Wine renders only on request.
+}
+
+std::string clipboard_owner_info() {
+    // Neither call opens the clipboard, so nothing here can block or disturb a write in
+    // flight — the same property the X11 side needs.
+    std::string s = window_desc(GetClipboardOwner());
+    s += " seq=" + std::to_string(GetClipboardSequenceNumber());
+    return s;
+}
+
+std::string clipboard_targets(int) {
+    static const std::pair<UINT, const char*> kFormats[] = {
+        {CF_UNICODETEXT, "CF_UNICODETEXT"}, {CF_TEXT, "CF_TEXT"}, {CF_OEMTEXT, "CF_OEMTEXT"}};
+    std::string out;
+    for (const auto& [id, name] : kFormats)
+        if (IsClipboardFormatAvailable(id)) out += (out.empty() ? "" : " ") + std::string(name);
+    return out.empty() ? "(none)" : out;
 }
 
 std::string clipboard_text(int timeout_ms) {
     // No async handshake here — the data is already in the clipboard. The only wait is for
     // the global lock, which the copying app can hold briefly; retry rather than fail.
     for (int waited = 0; !OpenClipboard(nullptr); waited += 10) {
-        if (waited >= timeout_ms) return {};
+        if (waited >= timeout_ms) {
+            debug::trace("[copy]   clipboard locked by %s, gave up after %dms",
+                         window_desc(GetOpenClipboardWindow()).c_str(), timeout_ms);
+            return {};
+        }
         Sleep(10);
     }
     std::string out;

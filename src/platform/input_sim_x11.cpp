@@ -1,7 +1,6 @@
 #include "platform/input_sim.hpp"
 
 #include <chrono>
-#include <cstdio>
 #include <cstdlib>
 #include <thread>
 #include <vector>
@@ -10,6 +9,8 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/XTest.h>
 #include <X11/keysym.h>
+
+#include "util/debug_log.hpp"
 
 namespace ppc {
 namespace {
@@ -30,10 +31,7 @@ int env_ms(const char* name, int fallback) {
 std::chrono::milliseconds gap() { return std::chrono::milliseconds(env_ms("PPC_COPY_GAP_MS", 40)); }
 std::chrono::milliseconds hold() { return std::chrono::milliseconds(env_ms("PPC_COPY_HOLD_MS", 60)); }
 
-bool trace() {
-    static bool on = std::getenv("PPC_DEBUG_COPY") != nullptr;
-    return on;
-}
+bool trace() { return debug::tracing(); }
 
 Display* display() {
     static Display* d = XOpenDisplay(nullptr); // main-thread only
@@ -77,7 +75,7 @@ void log_focus(Display* d) {
     XClassHint ch{};
     const char* cls = "?";
     if (w > 1 && XGetClassHint(d, w, &ch) && ch.res_class) cls = ch.res_class;
-    std::fprintf(stderr, "[copy]   x input focus = 0x%lx (%s)\n", w, cls);
+    debug::trace("[copy]   x input focus = 0x%lx (%s), revert=%d", w, cls, revert);
     if (ch.res_name) XFree(ch.res_name);
     if (ch.res_class) XFree(ch.res_class);
 }
@@ -144,11 +142,10 @@ void simulate_copy() {
     }
 
     if (trace()) {
-        std::fprintf(stderr,
-                     "[copy]   inject c=0x%x, ctrl=%s, forced-release %zu mods, "
-                     "gap=%lldms hold=%lldms\n",
-                     c, our_ctrl ? "ours" : "user's", stuck.size(), (long long)gap().count(),
-                     (long long)hold().count());
+        debug::trace("[copy]   inject c=0x%x, ctrl=%s (user held it: %d), forced-release %zu "
+                     "mods, gap=%lldms hold=%lldms",
+                     c, our_ctrl ? "ours" : "user's", (int)user_ctrl, stuck.size(),
+                     (long long)gap().count(), (long long)hold().count());
         log_focus(d);
     }
 

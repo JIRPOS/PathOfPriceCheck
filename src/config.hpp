@@ -34,6 +34,10 @@ struct Config {
     float stash_edge = 0.615f;     ///< stash frame's right edge, ÷ game height
     float inventory_edge = 0.615f; ///< inventory frame's left edge from the right, ÷ game height
 
+    /// Write the copy-path diagnostic log (see util/debug_log). Off for everyone by default:
+    /// it records the whole clipboard, item text included.
+    bool debug_log = false;
+
     static std::string path(); ///< platform config-file path
     static Config load();      ///< load from disk, or defaults if absent/invalid
     bool save() const;
