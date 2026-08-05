@@ -8,6 +8,10 @@ fails as null lookups rather than as a diff. That is what this script exists to 
 
     ./scripts/slice-test-bundle.py ../PathOfPriceCheck-Data/out
 
+Any built bundle works, including the one the app installed (`<cache>/data/<version>/`) — prefer
+that when the checkout's `out/` predates a builder fix, or the fixture is sliced from records the
+release no longer emits.
+
 Every record is copied verbatim, so the fixture keeps the shapes the builder actually emits.
 Adding a case means adding a key below, not writing a record by hand.
 """
@@ -34,11 +38,24 @@ STATS = [
     # modifier data exists for: each rolls 1..1, so no printed range can reveal it.
     "#% to Chaos Resistance",
     "#% to Cold Resistance",
+    # An eldritch implicit: its magnitude comes from the currency tier, not from a range the
+    # clipboard prints, and it is negative because more of it is better. The case for which
+    # side of an unbounded filter the roll goes on.
+    "Inflict Cold Exposure on Hit, applying #% to Cold Resistance",
     "Corrupted Blood cannot be inflicted on you",
     "#% increased Movement Speed",
     "Count as having maximum number of Endurance Charges",
     "Count as having maximum number of Frenzy Charges",
     "Count as having maximum number of Power Charges",
+    # The Surgeon's prefix. The game renders this stat two ways and trade hashes each, so it was
+    # emitted as two records claiming both wordings and the app could not resolve either.
+    "#% chance to gain a Flask Charge when you deal a Critical Strike",
+    "#% increased Effect of Curses on you during Effect",
+    "Used when Charges reach full",
+    # Rumi's Concoction's two mods: fixed for the unique but variable in their roll, which is
+    # what the per-unique data has to say next to the enchant it says nothing about.
+    "#% Chance to Block Attack Damage during Effect",
+    "#% Chance to Block Spell Damage during Effect",
 ]
 
 ITEMS = [
@@ -54,14 +71,19 @@ ITEMS = [
     # has something to say rather than implying the item has nothing more.
     "ITEM::Crimson Jewel",
     "UNIQUE::That Which Was Taken",
+    "ITEM::Silver Flask",
+    "ITEM::Granite Flask",
+    "UNIQUE::Rumi's Concoction",
 ]
 
 UNIQUE_MODS = [
     "Ralakesh's Impatience",
     "That Which Was Taken",
+    "Rumi's Concoction",
 ]
 
-ITEM_CLASSES = ["Rings", "Boots", "Body Armours", "Stackable Currency", "Divination Cards", "Jewels"]
+ITEM_CLASSES = ["Rings", "Boots", "Body Armours", "Stackable Currency", "Divination Cards",
+                "Jewels", "Utility Flasks"]
 
 LANG = "en"
 

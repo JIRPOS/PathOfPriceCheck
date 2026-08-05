@@ -104,6 +104,10 @@ private:
     std::string copy_before_;       ///< clipboard contents before the copy, to detect the change
     uint64_t copy_started_ms_ = 0;  ///< when the simulated copy was injected
     bool clipboard_dirty_ = false;  ///< a clipboard-update event arrived; re-read once
+    /// The clipboard was written since the copy was injected (`clipboard_changed()`). Sticky
+    /// for the pending copy: it is what vouches for text identical to what was already on the
+    /// clipboard, i.e. re-checking the same item.
+    bool clipboard_written_ = false;
     uint64_t last_clipboard_poll_ms_ = 0; ///< throttles the clipboard re-read while waiting
     bool mouse_was_down_ = false;   ///< prior global mouse button state, for click-away edges
 

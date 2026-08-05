@@ -114,12 +114,9 @@ double at_q20(double displayed, int quality, double incr, double flat) {
     return (inherent_roll(displayed, quality, incr, flat) * 1.2 + flat) * (1.0 + incr / 100.0);
 }
 
-std::optional<double> percentile(double displayed, int quality, double incr, double flat,
-                                const std::optional<std::pair<int, int>>& range) {
-    if (!range || range->second <= range->first) return std::nullopt;
-    const double base = inherent_roll(displayed, quality, incr, flat);
-    const double pct = (base - range->first) /
-                       static_cast<double>(range->second - range->first);
+std::optional<double> percentile(double base, double lo, double hi) {
+    if (hi <= lo) return std::nullopt;
+    const double pct = (base - lo) / (hi - lo);
     // A base that lands outside its own range means a local modifier was missed or the bundle
     // disagrees with the client. Rounding puts a perfect roll a hair outside, so allow that
     // much and no more: no number at all beats a confident 0%.
@@ -175,26 +172,32 @@ Derived derive(const data::GameData* gd, const Item& it) {
         double incr, flat;
         const std::optional<std::pair<int, int>>* range;
         std::optional<int>& q20;
-        std::optional<double>& pct;
         std::optional<int>& search;
     };
     const std::array<Defence, 4> defences{{
-        {it.armour, l.ar, l.flat_ar, b ? &b->armour : nullptr, d.armour_q20, d.armour_pct,
-         d.search_armour},
-        {it.evasion, l.ev, l.flat_ev, b ? &b->evasion : nullptr, d.evasion_q20, d.evasion_pct,
-         d.search_evasion},
-        {it.energy_shield, l.es, l.flat_es, b ? &b->energy_shield : nullptr,
-         d.energy_shield_q20, d.energy_shield_pct, d.search_energy_shield},
-        {it.ward, l.ward, l.flat_ward, b ? &b->ward : nullptr, d.ward_q20, d.ward_pct,
-         d.search_ward},
+        {it.armour, l.ar, l.flat_ar, b ? &b->armour : nullptr, d.armour_q20, d.search_armour},
+        {it.evasion, l.ev, l.flat_ev, b ? &b->evasion : nullptr, d.evasion_q20, d.search_evasion},
+        {it.energy_shield, l.es, l.flat_es, b ? &b->energy_shield : nullptr, d.energy_shield_q20,
+         d.search_energy_shield},
+        {it.ward, l.ward, l.flat_ward, b ? &b->ward : nullptr, d.ward_q20, d.search_ward},
     }};
+    // One roll, spread over every defence the base has, so the percentile is one sum against
+    // another. A defence with no published range makes the sums incomparable, not partial.
+    double base_sum = 0, range_lo = 0, range_hi = 0;
+    bool ranges_complete = gd != nullptr && b != nullptr;
     for (const Defence& def : defences) {
         if (!def.value) continue;
         def.q20 = static_cast<int>(std::lround(at_q20(*def.value, q, def.incr, def.flat)));
         def.search = q > 20 ? *def.value : *def.q20;
-        if (gd && def.range)
-            def.pct = percentile(*def.value, q, def.incr, def.flat, *def.range);
+        if (!def.range || !*def.range) {
+            ranges_complete = false;
+            continue;
+        }
+        base_sum += inherent_roll(*def.value, q, def.incr, def.flat);
+        range_lo += (*def.range)->first;
+        range_hi += (*def.range)->second;
     }
+    if (ranges_complete && it.has_defences()) d.base_pct = percentile(base_sum, range_lo, range_hi);
     return d;
 }
 

@@ -8,3 +8,6 @@
 {"name":"Ralakesh's Impatience","namespace":"UNIQUE","refName":"Ralakesh's Impatience","unique":{"base":"Riveted Boots"}}
 {"craftable":{"category":"Jewels"},"dropLevel":20,"h":1,"name":"Crimson Jewel","namespace":"ITEM","refName":"Crimson Jewel","w":1}
 {"name":"That Which Was Taken","namespace":"UNIQUE","refName":"That Which Was Taken","unique":{"base":"Crimson Jewel"}}
+{"craftable":{"category":"Utility Flasks"},"dropLevel":27,"h":2,"name":"Silver Flask","namespace":"ITEM","refName":"Silver Flask","w":1}
+{"craftable":{"category":"Utility Flasks"},"dropLevel":27,"h":2,"name":"Granite Flask","namespace":"ITEM","refName":"Granite Flask","w":1}
+{"name":"Rumi's Concoction","namespace":"UNIQUE","refName":"Rumi's Concoction","unique":{"base":"Granite Flask"}}

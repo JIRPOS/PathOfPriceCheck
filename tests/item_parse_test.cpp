@@ -148,6 +148,37 @@ TEST_CASE("Advanced Mod Descriptions group hybrid mods and name their affix") {
     CHECK(it.unparsed.empty());
 }
 
+TEST_CASE("an info line separated by a plain hyphen parses the same") {
+    // What a Latin-1 clipboard read hands us: Wine serves CF_TEXT as the X11 STRING target and
+    // the em dash comes through as '-'. The same copy alternates between the two forms, so an
+    // item must not price differently depending on which one the poll caught.
+    const std::optional<Item> parsed = parse_item(R"(Item Class: Body Armours
+Rarity: Rare
+Rift Carapace
+Twilight Regalia
+--------
+Energy Shield: 1003
+--------
+{ Prefix Modifier "Incandescent" (Tier: 2) - Defences, Energy Shield }
++86(77-90) to maximum Energy Shield
+{ Suffix Modifier "of Ephij" (Tier: 1) - Elemental, Lightning, Resistance }
++46(46-48)% to Lightning Resistance
+)");
+    REQUIRE(parsed.has_value());
+    const Item& it = *parsed;
+
+    REQUIRE(it.mods.size() == 2);
+    CHECK(it.mods[0].advanced);
+    CHECK(it.mods[0].affix == Affix::Prefix);
+    CHECK(it.mods[0].affix_name == "Incandescent");
+    CHECK(it.mods[0].tier == 2);
+    CHECK(it.mods[0].tags == std::vector<std::string>{"Defences", "Energy Shield"});
+    CHECK(it.mods[1].affix == Affix::Suffix);
+    CHECK(it.mods[1].tier == 1);
+    CHECK(it.mods[1].tags ==
+          std::vector<std::string>{"Elemental", "Lightning", "Resistance"});
+}
+
 TEST_CASE("reminder text belongs to the mod above it") {
     const Item it = example("item_11.txt");
 
@@ -212,6 +243,31 @@ TEST_CASE("a magic flask's enchant, own effect and affixes") {
     CHECK(it.help_text.size() == 1);
     // "Lasts 7.20 Seconds" is prose, but it is still a property and not a mod.
     CHECK(find_mod(it, "Lasts 7.20 Seconds") == nullptr);
+}
+
+TEST_CASE("an unquality flask's own effect is properties, not modifiers") {
+    // No quality means the block after the header has no `Label: value` line at all, which is
+    // the only thing that used to mark it as the property block; every line of it became a mod.
+    const Item it = example("item_12.txt");
+
+    CHECK(it.rarity == Rarity::Magic);
+    CHECK(it.base_type == "Surgeon's Silver Flask of the Owl");
+    CHECK(!it.quality);
+    CHECK(it.type_line.empty());
+    CHECK(find_mod(it, "Lasts 6 Seconds") == nullptr);
+    CHECK(find_mod(it, "Onslaught") == nullptr);
+    REQUIRE(it.properties.size() >= 4);
+    CHECK(it.properties[0].value == "Lasts 6 Seconds");
+    CHECK(it.properties[3].value == "Onslaught");
+    // The buff's reminder text belongs to it, the way a modifier's does — never a mod of its own.
+    REQUIRE(it.properties[3].reminder.size() == 1);
+    CHECK(it.properties[3].reminder.front().starts_with("(Onslaught grants"));
+
+    REQUIRE(it.mods_of(ModType::Enchant).size() == 1);
+    CHECK(it.mods_of(ModType::Enchant).front()->lines.front() == "Used when Charges reach full");
+    REQUIRE(it.mods_of(ModType::Explicit).size() == 2);
+    CHECK(it.mods_of(ModType::Explicit).front()->affix_name == "Surgeon's");
+    CHECK(it.mods_of(ModType::Explicit).back()->affix_name == "of the Owl");
 }
 
 TEST_CASE("corruption and fracturing are flags as well as mods") {

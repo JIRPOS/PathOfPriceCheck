@@ -272,19 +272,28 @@ void App::handle_event(const SDL_Event& e) {
 void App::poll_pending_copy() {
     if (!copy_pending_) return;
     const uint64_t tick = SDL_GetTicks();
-    // SDL_EVENT_CLIPBOARD_UPDATE only fires once the *new* owner answers SDL's TARGETS
-    // conversion, so a handover nobody answers is silent. Take it as an accelerator and
-    // poll alongside it — a read is a couple of milliseconds when the owner is live.
-    if (!clipboard_dirty_ && tick - last_clipboard_poll_ms_ < 100) return;
-    const bool by_event = clipboard_dirty_;
+    // Latching, so it has to be read every tick — including the ticks that return early
+    // below, or a write landing between two polls is lost.
+    if (clipboard_changed()) clipboard_written_ = true;
+    if (!clipboard_dirty_ && !clipboard_written_ && tick - last_clipboard_poll_ms_ < 100) return;
+    // Both are accelerators over the poll, but only clipboard_written_ is dependable:
+    // SDL_EVENT_CLIPBOARD_UPDATE waits on a TARGETS reply the game owes SDL, and a
+    // fullscreen game mid-frame does not always pay up.
+    const bool by_event = clipboard_dirty_ || clipboard_written_;
     clipboard_dirty_ = false;
     last_clipboard_poll_ms_ = tick;
     const uint64_t elapsed = tick - copy_started_ms_;
 
     std::string now = read_clipboard();
-    // Same text as before the copy is only trustworthy if ownership actually changed —
-    // otherwise it's the previous owner still serving, mid-handover.
-    if (looks_like_item(now) && (now != copy_before_ || by_event)) {
+    const bool item_text = looks_like_item(now);
+    // Text identical to what was there before the copy is only trustworthy if the clipboard
+    // was actually written: otherwise it's the previous owner still serving, mid-handover.
+    // Without that signal this also rejects a *correct* re-copy of the item already on the
+    // clipboard — re-checking the same item — which is the deadlock clipboard_changed() is
+    // there to break. It still reads as stale when no write is observed at all, so say so
+    // rather than sitting there silently.
+    const bool stale_shaped = item_text && now == copy_before_ && !by_event;
+    if (item_text && !stale_shaped) {
         if (trace_copy()) SDL_Log("[copy] done after %llums", (unsigned long long)elapsed);
         accept_clipboard(std::move(now));
         copy_pending_ = false;
@@ -294,8 +303,16 @@ void App::poll_pending_copy() {
         // seconds later, and latching a failure here is what made a late item look lost.
         // Never fall back to copy_before_ — that is whatever was copied last, from any
         // application, and showing it reads as a successful but wrong price check.
-        SDL_Log("no item text on the clipboard yet %llums after the copy", (unsigned long long)elapsed);
+        SDL_Log("no item text on the clipboard yet %llums after the copy%s",
+                (unsigned long long)elapsed,
+                stale_shaped ? " — the clipboard holds byte-identical item text from before the"
+                               " copy and the selection owner never changed, so either the game"
+                               " re-copied the same item without re-asserting the X selection or"
+                               " it never saw the Ctrl+C at all"
+                             : "");
         copy_late_ = true;
+    } else if (stale_shaped && trace_copy()) {
+        SDL_Log("[copy]   rejected: identical to the pre-copy clipboard, no ownership change");
     }
     need_redraw_ = true;
 }
@@ -376,6 +393,9 @@ void App::handle_action(Action a) {
             // and XSetInputFocus on its toplevel can land somewhere Wine didn't put it. Then
             // show the panel; the text fills in asynchronously (poll_pending_copy).
             copy_before_ = read_clipboard();
+            // Arm the write detector *before* the injection, not after: simulate_copy blocks
+            // for the length of a human keypress, and the game's copy can land inside it.
+            clipboard_changed();
             uint64_t t0 = SDL_GetTicks();
             simulate_copy();
             if (trace_copy())
@@ -385,6 +405,7 @@ void App::handle_action(Action a) {
             copy_pending_ = true;
             copy_late_ = false;
             clipboard_dirty_ = false;
+            clipboard_written_ = false;
             copy_started_ms_ = last_clipboard_poll_ms_ = SDL_GetTicks();
         } else { // dev mode: no game to copy from, just show what's already there
             accept_clipboard(read_clipboard());

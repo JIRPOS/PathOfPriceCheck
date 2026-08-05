@@ -4,3 +4,4 @@
 {"id":"StackableCurrency","itemClass":"Stackable Currency","tradeCategory":"currency"}
 {"id":"DivinationCard","itemClass":"Divination Cards","tradeCategory":"card"}
 {"id":"Jewel","itemClass":"Jewels","tradeCategory":"jewel.base"}
+{"id":"UtilityFlask","itemClass":"Utility Flasks","tradeCategory":"flask"}

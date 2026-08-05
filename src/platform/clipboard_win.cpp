@@ -4,6 +4,17 @@
 
 namespace ppc {
 
+bool clipboard_changed() {
+    // Bumped by every write, whoever makes it, and readable without opening the clipboard.
+    static DWORD last = 0;
+    static bool armed = false;
+    const DWORD seq = GetClipboardSequenceNumber();
+    const bool changed = armed && seq != last;
+    last = seq;
+    armed = true; // the first call only establishes a baseline
+    return changed;
+}
+
 std::string clipboard_text(int timeout_ms) {
     // No async handshake here — the data is already in the clipboard. The only wait is for
     // the global lock, which the copying app can hold briefly; retry rather than fail.

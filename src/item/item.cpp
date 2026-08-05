@@ -50,13 +50,41 @@ std::string Modifier::text() const {
     return out;
 }
 
+/// "77-90", or "4-6 / 10-14" for a mod with a range per number. Empty when nothing is known or
+/// every range is a point, which says nothing a reader cannot already see.
+std::string Modifier::range_text() const {
+    if (!match) return {};
+    std::string out;
+    bool any = false;
+    for (const auto& [lo, hi] : match->roll_bounds) {
+        const int dp = lo == std::floor(lo) && hi == std::floor(hi) ? 0 : 2;
+        char buf[64];
+        if (lo == hi) std::snprintf(buf, sizeof buf, "%.*f", dp, lo);
+        else {
+            std::snprintf(buf, sizeof buf, "%.*f-%.*f", dp, lo, dp, hi);
+            any = true;
+        }
+        if (!out.empty()) out += " / ";
+        out += buf;
+    }
+    return any ? out : std::string();
+}
+
 std::string Modifier::info_text() const {
     if (!advanced) return {};
     std::string out = generation;
     if (!out.empty()) out += " Modifier";
     if (!affix_name.empty()) out += " \"" + affix_name + "\"";
     if (!qualifier.empty()) out += " (" + qualifier + ")";
-    if (tier) out += " (Tier: " + std::to_string(tier) + ")";
+    // The range rides with the tier: it is the tier's own bounds, and the mod line no longer
+    // prints it inline.
+    const std::string range = range_text();
+    if (tier) {
+        out += " (Tier: " + std::to_string(tier);
+        out += range.empty() ? ")" : " [" + range + "])";
+    } else if (!range.empty()) {
+        out += " [" + range + "]";
+    }
     if (rank) out += " (Rank: " + std::to_string(rank) + ")";
     for (size_t i = 0; i < tags.size(); ++i) out += (i ? ", " : " \xe2\x80\x94 ") + tags[i];
     // The roll on the line is the unscaled one; this is what says so.

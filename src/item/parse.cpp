@@ -187,16 +187,32 @@ data::ModType type_from_generation(std::string_view g) {
 
 /// `{ Prefix Modifier "Urchin's" (Tier: 2) — Life, Defences }`, and the em-dash segments the
 /// game appends after the tags: `{ Implicit Modifier — Critical — 20% Increased }` is a mod a
-/// catalyst scaled, and the roll printed on the line is the *unscaled* one.
+/// catalyst scaled, and the roll printed on the line is the *unscaled* one. A plain " - "
+/// separates them just as well — see the clipboard encoding note below.
 bool parse_info_line(std::string_view line, Modifier& out) {
     if (!is_info_line(line)) return false;
     line = trim(line.substr(1, line.size() - 2));
 
     constexpr std::string_view kEmDash = "\xe2\x80\x94"; // U+2014, what the game prints
+    // ...and " - " is the same separator after a Latin-1 round trip. Wine publishes the
+    // Windows clipboard's CF_UNICODETEXT as the X11 UTF-8 targets and CF_TEXT as `STRING`,
+    // and right after a copy PoE has often rendered only the latter, so `clipboard_text`
+    // falls back to it and every em dash arrives as a plain hyphen. Without this the whole
+    // line stays one blob: no tier, no tags, and `generation` never ends in "Prefix", so the
+    // affix is unknown — the same item then prices differently depending on which of the two
+    // the poll happened to catch.
+    const auto rfind_separator = [&kEmDash](std::string_view s) -> std::pair<size_t, size_t> {
+        const size_t em = s.rfind(kEmDash);
+        const size_t ascii = s.rfind(" - ");
+        if (em != std::string_view::npos && (ascii == std::string_view::npos || em > ascii))
+            return {em, kEmDash.size()};
+        if (ascii != std::string_view::npos) return {ascii + 1, 1}; // the hyphen itself
+        return {std::string_view::npos, 0};
+    };
     while (true) {
-        const size_t dash = line.rfind(kEmDash);
+        const auto [dash, dash_len] = rfind_separator(line);
         if (dash == std::string_view::npos) break;
-        const std::string_view seg = trim(line.substr(dash + kEmDash.size()));
+        const std::string_view seg = trim(line.substr(dash + dash_len));
         line = trim(line.substr(0, dash));
         if (seg.ends_with("Increased") || seg.ends_with("Reduced")) {
             out.roll_incr = first_number(seg).value_or(0);
@@ -340,11 +356,18 @@ void take_typed_property(const Property& p, Item& it) {
 
 void parse_properties(const Section& sec, Item& it) {
     for (const std::string& line : sec) {
+        if (data::is_reminder_text(line) && !it.properties.empty()) {
+            // The buff a utility flask grants brings its own reminder text ("(Onslaught grants
+            // …)"), which the game keeps out of the tooltip the way it does for a modifier.
+            it.properties.back().reminder.push_back(line);
+            continue;
+        }
         if (!is_property_line(line)) {
             // The property block's leading prose line is the item's type ("Bow", or a gem's
-            // tag list). Later prose is a flask's own effect when it reads like a mod, and
-            // one of the flask's stats ("Lasts 7.20 Seconds") when it does not.
-            if (it.type_line.empty() && it.properties.empty()) {
+            // tag list) — never one carrying a number, or an unquality flask's own "Lasts 6
+            // Seconds" becomes its type. Later prose is a flask's own effect when it reads
+            // like a mod, and one of the flask's stats ("Lasts 7.20 Seconds") when it does not.
+            if (it.type_line.empty() && it.properties.empty() && !first_number(line)) {
                 it.type_line = line;
             } else if (first_number(line) && !std::isalpha(static_cast<unsigned char>(line[0]))) {
                 it.inherent_lines.push_back(line);
@@ -551,9 +574,13 @@ std::optional<Item> parse_item(std::string_view clipboard) {
             parse_properties(sec, it);
             props_seen = true;
         } else if (!props_seen && i == 1 &&
-                   std::any_of(sec.begin(), sec.end(), is_property_line)) {
+                   (std::any_of(sec.begin(), sec.end(), is_property_line) ||
+                    it.item_class.ends_with("Flasks"))) {
             // The block right after the header: properties mixed with prose — a weapon's type
-            // line, a gem's tag list, a flask's own effect.
+            // line, a gem's tag list, a flask's own effect. A property line is the evidence
+            // that this is that block at all, except on a flask: the block is always there and
+            // an unquality one prints no `Label: value` line, so all of "Lasts 6 Seconds /
+            // Consumes 40 of 60 Charges on use / Onslaught" read as modifiers instead.
             parse_properties(sec, it);
             props_seen = true;
         } else if (is_help_section(sec) && is_prose_section(sec)) {

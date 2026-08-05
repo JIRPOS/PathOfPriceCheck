@@ -51,6 +51,22 @@ TEST_CASE("a negate wording is stored in the canonical direction") {
     CHECK(red->value == doctest::Approx(-23.0));
 }
 
+TEST_CASE("a range the game prints high to low still comes out ordered") {
+    auto gd = fixture();
+    // An inverse wording's range is printed descending, and negating it leaves it that way:
+    // -60..-65 is a trade filter wanting at least -60 and at most -65, i.e. nothing.
+    const auto red = match(*gd, {"23(30-20)% reduced Physical Damage"});
+    REQUIRE(red.has_value());
+    REQUIRE(red->roll_bounds.size() == 1);
+    CHECK(red->roll_bounds.front().first == doctest::Approx(-30.0));
+    CHECK(red->roll_bounds.front().second == doctest::Approx(-20.0));
+
+    const auto inc = match(*gd, {"23(20-30)% increased Physical Damage"});
+    REQUIRE(inc.has_value());
+    CHECK(inc->roll_bounds.front().first == doctest::Approx(20.0));
+    CHECK(inc->roll_bounds.front().second == doctest::Approx(30.0));
+}
+
 TEST_CASE("a wording with no number carries its implied roll") {
     auto gd = fixture();
     const auto m = match(*gd, {"No Physical Damage"});

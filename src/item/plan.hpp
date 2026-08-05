@@ -28,6 +28,10 @@ std::string_view to_string(Strategy s);
 /// One modifier turned into a trade stat filter.
 struct StatFilter {
     size_t mod_index = 0;   ///< into `Item::mods`
+    /// The other modifiers folded into this filter by `merge_same_stat`, also into
+    /// `Item::mods`. Two rolls of one stat are searched as their total, but they are still two
+    /// affixes, and which two is what the tier display is about.
+    std::vector<size_t> merged;
     std::string id;         ///< trade stat id, "explicit.stat_3299347043"
     std::string text;       ///< the wording, for display
     data::ModType type = data::ModType::Explicit;

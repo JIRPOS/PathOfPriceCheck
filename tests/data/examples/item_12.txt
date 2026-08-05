@@ -1,0 +1,23 @@
+Item Class: Utility Flasks
+Rarity: Magic
+Surgeon's Silver Flask of the Owl
+--------
+Lasts 6 Seconds
+Consumes 40 of 60 Charges on use
+Currently has 60 Charges
+Onslaught
+(Onslaught grants 20% increased Attack, Cast, and Movement Speed)
+--------
+Requirements:
+Level: 67
+--------
+Item Level: 84
+--------
+Used when Charges reach full (enchant)
+--------
+{ Prefix Modifier "Surgeon's" (Tier: 1) — Critical }
+35(31-35)% chance to gain a Flask Charge when you deal a Critical Strike
+{ Suffix Modifier "of the Owl" (Tier: 1) }
+64(65-60)% reduced Effect of Curses on you during Effect
+--------
+Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.

@@ -4,10 +4,14 @@
 #include <array>
 #include <cstdio>
 #include <initializer_list>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <imgui.h>
+
+#include "data/stat_normalize.hpp"
 
 namespace ppc {
 namespace {
@@ -122,6 +126,14 @@ std::string format_number(double v, int dp) {
     return buf;
 }
 
+/// A grey line in the size the game uses for its own small print, for numbers the game leaves
+/// the player to work out.
+void draw_small_note(std::string_view text, const Fonts& fonts) {
+    ImGui::PushFont(fonts.italic, ImGui::GetFontSize() * 0.82f);
+    draw_line(text, kColInfo);
+    ImGui::PopFont();
+}
+
 std::string format_range(const item::DamageRange& r) {
     const int dp = r.min == static_cast<int>(r.min) && r.max == static_cast<int>(r.max) ? 0 : 1;
     if (r.min == r.max) return format_number(r.min, dp);
@@ -148,12 +160,72 @@ void draw_name_plate(const Item& it, const Fonts& fonts) {
     ImGui::Dummy(ImVec2(0, 2));
 }
 
-void draw_properties(const Item& it) {
+/// "pDPS: 110.1  eDPS: 105.6  tDPS: 215.7", or "" when the item does no damage.
+std::string dps_line(const item::Derived& d) {
+    std::string out;
+    const auto add = [&out](const char* label, const std::optional<double>& v) {
+        if (!v) return;
+        if (!out.empty()) out += "  ";
+        out += label + format_number(*v, 1);
+    };
+    add("pDPS: ", d.pdps);
+    add("eDPS: ", d.edps);
+    add("cDPS: ", d.cdps);
+    if (out.empty()) return out;
+    add("tDPS: ", d.dps);
+    return out;
+}
+
+/// The derived number that belongs under `label`'s property line, so it reads as part of the
+/// block it summarises: the DPS total under the last damage line, the base's percentile under
+/// the last defence line. "" for a property that ends neither block.
+std::string derived_note(const Item& it, const item::Derived& d, const std::string& label) {
+    static constexpr std::array<std::string_view, 3> kDamage{"Physical Damage", "Elemental Damage",
+                                                             "Chaos Damage"};
+    static constexpr std::array<std::string_view, 4> kDefence{"Armour", "Evasion Rating",
+                                                              "Energy Shield", "Ward"};
+    const auto last_of = [&it](std::span<const std::string_view> group, const std::string& l) {
+        if (std::find(group.begin(), group.end(), l) == group.end()) return false;
+        for (auto p = it.properties.rbegin(); p != it.properties.rend(); ++p)
+            if (std::find(group.begin(), group.end(), p->label) != group.end()) return p->label == l;
+        return false;
+    };
+    if (last_of(kDamage, label)) return dps_line(d);
+    if (last_of(kDefence, label) && d.base_pct)
+        return "Base Percentile: " + format_number(*d.base_pct * 100, 0) + "%";
+    return {};
+}
+
+std::string join_lines(std::string_view head, const std::vector<std::string>& tail) {
+    std::string out(head);
+    for (const std::string& l : tail) {
+        if (!out.empty()) out += "\n";
+        out += l;
+    }
+    return out;
+}
+
+/// The hover tooltip everything the game prints *about* a line rather than as part of it ends
+/// up in. No-op for empty text or an unhovered item.
+void draw_hover_tip(const std::string& tip, const Fonts& fonts) {
+    if (tip.empty() || !ImGui::IsItemHovered() || !ImGui::BeginTooltip()) return;
+    ImGui::PushFont(fonts.italic, ImGui::GetFontSize() * 0.9f);
+    // An info line is wider than the panel it has to stay inside — ImGui clamps the tooltip to
+    // the window, so an unwrapped one loses its right-hand end.
+    ImGui::PushTextWrapPos(ImGui::GetIO().DisplaySize.x * 0.75f);
+    ImGui::TextUnformatted(tip.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::PopFont();
+    ImGui::EndTooltip();
+}
+
+void draw_properties(const Item& it, const item::Derived& d, const Fonts& fonts) {
     for (const item::Property& p : it.properties) {
         // Item level gets its own block further down, the way the game prints it.
         if (p.label == "Item Level") continue;
         const ImU32 value_colour = p.augmented ? kColAugmented : kColValue;
 
+        ImGui::BeginGroup();
         if (p.label == "Elemental Damage" && !it.elemental.empty()) {
             std::vector<Segment> segs{{p.label + ": ", kColLabel}};
             for (size_t i = 0; i < it.elemental.size(); ++i) {
@@ -162,13 +234,16 @@ void draw_properties(const Item& it) {
                                 element_colour(it.elemental[i].element)});
             }
             draw_segments(segs);
-            continue;
-        }
-        if (p.label.empty()) { // prose the game prints among the properties
+        } else if (p.label.empty()) { // prose the game prints among the properties
             draw_line(p.value, kColValue);
-            continue;
+        } else {
+            draw_segments({{p.label + ": ", kColLabel}, {p.value, value_colour}});
         }
-        draw_segments({{p.label + ": ", kColLabel}, {p.value, value_colour}});
+        ImGui::EndGroup();
+        draw_hover_tip(join_lines("", p.reminder), fonts);
+        if (p.label.empty()) continue;
+        if (const std::string note = derived_note(it, d, p.label); !note.empty())
+            draw_small_note(note, fonts);
     }
     // A flask's own effect reads as a modifier and the game colours it like one. A gem's stats
     // are the same kind of line but the game prints them under the skill's description.
@@ -214,22 +289,22 @@ bool in(std::initializer_list<data::ModType> types, data::ModType t) {
 
 /// Every mod of one of `types`, in the order the clipboard listed them — a fractured or crafted
 /// mod sits among the explicits on the item, not after them.
+///
+/// Everything the game prints *about* a modifier rather than as part of it — what Advanced Mod
+/// Descriptions say (affix, tier, tags) and the reminder text explaining what the wording means
+/// — is a hover tooltip rather than printed lines: together they more than doubled the height of
+/// every rolled item, and the panel is competing with the game's own tooltip for the same screen.
 void draw_mods(const Item& it, const Fonts& fonts, std::initializer_list<data::ModType> types) {
-    const float base = ImGui::GetFontSize();
     for (const Modifier& m : it.mods) {
         if (!in(types, m.type)) continue;
         // The game prints a modifier added to a unique in magenta, not in the mod blue.
         const ImU32 colour = m.added_unique() ? kColScourge : mod_colour(m.type);
-        if (m.advanced && !m.continuation) {
-            // The game prints the affix, its tier and its tags above the roll in small grey.
-            ImGui::PushFont(fonts.italic, base * 0.82f);
-            draw_line(m.info_text(), kColInfo);
-            ImGui::PopFont();
-        }
-        for (const std::string& l : m.lines) draw_line(l, colour);
-        ImGui::PushFont(fonts.italic, base * 0.85f);
-        for (const std::string& r : m.reminder) draw_line(r, kColInfo);
-        ImGui::PopFont();
+        // A continuation reprints its affix, unlike in the game's own tooltip: it is the only
+        // place the reader gets *this* stat's range, and a hover shows one modifier at a time.
+        ImGui::BeginGroup();
+        for (const std::string& l : m.lines) draw_line(strip_roll_ranges(l), colour);
+        ImGui::EndGroup();
+        draw_hover_tip(join_lines(m.info_text(), m.reminder), fonts);
     }
 }
 
@@ -241,14 +316,30 @@ bool has_mods(const Item& it, std::initializer_list<data::ModType> types) {
 
 } // namespace
 
-void draw_item_tooltip(const Item& it, const Fonts& fonts) {
+std::string strip_roll_ranges(std::string_view line) {
+    const std::string src = data::strip_empty_parens(line);
+    const std::vector<data::NumberToken> toks = data::scan_numbers(src);
+    std::string out;
+    size_t at = 0;
+    for (const data::NumberToken& t : toks) {
+        // A non-numeric parenthetical is not a range — "(Local)" is part of the wording.
+        if (!t.has_bounds || !t.numeric_bounds) continue;
+        out.append(src, at, t.value_end - at);
+        at = t.end;
+    }
+    if (at == 0) return src;
+    out.append(src, at, std::string::npos);
+    return out;
+}
+
+void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& fonts) {
     ImGui::PushFont(fonts.small_caps, 0.0f);
     draw_name_plate(it, fonts);
 
     if (!it.type_line.empty() || !it.properties.empty() || !it.inherent_lines.empty()) {
         draw_rule();
         if (!it.type_line.empty()) draw_line(it.type_line, kColLabel);
-        draw_properties(it);
+        draw_properties(it, d, fonts);
     }
     if (it.req.level || it.req.str || it.req.dex || it.req.intelligence) {
         draw_rule();
@@ -319,52 +410,6 @@ void draw_item_tooltip(const Item& it, const Fonts& fonts) {
     }
     if (!it.note.empty())
         draw_segments({{"Note: ", kColLabel}, {it.note, kColValue}});
-    ImGui::PopFont();
-}
-
-void draw_derived_numbers(const Item& it, const item::Derived& d, const Fonts& fonts) {
-    struct Row {
-        const char* label;
-        std::string value;
-    };
-    std::vector<Row> rows;
-    const auto pct = [](const std::optional<double>& v) {
-        return v ? format_number(*v * 100, 0) + "%" : std::string();
-    };
-
-    if (d.dps) {
-        rows.push_back({"Total DPS", format_number(*d.dps, 1)});
-        if (d.pdps) rows.push_back({"Physical DPS", format_number(*d.pdps, 1)});
-        if (d.edps) rows.push_back({"Elemental DPS", format_number(*d.edps, 1)});
-        if (d.cdps) rows.push_back({"Chaos DPS", format_number(*d.cdps, 1)});
-        if (d.dps_q20 && it.quality.value_or(0) != 20)
-            rows.push_back({"Total DPS at 20%", format_number(*d.dps_q20, 1)});
-    }
-    struct Defence {
-        const char* label;
-        const std::optional<int>& value;
-        const std::optional<int>& q20;
-        const std::optional<double>& percentile;
-    };
-    for (const Defence& def : std::initializer_list<Defence>{
-             {"Armour", it.armour, d.armour_q20, d.armour_pct},
-             {"Evasion", it.evasion, d.evasion_q20, d.evasion_pct},
-             {"Energy Shield", it.energy_shield, d.energy_shield_q20, d.energy_shield_pct},
-             {"Ward", it.ward, d.ward_q20, d.ward_pct}}) {
-        if (!def.value) continue;
-        std::string v = std::to_string(*def.value);
-        if (def.q20 && *def.q20 != *def.value) v += " (" + std::to_string(*def.q20) + " at 20%)";
-        if (def.percentile) v += "  base roll " + pct(def.percentile);
-        rows.push_back({def.label, std::move(v)});
-    }
-    if (rows.empty()) return;
-
-    ImGui::PushFont(fonts.small_caps, 0.0f);
-    for (const Row& r : rows) {
-        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "%s", r.label);
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.45f);
-        ImGui::TextUnformatted(r.value.c_str());
-    }
     ImGui::PopFont();
 }
 

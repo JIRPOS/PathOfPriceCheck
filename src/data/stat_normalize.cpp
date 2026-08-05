@@ -128,8 +128,12 @@ std::vector<NumberToken> scan_numbers(std::string_view s) {
                 const auto hi_v = to_double(hi);
                 if (lo_v && hi_v) {
                     t.numeric_bounds = true;
-                    t.bound_min = *lo_v;
-                    t.bound_max = *hi_v;
+                    // The game prints an inverse wording's range high to low —
+                    // "64(65-60)% reduced Effect of Curses on you during Effect" — and every
+                    // consumer reads these as an ordered pair. Left as printed, that becomes a
+                    // trade filter wanting at least -60 and at most -65, which matches nothing.
+                    t.bound_min = std::min(*lo_v, *hi_v);
+                    t.bound_max = std::max(*lo_v, *hi_v);
                     t.decimals = std::max({t.decimals, fraction_digits(lo),
                                            fraction_digits(hi)});
                 }

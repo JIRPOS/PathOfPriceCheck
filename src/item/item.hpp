@@ -52,6 +52,9 @@ struct Property {
     std::string label, value;
     bool augmented = false;
     std::optional<double> num; ///< the first number in the value, when there is one
+    /// Reminder text the game prints under the value but keeps out of the tooltip — what a
+    /// utility flask's buff does. Shown on hover, like a modifier's.
+    std::vector<std::string> reminder;
 };
 
 /// One modifier: the lines the game printed for it, whatever its Advanced Mod Descriptions
@@ -90,8 +93,12 @@ struct Modifier {
     bool added_unique() const;
 
     std::string text() const; ///< `lines` joined with '\n'
-    /// The info line as the game prints it, or "" when this mod had none.
+    /// The info line as the game prints it, plus the tier's own roll range, or "" when this
+    /// mod had no info line. The range is here rather than inline in `lines` because the view
+    /// strips "+86(77-90)" down to "+86" and this is where the reader gets it back.
     std::string info_text() const;
+    /// The range each of this mod's numbers rolled within, "77-90"; "" when unknown or fixed.
+    std::string range_text() const;
 };
 
 struct Requirements {

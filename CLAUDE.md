@@ -93,6 +93,23 @@ The seams (windowing still comes free from SDL3; the clipboard did not — see b
   `INCR`, and never calls `XSetSelectionOwner`. Win32 is plain `OpenClipboard`/`CF_UNICODETEXT`,
   retried while the lock is held. Verified against a stub owner: live owner <1ms, frozen owner
   returns empty exactly at the deadline, no owner returns instantly.
+  `clipboard_changed()` is the same argument for the *write* signal: X11 selects XFixes
+  `SetSelectionOwnerNotify` on its own requestor window and latches it, so a copy is observed the
+  moment ownership is asserted rather than after a `TARGETS` round trip the game may never answer
+  (SDL's `SDL_EVENT_CLIPBOARD_UPDATE` waits for that reply — see the copy watch under Architecture);
+  Win32 uses `GetClipboardSequenceNumber`, whose first call only establishes a baseline. It is
+  latching, so callers arm it by calling it and discarding the result, and it must be polled every
+  tick or a write between two polls is lost. Without XFixes it reports *no* change, never a
+  permanent yes — a permanent yes would vouch for the stale clipboard a failed copy leaves behind.
+  Verified against the same stub owner re-asserting ownership over byte-identical text: fires once
+  per re-copy, silent otherwise.
+  **That target list is not cosmetic: the same copy yields two different texts.** Wine publishes
+  the Windows clipboard's `CF_UNICODETEXT` as the UTF-8 targets and `CF_TEXT` as `STRING`, and for
+  the first ~100ms after a copy PoE has often rendered only the latter — so the UTF-8 conversion
+  comes back empty, we fall through to Latin-1, and every em dash in the Advanced Mod Descriptions
+  arrives as a plain hyphen (1277 bytes against 1291 for the same item). Polling therefore sees the
+  two forms alternate, which is why one press of the hotkey used to show affixes and the next did
+  not. `parse_info_line` accepts either separator; **do not "fix" that by trusting the encoding.**
 - **`platform/platform.hpp` — `platform_init()`:** one-time init (X11 calls `XInitThreads`).
 
 Key naming is canonical strings ("D", "Space", "F5"); `key_name_from_sdl` (capture), the X11 keysym
@@ -110,12 +127,20 @@ modifiers, so "LShift" registers as "Shift".
 
 Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`)
 owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`. Price-check
-hotkey → `simulate_copy()` → watch the clipboard → show. Watching means **both**
-`SDL_EVENT_CLIPBOARD_UPDATE` and a 100ms poll of `clipboard_text()`: SDL only raises that event once
-the *new* selection owner answers a `TARGETS` conversion, so a handover nobody answers is silent —
-the event is an accelerator, the poll is what's load-bearing. Accepted text must
+hotkey → `simulate_copy()` → watch the clipboard → show. Watching means a 100ms poll of
+`clipboard_text()` plus `clipboard_changed()`, our own write detector;
+`SDL_EVENT_CLIPBOARD_UPDATE` is kept only as a third accelerator, because SDL raises it not on
+the owner change but once the new owner answers the `TARGETS` conversion SDL fires in response —
+a fullscreen game mid-frame answers late or never, so SDL stays silent through a copy that plainly
+happened. Accepted text must
 look like item text (`Item Class:`/`Rarity:`) — never fall back to the pre-copy clipboard, which is
-whatever the user last copied anywhere and reads as a successful but wrong price check. Text that
+whatever the user last copied anywhere and reads as a successful but wrong price check.
+**Text byte-identical to the pre-copy clipboard needs `clipboard_changed()` to vouch for it**, and
+that is not an edge case: re-checking the same item produces the same bytes, and with only SDL's
+event to go on the panel hung until the user alt-tabbed out of the game and back, which is what
+finally made the game answer SDL's probe. `clipboard_changed()` must be **armed before**
+`simulate_copy()`, which blocks for the length of a human keypress that the copy can land inside.
+Text that
 lands goes through `App::accept_clipboard` → parse, resolve, derive, plan (see "The item layer"). Past the
 2.5s deadline the panel says so but keeps watching; the game's X11 handover can land seconds late.
 `PPC_DEBUG_COPY=1` traces the whole timeline. The overlay is
@@ -213,6 +238,10 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   share a wording and differ only by trade namespace. Two separate negation concepts —
   `matcher.negate` (the *wording* is inverse; store the roll canonically) and `trade.inverted` (the
   *trade site* indexes the opposite sign; applied at query-build time, not here).
+  An inverse wording's Advanced Mod Descriptions range is **printed high to low** —
+  `64(65-60)% reduced Effect of Curses on you during Effect` — so `NumberToken::bound_min/max` are
+  ordered at parse time, not taken as printed. Negating an already-descending pair leaves it
+  descending, and a filter wanting at least -60 and at most -65 matches nothing.
 
 ### The item layer (built)
 
@@ -229,7 +258,13 @@ bundle, and only the third and fourth encode pricing judgement.
     The property block's first prose line is the item's type, later prose starting with a digit is a
     flask's own effect and anything else is a property the game writes as a sentence ("Lasts 7.20
     Seconds"). That mixed block is only recognised as **section 1**, so a flavour line that happens
-    to hold a colon ("simple ethos: why make the effort") cannot become a property.
+    to hold a colon ("simple ethos: why make the effort") cannot become a property. A property line
+    is also the evidence that section 1 *is* the property block — except on a **flask**, which
+    always has one and prints no `Label: value` line in it **unless it has quality**: an unquality
+    flask turned "Lasts 6 Seconds / Consumes 40 of 60 Charges on use / Onslaught" into modifiers,
+    so the class carries the rule instead. The type line never holds a number for the same reason.
+    A parenthetical in that block is the buff's reminder text ("(Onslaught grants 20% increased
+    Attack, Cast, and Movement Speed)") and rides on the property, as a modifier's does.
   - **Prose is not a modifier, and there are three kinds of it.** A rare's own mods can read as
     prose ("Players cannot Regenerate Life"), so flavour text needs a positive signal: a quoted
     block, or the last prose block of a *unique* that already has mods. The usage note underneath
@@ -243,7 +278,10 @@ bundle, and only the third and fourth encode pricing judgement.
     on a flask the earlier of two unsuffixed sections is the enchant.
   - The info line's em-dash segments are tags **and** "— 20% Increased", which is a catalyst saying
     it scaled this mod. The clipboard prints the *unscaled* roll and range in that case (`30(20-30)`
-    where the tooltip reads 36%), so `roll_incr` is applied to both in `match_stat`.
+    where the tooltip reads 36%), so `roll_incr` is applied to both in `match_stat`. A plain `" - "`
+    separates them too, because a Latin-1 clipboard read degrades the em dash — see the clipboard
+    seam above. Miss that and the line stays one blob: no tier, no tags, and `generation` never
+    ends in "Prefix", so the affix is unknown.
   - Influence lines sometimes arrive glued to the end of the last mod block instead of in a section
     of their own; trailing flag lines are peeled off before the block is parsed as mods.
   - A **gem** has no rolled mods: its stat lines are `inherent_lines`, its skill text `description`.
@@ -273,20 +311,36 @@ bundle, and only the third and fourth encode pricing judgement.
   form puts it at 293.3, the 78th percentile. That capture is the only real evidence either way; a
   before/after-quality capture of one item with a flat local roll would pin it down.
   Local increases and flat adds are found from the *wording* (`placeholder_form`), so they still count
-  when the stat itself is missing from the bundle. **Base percentile** is `inherent_roll` placed in
-  the base type's range; a result outside that range means a local mod was missed, and then it reports
-  nothing rather than a confident 0%. There is no weapon percentile: the bundle publishes defence
-  ranges for armour bases but no damage ranges for weapon bases.
+  when the stat itself is missing from the bundle. **Base percentile** (`Derived::base_pct`) is
+  `inherent_roll` placed in the base type's range; a result outside that range means a local mod was
+  missed, and then it reports nothing rather than a confident 0%. It is **one number per item, not
+  one per defence**: a base rolls a single value and spreads it over the defences it has, so the
+  sum of the recovered inherent values goes into the sum of the base's ranges — an armour/energy
+  shield hybrid whose two percentiles disagree is showing rounding, not two rolls. A defence with no
+  published range makes the two sums incomparable, so there is no percentile at all. There is no
+  weapon percentile: the bundle publishes defence ranges for armour bases but no damage ranges for
+  weapon bases.
 - **`item/plan`** — `SearchPlan`: strategy, category/name/type, corruption, influences, stat filters
   and numeric filters, plus **`notes` for everything deliberately left out**. Strategy decides what
   matters: `Modifiers` (magic/rare) enables every mod and bounds it by the tier it rolled when
   Advanced Mod Descriptions gave a range; `BaseItem` (white, or a rare the user switches over)
   searches the base with item level and influences and enables only fractured mods and non-inherent
   implicits; `Unique` searches the name and enables a roll the **per-unique modifier data** says comes
-  from a pool (see below), a roll a range proves is variable, and any mod *added* to the unique —
+  from a pool (see below), a roll a range proves is variable, any mod *added* to the unique —
   `{ Foulborn Unique Modifier }`, i.e. `Modifier::added_unique()`,
-  which not every copy of that unique carries. A `Maps` item class is `Unsupported`: a map is not
+  which not every copy of that unique carries — and anything the player *crafted onto this copy*
+  (`added_to_copy`: enchant, crafted, fractured, scourge, veiled, crucible). An enchant costs
+  currency and is most of what an enchanted copy sells for, so leaving it out prices a different
+  item. A `Maps` item class is `Unsupported`: a map is not
   priced on its mods, and pricing one as a rare would search for gear carrying map mods.
+  An unbounded filter asks for "no worse than this", and **worse is not always smaller**: a mod
+  the game prints negative is better the more negative it is (an eldritch implicit applying `-11%`
+  to Cold Resistance — its magnitude comes from the currency tier, so the clipboard prints no range
+  to bound it with), and so is a stat the bundle marks `better: -1`. Both get the roll as a
+  **maximum**. The sign is what carries the direction for the rest, because the canonical wording
+  already does — "#% reduced Mana Cost" is stored as a negative increase. It reads wrong only for a
+  negative roll of a stat that also rolls positive, i.e. a resistance penalty, which is a drawback
+  on a unique rather than something a buyer searches for.
   Two rules that are easy to get wrong: trade indexes **repeated stats as their total**, so
   `merge_same_stat` sums two life rolls into 104–117 rather than filtering twice; and an
   added-damage mod is indexed as **the average of its two numbers** while every other multi-number
@@ -306,13 +360,32 @@ bundle, and only the third and fourth encode pricing judgement.
   would otherwise call a fixed mod variable. Pool membership is a fact about the item rather than a
   number, so it survives that check. A mod the record does not have is reported, never dropped
   silently: it is either something added to this copy or a mod the source has not caught up with, and
-  both are what a buyer is searching for. `UniqueMods::unlisted` — a pool stated in prose but never
+  both are what a buyer is searching for. **Except a mod `added_to_copy` covers** — the record
+  describes the unique, not what was crafted onto one, so its absence there is by definition and
+  "not in the modifier data" reads as a failure to recognise a modifier that is right there in the
+  filter list. `UniqueMods::unlisted` — a pool stated in prose but never
   enumerated — becomes a note, so the app says what it is leaving out.
   [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
 
 Rendering lives in `screens/item_view.cpp` (the game's palette: rarity-coloured name plate, grey
 property labels, blue mods, light blue crafted/enchant, tan fractured, magenta scourge, red
-corruption, per-element damage colours) and the filter list in `screens/pricecheck_screen.cpp`. The
+corruption, per-element damage colours) and the filter list in `screens/pricecheck_screen.cpp`.
+The panel is competing with the game's own tooltip for the same screen, so it prints **less** than
+the clipboard does: `strip_roll_ranges` drops the range the game glues to a roll (`+86(77-90)` reads
+as `+86`) in both the item text and the filter list, and everything the game prints *about* a
+modifier rather than as part of it — what Advanced Mod Descriptions say (affix, tier, tags) and the
+reminder text under a wording ("Unnerved enemies take 10% increased Spell Damage") — is a **hover
+tooltip** on the modifier rather than lines around it. `draw_hover_tip` is that one place, and a
+property uses it too: a utility flask's buff brings reminder text the game likewise keeps out of the
+tooltip ("(Onslaught grants 20% increased Attack, Cast, and Movement Speed)"). Nothing is
+lost: `Modifier::info_text()` carries the tier's range with it (`(Tier: 2 [77-90])`), a continuation
+line repeats its affix because that is where the reader gets *its* range, and every derived number
+is a small grey line under the property block it summarises — the DPS totals under the last damage
+line, the base percentile under the last defence line. A filter row leads with where its modifier
+came from and what it asks for: `P2 [77-90]` is a tier-2 prefix, `S1` a suffix, `R` crafted, one code
+per modifier `merge_same_stat` folded in (`StatFilter::merged`). The code is **coloured by which
+half of the pool it came from** — red prefix, blue suffix, as the trade site does it — which is also
+what says whether a crafted `R` is a prefix or a suffix, since its letter no longer can. The
 item and its plan live on `App`, alongside **the bundle snapshot they were resolved against** —
 `item_data_` is held separately from `data_` because the updater swaps that from its own thread and
 the item holds raw pointers into it.
@@ -349,17 +422,28 @@ call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
   (above); the other half of what it is for is not. A Watcher's Eye search is worth little without
   being able to add "and also has Discipline energy-shield-on-hit" — `ref` gives the wording to show,
   `tradeId` the filter to send and `range` the bounds to seed. That needs a `StatFilter` not tied to a
-  `mod_index` and a way to pick one in the UI. Filters the record carries **without** a `tradeId` (470
+  `mod_index` and a way to pick one in the UI. Filters the record carries **without** a `tradeId` (428
   ambiguous wordings, 695 with no id at all) belong in that list too: display them, never search them.
 - **Unidentified uniques** — the clipboard says only the base, and several uniques can share one
   (an unidentified Watcher's Eye is worth several divines more at high item level). The user has to
   pick from the base's uniques, ideally showing their art; the plan reports the gap as a note today.
   The bundle now carries **`en-items-base.index.bin`**, base → the uniques that drop on it, which is
   the lookup this needs; the candidates' mods come from `en-unique-mods.ndjson`.
-- **Ambiguous wordings** — two stat records can share a wording and both be searchable
-  (`#% chance to gain a Flask Charge when you deal a Critical Strike`). `GameData::find_stat`
-  refuses to guess, and the plan says "ambiguous wording, not searched" rather than picking whichever
-  came first in the file. Telling them apart needs item-class context the bundle does not carry yet.
+- **Ambiguous wordings** — two stat records can share a wording and both be searchable.
+  `GameData::find_stat` refuses to guess, and the plan says "ambiguous wording, not searched" rather
+  than picking whichever came first in the file. As of the `20260805.11` bundle this is **4 wordings**
+  (the three "Grants Summon Visiting Harbinger of …" and "Attacks fire # additional Projectiles when
+  in Off Hand"), and telling those apart needs context the bundle does not carry.
+  **It used to be 59, and 55 of those were a data-repo bug rather than real ambiguity** — worth
+  knowing, because the shape recurs: `emit/stats.py` keys a record on a *trade* wording, so one game
+  stat rendered several ways ("#% chance to gain a Flask Charge when you deal a Critical Strike" and
+  its 100% form, "Recover #% of Life on Kill" and "Lose #%", one entry per option of an option stat)
+  became several records — and each was handed the whole description's matcher list, so they all
+  claimed each other's wordings. The Surgeon's prefix on every crit-charge flask went unsearched.
+  Fixed upstream: a wording trade hashes separately belongs only to the record carrying that hash,
+  and the build now reports `wordings_ambiguous_in_a_namespace` so a regression is visible.
+  **Do not "fix" the app side by picking a record.** Two ids behind one wording is a filter on the
+  wrong stat half the time, and a confident wrong price is the failure mode this whole layer avoids.
 - **Pseudo mods** — trade's `pseudo.*` totals (total resistances, total life) are not built; mods are
   matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance` and the
   rest), so this is a plan-layer job, not a data one.

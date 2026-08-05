@@ -55,18 +55,21 @@ void add_defences(SearchPlan& p, const Item& it, const Derived& d, bool enabled)
         const char* key;
         const char* label;
         const std::optional<int>& value;
-        const std::optional<double>& pct;
     };
+    // The percentile is the base's one roll, so it belongs to the item and is stated once,
+    // on whichever defence the item lists first.
+    bool said_percentile = false;
     for (const Entry& e : std::initializer_list<Entry>{
-             {"ar", "Armour", d.search_armour, d.armour_pct},
-             {"ev", "Evasion", d.search_evasion, d.evasion_pct},
-             {"es", "Energy Shield", d.search_energy_shield, d.energy_shield_pct},
-             {"ward", "Ward", d.search_ward, d.ward_pct}}) {
+             {"ar", "Armour", d.search_armour},
+             {"ev", "Evasion", d.search_evasion},
+             {"es", "Energy Shield", d.search_energy_shield},
+             {"ward", "Ward", d.search_ward}}) {
         if (!e.value) continue;
         std::string n = note;
-        if (e.pct) {
+        if (d.base_pct && !said_percentile) {
             if (!n.empty()) n += ", ";
-            n += "base roll " + std::to_string(static_cast<int>(*e.pct * 100 + 0.5)) + "%";
+            n += "base roll " + std::to_string(static_cast<int>(*d.base_pct * 100 + 0.5)) + "%";
+            said_percentile = true;
         }
         add_numeric(p, e.key, e.label, static_cast<double>(*e.value), enabled, 0, std::move(n));
     }
@@ -123,6 +126,17 @@ Roll roll_for(const data::StatMatch& m) {
     return r;
 }
 
+/// A modifier the player put on *this copy* rather than one the item came with. It costs
+/// currency and not every copy has it, so it is worth searching on even for a unique — an
+/// instilled "Used when Charges reach full" is most of what a Rumi's Concoction sells for.
+/// It is also why the per-unique modifier data never mentions it: that describes the unique,
+/// not what was crafted onto one.
+bool added_to_copy(data::ModType t) {
+    return t == data::ModType::Enchant || t == data::ModType::Crafted ||
+           t == data::ModType::Fractured || t == data::ModType::Scourge ||
+           t == data::ModType::Veiled || t == data::ModType::Crucible;
+}
+
 /// Turn one modifier into a filter. Bounds follow the strategy: a rolled item is searched
 /// inside the tier it rolled, everything else is searched at "no worse than this".
 std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s) {
@@ -148,12 +162,23 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s) {
     // several the affix could have had — which is what "variable" means for a unique.
     const bool variable = has_bounds && *roll.min != *roll.max;
 
+    // Which side an open bound goes on. "No worse than what it rolled" is a *minimum* only
+    // when higher is better, and for a mod the game prints negative it is not: an exposure
+    // implicit applying -11% to Cold Resistance is better at -13, and a minimum of -11 asks
+    // for the weakest copies of it. The bundle's `better` says so for the ten stats that are
+    // bad at any sign ("#% increased Damage taken"), and the roll's own sign covers the rest,
+    // because the canonical wording already carries the direction — "#% reduced Mana Cost" is
+    // stored as a negative increase. The one case this reads wrong is a negative roll of a
+    // stat that also rolls positive, i.e. a resistance penalty, where less negative is better;
+    // those are drawbacks on uniques and corrupted implicits rather than what a buyer searches.
+    const bool lower_is_better = stat.better < 0 || roll.value.value_or(0) < 0;
+
     if (s == Strategy::Modifiers && has_bounds) {
         f.min = roll.min;
         f.max = roll.max;
         f.tiered = true;
     } else if (roll.value) {
-        f.min = roll.value;
+        (lower_is_better ? f.max : f.min) = roll.value;
     }
 
     switch (s) {
@@ -169,10 +194,11 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s) {
         case Strategy::Unique:
             // A unique's fixed mods are the same on every copy of it, so filtering on them
             // only costs results. What does matter: a roll a range proves is variable, a mod
-            // something *added* to the item ("Foulborn Unique Modifier"), and an implicit
-            // corruption or synthesis could have put there — there is no way to tell an added
-            // implicit from the unique's own without per-unique mod data.
-            f.enabled = variable || m.added_unique() ||
+            // something *added* to the item ("Foulborn Unique Modifier"), anything the player
+            // crafted onto this copy, and an implicit corruption or synthesis could have put
+            // there — there is no way to tell an added implicit from the unique's own without
+            // per-unique mod data.
+            f.enabled = variable || m.added_unique() || added_to_copy(m.type) ||
                         (m.type == data::ModType::Implicit && (it.corrupted || it.synthesised));
             break;
         default:
@@ -262,8 +288,10 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p) 
         if (e == by_id.end()) {
             // Either something added to this copy of the item, or a modifier the source has
             // not caught up with, or one it cannot search. Nothing says it is fixed, so it is
-            // reported rather than silently left out of the search.
-            if (!f.enabled)
+            // reported rather than silently left out of the search — but only for a modifier
+            // the record is *about*. A crafted one is absent from it by definition, and saying
+            // so reads as a failure to recognise a modifier that is right there in the list.
+            if (!f.enabled && !added_to_copy(f.type))
                 p.notes.push_back("not in the modifier data for \"" + um->name +
                                   "\", so not searched: " + one_line(it.mods[f.mod_index]));
             continue;
@@ -328,6 +356,8 @@ void merge_same_stat(std::vector<StatFilter>& stats) {
                 into.pool_hint = from.pool_hint;
             }
             into.text += "\n" + from.text;
+            into.merged.push_back(from.mod_index);
+            into.merged.insert(into.merged.end(), from.merged.begin(), from.merged.end());
             stats.erase(stats.begin() + static_cast<ptrdiff_t>(j));
         }
     }
