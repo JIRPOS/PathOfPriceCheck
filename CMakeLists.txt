@@ -121,6 +121,7 @@ add_library(ppc_core STATIC
   src/config.cpp
   src/leagues.cpp
   src/util/sha256.cpp
+  src/util/base64.cpp
   src/util/debug_log.cpp
   src/data/index.cpp
   src/data/stat_normalize.cpp
@@ -133,6 +134,10 @@ add_library(ppc_core STATIC
   src/item/resolve.cpp
   src/item/derive.cpp
   src/item/plan.cpp
+  src/trade/query.cpp
+  src/trade/currency.cpp
+  src/trade/ratelimit.cpp
+  src/trade/ratelimit_store.cpp
   $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
@@ -146,6 +151,9 @@ set(APP_SOURCES
   src/icon.cpp
   src/overlay.cpp
   src/league_service.cpp
+  src/trade_service.cpp
+  src/trade/client.cpp
+  src/icon_cache.cpp
   src/data/updater.cpp
   src/net/http.cpp
   src/platform/keymap_sdl.cpp
@@ -223,3 +231,5 @@ ppc_add_test(stat_matcher_test)
 ppc_add_test(install_test)
 ppc_add_test(item_parse_test)
 ppc_add_test(item_pricing_test)
+ppc_add_test(trade_query_test)
+ppc_add_test(ratelimit_test)

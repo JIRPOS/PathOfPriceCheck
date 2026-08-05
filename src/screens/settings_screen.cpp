@@ -1,5 +1,6 @@
 #include "screens/settings_screen.hpp"
 
+#include <algorithm>
 #include <cfloat>
 #include <cstdio>
 #include <string>
@@ -214,6 +215,43 @@ void draw_settings_screen(App& app) {
         row_gutter();
         ImGui::TextColored(kWarn, "Expected Name#1234");
     }
+
+    section(app, "Trade search");
+    // GGG's own labels, in the site's own order, so what is picked here reads the same as
+    // what the trade page shows.
+    if (ImGui::BeginCombo(row("Listings"),
+                          std::string(trade::status_label(c.listing_status)).c_str())) {
+        for (const trade::StatusOption& o : trade::status_options()) {
+            const bool sel = o.id == c.listing_status;
+            if (ImGui::Selectable(std::string(o.label).c_str(), sel)) c.listing_status = o.id;
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    if (ImGui::BeginCombo(row("Fetch top"), ("Top " + std::to_string(c.result_count)).c_str())) {
+        for (const int n : trade::result_counts()) {
+            const bool sel = n == c.result_count;
+            if (ImGui::Selectable(("Top " + std::to_string(n)).c_str(), sel)) c.result_count = n;
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    row_gutter();
+    // The cost, where the choice is made. It is not latency that this trades away — it is how
+    // many price checks fit in GGG's five-minute window before the limiter starts making the
+    // next one wait. See trade.hpp.
+    {
+        const int reqs = trade::fetch_requests(c.result_count);
+        ImGui::TextDisabled("%d request%s per check \xe2\x80\x94 about %d checks per 5 minutes",
+                            reqs, reqs == 1 ? "" : "s", std::min(30, 50 / reqs));
+    }
+
+    ImGui::Checkbox(row("Auto-search"), &c.auto_search);
+    row_gutter();
+    if (c.auto_search)
+        ImGui::TextDisabled("Every price check spends a trade API request.");
+    else
+        ImGui::TextDisabled("Off: the panel searches when you press Search.");
 
     section(app, "Hotkeys");
     hotkey_row(app, "Price check", Action::PriceCheck, c.price_check);

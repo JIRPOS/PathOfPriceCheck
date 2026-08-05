@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-The overlay, Settings, the league list, the **static game-data layer** and the **item layer**
-(parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) are built and
-tested, including the **per-unique modifier data** that decides which of a unique's modifiers are
-worth searching on. The **trade query builder + client and the rate limiter are the next piece of
-work**: the plan the item layer produces is exactly the input they need.
+The overlay, Settings, the league list, the **static game-data layer**, the **item layer**
+(parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) and the
+**trade search** (query builder, two-step client, shared rate limiter, results in the panel) are
+built and tested, including the **per-unique modifier data** that decides which of a unique's
+modifiers are worth searching on. **poe.ninja pricing** — the categories a stat query cannot
+price — is the next piece of work.
 
 Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
@@ -28,8 +29,11 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
   debug builds.
 - **Overlay UI:** [Dear ImGui](https://github.com/ocornut/imgui) on a borderless, always-on-top
   **SDL3 + OpenGL** window. (SDL3, not SDL2 — first-class transparent/always-on-top window flags and a
-  smoother Wayland path later. True transparency + click-through is a later step; today it's an opaque
-  panel.)
+  smoother Wayland path later. The window **is** transparent — `SDL_WINDOW_TRANSPARENT` with an alpha
+  framebuffer cleared to 0, so only what ImGui draws is painted; **click-through is the part still
+  missing**, so the window's whole rectangle still swallows mouse input. That is why the window is
+  never made larger than it needs to be, and why the price-check gutter below is sized to what is
+  free rather than to what is wanted.)
 - **Dependencies:** CMake **FetchContent** builds SDL3 + ImGui + nlohmann/json + doctest from source
   (pinned tags in `CMakeLists.txt`), so CI needs no system packages beyond Linux dev headers and
   libcurl (see Build).
@@ -226,6 +230,18 @@ both default to **0.615**; they stay separate knobs only because GGG moves the U
 They and `panel_width` are sliders in Settings, which is how to set them: eyeballing them off a
 screenshot is not accurate to the pixel, and two rounds of doing exactly that both missed.
 
+**The price-check window is wider than the panel**, by a transparent **gutter** on the side the panel
+is *not* docked against — right of a stash-side panel, left of an inventory-side one. `App::layout()`
+(`PanelLayout`) says where the panel sits inside it and where the gutter is; the panel's `Begin` uses
+that instead of the whole viewport. The gutter exists because a hovered listing's item has nowhere
+else to go: ImGui clamps every window to the viewport, and the viewport *is* the SDL window, so a
+popup wide enough to read used to land on top of the very listings it was there to be compared
+against. It is only as wide as the game actually leaves free (capped at the panel's own width), since
+the window still swallows mouse input everywhere it covers. Two consequences worth knowing:
+`poll_click_away` measures against the **panel** rect, not the window's, or a click on the game
+through the gutter would not dismiss; and `place_overlay` logs the geometry it chose, which is the
+thing to read when the panel lands somewhere unexpected.
+
 **Settings** lays every row out on one grid via `row()` in `settings_screen.cpp` — ImGui draws a
 control's own label to its *right*, which is why nothing passes a visible label. League is a combo
 fed by `LeagueService` from `/api/trade/data/leagues`, cached 24h under `cache_dir()`; the payload
@@ -235,8 +251,8 @@ the configured league is never lost — it is the combo preview and is appended 
 a fetch does not contain it, which is exactly what happens on league-launch day. No request is made
 unless Settings is opened. `poe_window_title` is config-file-only, deliberately not in the UI.
 
-Three SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
-data-updater state. Async results are **not** routed through `Action` — `handle_action()` gates on
+Four SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
+data-updater state, trade result. Async results are **not** routed through `Action` — `handle_action()` gates on
 the game being foreground and would silently swallow them whenever PoE is not in front.
 
 ### The debug log (`src/util/debug_log.cpp`)
@@ -282,12 +298,21 @@ faces (Regular/Bold/Italic/SmallCaps) are embedded in the executable as base85 b
 are dynamically scalable, so it's one `ImFont*` per face at any size: `PushFont(fonts.bold, 22.0f)`.
 `$PPC_FONT_DIR` overrides the embedded faces with on-disk TTFs. Fontin's license nominally forbids
 redistribution; bundling it is a deliberate maintainer decision — see `assets/fonts/README.md`.
+Fontin also has **no Cyrillic, Hangul or CJK, and no `×`** — so `fonts.unicode` is a fifth face for
+text we did not write (trade account and character names, which are routinely none of them Latin),
+merged at startup from whatever the OS ships: a Latin/Cyrillic base plus a CJK collection, first hit
+from a list of well-known paths, falling back to `regular` and its boxes when there is none. Not
+embedded, because a CJK collection is ~19MB — several times the whole executable — and dead weight
+for everyone whose results are Latin. The files are **mapped, not read** (`data::MappedFile`, with
+`FontDataOwnedByAtlas = false`): ImGui 1.92 rasterizes on demand and keeps the bytes for the life of
+the atlas, so a face nothing on screen needs costs address space rather than resident memory. The
+mappings are a function-local static and must outlive the atlas.
 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
 so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
-the debug log, which every platform seam writes into), all of
-`item/`, and all of `data/` except the updater. The rule is that `ppc_core` links no SDL3, no ImGui,
-no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
+the debug log, which every platform seam writes into), all of `item/`, all of `data/` except the
+updater, and all of `trade/` except its client. The rule is that `ppc_core` links no SDL3, no
+ImGui, no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
 
 ### Static game data (built)
 
@@ -449,6 +474,130 @@ bundle, and only the third and fourth encode pricing judgement.
   enumerated — becomes a note, so the app says what it is leaving out.
   [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
 
+### The trade layer (built)
+
+`src/trade/` turns a `SearchPlan` into a search on pathofexile.com and back into listings.
+
+- **`trade/query`** — pure, no network: `build_query(plan)` is the search JSON, plus the URLs and
+  the response parsers. **`StatFilter::inverted` is applied here and nowhere earlier**, and it flips
+  the interval end for end as well as in sign: 77..90 as the game prints it is -90..-77 as the site
+  indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
+  contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
+  (`misc_filters`, `armour_filters`, `weapon_filters`) and rejects one filed in the wrong place.
+  A `Modifiers` search deliberately names no `type`: a rare is bought for its mods, and the
+  category already says where those can live.
+- **Which listings to ask for** is `Config::listing_status`, and it defaults to **Instant Buyout**
+  (`securable`) rather than the API's older `online`. Not cosmetic: on one real capture the same
+  query returned 4 matches In Person against 39 as Instant Buyout, because an offer that can be
+  taken without the seller being at their keyboard is what most people now mean by "for sale".
+  The five ids and their labels are GGG's own, copied from `status_filters` in
+  `/api/trade/data/filters` — a closed vocabulary, so it is a table in `trade/trade.hpp` rather
+  than something fetched, and unlike `league` a configured value **is** validated against it on
+  load: an id GGG does not know makes every search fail with "Unknown status type".
+- **`trade/ratelimit`** — the limits are not guessed at; GGG publishes them in the response headers
+  of every request (`X-Rate-Limit-Rules` names the groups, `X-Rate-Limit-<group>` the
+  `hits:period:restriction` rules, `-State` the server's own counters). So the first call under a
+  policy is spaced against a seeded default and every one after it against measurement. **The
+  state header outranks our own tally** rather than adding to it — it counts every client on the
+  IP, including the user's browser tab. Time is a parameter, not a call, so the whole thing is
+  unit-tested without sleeping.
+- **`trade/ratelimit_store` — the limiter survives a restart.** `snapshot`/`restore` state the
+  windows as *ages* and the restriction as *time remaining*, so they can be written under one
+  clock and read under another; the store converts to absolute wall-clock ms in
+  `<cache>/trade-ratelimit.json`, written on every request and every response. Without it,
+  closing and reopening the app clears an active restriction it never actually served, and the
+  seeded budget gets spent straight back into the lockout — repeatedly hammering through
+  restrictions is how a client stops being throttled and starts being blocked. `restore` runs
+  **before** `seed`, which then declines to overwrite it, and clamps what it reads (no negative
+  window ages, no block over six hours) so a corrupt file cannot wedge the client shut. It is not
+  a security boundary — deleting the file resets it — it stops the accidental circumvention,
+  which is the one that happens. The decisions still run on `steady_clock`; the wall clock is
+  only ever written down and read back.
+- **How many listings to fetch** is `Config::result_count`, a Settings dropdown over 10/20/50/100,
+  defaulting to **20**. This is a rate-limit choice and not a latency one: every ten listings is
+  one more fetch request, and the binding policy (`50:300:300`) allows fifty fetches per five
+  minutes before a five-minute lockout — so Top 20 is 25 price checks in that window, Top 50 is
+  10, and Top 100 is 5 *and* trips the 16-per-12-seconds rule on two checks in a row. The cost
+  also lands where the extra rows help least: only `min(want, total)` is fetched, so a rare with
+  four matches costs one request at any setting, and the bill arrives on liquid items where the
+  cheapest twenty already set the price. Settings states the cost on the row itself.
+- **`trade/client`** — the one place outbound GGG traffic goes, `LeagueService` included. Waits out
+  the limiter, issues the request, feeds the headers back in. A debt longer than 30s is returned as
+  an error instead of waited on: a price check that lands four minutes late is about an item the
+  user has sold. The wait is slept in slices against `cancel_waits()`, so shutdown does not sit out
+  a restriction. `run_search` is the two-step flow — POST the query, then GET the first
+  the requested number of hashes in batches of **at most ten**, which is a hard API limit. A batch that
+  fails after an earlier one succeeded keeps what it has: ten listings are still a price, and the
+  error explains the short list rather than replacing it. `fetch_page` is that batching loop on
+  its own, which is also what **load more** spends: the search POST returns **100 hashes however
+  large `total` is**, so paging deeper costs one /fetch and no search until those hundred run
+  out — past which there is nothing to page to and the search has to be narrowed. `fetched`
+  tracks hashes *asked for*, not listings received: a listing sold since the search comes back
+  as a null element and is dropped, so paging off the listing count would re-fetch what was
+  already seen.
+- **`TradeService`** (`src/trade_service.cpp`) is `LeagueService`'s twin, for the same reason — every
+  member on the main thread, the worker owning only its stack and the payload it hands over through
+  the SDL event queue. The query JSON is built **on the main thread** and moved to the worker: the
+  plan points into the data bundle the updater can swap at any moment.
+- **Currency symbols** come from `/api/trade/data/static` (cached a week under `cache_dir()`), whose
+  `image` paths are rooted at `web.poecdn.com`. `IconCache` (`src/icon_cache.cpp`) splits the work
+  the way the threads force: the worker downloads (through a disk cache keyed by the URL's sha256,
+  so a second launch makes no requests) and decodes to an `SDL_Surface`, and `pump()` uploads to a
+  GL texture at the top of a frame, because only the frame loop has the context. `texture()` is
+  allowed to answer "not yet" — a price with no symbol still prints its amount — and a URL that
+  failed is never retried, or a 404 would be requested every frame forever.
+
+The results are three columns — account, listing age, price — and the table takes **whatever is
+left of the panel**, asked for explicitly rather than by bottom-aligning at height 0, because it
+sits inside a child that can itself scroll and ImGui's bottom-align is not meaningful in one that
+does. Sorting is `price: asc` and the site does it by chaos-equivalent, so a page of chaos prices
+and divine ones interleave correctly and are **not** out of order.
+
+The account is the **whole** handle, `Name#1234` — the digits are what tells two players sharing a
+name apart — and is drawn in `fonts.unicode` (above), since a Cyrillic or Korean handle is boxes in
+Fontin. The price copies the site's own form, `5 x [symbol] Divine Orb`: the symbol arrives off the
+CDN in the background, so the currency is **named** as well as pictured and the row reads correctly
+before it lands. A lowercase `x` rather than the site's `×`, which Fontin draws as `?`. The
+listing's **gold fee** (`listing.fee`, a sibling of `price`, not a field of it) is shown, and
+nothing at all when there is none — a tooltip that repeats the number under the cursor is noise,
+which is also why the whisper text is no longer one: it is not something the user can act on from a
+tooltip. The whole price cell is one hover target (`BeginGroup`/`EndGroup`), or the tip would appear
+over the amount but not over the orb beside it.
+
+**Only ever one tooltip per frame.** The fee rides *inside* the item popup below whenever that is
+up, and `draw_price`'s own tooltip is suppressed — because `SetTooltip` and `BeginTooltip` build the
+same window name, `##Tooltip_%02d` off the same `TooltipOverrideCount`, and only `SetTooltip` bumps
+that counter (and only against a *previous frame's* still-active tooltip). Two of them in one frame
+therefore `Begin` the same window twice, which appends rather than restarts **and drops
+`SetNextWindowPos`/`SetNextWindowSize`**, since those are only honoured on a window's first `Begin`
+of the frame. The symptom was the fee line printed inside the item card and the card itself
+mis-sized and mis-placed. `AllowOverlap` on the row's `Selectable` is what lets both fire at once:
+hovering the price cell hovers the row too.
+
+**Hovering a row draws the seller's own item** over the panel, through the *same* renderer as the
+item in hand — because the fetch response carries `item.extended.text`, which is base64 of the
+exact clipboard bytes PoE writes on Ctrl+C. So there is no second parser and no second view:
+decode (`util/base64`) → `parse_item` → `resolve` → `derive` → `draw_item_tooltip`. Parsed lazily
+on hover and cached in `App::listing_items_`, resolved against the same pinned `item_data_`
+snapshot, and dropped whenever a trade result lands. The row is a `Selectable` with
+`SpanAllColumns | AllowOverlap` so the row is the hover target and lights up to say so, while the
+price cell's own fee tooltip still sits on top. It is drawn into the **gutter** beside the panel
+(above), aligned to the top of its own row and clamped by the height it drew at last frame so a long
+item does not run off the bottom — one frame stale, which settles immediately, and there is no way
+to know the height before drawing it. Both position and width are set explicitly:
+`SetNextWindowPos` overrides a tooltip's follow-the-mouse placement and `SetNextWindowSize`
+overrides its auto-fit **per axis**, so `(w, 0)` fixes the width and leaves the height to the item.
+The width has to be fixed either way — `draw_item_tooltip` centres every line on
+`GetContentRegionAvail()`, which in an auto-sizing window is whatever the last frame happened to be. `draw_reference_price` is the empty slot poe.ninja will fill,
+drawn only for the strategies it could ever price (unique, currency, gem) so a rare does not carry a
+permanent "not built yet".
+
+Searching is **on a button, not automatic**. `Config::auto_search` exists and defaults off: a
+price check the user meant only to read the item with should not spend a request against their
+rate limit. **Open in browser** builds the same query and hands it to the site in `?q=`, so it costs
+no API call and always matches the filters as they are ticked *now* — the id of a search already run
+would open whatever was ticked when it ran.
+
 Rendering lives in `screens/item_view.cpp` (the game's palette: rarity-coloured name plate, grey
 property labels, blue mods, light blue crafted/enchant, tan fractured, magenta scourge, red
 corruption, per-element damage colours) and the filter list in `screens/pricecheck_screen.cpp`.
@@ -492,14 +641,10 @@ call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
 
 ### Still to build
 
-- **Trade query builder + client** — see "PoE trade API" below. Serialises a `SearchPlan` into the
-  search JSON (`StatFilter::inverted` is applied here, not earlier) and runs the two-step
-  search→fetch flow.
 - **poe.ninja client** — bulk/reference pricing for the categories a stat query cannot price:
   currency, fragments, divination cards, and uniques. `Strategy::Currency` / `Strategy::Gem` exist
-  and currently only say they are not implemented.
-- **Rate limiter** — a single shared component every outbound GGG request goes through. Non-optional;
-  see "Rate limits".
+  and currently only say they are not implemented; the panel already draws the empty slot the
+  price will go in (`draw_reference_price`).
 - **Offering the pool modifiers the item does *not* have.** Reading the per-unique data is built
   (above); the other half of what it is for is not. A Watcher's Eye search is worth little without
   being able to add "and also has Discipline energy-shield-on-hit" — `ref` gives the wording to show,
@@ -564,9 +709,10 @@ Cache aggressively (prices move slowly relative to how often a user hovers items
 
 GGG returns rate-limit state in response **headers** (`X-Rate-Limit-Rules`, per-policy
 `X-Rate-Limit-<policy>` giving `hits:period:window` triplets, `X-Rate-Limit-<policy>-State`, and
-`Retry-After` on 429). All GGG traffic must pass through the shared rate limiter, which parses these
-headers, tracks each active window, and **proactively delays** rather than reactively eating 429s.
-Never fire the search→fetch flow without going through it.
+`Retry-After` on 429). All GGG traffic passes through the shared rate limiter
+(`trade/ratelimit`, owned by `trade/client`), which parses these headers, tracks each active window,
+and **proactively delays** rather than reactively eating 429s. Never issue a GGG request outside
+`trade::request`.
 
 ## Build & test
 

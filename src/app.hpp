@@ -11,9 +11,11 @@
 #include "data/updater.hpp"
 #include "item/derive.hpp"
 #include "item/plan.hpp"
+#include "icon_cache.hpp"
 #include "league_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
+#include "trade_service.hpp"
 
 struct SDL_Surface;
 struct SDL_Tray;
@@ -34,6 +36,30 @@ inline constexpr uint64_t kPokeIntervalMs = 100;
 /// Which of the game's two item panels the price check came from. Decides which side
 /// the overlay docks against so it never covers the item being priced.
 enum class Side { Stash, Inventory };
+
+/// How the price-check overlay window is divided. The window is wider than the panel: the
+/// rest is a **transparent gutter** on the side away from the item frame, which is where a
+/// listing's item pops up. The overlay only paints where ImGui draws a window, so the gutter
+/// costs nothing until something is drawn into it.
+///
+/// It exists because a tooltip has nowhere else to go. ImGui clamps every window to the
+/// viewport, and the viewport is the SDL window — so before the gutter, a popup wide enough to
+/// read landed on top of the very listings it was meant to be compared against.
+/// All values are ImGui viewport coordinates.
+struct PanelLayout {
+    float panel_x = 0; ///< 0 when the gutter is to the right, else the gutter's width
+    float panel_w = 0;
+    float tip_x = 0;
+    float tip_w = 0; ///< 0 when the game window left no room for one
+};
+
+/// A search result's own item, parsed from the clipboard text the API ships with every
+/// listing. Parsed lazily — twenty of these up front is work for rows nobody hovers — and
+/// resolved against the same pinned bundle snapshot as the item in hand.
+struct ListingItem {
+    std::optional<item::Item> item; ///< empty when the listing carried no text, or it did not parse
+    item::Derived derived;
+};
 
 class App {
 public:
@@ -59,6 +85,23 @@ public:
     /// Re-derive the plan for a different pricing strategy — a rare is sometimes worth more
     /// as a base than as its rolls, and only the user knows which they meant.
     void set_strategy(item::Strategy s);
+
+    // Trade search. The plan on screen is the query: the user ticks filters and presses
+    // Search, or opens the same search on the site without spending an API call on it.
+    const TradeService& trade() const { return trade_; }
+    IconCache& icons() { return icons_; }
+    void start_search();
+    void open_search_in_browser();
+    /// One more page of the search already run. See `TradeService::load_more`.
+    void load_more();
+    /// The listing's own item, parsed on first ask and cached until the results change.
+    /// Never null for an index in range; its `item` is what says whether it parsed.
+    const ListingItem* listing_item(size_t i);
+    /// Where the panel sits inside the overlay window, and where the gutter beside it is.
+    const PanelLayout& layout() const { return layout_; }
+    /// False while there is nothing to search — no bundle, or a strategy with no stat query
+    /// behind it (currency, gems, maps).
+    bool can_search() const;
 
     /// Copy-path diagnostic log (util/debug_log). Toggling it takes effect immediately —
     /// waiting for Save would mean the run that reproduced the bug went unrecorded — but it
@@ -96,6 +139,8 @@ private:
     Config config_ = Config::load();
     Overlay overlay_;
     LeagueService leagues_;
+    TradeService trade_;
+    IconCache icons_;
     data::DataUpdater updater_;
     std::shared_ptr<data::GameData> data_;
     /// The snapshot the item in hand was resolved against. Held separately from `data_`
@@ -105,11 +150,15 @@ private:
     std::optional<item::Item> item_;
     item::Derived derived_;
     item::SearchPlan plan_;
+    /// Parallel to `trade_.results().listings`, filled on hover. Dropped whenever a trade
+    /// result lands, which is cheaper than reasoning about whether it invalidated anything.
+    std::vector<std::optional<ListingItem>> listing_items_;
     std::optional<item::Strategy> strategy_override_; ///< the user's choice, until the next item
     std::unique_ptr<HotkeyListener> hotkeys_;
     SDL_Tray* tray_ = nullptr;
     Screen screen_ = Screen::Hidden;
     Side side_ = Side::Inventory; ///< side the current price check docked to
+    PanelLayout layout_;          ///< set by place_overlay, read by the price-check renderer
     std::string clipboard_;
     bool running_ = true;
 
@@ -132,6 +181,7 @@ private:
     uint32_t hotkey_event_ = 0; ///< carries an Action, pushed from the hotkey thread
     uint32_t league_event_ = 0; ///< carries a LeagueService::Result*
     uint32_t data_event_ = 0;   ///< the data updater changed state
+    uint32_t trade_event_ = 0;  ///< carries a TradeService::Result*
 
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry

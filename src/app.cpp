@@ -21,6 +21,7 @@
 #include "platform/platform.hpp"
 #include "screens/pricecheck_screen.hpp"
 #include "screens/settings_screen.hpp"
+#include "trade/query.hpp"
 #include "util/debug_log.hpp"
 
 namespace ppc {
@@ -65,8 +66,10 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
     static_cast<App*>(userdata)->quit();
 }
 
-// Settings is a free-floating dialog, centered over the game; only price-check docks.
-constexpr int kSettingsW = 520, kSettingsH = 680;
+// Settings is a free-floating dialog, centered over the game; only price-check docks. Sized to
+// hold every section without scrolling — the panel is a form, and a form that scrolls hides the
+// Save button under whatever the user was just reading.
+constexpr int kSettingsW = 640, kSettingsH = 860;
 
 // SPIKE: a small always-on marker so we can eyeball whether the transparent,
 // click-through overlay actually floats over the (fullscreen) game. Not final UI.
@@ -108,7 +111,7 @@ int App::run() {
         return 1;
     }
     // SDL hands back a contiguous range, so the offsets are guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(3);
+    const uint32_t event_base = SDL_RegisterEvents(4);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -117,6 +120,7 @@ int App::run() {
     hotkey_event_ = event_base;
     league_event_ = event_base + 1;
     data_event_ = event_base + 2;
+    trade_event_ = event_base + 3;
 
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
@@ -136,6 +140,9 @@ int App::run() {
     net::init();
     leagues_.init(league_event_);
     leagues_.load_cache(); // file read only; the network is touched when Settings opens
+    trade_.init(trade_event_);
+    trade_.load_cache(); // currency symbols; the search itself fetches them if they are stale
+    icons_.init();
 
     // Reclaim superseded bundles and map the installed one before anything else can hold a
     // mapping — on Windows a mapped directory cannot be removed.
@@ -197,6 +204,9 @@ int App::run() {
         // otherwise just once after a change. A static idle frame persists in the front
         // buffer, so we don't redraw it behind the game.
         active = screen_ != Screen::Hidden;
+        // Textures can only be made where the GL context is, and a symbol that arrived
+        // while nothing was repainting has to bring its own repaint with it.
+        if (icons_.pump()) need_redraw_ = true;
         if (overlay_.visible() && (active || need_redraw_)) {
             overlay_.begin_frame();
             if (screen_ == Screen::Settings)
@@ -213,6 +223,8 @@ int App::run() {
     if (tray_) SDL_DestroyTray(tray_);
     hotkeys_.reset();
     leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
+    trade_.shutdown();
+    icons_.shutdown(); // frees GL textures, so before the context goes with the overlay
     updater_.shutdown();
     net::shutdown();
     overlay_.shutdown();
@@ -250,6 +262,9 @@ void App::handle_event(const SDL_Event& e) {
         handle_action(static_cast<Action>(e.user.code));
     } else if (e.type == league_event_) {
         leagues_.on_done(e);
+    } else if (e.type == trade_event_) {
+        trade_.on_done(e);
+        listing_items_.clear(); // the rows they were parsed for may be gone; re-parse on hover
     } else if (e.type == data_event_) {
         if (auto gd = updater_.take_ready_bundle()) {
             data_ = std::move(gd);
@@ -386,7 +401,63 @@ void App::nudge_clipboard_handover(uint64_t elapsed) {
 void App::accept_clipboard(std::string text) {
     clipboard_ = std::move(text);
     strategy_override_.reset(); // a choice belongs to the item it was made for
+    trade_.clear();             // and so do the listings: they priced the previous item
+    listing_items_.clear();
     rebuild_plan();
+    // Off by default. A price check the user meant only to read the item with should not
+    // spend a request, which is why this is opt-in rather than the way the panel behaves.
+    if (config_.auto_search) start_search();
+}
+
+bool App::can_search() const {
+    return item_ && item_data_ && trade::searchable(plan_);
+}
+
+void App::start_search() {
+    if (!can_search()) return;
+    trade_.search(config_.league, trade::build_query(plan_, config_.listing_status),
+                  config_.result_count);
+    need_redraw_ = true;
+}
+
+/// The plan as it stands, handed to the trade site itself. Deliberately built from the
+/// filters rather than from a search we already ran: the id of a finished search would open
+/// whatever was ticked at the time, which is not what the panel is showing after the user
+/// has changed their mind about a mod.
+void App::open_search_in_browser() {
+    if (!can_search()) return;
+    const std::string url = trade::web_url_for_query(
+        config_.league, trade::build_query(plan_, config_.listing_status));
+    debug::log("[trade]  opening %s", url.c_str());
+    if (!SDL_OpenURL(url.c_str())) debug::log("[trade]  SDL_OpenURL failed: %s", SDL_GetError());
+}
+
+void App::load_more() {
+    trade_.load_more();
+    need_redraw_ = true;
+}
+
+const ListingItem* App::listing_item(size_t i) {
+    const std::vector<trade::Listing>& ls = trade_.results().listings;
+    if (i >= ls.size()) return nullptr;
+    if (listing_items_.size() != ls.size()) listing_items_.resize(ls.size());
+    std::optional<ListingItem>& slot = listing_items_[i];
+    if (slot) return &*slot;
+
+    ListingItem li;
+    li.item = item::parse_item(ls[i].item_text);
+    if (li.item) {
+        // The same snapshot the item in hand was pinned to, and for the same reason: the
+        // updater swaps `data_` from its own thread, and a resolved item points into the
+        // bundle it was matched in.
+        if (item_data_) item::resolve_item(*item_data_, *li.item);
+        li.derived = item::derive(item_data_.get(), *li.item);
+    } else if (!ls[i].item_text.empty()) {
+        debug::log("[trade]  listing %zu: %zu bytes of item text did not parse", i,
+                   ls[i].item_text.size());
+    }
+    slot = std::move(li);
+    return &*slot;
 }
 
 void App::rebuild_plan() {
@@ -441,7 +512,11 @@ void App::poll_click_away() {
     int wx = 0, wy = 0, ww = 0, wh = 0;
     SDL_GetWindowPosition(overlay_.window(), &wx, &wy);
     SDL_GetWindowSize(overlay_.window(), &ww, &wh);
-    if (gx < wx || gy < wy || gx >= wx + ww || gy >= wy + wh) set_screen(Screen::Hidden);
+    // Against the *panel*, not the window: the window now carries a transparent gutter beside
+    // it, and a click there is a click on the game, which has to dismiss like any other.
+    const float px = wx + layout_.panel_x;
+    const float pw = layout_.panel_w > 0 ? layout_.panel_w : float(ww);
+    if (gx < px || gy < wy || gx >= px + pw || gy >= wy + wh) set_screen(Screen::Hidden);
 }
 
 void App::handle_action(Action a) {
@@ -556,15 +631,32 @@ void App::place_overlay() {
         SDL_SetWindowSize(overlay_.window(), kSettingsW, kSettingsH);
         SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2,
                               gy + (gh - kSettingsH) / 2);
+        layout_ = PanelLayout{0, kSettingsW, 0, 0};
         return;
     }
 
     const int pw = std::clamp(config_.panel_width, 200, gw);
-    const int x = side_ == Side::Stash
-                      ? gx + static_cast<int>(gh * config_.stash_edge)
-                      : gx + gw - static_cast<int>(gh * config_.inventory_edge) - pw;
-    SDL_SetWindowSize(overlay_.window(), pw, gh);
-    SDL_SetWindowPosition(overlay_.window(), std::clamp(x, gx, gx + gw - pw), gy);
+    const int px = std::clamp(side_ == Side::Stash
+                                  ? gx + static_cast<int>(gh * config_.stash_edge)
+                                  : gx + gw - static_cast<int>(gh * config_.inventory_edge) - pw,
+                              gx, gx + gw - pw);
+
+    // The window is widened by a transparent gutter for the listing tooltip, taken from the
+    // side the panel is *not* docked against — over the game, never over the results. Docked
+    // left (right of the stash) it goes right; docked right (left of the inventory) it goes
+    // left. Only what is actually free is claimed, so the overlay never spills off the game.
+    const int free = side_ == Side::Stash ? (gx + gw) - (px + pw) : px - gx;
+    const int gutter = std::clamp(free, 0, pw);
+    const int wx = side_ == Side::Stash ? px : px - gutter;
+
+    SDL_SetWindowSize(overlay_.window(), pw + gutter, gh);
+    SDL_SetWindowPosition(overlay_.window(), wx, gy);
+    layout_ = side_ == Side::Stash
+                  ? PanelLayout{0, float(pw), float(pw), float(gutter)}
+                  : PanelLayout{float(gutter), float(pw), 0, float(gutter)};
+    debug::log("[app]    placed %s: window %dx%d+%d+%d, panel x=%.0f w=%.0f, tip x=%.0f w=%.0f",
+               side_ == Side::Stash ? "stash" : "inventory", pw + gutter, gh, wx, gy,
+               layout_.panel_x, layout_.panel_w, layout_.tip_x, layout_.tip_w);
 }
 
 // The state of everything the copy path depends on, in one place, written at each hotkey press

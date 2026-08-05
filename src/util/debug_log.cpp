@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "paths.hpp"
+#include "util/base64.hpp"
 
 namespace fs = std::filesystem;
 
@@ -87,32 +88,6 @@ std::string vformat(const char* fmt, va_list ap) {
     std::string s(static_cast<size_t>(n), '\0');
     std::vsnprintf(s.data(), s.size() + 1, fmt, ap);
     return s;
-}
-
-std::string base64(std::string_view in) {
-    static constexpr char kAlpha[] =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    std::string out;
-    out.reserve((in.size() + 2) / 3 * 4);
-    size_t i = 0;
-    for (; i + 2 < in.size(); i += 3) {
-        const uint32_t v = (static_cast<uint8_t>(in[i]) << 16) |
-                           (static_cast<uint8_t>(in[i + 1]) << 8) | static_cast<uint8_t>(in[i + 2]);
-        out += kAlpha[(v >> 18) & 63];
-        out += kAlpha[(v >> 12) & 63];
-        out += kAlpha[(v >> 6) & 63];
-        out += kAlpha[v & 63];
-    }
-    if (i < in.size()) {
-        uint32_t v = static_cast<uint8_t>(in[i]) << 16;
-        const bool two = i + 1 < in.size();
-        if (two) v |= static_cast<uint8_t>(in[i + 1]) << 8;
-        out += kAlpha[(v >> 18) & 63];
-        out += kAlpha[(v >> 12) & 63];
-        out += two ? kAlpha[(v >> 6) & 63] : '=';
-        out += '=';
-    }
-    return out;
 }
 
 } // namespace
@@ -222,7 +197,7 @@ void log_text(const char* label, std::string_view text) {
     const std::string_view head = text.substr(0, std::min(text.size(), kMaxTextBytes));
     log("%s: %zu bytes fnv=%s%s", label, text.size(), digest(text).c_str(),
         head.size() < text.size() ? " (base64 truncated)" : "");
-    if (!text.empty()) log("%s.b64: %s", label, base64(head).c_str());
+    if (!text.empty()) log("%s.b64: %s", label, base64_encode(head).c_str());
 }
 
 } // namespace ppc::debug
