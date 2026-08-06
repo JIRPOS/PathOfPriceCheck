@@ -1,0 +1,27 @@
+Item Class: Maps
+Rarity: Rare
+Evil Liturgy
+Shaper Guardian Map
+--------
+Item Quantity: +55% (augmented)
+Item Rarity: +32% (augmented)
+Monster Pack Size: +21% (augmented)
+--------
+Item Level: 83
+--------
+Monster Level: 83
+--------
+{ Implicit Modifier }
+Area is influenced by The Shaper
+--------
+{ Prefix Modifier "Feasting" (Tier: 1) }
+Area is inhabited by Cultists of Kitava
+{ Prefix Modifier "Buffered" (Tier: 1) }
+Monsters gain 47(40-49)% of Maximum Life as Extra Maximum Energy Shield
+{ Suffix Modifier "of Toughness" (Tier: 1) — Damage, Critical }
+Monsters take 39(36-40)% reduced Extra Damage from Critical Strikes
+{ Suffix Modifier "of Venom" (Tier: 1) — Chaos, Ailment }
+Monsters Poison on Hit
+(Poison deals Chaos Damage over time, based on the base Physical and Chaos Damage of the Skill. Multiple instances of Poison stack)
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 

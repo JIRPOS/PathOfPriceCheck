@@ -1,0 +1,24 @@
+Item Class: Maps
+Rarity: Unique
+Olmec's Sanctum
+Map (Tier 16)
+--------
+Item Quantity: +178% (augmented)
+--------
+Item Level: 85
+--------
+Monster Level: 83
+--------
+{ Unique Modifier — Life }
+40(40-50)% more Monster Life
+{ Unique Modifier — Damage }
+32(30-40)% increased Monster Damage
+{ Unique Modifier }
+Final Boss drops higher Level Items
+--------
+They flew, and leapt, and clambered over,
+They crawled, and swam, and slithered under.
+Still its ancient secrets await unclaimed
+And of this hidden temple, only legends remain.
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 

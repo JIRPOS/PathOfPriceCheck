@@ -130,6 +130,7 @@ TEST_CASE("an unbounded filter stays unbounded on the side it never had") {
 TEST_CASE("a unique is searched by name, with the base as its type") {
     SearchPlan p;
     p.strategy = Strategy::Unique;
+    p.rarity = "unique"; // the plan's own statement of which market this is
     p.name = "Tabula Rasa";
     p.type = "Simple Robe";
     p.category = "armour.chest";
@@ -137,6 +138,44 @@ TEST_CASE("a unique is searched by name, with the base as its type") {
     CHECK(q["name"] == "Tabula Rasa");
     CHECK(q["type"] == "Simple Robe");
     CHECK(q["filters"]["type_filters"]["filters"]["rarity"]["option"] == "unique");
+}
+
+TEST_CASE("a map's filters go in map_filters, and its tier is exact") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.category = "map";
+    p.type = "Map";
+    p.discriminator = "map";
+    ppc::item::NumericFilter tier{"map_tier", "Map Tier", 16, 16, true, 0, {}};
+    ppc::item::NumericFilter iiq{"map_iiq", "Item Quantity", 104, std::nullopt, true, 0, {}};
+    ppc::item::NumericFilter iir{"map_iir", "Item Rarity", 63, std::nullopt, false, 0, {}};
+    p.numerics = {tier, iiq, iir};
+    const json q = query_of(p);
+    const json& f = q["filters"]["map_filters"]["filters"];
+    // Exact, not a floor: a tier-16 map is a different area from a tier-14 one, not a better it.
+    CHECK(f["map_tier"]["min"] == 16);
+    CHECK(f["map_tier"]["max"] == 16);
+    CHECK(f["map_iiq"]["min"] == 104);
+    CHECK_FALSE(f.contains("map_iir")); // unticked, so never sent
+    // "Map" is the base of every tiered map *and* the prefix of every unique map's entry, so
+    // the discriminator has to ride on the type here rather than only on a name.
+    CHECK(q["type"]["option"] == "Map");
+    CHECK(q["type"]["discriminator"] == "map");
+}
+
+TEST_CASE("a unique map is searched as a unique, though it is planned as a map") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.rarity = "unique";
+    p.category = "map";
+    p.name = "Olmec's Sanctum";
+    p.type = "Map";
+    p.discriminator = "map";
+    const json q = query_of(p);
+    CHECK(q["filters"]["type_filters"]["filters"]["rarity"]["option"] == "unique");
+    CHECK(q["name"]["option"] == "Olmec's Sanctum");
+    CHECK(q["name"]["discriminator"] == "map");
+    CHECK(q["type"]["discriminator"] == "map");
 }
 
 TEST_CASE("a discriminator rides on whichever term was ambiguous") {

@@ -1,0 +1,38 @@
+Item Class: Maps
+Rarity: Rare
+Graven Secrets
+Map (Tier 16)
+--------
+Item Quantity: +104% (augmented)
+Item Rarity: +63% (augmented)
+Monster Pack Size: +40% (augmented)
+--------
+Item Level: 83
+--------
+Monster Level: 83
+--------
+{ Implicit Modifier }
+Map contains Baran's Citadel
+Item Quantity increases amount of Rewards Baran drops by 20% of its value
+--------
+{ Prefix Modifier "Twinned" (Tier: 1) }
+Area contains two Unique Bosses
+{ Prefix Modifier "Fecund" (Tier: 1) — Life }
+43(40-49)% more Monster Life
+{ Prefix Modifier "Ceremonial" (Tier: 1) }
+Area contains many Totems
+{ Prefix Modifier "Antagonist's" (Tier: 1) }
+28(20-30)% increased number of Rare Monsters
+{ Suffix Modifier "of Frenzy" (Tier: 1) }
+Monsters gain a Frenzy Charge on Hit
+{ Suffix Modifier "of Carnage" (Tier: 1) }
+Monsters Maim on Hit with Attacks
+(Maimed enemies have 30% reduced Movement Speed)
+{ Suffix Modifier "of Drought" (Tier: 1) }
+Players gain 50% reduced Flask Charges
+{ Suffix Modifier "of Imprecision" (Tier: 1) }
+Players have 25% less Accuracy Rating
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 
+--------
+Corrupted

@@ -155,7 +155,11 @@ void draw_name_plate(const Item& it, const Fonts& fonts) {
 
     ImGui::PushFont(fonts.small_caps, base * 1.15f);
     if (!it.name.empty()) draw_line(it.name, colour);
-    draw_line(it.base_type, colour);
+    // The tier is parsed off the base line, because no lookup knows "Map (Tier 16)" — but it
+    // is also the only thing on the plate that says which map this is, so it is put back.
+    draw_line(it.map_tier ? it.base_type + " (Tier " + std::to_string(*it.map_tier) + ")"
+                          : it.base_type,
+              colour);
     ImGui::PopFont();
     ImGui::Dummy(ImVec2(0, 2));
 }

@@ -24,6 +24,8 @@ std::string_view group_for(std::string_view key) {
     if (key == "ar" || key == "ev" || key == "es" || key == "ward") return "armour_filters";
     if (key == "dps" || key == "pdps" || key == "edps" || key == "aps" || key == "crit")
         return "weapon_filters";
+    if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize")
+        return "map_filters";
     return {};
 }
 
@@ -66,7 +68,8 @@ bool searchable(const item::SearchPlan& p) {
     switch (p.strategy) {
         case item::Strategy::BaseItem:
         case item::Strategy::Modifiers:
-        case item::Strategy::Unique: return true;
+        case item::Strategy::Unique:
+        case item::Strategy::Map: return true;
         default: return false;
     }
 }
@@ -128,10 +131,10 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
 
     json type_filters = json::object();
     if (!p.category.empty()) type_filters["category"] = json{{"option", p.category}};
-    // A unique and a rare are different markets even for the same base, and the strategy is
-    // exactly the statement of which one is being priced.
-    type_filters["rarity"] =
-        json{{"option", p.strategy == item::Strategy::Unique ? "unique" : "nonunique"}};
+    // A unique and a rare are different markets even for the same base, and which of the two is
+    // being priced is the plan's own statement — a unique map is planned as a map, so reading
+    // it back off the strategy would search it among the rare ones.
+    if (!p.rarity.empty()) type_filters["rarity"] = json{{"option", p.rarity}};
 
     json misc = json::object();
     if (p.corrupted) misc["corrupted"] = option(*p.corrupted);
@@ -141,14 +144,17 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     for (const item::Influence i : p.influences)
         if (const std::string_view k = influence_key(i); !k.empty()) misc[std::string(k)] = option(true);
 
-    json armour = json::object(), weapon = json::object();
+    json armour = json::object(), weapon = json::object(), map = json::object();
     for (const item::NumericFilter& f : p.numerics) {
         if (!f.enabled) continue;
         const std::string_view g = group_for(f.key);
         if (g.empty()) continue;
         json v = bounds(f.min, f.max);
         if (v.empty()) continue;
-        (g == "misc_filters" ? misc : g == "armour_filters" ? armour : weapon)[f.key] = std::move(v);
+        (g == "misc_filters"     ? misc
+         : g == "armour_filters" ? armour
+         : g == "map_filters"    ? map
+                                 : weapon)[f.key] = std::move(v);
     }
 
     json filters = json::object();
@@ -156,6 +162,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!misc.empty()) filters["misc_filters"] = json{{"filters", std::move(misc)}};
     if (!armour.empty()) filters["armour_filters"] = json{{"filters", std::move(armour)}};
     if (!weapon.empty()) filters["weapon_filters"] = json{{"filters", std::move(weapon)}};
+    if (!map.empty()) filters["map_filters"] = json{{"filters", std::move(map)}};
 
     json q = json::object();
     q["status"] = json{{"option", valid_status(status) ? status : kDefaultStatus}};
@@ -163,10 +170,12 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     // none, because it is bought for its modifiers and the category already says where those
     // can live, while a rare *flask* names one, because the base is half of what the same
     // modifiers are worth. See item/plan.
-    if (p.strategy == item::Strategy::Unique && !p.name.empty())
-        q["name"] = term(p.name, p.discriminator);
+    if (!p.name.empty()) q["name"] = term(p.name, p.discriminator);
+    // A unique's discriminator belongs to its name, which is what the site disambiguates —
+    // except on a map, where the type "Map" carries the same one and needs it too.
     if (!p.type.empty())
-        q["type"] = term(p.type, p.strategy == item::Strategy::Unique ? std::string() : p.discriminator);
+        q["type"] = term(p.type, p.strategy == item::Strategy::Unique ? std::string()
+                                                                      : p.discriminator);
     q["stats"] = json::array({json{{"type", "and"}, {"filters", std::move(stats)}}});
     q["filters"] = std::move(filters);
 

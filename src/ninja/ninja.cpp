@@ -18,8 +18,8 @@ namespace {
 /// kebab-case of the category name, verified against the live pages rather than derived — the
 /// two do not always agree, and a wrong slug is a link to a 404.
 ///
-/// Deliberately not the whole list: what is missing is what nothing here can reach. Maps are
-/// priced by tier and a map never gets this far (`Strategy::Unsupported`), and the rest —
+/// Deliberately not the whole list: what is missing is what nothing here can reach. A map is
+/// priced by a trade search on its tier and never gets this far (`Strategy::Map`), and the rest —
 /// incubators, beasts, memories, temples — has no strategy behind it either.
 constexpr Category kCategories[] = {
     {Feed::Exchange, "Currency", "currency"},

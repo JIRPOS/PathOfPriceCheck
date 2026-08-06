@@ -89,7 +89,9 @@ Code affix_code(const item::Modifier& m) {
 /// but are still two affixes, and the user is picking which to keep.
 std::vector<Code> affix_codes(const item::Item& it, const item::StatFilter& f) {
     std::vector<Code> out;
-    if (Code c = affix_code(it.mods[f.mod_index]); !c.text.empty()) out.push_back(std::move(c));
+    // A pseudo total has no modifier behind it to have come from a side of the pool.
+    if (!f.mod_index) return out;
+    if (Code c = affix_code(it.mods[*f.mod_index]); !c.text.empty()) out.push_back(std::move(c));
     for (const size_t i : f.merged)
         if (Code c = affix_code(it.mods[i]); !c.text.empty()) out.push_back(std::move(c));
     return out;
@@ -100,7 +102,10 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     ImGui::SameLine();
     // A rolled item can be worth more as a base than as the sum of its mods — a fractured
     // mod, a good influence, a high item level — and only the user knows which they meant.
-    if (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare) {
+    // Not a map: neither reading is what a map is bought for, and its own strategy covers
+    // every rarity it prints.
+    if (!it.is_map() &&
+        (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare)) {
         for (const item::Strategy s : {item::Strategy::Modifiers, item::Strategy::BaseItem}) {
             const bool on = plan.strategy == s;
             if (ImGui::RadioButton(std::string(item::to_string(s)).c_str(), on) && !on)
@@ -586,8 +591,6 @@ void draw_search_controls(App& app) {
 /// Why there is **no** search, for the items that get none at all. The filters, the buttons and
 /// the listings are all gone for these, and an item sitting alone under two price rows with no
 /// word about it reads as a check that gave up rather than as one that has already finished.
-/// A map is the case that has to keep working: poe.ninja prices nothing about one either, so
-/// the plan's own note is the only thing on screen that says why.
 void draw_no_search_note(App& app) {
     ImGui::PushTextWrapPos(0.0f);
     if (app.currency_exchange().listing()) {

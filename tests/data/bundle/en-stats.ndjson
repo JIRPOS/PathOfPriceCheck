@@ -17,3 +17,6 @@
 {"better":1,"matchers":[{"string":"Used when Charges reach full"}],"ref":"Used when Charges reach full","trade":{"ids":{"enchant":["enchant.stat_3287581721"]}}}
 {"better":1,"matchers":[{"string":"#% Chance to Block Attack Damage during Effect"}],"ref":"#% Chance to Block Attack Damage during Effect","trade":{"ids":{"explicit":["explicit.stat_2519106214"]}}}
 {"better":1,"matchers":[{"string":"#% Chance to Block Spell Damage during Effect"}],"ref":"#% Chance to Block Spell Damage during Effect","trade":{"ids":{"explicit":["explicit.stat_215754572"]}}}
+{"better":1,"matchers":[{"string":"Area is influenced by The Shaper","value":1.0}],"ref":"Area is influenced by The Shaper","trade":{"ids":{"implicit":["implicit.stat_1792283443|1"]}}}
+{"better":1,"matchers":[{"string":"Map contains Baran's Citadel\nItem Quantity increases amount of Rewards Baran drops by #% of its value"}],"ref":"Map contains Baran's Citadel\nItem Quantity increases amount of Rewards Baran drops by #% of its value","trade":{"ids":{"implicit":["implicit.stat_2563183002|1"]}}}
+{"better":1,"matchers":[{"string":"Monsters have #% chance to Hinder on Hit with Spells"},{"string":"Monsters Hinder on Hit with Spells","value":100.0}],"ref":"Monsters have #% chance to Hinder on Hit with Spells","trade":{"ids":{"explicit":["explicit.stat_962720646"],"fractured":["fractured.stat_962720646"]}}}

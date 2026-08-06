@@ -105,6 +105,8 @@ bool Item::is_map_fragment() const {
     return item_class == "Map Fragments" || item_class == "Misc Map Items";
 }
 
+bool Item::is_map() const { return item_class == "Maps"; }
+
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }

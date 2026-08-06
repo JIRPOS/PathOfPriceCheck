@@ -20,6 +20,7 @@ enum class Strategy : uint8_t {
     Unique,      ///< the named item, with its variable rolls
     Currency,    ///< priced in bulk, not searched  (not implemented yet)
     Gem,         ///< level / quality / alternate quality  (not implemented yet)
+    Map,         ///< tier or area, the drop bonuses, implicits and enchants — never the affixes
     Unsupported
 };
 
@@ -27,7 +28,10 @@ std::string_view to_string(Strategy s);
 
 /// One modifier turned into a trade stat filter.
 struct StatFilter {
-    size_t mod_index = 0;   ///< into `Item::mods`
+    /// Into `Item::mods`, or absent for a filter no single modifier is behind: trade's
+    /// `pseudo.*` totals — a map's drop bonuses, which the game prints as properties, and its
+    /// count of affixes, which is a fact about the whole item.
+    std::optional<size_t> mod_index;
     /// The other modifiers folded into this filter by `merge_same_stat`, also into
     /// `Item::mods`. Two rolls of one stat are searched as their total, but they are still two
     /// affixes, and which two is what the tier display is about.
@@ -73,6 +77,11 @@ struct SearchPlan {
     std::string name;     ///< trade `name` term — the unique's name
     std::string type;     ///< trade `type` term — the base type
     std::string discriminator; ///< set when the base's name alone is ambiguous on trade
+    /// The trade `rarity` option. Which market is being priced is the plan's call and not the
+    /// query builder's: a unique map is planned as a map, and reading it back off the strategy
+    /// would search it among the rares. Defaulted rather than left empty, because an empty one
+    /// is a search across both markets at once and nothing here ever means that.
+    std::string rarity = "nonunique";
 
     std::optional<bool> corrupted; ///< match exactly; corruption always matters
     bool synthesised = false, fractured = false, mirrored = false;

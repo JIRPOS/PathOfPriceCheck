@@ -1,0 +1,34 @@
+Item Class: Maps
+Rarity: Rare
+Rune Portent
+Map (Tier 16)
+--------
+Item Quantity: +71% (augmented)
+Item Rarity: +42% (augmented)
+Monster Pack Size: +27% (augmented)
+--------
+Item Level: 83
+--------
+Monster Level: 83
+--------
+{ Implicit Modifier }
+Area is influenced by The Elder
+Map is occupied by The Enslaver
+--------
+{ Prefix Modifier "Resistant" (Tier: 1) — Elemental, Chaos, Resistance }
++25% Monster Chaos Resistance
++40% Monster Elemental Resistances
+{ Prefix Modifier "Fleet" (Tier: 1) — Attack, Caster, Speed }
+27(25-30)% increased Monster Movement Speed
+43(35-45)% increased Monster Attack Speed
+38(35-45)% increased Monster Cast Speed
+{ Suffix Modifier "of Rust" (Tier: 1) — Defences, Armour }
+Players have 30% less Armour
+Players have 40% reduced Chance to Block
+{ Suffix Modifier "of Smothering" (Tier: 1) — Life, Defences, Energy Shield }
+Players have 60% less Recovery Rate of Life and Energy Shield
+{ Suffix Modifier "of Blinding" (Tier: 1) }
+Monsters Blind on Hit
+(Being Blinded causes 20% less Accuracy Rating and Evasion Rating, for 4 seconds)
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 

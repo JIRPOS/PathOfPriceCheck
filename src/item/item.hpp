@@ -125,6 +125,9 @@ struct Item {
 
     std::vector<Property> properties; ///< every property line, in printed order
     std::optional<int> item_level, quality;
+    /// The tier the base line printed, "Map (Tier 16)". Absent on a map that names its own
+    /// area instead ("Shaper Guardian Map"), and on everything that is not a map.
+    std::optional<int> map_tier;
     std::string quality_kind; ///< catalyst quality's parenthetical, e.g. "Critical Modifiers"
     Requirements req;
     std::string sockets;      ///< as printed: "R-G-B"
@@ -159,6 +162,9 @@ struct Item {
     /// "Map Fragments" or "Misc Map Items". Printed as Normal rarity but currency-like: no
     /// modifiers, no base to compare, bought and sold as a stack.
     bool is_map_fragment() const;
+    /// A map proper — the "Maps" item class. Not a fragment, which is a different class and a
+    /// different market entirely.
+    bool is_map() const;
     bool has_defences() const;
     /// True for the rarities whose mods are rolled from a pool, i.e. tier-matchable. False for
     /// a map fragment, whose Normal rarity says nothing about it.

@@ -1,0 +1,42 @@
+Item Class: Maps
+Rarity: Rare
+Forbidden Gambit
+Map (Tier 16)
+--------
+Item Quantity: +110% (augmented)
+Item Rarity: +192% (augmented)
+Monster Pack Size: +42% (augmented)
+More Maps: +70% (augmented)
+More Scarabs: +53% (augmented)
+--------
+Item Level: 85
+--------
+Monster Level: 83
+--------
+{ Implicit Modifier }
+Area is Influenced by the Originator's Memories
+--------
+{ Prefix Modifier "Prismatic" (Tier: 1) }
+Monsters gain 196(180-200)% of their Physical Damage as Extra Damage of a random Element
+{ Prefix Modifier "Volatile" (Tier: 1) }
+Rare Monsters have Volatile Cores
+{ Prefix Modifier "Freezing" — Damage, Physical, Elemental, Cold }
+Monsters deal 108(90-110)% extra Physical Damage as Cold
+{ Prefix Modifier "Titan's" — Life }
+Unique Boss has 35% increased Life
+Unique Boss has 70% increased Area of Effect
+{ Suffix Modifier "of Endurance" (Tier: 1) }
+Monsters have +1 to Maximum Endurance Charges
+Monsters gain an Endurance Charge when hit
+{ Suffix Modifier "of Frenzy" (Tier: 1) }
+Monsters have +1 to Maximum Frenzy Charges
+Monsters gain a Frenzy Charge on Hit
+{ Suffix Modifier "of Rust" — Defences, Armour }
+Players have 30% less Armour
+Players have 40% reduced Chance to Block
+{ Suffix Modifier "of Impotence" (Tier: 1) }
+Players have 25(30-25)% less Area of Effect
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 
+--------
+Corrupted

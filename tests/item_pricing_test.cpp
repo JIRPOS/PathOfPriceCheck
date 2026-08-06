@@ -750,3 +750,203 @@ TEST_CASE("a map item is a bulk good or an item, and the item level is what says
     rare.item_level.reset();
     CHECK(default_strategy(rare) == Strategy::Currency);
 }
+
+TEST_CASE("a map is priced on where it goes and what was spent on it, never on its affixes") {
+    auto gd = fixture();
+
+    SUBCASE("a corrupted tier-16 rare") {
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.category == "map");
+        CHECK(p.rarity == "nonunique");
+        // Every ordinary map shares one base, so the type says almost nothing and the tier
+        // says the rest. Exact on both ends: a tier-16 map is a different area, not a better one.
+        CHECK(p.type == "Map");
+        CHECK(p.discriminator == "map");
+        const NumericFilter* tier = numeric_for(p, "map_tier");
+        REQUIRE(tier != nullptr);
+        CHECK(tier->enabled);
+        CHECK(tier->min == 16);
+        CHECK(tier->max == 16);
+
+        // Quantity and pack size are what the map is run for; rarity is a preference, and
+        // imposing it would drop the cheaper copies of the same map.
+        REQUIRE(numeric_for(p, "map_iiq") != nullptr);
+        CHECK(numeric_for(p, "map_iiq")->enabled);
+        CHECK(numeric_for(p, "map_iiq")->min == 104);
+        REQUIRE(numeric_for(p, "map_packsize") != nullptr);
+        CHECK(numeric_for(p, "map_packsize")->enabled);
+        REQUIRE(numeric_for(p, "map_iir") != nullptr);
+        CHECK_FALSE(numeric_for(p, "map_iir")->enabled);
+
+        // Four prefixes and four suffixes: eight, which only corruption allows and which is
+        // most of what this map is worth. Trade indexes it as a total, not as the affixes.
+        const StatFilter* count = filter_for(p, "pseudo.pseudo_number_of_affix_mods");
+        REQUIRE(count != nullptr);
+        CHECK(count->enabled);
+        CHECK(count->min == 8);
+        CHECK_FALSE(count->mod_index.has_value());
+
+        // Not one of those eight is a filter, and not one is a note either: they are left out
+        // deliberately, and "unrecognised modifier" would charge the check with failing at it.
+        for (const StatFilter& f : p.stats)
+            CHECK(f.type != ppc::data::ModType::Explicit);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a map with no implicit is its tier and its affix count, and nothing else") {
+        const Item it = resolved(*gd, capture("map-rare-8mod-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        REQUIRE(p.stats.size() == 1);
+        CHECK(p.stats[0].id == "pseudo.pseudo_number_of_affix_mods");
+        CHECK(p.stats[0].min == 8);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a fixed number is not a bound, only the modifier's presence is") {
+        // The number in "…drops by 20% of its value" says 20 on every Baran map, and the one
+        // behind "Area is influenced by The Elder" is not in the clipboard at all — it is the
+        // constant the matcher substitutes for the influence. Neither is what trade indexes
+        // the stat on: asking for them returned 0 listings against 1705 and 10000.
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* baran = filter_for(p, "implicit.stat_2563183002|1");
+        REQUIRE(baran != nullptr);
+        CHECK(baran->enabled); // the filter stays; only its number goes
+        CHECK_FALSE(baran->min.has_value());
+        CHECK_FALSE(baran->max.has_value());
+    }
+
+    SUBCASE("an uncorrupted map is not searched on its affix count") {
+        // Six is what every rare map has, so filtering on it would drop the identical ones.
+        const Item it = resolved(*gd, capture("map-rare-guardian.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(filter_for(p, "pseudo.pseudo_number_of_affix_mods") == nullptr);
+        // No tier printed, so the base's own name is the whole of what says which area it is.
+        CHECK(p.type == "Shaper Guardian Map");
+        CHECK(numeric_for(p, "map_tier") == nullptr);
+        // The implicit is the one modifier a currency cannot re-roll, so it is searched on.
+        const StatFilter* shaper = filter_for(p, "implicit.stat_1792283443|1");
+        REQUIRE(shaper != nullptr);
+        CHECK(shaper->enabled);
+    }
+
+    SUBCASE("the drop bonuses a chisel adds are pseudo stats, not properties trade knows") {
+        const Item it = resolved(*gd, capture("map-rare-more-drops.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        for (const auto& [id, value] : {std::pair{"pseudo.pseudo_map_more_map_drops", 70.0},
+                                        std::pair{"pseudo.pseudo_map_more_scarab_drops", 53.0}}) {
+            const StatFilter* f = filter_for(p, id);
+            REQUIRE_MESSAGE(f != nullptr, id);
+            CHECK(f->enabled);
+            CHECK(f->min == value);
+            CHECK_FALSE(f->mod_index.has_value());
+        }
+        // The two the map does not have are not asked for at all.
+        CHECK(filter_for(p, "pseudo.pseudo_map_more_currency_drops") == nullptr);
+        CHECK(filter_for(p, "pseudo.pseudo_map_more_card_drops") == nullptr);
+    }
+
+    SUBCASE("a unique map is its name and its tier") {
+        const Item it = resolved(*gd, capture("map-unique-olmecs.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.rarity == "unique");
+        CHECK(p.name == "Olmec's Sanctum");
+        CHECK(p.type == "Map");
+        CHECK(p.discriminator == "map");
+        REQUIRE(numeric_for(p, "map_tier") != nullptr);
+        CHECK(numeric_for(p, "map_tier")->min == 16);
+        // Its own modifiers are the same on every copy; the name already says them.
+        CHECK(p.stats.empty());
+    }
+
+    SUBCASE("a white map is its tier and nothing else") {
+        const Item it = resolved(*gd, capture("map-normal-t4.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.stats.empty());
+        REQUIRE(numeric_for(p, "map_tier") != nullptr);
+        CHECK(numeric_for(p, "map_tier")->min == 4);
+        CHECK(numeric_for(p, "map_iiq") == nullptr);
+    }
+
+    SUBCASE("without Advanced Mod Descriptions there is no affix count to give") {
+        Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        for (Modifier& m : it.mods) m.affix = Affix::Unknown;
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(filter_for(p, "pseudo.pseudo_number_of_affix_mods") == nullptr);
+        CHECK(p.notes.size() == 1); // said, rather than silently counted as zero
+    }
+}
+
+TEST_CASE("a number with no roll range behind it is not a bound") {
+    auto gd = fixture();
+
+    SUBCASE("with Advanced Mod Descriptions on, no range means the modifier does not roll") {
+        // The suffix prints its range and the enchant does not, on the same item — so the
+        // absence on the enchant is the game saying that one is the same on every copy.
+        const Item it = resolved(*gd, R"(Item Class: Utility Flasks
+Rarity: Magic
+Granite Flask of the Sky
+--------
+Lasts 4.50 Seconds
+Consumes 30 of 60 Charges on use
+--------
+Item Level: 84
+--------
+{ Enchant Modifier }
+Used when Charges reach full
+--------
+{ Suffix Modifier "of the Sky" (Tier: 1) — Elemental, Cold, Resistance }
++47(46-48)% to Cold Resistance
+)");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* enchant = filter_for(p, "enchant.stat_3287581721");
+        REQUIRE(enchant != nullptr);
+        CHECK(enchant->enabled);
+        CHECK_FALSE(enchant->min.has_value());
+        const StatFilter* cold = filter_for(p, "explicit.stat_4220027924");
+        REQUIRE(cold != nullptr);
+        CHECK(cold->min == doctest::Approx(46));
+        CHECK(cold->max == doctest::Approx(48));
+    }
+
+    SUBCASE("a tier is itself a range, printed or not") {
+        // A different tier is a different number, so "no worse than what this one gave" is a
+        // real question even where the tier holds one value. Same for a rank, and for the
+        // qualifier an eldritch implicit prints in place of a range it has no way to state.
+        const Item it = resolved(*gd, R"(Item Class: Body Armours
+Rarity: Rare
+Doom Shroud
+Vaal Regalia
+--------
+Energy Shield: 200
+--------
+Item Level: 84
+--------
+{ Prefix Modifier "Urchin's" (Tier: 3) — Life }
++42 to maximum Life
+{ Suffix Modifier "of the Sky" (Tier: 1) — Elemental, Cold, Resistance }
++47(46-48)% to Cold Resistance
+)");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
+        REQUIRE(life != nullptr);
+        CHECK(life->min == doctest::Approx(42));
+    }
+
+    SUBCASE("with them off, no range means nothing and every roll keeps its floor") {
+        // Nothing on the item prints a range, so their absence is evidence of the setting
+        // rather than of a fixed modifier — and stripping the bounds here would search a rare
+        // for "has a life modifier".
+        const Item it = resolved(*gd, kRareChest);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
+        REQUIRE(life != nullptr);
+        CHECK(life->min == doctest::Approx(42));
+        CHECK_FALSE(life->tiered);
+    }
+}

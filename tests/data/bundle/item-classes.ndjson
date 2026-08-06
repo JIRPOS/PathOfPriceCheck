@@ -5,3 +5,4 @@
 {"id":"DivinationCard","itemClass":"Divination Cards","tradeCategory":"card"}
 {"id":"Jewel","itemClass":"Jewels","tradeCategory":"jewel.base"}
 {"id":"UtilityFlask","itemClass":"Utility Flasks","tradeCategory":"flask"}
+{"id":"MapKey","itemClass":"Maps","tradeCategory":"map"}

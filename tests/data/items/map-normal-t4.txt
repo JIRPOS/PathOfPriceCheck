@@ -1,0 +1,9 @@
+Item Class: Maps
+Rarity: Normal
+Map (Tier 4)
+--------
+Item Level: 78
+--------
+Monster Level: 71
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 

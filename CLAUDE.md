@@ -8,7 +8,8 @@ The overlay, Settings, the league list, the **static game-data layer**, the **it
 (parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) and the
 **trade search** (query builder, two-step client, shared rate limiter, results in the panel) are
 built and tested, including the **per-unique modifier data** that decides which of a unique's
-modifiers are worth searching on. **poe.ninja reference pricing** — uniques, gems, currency and
+modifiers are worth searching on and the **map search**, which asks for none of the things a
+rolled item's search does. **poe.ninja reference pricing** — uniques, gems, currency and
 base types, the going rates a stat query cannot give — is built too, and so is the **in-game
 currency exchange feed** (GGG's own hourly digests of the market currency and fragments actually
 trade on, which is why those items have no trade search at all).
@@ -256,8 +257,8 @@ the window still swallows mouse input everywhere it covers.
 
 **The item being priced is drawn at the top of that gutter, not at the top of the panel**
 (`draw_item_card`), and the panel therefore begins at the filters — *unless there are no filters*,
-which is the case for every item the trade site cannot be asked about (currency, a card, a gem, a
-map, anything the in-game exchange trades). There the whole search half of the panel is gone, so
+which is the case for every item the trade site cannot be asked about (currency, a card, a gem,
+anything the in-game exchange trades). There the whole search half of the panel is gone, so
 the item moves back into the column it left and the panel is the item and its reference prices. Every screen is wider than it is
 tall, so the panel's column runs out of *height* long before the window runs out of width — at 1080p
 and below the item, the filters and the listings were all competing for the same few hundred pixels.
@@ -488,10 +489,36 @@ bundle, and only the third and fourth encode pricing judgement.
   which not every copy of that unique carries — and anything the player *crafted onto this copy*
   (`added_to_copy`: enchant, crafted, fractured, scourge, veiled, crucible). An enchant costs
   currency and is most of what an enchanted copy sells for, so leaving it out prices a different
-  item. A `Maps` item class is `Unsupported`: a map is not
-  priced on its mods, and pricing one as a rare would search for gear carrying map mods. A **map
+  item. A `Maps` item class is `Map` at every rarity it prints — see below. A **map
   fragment** (scarab, ember, splinter, invitation) is `Currency` whatever its rarity line says —
   see the poe.ninja section.
+  **A number that is not a roll is not a bound.** A fixed modifier says the same thing on every
+  copy of itself, and asking the trade site to compare its number asks it to compare a value it
+  does not index the stat on — which matches *nothing*, so the price check comes back empty and
+  reads as an item nobody wants. Measured, not inferred: a map's Baran implicit ("Item Quantity
+  increases amount of Rewards Baran drops by 20% of its value") returned **0 listings with
+  `min: 20` against 1705 without it**, and "Area is influenced by The Elder" — whose number is
+  not in the clipboard at all, but the constant `StatMatcher::value` substitutes for the
+  influence — **0 against 10000**. The filter stays and only its number goes, so the search asks
+  for the modifier being present, which is the only thing a fixed modifier can be asked about.
+  What says a number is fixed is that the game printed **no range beside it**, and that is only
+  evidence on an item that printed ranges *somewhere* — with Advanced Mod Descriptions off
+  nothing carries one, and reading their absence as "fixed" would strip the floor off every real
+  roll and search a rare for "has a life modifier". Hence `ranges_printed`, asked of the whole
+  item, because the setting is a property of the owner rather than of the modifier. A **map**
+  needs no such evidence and is exempt: no number one of its implicits or enchants carries is
+  ever a roll.
+  **A tier or a rank is itself a range**, printed or not, and outranks all of the above: a
+  different tier is a different number, so "no worse than what this one gave" is a real question
+  even where the tier holds a single value. It is also the only way an **eldritch implicit** can
+  say its number moves — its magnitude comes from the tier of the currency that put it there, so
+  the clipboard has no range to print and states the rank instead
+  (`{ Eater of Worlds Implicit Modifier (Lesser) }` → `Modifier::qualifier`).
+  **Where the bundle knows a range the clipboard does not print, the bundle wins**:
+  `apply_unique_mods` restores the bound the moment the per-unique data says the modifier rolls,
+  because a range is a range whichever source stated it. The one thing that does *not* work in
+  reverse is a record calling a modifier fixed — the item's own printed range outranks a record
+  about the unique in general.
   An unbounded filter asks for "no worse than this", and **worse is not always smaller**: a mod
   the game prints negative is better the more negative it is (an eldritch implicit applying `-11%`
   to Cold Resistance — its magnitude comes from the currency tier, so the clipboard prints no range
@@ -525,6 +552,48 @@ bundle, and only the third and fourth encode pricing judgement.
   filter list. `UniqueMods::unlisted` — a pool stated in prose but never
   enumerated — becomes a note, so the app says what it is leaving out.
   [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
+- **`item/plan`'s map strategy** (`plan_map`, `add_map_pseudo`) is `Strategy::Map`, and it is the
+  one strategy that searches on **none** of an item's affixes. A map's prefixes and suffixes are
+  re-rollable with a single Chaos Orb; the buyer is choosing how dangerous a map they want, not
+  which affix it has, and a query naming them would find the one copy in the league that rolled
+  that set. So they are not filters and **not notes either** — they are left out on purpose, in
+  front of the reader (the item card beside the panel), and "unrecognised modifier: Players have
+  25% less Accuracy Rating" would charge the check with failing at something it never attempted.
+  What is searched instead:
+  - **Which area it is.** Every ordinary map now shares the one base type, printed as
+    `Map (Tier 16)`, so the tier is the whole of what tells two apart; `parse_header` takes it off
+    into `Item::map_tier` because no lookup knows the parenthetical, and `draw_name_plate` puts it
+    back on screen. The filter is `map_filters.map_tier` with **min == max**: a tier-16 map is a
+    different area from a tier-14 one, not a better one. A map that names its own area instead
+    (`Shaper Guardian Map`, `Nightmare Map`) prints no tier and is matched by that name alone.
+    A **unique** map is its name plus that tier; its own modifiers are on every copy. The
+    `map` **discriminator** the bundle's `Map` record carries is load-bearing here rather than a
+    tie-break: a query sending the type as a bare `"Map"` is accepted and matches nothing, which
+    reads as an empty market rather than as a search that could not be built — so a bundle
+    without that record gets a note instead.
+  - **What the map does for you.** `map_iiq` and `map_packsize` on by default, `map_iir` off —
+    rarity is a preference, and imposing it drops the cheaper copies of the same map. All three
+    come off the game's own property lines.
+  - **The four drop bonuses a Maven's chisel adds** — `More Maps`, `More Scarabs`, `More Currency`,
+    `More Divination Cards` — which the game also prints as *properties* and which trade has no
+    `map_filters` entry for. They are `pseudo.*` stats (`pseudo_map_more_map_drops` and its three
+    siblings, which is all of them in `/api/trade/data/stats`), enabled when present.
+  - **How many affixes it has, as a total**, and **only on a corrupted map**: six is what every
+    rare map has, and eight is what only corruption allows and most of what such a map is worth.
+    `pseudo.pseudo_number_of_affix_mods`. The side of the pool is printed only by Advanced Mod
+    Descriptions, so with that off there is no count to give and the plan says so rather than
+    counting zero. Continuation lines are counted out — one affix can print two.
+  - **The implicit and any enchant**, on by default, and **on presence rather than on their
+    numbers** — see the bound rule above, which a map is exempt from needing evidence for. The
+    implicit is the one modifier a currency cannot re-roll, and it is what names the boss, the
+    influence or the memory.
+
+  Two things this needed elsewhere. `StatFilter::mod_index` is an `optional` now, because a pseudo
+  total has no single modifier behind it; anything walking back to `Item::mods` has to check.
+  And **`SearchPlan::rarity` carries the trade `rarity` option**, because a unique map is planned
+  as a map — reading the option back off the strategy, as `build_query` used to, searched it
+  among the rares. It defaults to `nonunique`, since an empty one is a search across both markets
+  at once and nothing here ever means that.
 
 ### The trade layer (built)
 
@@ -535,7 +604,8 @@ bundle, and only the third and fourth encode pricing judgement.
   the interval end for end as well as in sign: 77..90 as the game prints it is -90..-77 as the site
   indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
   contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
-  (`misc_filters`, `armour_filters`, `weapon_filters`) and rejects one filed in the wrong place.
+  (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`) and rejects one filed in the
+  wrong place.
   Whether the search names a `type` is the **plan's** call and this layer sends whatever it was
   given: a `Modifiers` plan leaves it empty (a rare is bought for its mods, and the category
   already says where those can live) **except on a flask**, where it names the base.
@@ -698,7 +768,9 @@ which is the only way to iterate on it without the game running. Captures live i
 `tests/data/examples/` — each `item_N.txt` is a real clipboard capture paired with `item_N.jpeg`, a
 screenshot of the same tooltip, which is what the rendering is checked against. `tests/data/items/`
 holds the captures with no screenshot beside them — two transcribed from one (the rapier and the
-Elder bow), the map fragments and invitation, and `currency-chaos-stack.txt`, which is **written
+Elder bow), the map fragments and invitation, the nine `map-*.txt` maps (every shape one comes in:
+tiered rare, corrupted eight-mod, chiselled for extra drops, magic, white, unique, and the two that
+name their own area instead of printing a tier), and `currency-chaos-stack.txt`, which is **written
 rather than captured**: it is a 6000/20 stack, the case a currency stash tab makes ordinary and
 nothing else covers. Prefer a real capture for anything new.
 
@@ -965,9 +1037,11 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
   and the build now reports `wordings_ambiguous_in_a_namespace` so a regression is visible.
   **Do not "fix" the app side by picking a record.** Two ids behind one wording is a filter on the
   wrong stat half the time, and a confident wrong price is the failure mode this whole layer avoids.
-- **Pseudo mods** — trade's `pseudo.*` totals (total resistances, total life) are not built; mods are
-  matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance` and the
-  rest), so this is a plan-layer job, not a data one.
+- **Pseudo mods on gear** — trade's `pseudo.*` totals (total resistances, total life) are not built;
+  mods are matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance`
+  and the rest), so this is a plan-layer job, not a data one. A map's pseudo stats *are* built (see
+  `item/plan`'s map strategy) and are the shape to copy: the ids are literals in the plan layer,
+  because trade publishes them and no bundle record is involved.
 - **A data-repo bug, not an app one: `dp` is missing on stats whose trade wording matched no game
   description.** `emit/stats.py` takes `dp` from the description's variant modifiers, so a stat that
   fell back to trade's own wording gets none — `#% of Physical Attack Damage Leeched as Mana` is one,

@@ -56,6 +56,15 @@ STATS = [
     # what the per-unique data has to say next to the enchant it says nothing about.
     "#% Chance to Block Attack Damage during Effect",
     "#% Chance to Block Spell Damage during Effect",
+    # A map's implicit — the one thing about a map that a currency cannot re-roll, and the only
+    # kind of modifier a `Strategy::Map` plan searches on.
+    "Area is influenced by The Shaper",
+    # A two-line implicit, which is one stat and therefore one filter — the map's affixes are
+    # printed in exactly the same shape and must still come out as none.
+    "Map contains Baran's Citadel\n"
+    "Item Quantity increases amount of Rewards Baran drops by #% of its value",
+    # And a map affix, which that plan must leave out without calling it unrecognised.
+    "Monsters have #% chance to Hinder on Hit with Spells",
 ]
 
 ITEMS = [
@@ -74,6 +83,12 @@ ITEMS = [
     "ITEM::Silver Flask",
     "ITEM::Granite Flask",
     "UNIQUE::Rumi's Concoction",
+    # The three shapes a map's identity comes in: the one base every tiered map shares (which
+    # is why the tier is the whole of what tells them apart), a map that names its own area
+    # instead, and a unique map, whose record carries the same "map" discriminator the base does.
+    "ITEM::Map",
+    "ITEM::Shaper Guardian Map",
+    "UNIQUE::Olmec's Sanctum",
 ]
 
 UNIQUE_MODS = [
@@ -83,7 +98,7 @@ UNIQUE_MODS = [
 ]
 
 ITEM_CLASSES = ["Rings", "Boots", "Body Armours", "Stackable Currency", "Divination Cards",
-                "Jewels", "Utility Flasks"]
+                "Jewels", "Utility Flasks", "Maps"]
 
 LANG = "en"
 
