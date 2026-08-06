@@ -136,6 +136,8 @@ add_library(ppc_core STATIC
   src/item/plan.cpp
   src/ninja/ninja.cpp
   src/ninja/cache.cpp
+  src/exchange/exchange.cpp
+  src/exchange/cache.cpp
   src/trade/query.cpp
   src/trade/currency.cpp
   src/trade/ratelimit.cpp
@@ -157,6 +159,8 @@ set(APP_SOURCES
   src/trade/client.cpp
   src/ninja_service.cpp
   src/ninja/client.cpp
+  src/exchange_service.cpp
+  src/exchange/client.cpp
   src/icon_cache.cpp
   src/data/updater.cpp
   src/net/http.cpp
@@ -240,4 +244,5 @@ ppc_add_test(item_parse_test)
 ppc_add_test(item_pricing_test)
 ppc_add_test(trade_query_test)
 ppc_add_test(ninja_test)
+ppc_add_test(exchange_test)
 ppc_add_test(ratelimit_test)

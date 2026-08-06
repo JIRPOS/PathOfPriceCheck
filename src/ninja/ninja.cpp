@@ -40,6 +40,9 @@ constexpr Category kCategories[] = {
     {Feed::Exchange, "Ducat", "ducats"},
     {Feed::Exchange, "EnshroudingCrystal", "enshrouding-crystals"},
     {Feed::Exchange, "Astrolabe", "astrolabes"},
+    // The only map item on the stash feed rather than the exchange: an invitation carries an
+    // item level, so it is listed like an item instead of traded in bulk.
+    {Feed::StashItem, "Invitation", "invitations"},
     {Feed::StashItem, "UniqueWeapon", "unique-weapons"},
     {Feed::StashItem, "UniqueArmour", "unique-armours"},
     {Feed::StashItem, "UniqueAccessory", "unique-accessories"},
@@ -77,6 +80,33 @@ constexpr Keyword kKeywords[] = {
 
 bool starts_with(std::string_view s, std::string_view prefix) {
     return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
+}
+
+/// The overview the item's own name names, or empty.
+std::string keyword_type(const Query& q) {
+    if (q.names.empty()) return {};
+    for (const Keyword& k : kKeywords)
+        if (q.names.front().find(k.needle) != std::string::npos) return std::string(k.type);
+    return {};
+}
+
+/// The overview a **map item** belongs in, or empty when it is not one.
+///
+/// Chosen off the item class and the name rather than off the strategy, because the strategy
+/// no longer says: a map item that prints an item level is an item and is planned like one
+/// (see `item::default_strategy`), and it still has to be priced out of the map-item feeds
+/// rather than out of the crafting-base overview a `BaseItem` plan would otherwise ask for.
+///
+/// `map.fragment` is the whole of both map-item classes, so it says no more than "Stackable
+/// Currency" does: scarabs, embers, splinters, breachstones and invitations all arrive under
+/// it and poe.ninja publishes them in four different overviews. The name is the only thing
+/// separating them, which is why the keyword table runs first and the rest is a fallback.
+std::string map_item_type(const Query& q) {
+    if (!starts_with(q.category, "map.fragment")) return {};
+    if (std::string kw = keyword_type(q); !kw.empty()) return kw;
+    if (!q.names.empty() && q.names.front().find("Invitation") != std::string::npos)
+        return "Invitation";
+    return "Fragment";
 }
 
 std::string percent_encode(std::string_view s) {
@@ -355,13 +385,49 @@ const Overview* item_overview(const std::vector<const Overview*>& have) {
     return nullptr;
 }
 
-void fill_price(Reference& r, const Line& l, const Key& key, double per_divine) {
+/// What a stack of `n` is worth, on a `Reference` already priced per item. A no-op at one, so
+/// every path can call it without asking whether the item stacks.
+void fill_stack(Reference& r, const Line& l, double per_divine, int n) {
+    if (n <= 1) return;
+    r.stack = n;
+    r.stack_price = quote(l.chaos * n, per_divine);
+}
+
+void fill_price(Reference& r, const Line& l, const Key& key, double per_divine, int stack = 1) {
     r.state = Reference::State::Priced;
     r.price = quote(l.chaos, per_divine);
     r.label = l.variant;
     r.spark = l.spark;
     r.listings = l.listings;
     r.url = page_url(key, l.details_id);
+    fill_stack(r, l, per_divine, stack);
+}
+
+/// The two orbs the economy is denominated in, whose own price says nothing: poe.ninja quotes
+/// everything in chaos, so a Chaos Orb is worth one chaos, and `quote` converts anything past
+/// a divine into divine, so a Divine Orb is worth one divine. Both are tautologies. What a
+/// player checks either of them for is the **rate between them**, which is one number — the
+/// Divine Orb's own chaos price — and it is the answer for both.
+bool is_denominating_currency(std::string_view id) { return id == "chaos" || id == "divine"; }
+
+/// The rate, as a price of `per_divine` chaos *per* Divine Orb. Everything about it comes from
+/// the divine line, which is where the rate is measured; only the page linked is the item the
+/// user is actually holding.
+Reference rate_reference(const Overview& market, const Line& held, double per_divine, int stack) {
+    Reference r;
+    r.state = Reference::State::Priced;
+    r.price = quote_in(per_divine, per_divine, "chaos");
+    r.per = "divine";
+    r.label = "the chaos/divine rate";
+    r.url = page_url(market.key, held.details_id);
+    // The stack is still worth what it is worth, and that is the useful half for these two: a
+    // stack of chaos is how many divine, a stack of divine is how many divine.
+    fill_stack(r, held, per_divine, stack);
+    if (const Line* divine = market.find_id("divine")) {
+        r.spark = divine->spark;
+        r.listings = divine->listings;
+    }
+    return r;
 }
 
 /// The gem tier poe.ninja actually prices, which is rarely the one in hand: it publishes a
@@ -550,6 +616,12 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
         if (i != item::Influence::SearingExarch && i != item::Influence::EaterOfWorlds)
             q.influences.emplace_back(item::to_string(i));
 
+    // "Stack Size: 6000/20" — the count, not the maximum, which is what fits in one inventory
+    // slot and says nothing about a currency stash tab's five or ten thousand.
+    for (const item::Property& p : it.properties)
+        if (p.label == "Stack Size" && p.num && *p.num >= 1)
+            q.stack = static_cast<int>(*p.num);
+
     if (plan.strategy == item::Strategy::Gem) {
         for (const item::Property& p : it.properties)
             if (p.label == "Level" && p.num) q.gem_level = static_cast<int>(*p.num);
@@ -560,7 +632,12 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
 
 std::vector<Key> keys_for(const Query& q) {
     std::vector<Key> out;
-    std::string type;
+    std::string type = map_item_type(q);
+    if (!type.empty()) {
+        out.push_back(currency_key(q.league));
+        if (type != "Currency") out.push_back(Key{type, q.league});
+        return out;
+    }
     switch (q.strategy) {
     case item::Strategy::Unique:
         if (starts_with(q.category, "weapon.")) type = "UniqueWeapon";
@@ -584,18 +661,12 @@ std::vector<Key> keys_for(const Query& q) {
     case item::Strategy::Currency:
         if (q.category == "card") {
             type = "DivinationCard";
-        } else if (starts_with(q.category, "map.fragment")) {
-            type = "Fragment";
         } else if (q.category == "currency.fossil") {
             type = "Fossil";
         } else if (q.category == "currency.resonator") {
             type = "Resonator";
         } else {
-            for (const Keyword& k : kKeywords)
-                if (!q.names.empty() && q.names.front().find(k.needle) != std::string::npos) {
-                    type = k.type;
-                    break;
-                }
+            type = keyword_type(q);
         }
         break;
     default:
@@ -644,6 +715,14 @@ Reference reference_for(const Query& q, const std::vector<const Overview*>& have
     if (q.strategy == item::Strategy::Currency && currency) {
         candidates = by_name(*currency, q.names);
         if (!candidates.empty()) ov = currency;
+        // Neither orb can be priced in itself, and both are checked for the same thing.
+        // Without a rate there is nothing to state, so those fall through and read one chaos
+        // and one divine — which is at least true.
+        if (!candidates.empty() && per_divine > 0 && is_denominating_currency(candidates.front()->id)) {
+            Reference rate = rate_reference(*currency, *candidates.front(), per_divine, q.stack);
+            rate.fetched_at = currency->fetched_at;
+            return rate;
+        }
     }
     if (candidates.empty()) {
         ov = item_overview(have);
@@ -715,7 +794,7 @@ Reference reference_for(const Query& q, const std::vector<const Overview*>& have
             return r;
         }
     }
-    fill_price(r, *candidates.front(), ov->key, per_divine);
+    fill_price(r, *candidates.front(), ov->key, per_divine, q.stack);
     return r;
 }
 

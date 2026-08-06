@@ -159,11 +159,13 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
 
     json q = json::object();
     q["status"] = json{{"option", valid_status(status) ? status : kDefaultStatus}};
-    // A rare is bought for its modifiers, so `Modifiers` deliberately names no base — the
-    // category alone says where those modifiers can live. See item/plan.
+    // Whether a base is part of the search is the plan's call, not this layer's: a rare names
+    // none, because it is bought for its modifiers and the category already says where those
+    // can live, while a rare *flask* names one, because the base is half of what the same
+    // modifiers are worth. See item/plan.
     if (p.strategy == item::Strategy::Unique && !p.name.empty())
         q["name"] = term(p.name, p.discriminator);
-    if (p.strategy != item::Strategy::Modifiers && !p.type.empty())
+    if (!p.type.empty())
         q["type"] = term(p.type, p.strategy == item::Strategy::Unique ? std::string() : p.discriminator);
     q["stats"] = json::array({json{{"type", "and"}, {"filters", std::move(stats)}}});
     q["filters"] = std::move(filters);

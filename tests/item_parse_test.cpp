@@ -17,7 +17,7 @@ namespace {
 
 /// Clipboard captures live as files so a new one can be dropped in without touching code.
 /// `examples/` holds captures taken from the live game alongside a screenshot of the same
-/// tooltip; `items/` holds the two transcribed from a screenshot only.
+/// tooltip; `items/` holds the ones with no screenshot beside them.
 std::string capture(const char* dir, const char* name) {
     const fs::path p = fs::path(PPC_TEST_DATA_DIR) / dir / name;
     std::ifstream in(p, std::ios::binary);
@@ -345,4 +345,45 @@ TEST_CASE("a gem's properties, description and granted stats") {
     CHECK(it.description.size() == 1);
     CHECK(it.inherent_lines.size() == 6);
     CHECK(it.help_text.size() == 1);
+}
+
+TEST_CASE("a map fragment describes itself in prose and has no modifiers at all") {
+    // It prints "Rarity: Normal", which is the only rarity the game has for one — and every
+    // rule that tells a rare's mods from its prose then fires on lines that are neither. A
+    // scarab's effect became a modifier, its verse became two more, and each came back an
+    // "unrecognised modifier" note over a price check that had nothing to warn about.
+    SUBCASE("its effect, then its flavour") {
+        const Item it = parse("items", "fragment-scarab.txt");
+        CHECK(it.rarity == Rarity::Normal);
+        CHECK(it.base_type == "Cartography Scarab of Corruption");
+        CHECK(it.mods.empty());
+        CHECK(it.description ==
+              std::vector<std::string>{
+                  "Non-Unique Maps found in Area are Corrupted with 8 Modifiers"});
+        CHECK(it.flavour_text == std::vector<std::string>{"Corruption bleeds between realities."});
+        CHECK(it.help_text.size() == 1);
+    }
+    SUBCASE("a two-line effect and no verse") {
+        const Item it = parse("items", "fragment-allflame-ember.txt");
+        CHECK(it.mods.empty());
+        CHECK(it.description.size() == 2);
+        CHECK(it.flavour_text.empty());
+    }
+    SUBCASE("nothing but a verse, which cannot be told from an effect") {
+        // The Maven's Writ prints no effect line, so its verse is the only prose block and is
+        // taken for the description. Nothing distinguishes the two, and reading a verse as the
+        // item's own text is the harmless way to be wrong about it.
+        const Item it = parse("items", "fragment-mavens-writ.txt");
+        CHECK(it.mods.empty());
+        CHECK(it.description.size() == 2);
+        CHECK(it.flavour_text.empty());
+    }
+    SUBCASE("an invitation, which is Misc Map Items and carries an item level") {
+        const Item it = parse("items", "invitation-writhing.txt");
+        CHECK(it.item_class == "Misc Map Items");
+        CHECK(it.item_level == 83);
+        CHECK(it.mods.empty());
+        CHECK(it.description.size() == 1);
+        CHECK(it.flavour_text.size() == 2);
+    }
 }

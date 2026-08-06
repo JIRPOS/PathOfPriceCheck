@@ -156,7 +156,7 @@ int App::run() {
         return 1;
     }
     // SDL hands back a contiguous range, so the offsets are guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(5);
+    const uint32_t event_base = SDL_RegisterEvents(6);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -167,6 +167,7 @@ int App::run() {
     data_event_ = event_base + 2;
     trade_event_ = event_base + 3;
     ninja_event_ = event_base + 4;
+    exchange_event_ = event_base + 5;
 
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
@@ -189,6 +190,7 @@ int App::run() {
     trade_.init(trade_event_);
     trade_.load_cache(); // currency symbols; the search itself fetches them if they are stale
     ninja_.init(ninja_event_);
+    currency_exchange_.init(exchange_event_);
     icons_.init();
 
     // Reclaim superseded bundles and map the installed one before anything else can hold a
@@ -276,6 +278,7 @@ int App::run() {
     leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
     trade_.shutdown();
     ninja_.shutdown();
+    currency_exchange_.shutdown();
     icons_.shutdown(); // frees GL textures, so before the context goes with the overlay
     updater_.shutdown();
     net::shutdown();
@@ -319,6 +322,9 @@ void App::handle_event(const SDL_Event& e) {
         listing_items_.clear(); // the rows they were parsed for may be gone; re-parse on hover
     } else if (e.type == ninja_event_) {
         ninja_.on_done(e);
+        need_redraw_ = true;
+    } else if (e.type == exchange_event_) {
+        currency_exchange_.on_done(e);
         need_redraw_ = true;
     } else if (e.type == data_event_) {
         if (auto gd = updater_.take_ready_bundle()) {
@@ -560,6 +566,12 @@ void App::set_strategy(item::Strategy s) {
 void App::price_reference() {
     if (!item_) return;
     ninja_.price(ninja::query_for(*item_, plan_, config_.league));
+    // The exchange is asked about every item, not only the ones planned as currency: whether
+    // a thing trades there is a fact about the market rather than about our strategy, and the
+    // feed is one download for all of them. An item whose base carries no metadata id — an
+    // older bundle — asks nothing.
+    currency_exchange_.lookup(config_.league,
+                              item_->base ? item_->base->metadata_id : std::string());
 }
 
 void App::open_reference_page() {

@@ -574,8 +574,7 @@ std::optional<Item> parse_item(std::string_view clipboard) {
             parse_properties(sec, it);
             props_seen = true;
         } else if (!props_seen && i == 1 &&
-                   (std::any_of(sec.begin(), sec.end(), is_property_line) ||
-                    it.item_class.ends_with("Flasks"))) {
+                   (std::any_of(sec.begin(), sec.end(), is_property_line) || it.is_flask())) {
             // The block right after the header: properties mixed with prose — a weapon's type
             // line, a gem's tag list, a flask's own effect. A property line is the evidence
             // that this is that block at all, except on a flask: the block is always there and
@@ -587,7 +586,12 @@ std::optional<Item> parse_item(std::string_view clipboard) {
             it.help_text.insert(it.help_text.end(), sec.begin(), sec.end());
         } else if (is_prose_section(sec) && !looks_like_mods(sec) &&
                    is_bottom_prose(it, sec, i, flavour_at)) {
-            if (it.is_gear() || first.starts_with("\""))
+            // A fragment says what it does in prose and then prints its verse in the same
+            // shape, so the first block is the description and anything after it is flavour.
+            // With only one there is no telling them apart — the Maven's Writ prints nothing
+            // but its verse — and calling that the description is the harmless way round.
+            if (it.is_gear() || first.starts_with("\"") ||
+                (it.is_map_fragment() && !it.description.empty()))
                 it.flavour_text.insert(it.flavour_text.end(), sec.begin(), sec.end());
             else if (it.description.empty())
                 it.description = sec;
@@ -615,7 +619,7 @@ std::optional<Item> parse_item(std::string_view clipboard) {
     // A flask enchantment ("Used when Charges reach full") carries no suffix and sits in its
     // own section ahead of the explicit mods, so on a flask the earlier of two unsuffixed
     // sections is the enchant.
-    if (it.item_class.ends_with("Flasks") && mod_sections.size() > 1) {
+    if (it.is_flask() && mod_sections.size() > 1) {
         const size_t end = mod_sections.back();
         for (size_t m = 0; m < end; ++m)
             if (it.mods[m].type == data::ModType::Explicit && !it.mods[m].advanced)

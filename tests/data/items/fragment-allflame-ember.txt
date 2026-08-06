@@ -1,0 +1,11 @@
+Item Class: Map Fragments
+Rarity: Normal
+Allflame Ember of Toads
+--------
+Stack Size: 5/20
+Limit: 3
+--------
+Substitutes Monster Packs in Area
+Pack Monsters are Harmless Toads
+--------
+Can be used in a personal Map Device to substitute the varities of Monster Packs present in a Map.

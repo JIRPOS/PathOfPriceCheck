@@ -13,6 +13,7 @@
 #include "item/plan.hpp"
 #include "icon_cache.hpp"
 #include "league_service.hpp"
+#include "exchange_service.hpp"
 #include "ninja_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
@@ -96,6 +97,10 @@ public:
     /// item a stat query cannot price. Refreshed with the plan, never on a button: it costs
     /// no GGG request and at most one poe.ninja request per category per half hour.
     const NinjaService& ninja() const { return ninja_; }
+    /// What the in-game currency exchange did with this item in the last published hour —
+    /// which for a stack of currency, a scarab or a fragment is the market it is actually
+    /// traded on, and the reason those have no trade search at all.
+    const ExchangeService& currency_exchange() const { return currency_exchange_; }
     /// Open the item's poe.ninja page, which is where the variants and the full history are.
     void open_reference_page();
     IconCache& icons() { return icons_; }
@@ -154,6 +159,7 @@ private:
     LeagueService leagues_;
     TradeService trade_;
     NinjaService ninja_;
+    ExchangeService currency_exchange_;
     IconCache icons_;
     data::DataUpdater updater_;
     std::shared_ptr<data::GameData> data_;
@@ -198,6 +204,7 @@ private:
     uint32_t data_event_ = 0;   ///< the data updater changed state
     uint32_t trade_event_ = 0;  ///< carries a TradeService::Result*
     uint32_t ninja_event_ = 0;  ///< carries a NinjaService::Result*
+    uint32_t exchange_event_ = 0; ///< carries an ExchangeService::Result*
 
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry

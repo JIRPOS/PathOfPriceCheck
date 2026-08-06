@@ -11,6 +11,7 @@
 #include <imgui.h>
 
 #include "app.hpp"
+#include "exchange/exchange.hpp"
 #include "ninja/ninja.hpp"
 #include "screens/item_view.hpp"
 #include "trade/query.hpp"
@@ -204,27 +205,47 @@ void draw_spark(const ninja::Spark& s, float w, float h) {
                                             ImDrawFlags_None, 1.5f);
 }
 
-/// A poe.ninja price in the trade site's own form, so the two prices on screen read alike:
-/// `5 x [icon] Divine Orb`. The symbol comes from the trade static data where that has been
-/// fetched and from poe.ninja's own payload where it has not — a reference price should not
-/// be the one thing that needs a trade request to render.
-void draw_ninja_price(App& app, const ninja::Quote& q, const ninja::Quote* high) {
+/// The symbol and full name of a trade currency id, drawn inline. The symbol comes from the
+/// trade static data where that has been fetched and from poe.ninja's own payload where it has
+/// not — a reference price should not be the one thing that needs a trade request to render.
+void draw_currency(App& app, const std::string& id) {
     const NinjaService& n = app.ninja();
-    std::string amount = trade::price_text(q.amount);
-    if (high) amount += " \xe2\x80\x93 " + trade::price_text(high->amount);
-    ImGui::TextUnformatted((amount + " x").c_str());
-
-    std::string icon = app.trade().currency_image(q.currency);
-    if (icon.empty()) icon = n.currency_icon(q.currency);
+    std::string icon = app.trade().currency_image(id);
+    if (icon.empty()) icon = n.currency_icon(id);
     if (const uint64_t tex = app.icons().texture(icon)) {
         const float h = ImGui::GetTextLineHeight();
         ImGui::SameLine(0.0f, 3.0f);
         ImGui::Image(tex, ImVec2(h, h));
     }
     ImGui::SameLine(0.0f, 3.0f);
-    std::string name = app.trade().currency_name(q.currency);
-    if (name == q.currency) name = n.currency_name(q.currency);
+    std::string name = app.trade().currency_name(id);
+    if (name == id) name = n.currency_name(id);
     ImGui::TextUnformatted(name.c_str());
+}
+
+/// A poe.ninja price in the trade site's own form, so the two prices on screen read alike:
+/// `5 x [icon] Divine Orb`. `per` turns it from a price into a rate — `201 x [icon] Chaos Orb
+/// per [icon] Divine Orb`, which is the only thing the two orbs the market is denominated in
+/// can be checked for. A stack adds what all of it is worth: the unit price is what says
+/// whether a pile is worth moving, the total is what it sells for, and neither substitutes
+/// for the other. The stack's currency is named only when it is not the unit's already —
+/// six thousand chaos is said in divine even though one chaos is not.
+void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
+    std::string amount = trade::price_text(r.price.amount);
+    if (ambiguous) amount += " \xe2\x80\x93 " + trade::price_text(r.high.amount);
+    ImGui::TextUnformatted((amount + " x").c_str());
+    draw_currency(app, r.price.currency);
+    if (!r.per.empty()) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("per");
+        draw_currency(app, r.per);
+    }
+    if (r.stack <= 1) return;
+    ImGui::SameLine(0.0f, 6.0f);
+    // "x" and not "×": Fontin has no multiplication sign and draws it as a box.
+    ImGui::TextDisabled("\xe2\x80\x94 x%d = %s", r.stack,
+                        trade::price_text(r.stack_price.amount).c_str());
+    if (r.stack_price.currency != r.price.currency) draw_currency(app, r.stack_price.currency);
 }
 
 /// What poe.ninja says the item goes for — the going rate for a unique, a gem or a stack of
@@ -289,7 +310,7 @@ void draw_reference_price(App& app) {
         ImGui::TextDisabled("ninja");
 
     ImGui::TableSetColumnIndex(1);
-    draw_ninja_price(app, r.price, ambiguous ? &r.high : nullptr);
+    draw_ninja_price(app, r, ambiguous);
 
     ImGui::TableSetColumnIndex(2);
     ImGui::BeginGroup();
@@ -330,6 +351,81 @@ void draw_reference_price(App& app) {
     ImGui::EndTable();
 }
 
+/// Volumes on this market run to eight figures, and the reader wants the order of magnitude
+/// rather than the digits: a market that moved seventeen million chaos in an hour is liquid and
+/// one that moved sixty is a rumour.
+std::string volume_text(double n) {
+    char buf[32];
+    if (n >= 1e6) std::snprintf(buf, sizeof buf, "%.1fM", n / 1e6);
+    else if (n >= 1e4) std::snprintf(buf, sizeof buf, "%.0fk", n / 1e3);
+    else std::snprintf(buf, sizeof buf, "%.0f", n);
+    return buf;
+}
+
+/// One market as a line: `35 – 50 x [icon] Chaos Orb each`, or turned round when that keeps the
+/// numbers above one — `2 – 2.2 per [icon] Chaos Orb`, which is how the pile is actually
+/// quoted in game. The band is the hour's cheapest and dearest ratio and not an average: the
+/// exchange is an order book, and an hour of one has two ends.
+void draw_exchange_rate(App& app, const exchange::Rate& r, const char* against) {
+    if (!r.known()) return;
+    const exchange::Reading v = exchange::read(r);
+    std::string amount = trade::price_text(v.low);
+    if (v.high != v.low) amount += " \xe2\x80\x93 " + trade::price_text(v.high);
+
+    ImGui::TextUnformatted(v.inverted ? amount.c_str() : (amount + " x").c_str());
+    if (v.inverted) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("per");
+    }
+    draw_currency(app, against);
+    if (!v.inverted) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("each");
+    }
+    if (r.volume > 0) {
+        ImGui::SameLine(0.0f, 6.0f);
+        ImGui::TextDisabled("\xe2\x80\x94 %s traded", volume_text(r.volume).c_str());
+    }
+}
+
+/// What the **in-game currency exchange** did with this item in the last published hour.
+///
+/// Drawn only when the item actually appears in that feed, which is the whole of the marker
+/// the row is: currency, cards, scarabs and fragments trade there and nothing else does. It is
+/// also why these items have no search below — an exchange market is not a listing, so the
+/// trade site has nothing to say about them, and offering a search for one is offering the
+/// wrong question rather than an empty answer.
+void draw_exchange_price(App& app) {
+    const ExchangeService& x = app.currency_exchange();
+    if (x.state() == ExchangeState::Loading) {
+        ImGui::TextDisabled("Currency exchange\xe2\x80\xa6");
+        return;
+    }
+    const exchange::Listing* l = x.listing();
+    if (!l) return; // not traded there, or no data: nothing to claim either way
+
+    ImGui::TextDisabled("Currency exchange");
+    ImGui::Indent(8.0f);
+    draw_exchange_rate(app, l->chaos, "chaos");
+    draw_exchange_rate(app, l->divine, "divine");
+    // The hour is not a detail. An exchange price is always at least an hour old — the feed
+    // publishes nothing about the hour in progress — and saying so is what keeps a stale
+    // number from reading as a live one.
+    if (const int64_t h = x.hour(); h > 0) {
+        const std::time_t t = static_cast<std::time_t>(h + 3600);
+        std::tm utc{};
+#ifdef _WIN32
+        gmtime_s(&utc, &t);
+#else
+        gmtime_r(&t, &utc);
+#endif
+        char when[16];
+        std::snprintf(when, sizeof when, "%02d:%02d UTC", utc.tm_hour, utc.tm_min);
+        ImGui::TextDisabled("in the hour to %s", when);
+    }
+    ImGui::Unindent(8.0f);
+}
+
 /// The Search / Open in browser pair, plus whatever the last search had to say. Both act on
 /// the filters as they are ticked right now, so changing one's mind and pressing again is
 /// the whole interaction.
@@ -348,7 +444,13 @@ void draw_search_controls(App& app) {
     if (busy) {
         ImGui::TextDisabled("Searching\xe2\x80\xa6");
     } else if (!can) {
-        ImGui::TextDisabled("Nothing to search");
+        // Where the answer is, not just that there is no search: currency, cards, scarabs and
+        // fragments have nothing a stat query could ask for — they are bought in bulk on the
+        // in-game exchange — so the poe.ninja row above is the whole price check, and a bare
+        // "Nothing to search" over it reads as a failure.
+        ImGui::TextDisabled("%s", app.plan().strategy == item::Strategy::Currency
+                                      ? "Priced by poe.ninja, not by a trade search"
+                                      : "Nothing to search");
     } else if (t.state() == TradeState::Ok) {
         // The total, not the number fetched: "20 of 4" would be a lie and "20 listings" hides
         // that there are two thousand more.
@@ -643,8 +745,15 @@ void draw_pricecheck_screen(App& app) {
             ImGui::Dummy(ImVec2(0, 6));
             ImGui::Separator();
             draw_reference_price(app);
-            draw_search_controls(app);
-            draw_results(app, gutter_top);
+            draw_exchange_price(app);
+            // An item that trades on the in-game exchange gets no Search and no Open in
+            // browser: it has no listings for either to find, and a button that can only ever
+            // come back empty reads as the item being unsellable rather than as the wrong
+            // market having been asked.
+            if (!app.currency_exchange().listing()) {
+                draw_search_controls(app);
+                draw_results(app, gutter_top);
+            }
         }
     }
     ImGui::EndChild();

@@ -21,7 +21,7 @@ SearchPlan rare_plan() {
     SearchPlan p;
     p.strategy = Strategy::Modifiers;
     p.category = "armour.helmet";
-    p.type = "Hubris Circlet";
+    // No `type`: the plan leaves it empty for a rare, and this layer sends what it was given.
     p.corrupted = false;
     ppc::item::StatFilter f;
     f.id = "explicit.stat_3299347043";
@@ -44,6 +44,18 @@ TEST_CASE("a rare is searched on its modifiers, not on its base") {
     // Deliberately absent: a rare is bought for its mods and the category already says where
     // those can live. Constraining the base would drop every other helmet with them.
     CHECK_FALSE(q.contains("type"));
+    CHECK_FALSE(q.contains("name"));
+}
+
+TEST_CASE("a base named under Modifiers is sent — the flask case") {
+    // Trade has one category for every flask, so a search that names no base prices a
+    // Quicksilver Flask against the Ruby Flasks that share its suffix. The plan decides that;
+    // this layer must not drop what it named.
+    SearchPlan p = rare_plan();
+    p.category = "flask";
+    p.type = "Quicksilver Flask";
+    const json q = query_of(p);
+    CHECK(q["type"] == "Quicksilver Flask");
     CHECK_FALSE(q.contains("name"));
 
     const json& stats = q["stats"][0]["filters"];

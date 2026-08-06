@@ -147,6 +147,10 @@ struct Query {
     std::vector<std::string> mods;
     bool corrupted = false;
     int links = 0;      ///< the item's largest linked group, 0 below five
+    /// How many are in hand, off the "Stack Size: 18/20" line — the count, never the maximum
+    /// beside it. That maximum is what one *inventory* slot holds and a currency stash tab
+    /// holds 5000 or 10000 of them in one stack, so "6000/20" is a normal thing to copy.
+    int stack = 1;
     int gem_level = 0;  ///< gems only
     int gem_quality = 0;
     int item_level = 0; ///< base-type pricing only; 0 when the item text did not print one
@@ -198,8 +202,19 @@ struct Reference {
     };
 
     State state = State::None;
-    Quote price;    ///< Ambiguous: the cheapest variant
+    Quote price;    ///< the price of **one**; Ambiguous: the cheapest variant
     Quote high;     ///< Ambiguous only: the dearest
+    /// What the whole stack in hand is worth, and how many that is. Set only above one, and
+    /// quoted on its own — six thousand chaos is a number said in divine even though one is
+    /// not. Never on an `Ambiguous` price: a span times a count is four numbers.
+    int stack = 1;
+    Quote stack_price;
+    /// A trade currency id when `price` is a **rate** rather than what one of these costs:
+    /// this many `price.currency` per one of *these*. Set only for the Chaos and Divine Orb,
+    /// whose own price is a tautology — the market is denominated in them, so each is worth
+    /// exactly one of itself and the number a player checks either for is the rate between
+    /// the two. Empty for every other item.
+    std::string per;
     std::string label; ///< which variant or gem tier this price is for, when it needed saying
     std::vector<Variant> variants; ///< Ambiguous only, cheapest first
     Spark spark;

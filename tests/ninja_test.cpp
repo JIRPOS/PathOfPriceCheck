@@ -31,11 +31,13 @@ ninja::Overview load(const std::string& rel, ninja::Feed feed, const char* type)
     return ov;
 }
 
-item::Item parse_example(const std::string& file) {
-    std::optional<item::Item> it = item::parse_item(read("examples/" + file));
+item::Item parse_capture(const std::string& rel) {
+    std::optional<item::Item> it = item::parse_item(read(rel));
     REQUIRE(it.has_value());
     return *it;
 }
+
+item::Item parse_example(const std::string& file) { return parse_capture("examples/" + file); }
 
 } // namespace
 
@@ -143,9 +145,36 @@ TEST_CASE("the currency market leads every lookup that has one") {
     q.names = {"The Doctor"};
     CHECK(ninja::keys_for(q)[1].type == "DivinationCard");
 
-    // Everything rolled is priced as its base, which is the only thing poe.ninja knows how to
-    // say about one.
+    // Both map-item classes come through as one trade category, so it says no more than
+    // "Stackable Currency" does and the name is what picks the overview. Four of them.
+    q.category = "map.fragment";
+    q.names = {"Cartography Scarab of Corruption"};
+    CHECK(ninja::keys_for(q)[1].type == "Scarab");
+    q.names = {"Allflame Ember of Toads"};
+    CHECK(ninja::keys_for(q)[1].type == "AllflameEmber");
+    q.names = {"Fragment of the Phoenix"};
+    CHECK(ninja::keys_for(q)[1].type == "Fragment");
+    q.names = {"The Maven's Writ"};
+    CHECK(ninja::keys_for(q)[1].type == "Fragment");
+    // An invitation has an item level, so poe.ninja lists it like an item rather than trading
+    // it in bulk — the stash feed, not the exchange.
+    q.names = {"Writhing Invitation"};
+    CHECK(ninja::keys_for(q)[1].type == "Invitation");
+    REQUIRE(ninja::category("Invitation") != nullptr);
+    CHECK(ninja::category("Invitation")->feed == ninja::Feed::StashItem);
+
+    // A map item stays on the map-item feeds whatever strategy it was planned with. One that
+    // prints an item level is planned as an item (`item::default_strategy`), and asking the
+    // crafting-base overview about an invitation would find nothing.
+    q.strategy = item::Strategy::BaseItem;
+    CHECK(ninja::keys_for(q)[1].type == "Invitation");
     q.strategy = item::Strategy::Modifiers;
+    CHECK(ninja::keys_for(q)[1].type == "Invitation");
+
+    // Everything else rolled is priced as its base, which is the only thing poe.ninja knows
+    // how to say about one.
+    q.category = "armour.chest";
+    q.names = {"Loath Cut", "Twilight Regalia"};
     CHECK(ninja::keys_for(q)[1].type == "BaseType");
     q.strategy = item::Strategy::BaseItem;
     CHECK(ninja::keys_for(q)[1].type == "BaseType");
@@ -351,10 +380,111 @@ TEST_CASE("a currency item is answered out of the market itself") {
 
     const ninja::Reference r = ninja::reference_for(q, {&currency});
     CHECK(r.state == ninja::Reference::State::Priced);
-    // Per orb, not per stack: that is what "a divine" means.
-    CHECK(r.price.currency == "divine");
-    CHECK(r.price.amount == doctest::Approx(1.0));
+    // A Divine Orb costs one divine and a Chaos Orb one chaos: the market is denominated in
+    // them, so their own price is a tautology and the rate between them is the answer to both.
+    // Per orb, not per stack — that is what "a divine" means.
+    CHECK(r.price.currency == "chaos");
+    CHECK(r.price.amount == doctest::Approx(201.0)); // 201.4, rounded as any three-figure price
+    CHECK(r.per == "divine");
     CHECK(r.url == "https://poe.ninja/poe1/economy/allflame/currency/divine-orb");
+
+    SUBCASE("a Chaos Orb is the same rate, and links to its own page") {
+        ninja::Query c = q;
+        c.names = {"Chaos Orb"};
+        const ninja::Reference cr = ninja::reference_for(c, {&currency});
+        CHECK(cr.price.amount == doctest::Approx(201.0));
+        CHECK(cr.price.currency == "chaos");
+        CHECK(cr.per == "divine");
+        CHECK(cr.url == "https://poe.ninja/poe1/economy/allflame/currency/chaos-orb");
+    }
+    SUBCASE("every other currency is what poe.ninja says it is, and no rate") {
+        ninja::Query e = q;
+        e.names = {"Exalted Orb"};
+        const ninja::Reference er = ninja::reference_for(e, {&currency});
+        CHECK(er.price.amount == doctest::Approx(1.67));
+        CHECK(er.price.currency == "chaos");
+        CHECK(er.per.empty());
+
+        e.names = {"Mirror of Kalandra"}; // 109740 chaos, which nobody says in chaos
+        const ninja::Reference mr = ninja::reference_for(e, {&currency});
+        CHECK(mr.price.amount == doctest::Approx(545.0));
+        CHECK(mr.price.currency == "divine");
+        CHECK(mr.per.empty());
+    }
+    SUBCASE("what the stack in hand is worth, beside what one is worth") {
+        // The capture is six Divine Orbs, and both numbers are wanted: the unit price is the
+        // going rate and the total is what the pile sells for.
+        CHECK(q.stack == 6);
+        CHECK(r.stack == 6);
+        CHECK(r.stack_price.amount == doctest::Approx(6.0));
+        CHECK(r.stack_price.currency == "divine");
+
+        // A stack far past the "/20": that number is what one inventory slot holds, and a
+        // currency stash tab holds five or ten thousand in one stack. It is not a maximum and
+        // is never read as one — six thousand chaos is a real thing to copy, and it is priced
+        // in divine even though one chaos is not.
+        const item::Item big = parse_capture("items/currency-chaos-stack.txt");
+        item::SearchPlan p2;
+        p2.strategy = item::Strategy::Currency;
+        p2.category = "currency";
+        const ninja::Query bq = ninja::query_for(big, p2, "Allflame");
+        CHECK(bq.stack == 6000);
+        const ninja::Reference br = ninja::reference_for(bq, {&currency});
+        CHECK(br.stack == 6000);
+        CHECK(br.stack_price.currency == "divine");
+        CHECK(br.stack_price.amount == doctest::Approx(29.8)); // 6000 / 201.4
+    }
+    SUBCASE("no rate to state, so the orbs fall back to their own true-but-empty price") {
+        ninja::Overview no_rate = load("currency.json", ninja::Feed::Exchange, "Currency");
+        no_rate.chaos_per_divine = 0;
+        const ninja::Reference r0 = ninja::reference_for(q, {&no_rate});
+        CHECK(r0.state == ninja::Reference::State::Priced);
+        CHECK(r0.per.empty());
+        CHECK(r0.price.currency == "chaos");
+    }
+}
+
+TEST_CASE("a map fragment is priced like currency, out of the overview its name picks") {
+    const ninja::Overview currency = load("currency.json", ninja::Feed::Exchange, "Currency");
+
+    SUBCASE("an exchange fragment") {
+        const ninja::Overview frags = load("fragment.json", ninja::Feed::Exchange, "Fragment");
+        const item::Item it = parse_capture("items/fragment-phoenix.txt");
+        item::SearchPlan plan;
+        // What the class maps to for both of them, scarabs and invitations included.
+        plan.strategy = item::default_strategy(it);
+        plan.category = "map.fragment";
+        CHECK(plan.strategy == item::Strategy::Currency); // never a base type: there is no base
+
+        const ninja::Query q = ninja::query_for(it, plan, "Allflame");
+        const ninja::Reference r = ninja::reference_for(q, {&currency, &frags});
+        CHECK(r.state == ninja::Reference::State::Priced);
+        CHECK(r.price.amount == doctest::Approx(6.04));
+        CHECK(r.price.currency == "chaos");
+        CHECK(r.stack == 2); // "Stack Size: 2/10"
+        CHECK(r.stack_price.amount == doctest::Approx(12.1));
+        // The page slug is its own, not the line's id — "phoenix" is what the exchange keys it
+        // under and "fragment-of-the-phoenix" is where the page is.
+        CHECK(r.url == "https://poe.ninja/poe1/economy/allflame/fragments/fragment-of-the-phoenix");
+    }
+    SUBCASE("an invitation, off the stash feed") {
+        const ninja::Overview inv = load("invitation.json", ninja::Feed::StashItem, "Invitation");
+        const item::Item it = parse_capture("items/invitation-writhing.txt");
+        item::SearchPlan plan;
+        plan.strategy = item::default_strategy(it);
+        plan.category = "map.fragment";
+        // It prints an item level, so it is an item rather than a bulk good — and it still has
+        // to be priced out of the invitation feed rather than the crafting-base overview.
+        CHECK(plan.strategy == item::Strategy::BaseItem);
+
+        const ninja::Query q = ninja::query_for(it, plan, "Allflame");
+        CHECK(q.item_level == 83); // it has one, and poe.ninja prices it without one
+        const ninja::Reference r = ninja::reference_for(q, {&currency, &inv});
+        CHECK(r.state == ninja::Reference::State::Priced);
+        CHECK(r.price.amount == doctest::Approx(5.0));
+        CHECK(r.listings == 1121);
+        CHECK(r.url == "https://poe.ninja/poe1/economy/allflame/invitations/writhing-invitation");
+    }
 }
 
 TEST_CASE("a league poe.ninja has no economy for says so") {

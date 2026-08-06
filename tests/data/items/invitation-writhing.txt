@@ -1,0 +1,12 @@
+Item Class: Misc Map Items
+Rarity: Normal
+Writhing Invitation
+--------
+Item Level: 83
+--------
+Modifiers to Item Quantity affect the amount of rewards dropped by the boss
+--------
+The Infinite Hunger awaits in a cosmic stomach where
+whole civilisations are digested - but do not die.
+--------
+Open portals to Seething Chyme by using this item in a personal Map Device. While viewing your Atlas, Right-click this item to pinpoint its location.

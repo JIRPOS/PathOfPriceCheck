@@ -99,11 +99,21 @@ std::string Modifier::info_text() const {
 
 bool Item::is_weapon() const { return attacks_per_second.has_value(); }
 
+bool Item::is_flask() const { return item_class.ends_with("Flasks"); }
+
+bool Item::is_map_fragment() const {
+    return item_class == "Map Fragments" || item_class == "Misc Map Items";
+}
+
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }
 
 bool Item::is_gear() const {
+    // A fragment prints "Rarity: Normal" only because the game has nothing else to print on
+    // that line. It has no modifiers at all — what looks like one is what the fragment does —
+    // so none of the rules that exist to tell a rare's mods from its prose apply to it.
+    if (is_map_fragment()) return false;
     return rarity == Rarity::Normal || rarity == Rarity::Magic || rarity == Rarity::Rare ||
            rarity == Rarity::Unique;
 }

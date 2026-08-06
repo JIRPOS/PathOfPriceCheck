@@ -153,8 +153,15 @@ struct Item {
     const data::BaseType* unique_entry = nullptr; ///< the unique's own record, uniques only
 
     bool is_weapon() const;   ///< has weapon properties (attacks per second)
+    /// Any of the five flask classes ("Life Flasks" … "Critical Utility Flasks").
+    bool is_flask() const;
+    /// Scarabs, allflame embers, splinters, invitations — everything the game files under
+    /// "Map Fragments" or "Misc Map Items". Printed as Normal rarity but currency-like: no
+    /// modifiers, no base to compare, bought and sold as a stack.
+    bool is_map_fragment() const;
     bool has_defences() const;
-    /// True for the rarities whose mods are rolled from a pool, i.e. tier-matchable.
+    /// True for the rarities whose mods are rolled from a pool, i.e. tier-matchable. False for
+    /// a map fragment, whose Normal rarity says nothing about it.
     bool is_gear() const;
     std::vector<const Modifier*> mods_of(data::ModType t) const;
     /// Sum of the rolls of every mod resolving to `stat_ref`, whatever its mod type.
