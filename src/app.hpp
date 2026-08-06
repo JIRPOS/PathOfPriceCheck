@@ -13,6 +13,8 @@
 #include "item/plan.hpp"
 #include "icon_cache.hpp"
 #include "league_service.hpp"
+#include "exchange_service.hpp"
+#include "ninja_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
 #include "trade_service.hpp"
@@ -38,13 +40,15 @@ inline constexpr uint64_t kPokeIntervalMs = 100;
 enum class Side { Stash, Inventory };
 
 /// How the price-check overlay window is divided. The window is wider than the panel: the
-/// rest is a **transparent gutter** on the side away from the item frame, which is where a
-/// listing's item pops up. The overlay only paints where ImGui draws a window, so the gutter
-/// costs nothing until something is drawn into it.
+/// rest is a **gutter** on the side away from the item frame, holding the item being priced at
+/// its top and a hovered listing's item below that. The overlay only paints where ImGui draws a
+/// window, so whatever the two of them leave over stays transparent.
 ///
-/// It exists because a tooltip has nowhere else to go. ImGui clamps every window to the
+/// It exists because a tooltip had nowhere else to go. ImGui clamps every window to the
 /// viewport, and the viewport is the SDL window — so before the gutter, a popup wide enough to
-/// read landed on top of the very listings it was meant to be compared against.
+/// read landed on top of the very listings it was meant to be compared against. The item in hand
+/// moved into it for a different reason: the panel is a column on a screen that is always wider
+/// than it is tall, so height, not width, is what it runs out of.
 /// All values are ImGui viewport coordinates.
 struct PanelLayout {
     float panel_x = 0; ///< 0 when the gutter is to the right, else the gutter's width
@@ -89,6 +93,16 @@ public:
     // Trade search. The plan on screen is the query: the user ticks filters and presses
     // Search, or opens the same search on the site without spending an API call on it.
     const TradeService& trade() const { return trade_; }
+    /// poe.ninja's reference price for the item in hand — the going rate for the kinds of
+    /// item a stat query cannot price. Refreshed with the plan, never on a button: it costs
+    /// no GGG request and at most one poe.ninja request per category per half hour.
+    const NinjaService& ninja() const { return ninja_; }
+    /// What the in-game currency exchange did with this item in the last published hour —
+    /// which for a stack of currency, a scarab or a fragment is the market it is actually
+    /// traded on, and the reason those have no trade search at all.
+    const ExchangeService& currency_exchange() const { return currency_exchange_; }
+    /// Open the item's poe.ninja page, which is where the variants and the full history are.
+    void open_reference_page();
     IconCache& icons() { return icons_; }
     void start_search();
     void open_search_in_browser();
@@ -99,6 +113,9 @@ public:
     const ListingItem* listing_item(size_t i);
     /// Where the panel sits inside the overlay window, and where the gutter beside it is.
     const PanelLayout& layout() const { return layout_; }
+    /// How far down the gutter the item card reached this frame — opaque UI of ours over the
+    /// game, so `poll_click_away` has to spare it. 0 when it was drawn in the panel instead.
+    void set_card_height(float h) { card_h_ = h; }
     /// False while there is nothing to search — no bundle, or a strategy with no stat query
     /// behind it (currency, gems, maps).
     bool can_search() const;
@@ -126,6 +143,7 @@ private:
     void nudge_clipboard_handover(uint64_t elapsed); ///< make the game let go of the copy
     void accept_clipboard(std::string text); ///< take item text: parse, resolve, plan
     void rebuild_plan();                     ///< re-resolve and re-plan the item in hand
+    void price_reference();                  ///< ask poe.ninja about the item as planned
     void poll_click_away();                  ///< dismiss price-check on a click outside it
     void update_overlay_placement();         ///< track the game window; move the overlay over it
     void place_overlay();                    ///< size + position the overlay for the current screen
@@ -140,6 +158,8 @@ private:
     Overlay overlay_;
     LeagueService leagues_;
     TradeService trade_;
+    NinjaService ninja_;
+    ExchangeService currency_exchange_;
     IconCache icons_;
     data::DataUpdater updater_;
     std::shared_ptr<data::GameData> data_;
@@ -159,6 +179,7 @@ private:
     Screen screen_ = Screen::Hidden;
     Side side_ = Side::Inventory; ///< side the current price check docked to
     PanelLayout layout_;          ///< set by place_overlay, read by the price-check renderer
+    float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
     std::string clipboard_;
     bool running_ = true;
 
@@ -182,6 +203,8 @@ private:
     uint32_t league_event_ = 0; ///< carries a LeagueService::Result*
     uint32_t data_event_ = 0;   ///< the data updater changed state
     uint32_t trade_event_ = 0;  ///< carries a TradeService::Result*
+    uint32_t ninja_event_ = 0;  ///< carries a NinjaService::Result*
+    uint32_t exchange_event_ = 0; ///< carries an ExchangeService::Result*
 
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry

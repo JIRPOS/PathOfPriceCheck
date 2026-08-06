@@ -52,6 +52,11 @@ struct BaseType {
     Namespace ns = Namespace::Item;
     std::string category;    ///< craftable.category, e.g. "Rings"
     std::string trade_disc;  ///< discriminator when name/type alone is ambiguous
+    /// The game's own `Metadata/Items/...` path for this base, and the only key GGG's
+    /// currency-exchange feed states an item by — that feed publishes no names at all. Empty
+    /// on a unique, on anything the build could not match to game data, and on every bundle
+    /// published before the field existed, which is why nothing may depend on it being there.
+    std::string metadata_id;
     int w = 0, h = 0;
     int drop_level = 0;
     bool corrupted = false;

@@ -1,0 +1,66 @@
+{
+ "core": {
+  "items": [],
+  "rates": {
+   "divine": 0.004969
+  },
+  "primary": "chaos",
+  "secondary": "divine"
+ },
+ "lines": [
+  {
+   "id": "the-mavens-writ",
+   "primaryValue": 4.85,
+   "volumePrimaryValue": 5302,
+   "maxVolumeCurrency": "chaos",
+   "maxVolumeRate": 0.2061,
+   "sparkline": {
+    "totalChange": -57.52,
+    "data": [
+     -6.33,
+     -27.27,
+     -26.88,
+     -44.34,
+     -51.68,
+     -57.38,
+     -57.52
+    ]
+   }
+  },
+  {
+   "id": "phoenix",
+   "primaryValue": 6.04,
+   "volumePrimaryValue": 3588,
+   "maxVolumeCurrency": "chaos",
+   "maxVolumeRate": 0.1655,
+   "sparkline": {
+    "totalChange": -4.23,
+    "data": [
+     -2.02,
+     -16.25,
+     -27.87,
+     -12.83,
+     1.99,
+     -9.39,
+     -4.23
+    ]
+   }
+  }
+ ],
+ "items": [
+  {
+   "id": "the-mavens-writ",
+   "name": "The Maven's Writ",
+   "image": "/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQXRsYXMvTWF2ZW5LZXkiLCJzY2FsZSI6MX1d/40683e487b/MavenKey.png",
+   "category": "Fragments",
+   "detailsId": "the-mavens-writ"
+  },
+  {
+   "id": "phoenix",
+   "name": "Fragment of the Phoenix",
+   "image": "/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhc01hcHMvRnJhZ21lbnRQaG9lbml4Iiwic2NhbGUiOjF9XQ/3091d971ad/FragmentPhoenix.png",
+   "category": "Fragments",
+   "detailsId": "fragment-of-the-phoenix"
+  }
+ ]
+}

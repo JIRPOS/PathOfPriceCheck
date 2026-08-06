@@ -1,0 +1,134 @@
+{
+ "lines": [
+  {
+   "id": 44550,
+   "name": "Replica Rumi's Concoction",
+   "icon": "https://web.poecdn.com/gen/image/WzksMTQseyJmIjoiMkRJdGVtcy9GbGFza3MvQmxvY2tGbGFzayIsInciOjEsImgiOjIsInNjYWxlIjoxLCJsZXZlbCI6MX1d/3bc27f19d5/BlockFlask.png",
+   "levelRequired": 68,
+   "baseType": "Granite Flask",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     40,
+     40,
+     20,
+     0,
+     0,
+     0
+    ]
+   },
+   "explicitModifiers": [
+    {
+     "text": "90% reduced Duration",
+     "optional": false
+    },
+    {
+     "text": "Gain 1 Endurance Charge on use",
+     "optional": false
+    },
+    {
+     "text": "Petrified during Effect",
+     "optional": false
+    },
+    {
+     "text": "+(35-50)% Chance to Block Attack Damage during Effect",
+     "optional": false
+    },
+    {
+     "text": "+(20-30)% Chance to Block Spell Damage during Effect",
+     "optional": false
+    }
+   ],
+   "flavourText": "\"The most terrifying split second of my life.\" \n- Researcher Graven",
+   "itemType": "Utility Flask",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 276,
+   "detailsId": "replica-rumis-concoction",
+   "listingCount": 276
+  },
+  {
+   "id": 1073,
+   "name": "Rumi's Concoction",
+   "icon": "https://web.poecdn.com/gen/image/WzksMTQseyJmIjoiMkRJdGVtcy9GbGFza3MvQmxvY2tGbGFzayIsInciOjEsImgiOjIsInNjYWxlIjoxLCJsZXZlbCI6MX1d/3bc27f19d5/BlockFlask.png",
+   "levelRequired": 68,
+   "baseType": "Granite Flask",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": -45.95,
+    "data": [
+     0,
+     -18.92,
+     -32.43,
+     -32.43,
+     -45.95,
+     -45.95,
+     -45.95
+    ]
+   },
+   "explicitModifiers": [
+    {
+     "text": "+(8-12)% Chance to Block Attack Damage during Effect",
+     "optional": false
+    },
+    {
+     "text": "+(4-6)% Chance to Block Spell Damage during Effect",
+     "optional": false
+    }
+   ],
+   "flavourText": "\"Yesterday I was clever, so I wanted to change the world.\nToday I am wise, so I am changing myself.\"\n-Rumi of the Vaal",
+   "itemType": "Utility Flask",
+   "chaosValue": 4.0,
+   "exaltedValue": 2.4,
+   "divineValue": 0.02,
+   "count": 399,
+   "detailsId": "rumis-concoction",
+   "listingCount": 1806
+  },
+  {
+   "id": 306,
+   "name": "Coruscating Elixir",
+   "icon": "https://web.poecdn.com/gen/image/WzksMTQseyJmIjoiMkRJdGVtcy9GbGFza3MvQ29ydXNFbGl4aXIiLCJ3IjoxLCJoIjoyLCJzY2FsZSI6MSwibGV2ZWwiOjF9XQ/26769c58f3/CorusElixir.png",
+   "levelRequired": 18,
+   "baseType": "Ruby Flask",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": 50,
+    "data": [
+     0,
+     0,
+     0,
+     50,
+     50,
+     50,
+     50
+    ]
+   },
+   "explicitModifiers": [
+    {
+     "text": "25% increased Duration",
+     "optional": false
+    },
+    {
+     "text": "Chaos Damage taken does not bypass Energy Shield during effect",
+     "optional": false
+    },
+    {
+     "text": "Removes all but one Life on use\nRemoved life is Regenerated as Energy Shield over 2 seconds",
+     "optional": false
+    }
+   ],
+   "flavourText": "Let blood sear in your veins, \nLet the pain push outwards and turn away your enemy's blows.",
+   "itemType": "Utility Flask",
+   "chaosValue": 3.0,
+   "exaltedValue": 1.8,
+   "divineValue": 0.01,
+   "count": 399,
+   "detailsId": "coruscating-elixir",
+   "listingCount": 403
+  }
+ ]
+}

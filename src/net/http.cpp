@@ -89,10 +89,10 @@ const std::string* Response::header(std::string_view name) const {
 }
 
 const char* user_agent() {
-    // Points at the public data repo: the app repo is private, so its URL would be a dead
-    // contact route for anyone at GGG trying to reach us.
-    static const std::string ua = "PathOfPriceCheck/" APP_VERSION
-                                  " (+https://github.com/JIRPOS/PathOfPriceCheck-Data)";
+    // GGG's policy asks an unregistered client to leave a route to its maintainer; the URL is
+    // that route, so it points at the repo whose issue tracker is read (see CONTACT.md).
+    static const std::string ua =
+        "PathOfPriceCheck/" APP_VERSION " (+https://github.com/JIRPOS/PathOfPriceCheck)";
     return ua.c_str();
 }
 

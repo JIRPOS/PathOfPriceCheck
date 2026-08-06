@@ -1,0 +1,201 @@
+{
+ "next_change_id": 1786003200,
+ "markets": [
+  {
+   "league": "Allflame",
+   "market_id": "Metadata/Items/Currency/CurrencyRerollRare|Metadata/Items/Currency/CurrencyModValues",
+   "market_pair": [
+    "Metadata/Items/Currency/CurrencyRerollRare",
+    "Metadata/Items/Currency/CurrencyModValues"
+   ],
+   "volume_traded": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 17312167,
+    "Metadata/Items/Currency/CurrencyModValues": 85960
+   },
+   "lowest_stock": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 2563605,
+    "Metadata/Items/Currency/CurrencyModValues": 2795
+   },
+   "highest_stock": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 3236794,
+    "Metadata/Items/Currency/CurrencyModValues": 6165
+   },
+   "lowest_ratio": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 199,
+    "Metadata/Items/Currency/CurrencyModValues": 1
+   },
+   "highest_ratio": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 204,
+    "Metadata/Items/Currency/CurrencyModValues": 1
+   }
+  },
+  {
+   "league": "Allflame",
+   "market_id": "Metadata/Items/Currency/CurrencyRerollRare|Metadata/Items/MapFragments/ToadAllflamePack",
+   "market_pair": [
+    "Metadata/Items/Currency/CurrencyRerollRare",
+    "Metadata/Items/MapFragments/ToadAllflamePack"
+   ],
+   "volume_traded": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 76,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 57
+   },
+   "lowest_stock": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 9,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 389
+   },
+   "highest_stock": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 34,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 430
+   },
+   "lowest_ratio": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 1,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 2
+   },
+   "highest_ratio": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 2,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 1
+   }
+  },
+  {
+   "league": "Allflame",
+   "market_id": "Metadata/Items/Currency/CurrencyModValues|Metadata/Items/MapFragments/ToadAllflamePack",
+   "market_pair": [
+    "Metadata/Items/Currency/CurrencyModValues",
+    "Metadata/Items/MapFragments/ToadAllflamePack"
+   ],
+   "volume_traded": {
+    "Metadata/Items/Currency/CurrencyModValues": 0,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 0
+   },
+   "lowest_stock": {
+    "Metadata/Items/Currency/CurrencyModValues": 0,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 114
+   },
+   "highest_stock": {
+    "Metadata/Items/Currency/CurrencyModValues": 0,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 117
+   },
+   "lowest_ratio": {
+    "Metadata/Items/Currency/CurrencyModValues": 0,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 0
+   },
+   "highest_ratio": {
+    "Metadata/Items/Currency/CurrencyModValues": 0,
+    "Metadata/Items/MapFragments/ToadAllflamePack": 0
+   }
+  },
+  {
+   "league": "Allflame",
+   "market_id": "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral|Metadata/Items/Currency/CurrencyRerollRare",
+   "market_pair": [
+    "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral",
+    "Metadata/Items/Currency/CurrencyRerollRare"
+   ],
+   "volume_traded": {
+    "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral": 151,
+    "Metadata/Items/Currency/CurrencyRerollRare": 6464
+   },
+   "lowest_stock": {
+    "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral": 70,
+    "Metadata/Items/Currency/CurrencyRerollRare": 15917
+   },
+   "highest_stock": {
+    "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral": 255,
+    "Metadata/Items/Currency/CurrencyRerollRare": 25431
+   },
+   "lowest_ratio": {
+    "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral": 1,
+    "Metadata/Items/Currency/CurrencyRerollRare": 50
+   },
+   "highest_ratio": {
+    "Metadata/Items/Currency/CurrencyBreachUpgradeUniqueGeneral": 1,
+    "Metadata/Items/Currency/CurrencyRerollRare": 35
+   }
+  },
+  {
+   "league": "Allflame",
+   "market_id": "Metadata/Items/DivinationCards/DivinationCardTheCataclysm|Metadata/Items/Currency/CurrencyRerollRare",
+   "market_pair": [
+    "Metadata/Items/DivinationCards/DivinationCardTheCataclysm",
+    "Metadata/Items/Currency/CurrencyRerollRare"
+   ],
+   "volume_traded": {
+    "Metadata/Items/DivinationCards/DivinationCardTheCataclysm": 0,
+    "Metadata/Items/Currency/CurrencyRerollRare": 0
+   },
+   "lowest_stock": {
+    "Metadata/Items/DivinationCards/DivinationCardTheCataclysm": 43,
+    "Metadata/Items/Currency/CurrencyRerollRare": 0
+   },
+   "highest_stock": {
+    "Metadata/Items/DivinationCards/DivinationCardTheCataclysm": 43,
+    "Metadata/Items/Currency/CurrencyRerollRare": 0
+   },
+   "lowest_ratio": {
+    "Metadata/Items/DivinationCards/DivinationCardTheCataclysm": 0,
+    "Metadata/Items/Currency/CurrencyRerollRare": 0
+   },
+   "highest_ratio": {
+    "Metadata/Items/DivinationCards/DivinationCardTheCataclysm": 0,
+    "Metadata/Items/Currency/CurrencyRerollRare": 0
+   }
+  },
+  {
+   "league": "Allflame",
+   "market_id": "Metadata/Items/Currency/CurrencyCorrupt|Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess",
+   "market_pair": [
+    "Metadata/Items/Currency/CurrencyCorrupt",
+    "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess"
+   ],
+   "volume_traded": {
+    "Metadata/Items/Currency/CurrencyCorrupt": 1,
+    "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess": 1
+   },
+   "lowest_stock": {
+    "Metadata/Items/Currency/CurrencyCorrupt": 0,
+    "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess": 0
+   },
+   "highest_stock": {
+    "Metadata/Items/Currency/CurrencyCorrupt": 0,
+    "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess": 4
+   },
+   "lowest_ratio": {
+    "Metadata/Items/Currency/CurrencyCorrupt": 1,
+    "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess": 1
+   },
+   "highest_ratio": {
+    "Metadata/Items/Currency/CurrencyCorrupt": 1,
+    "Metadata/Items/MapFragments/CurrencyOfferingToTheGoddess": 1
+   }
+  },
+  {
+   "league": "Hardcore Allflame",
+   "market_id": "Metadata/Items/Currency/CurrencyRerollRare|Metadata/Items/Currency/CurrencyModValues",
+   "market_pair": [
+    "Metadata/Items/Currency/CurrencyRerollRare",
+    "Metadata/Items/Currency/CurrencyModValues"
+   ],
+   "volume_traded": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 45001,
+    "Metadata/Items/Currency/CurrencyModValues": 247
+   },
+   "lowest_stock": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 45995,
+    "Metadata/Items/Currency/CurrencyModValues": 130
+   },
+   "highest_stock": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 54319,
+    "Metadata/Items/Currency/CurrencyModValues": 169
+   },
+   "lowest_ratio": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 178,
+    "Metadata/Items/Currency/CurrencyModValues": 1
+   },
+   "highest_ratio": {
+    "Metadata/Items/Currency/CurrencyRerollRare": 186,
+    "Metadata/Items/Currency/CurrencyModValues": 1
+   }
+  }
+ ]
+}

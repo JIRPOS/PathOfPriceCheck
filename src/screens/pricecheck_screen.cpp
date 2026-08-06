@@ -11,6 +11,8 @@
 #include <imgui.h>
 
 #include "app.hpp"
+#include "exchange/exchange.hpp"
+#include "ninja/ninja.hpp"
 #include "screens/item_view.hpp"
 #include "trade/query.hpp"
 #include "util/debug_log.hpp"
@@ -171,21 +173,257 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan) {
     }
 }
 
-/// Where poe.ninja's reference price will go: the going rate for a unique, a gem or a stack of
-/// currency, which a stat query cannot give — and which for currency is the *only* answer, since
-/// those strategies have no search behind them at all. Drawn as an empty slot rather than left
-/// out, so the layout it lands in is the one being looked at now. Deliberately absent on a rare:
-/// poe.ninja has no price for one and never will.
-void draw_reference_price(const item::SearchPlan& plan) {
-    switch (plan.strategy) {
+constexpr ImVec4 kUp(0.40f, 0.78f, 0.42f, 1.0f);
+constexpr ImVec4 kDown(0.85f, 0.36f, 0.36f, 1.0f);
+/// Wide enough to read a week's shape at a glance, narrow enough to leave the price column
+/// most of a 460px panel.
+constexpr float kSparkW = 58.0f;
+
+/// poe.ninja's seven daily samples, drawn by hand rather than with `PlotLines`: that one
+/// insists on a frame and a background, and this is one line on the row it belongs to.
+/// Coloured by where the week ended, which is the same thing the percentage beside it says.
+void draw_spark(const ninja::Spark& s, float w, float h) {
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(w, h));
+    if (s.data.size() < 2) return;
+
+    float low = s.data[0], high = s.data[0];
+    for (const float v : s.data) {
+        low = std::min(low, v);
+        high = std::max(high, v);
+    }
+    // A flat week is a straight line through the middle, not a divide by zero.
+    const float span = high - low > 0.01f ? high - low : 1.0f;
+    std::vector<ImVec2> pts;
+    pts.reserve(s.data.size());
+    for (size_t i = 0; i < s.data.size(); ++i) {
+        const float x = at.x + w * static_cast<float>(i) / static_cast<float>(s.data.size() - 1);
+        pts.push_back(ImVec2(x, at.y + h - (s.data[i] - low) / span * h));
+    }
+    ImGui::GetWindowDrawList()->AddPolyline(pts.data(), static_cast<int>(pts.size()),
+                                            ImGui::GetColorU32(s.change >= 0 ? kUp : kDown),
+                                            ImDrawFlags_None, 1.5f);
+}
+
+/// The symbol and full name of a trade currency id, drawn inline. The symbol comes from the
+/// trade static data where that has been fetched and from poe.ninja's own payload where it has
+/// not — a reference price should not be the one thing that needs a trade request to render.
+void draw_currency(App& app, const std::string& id) {
+    const NinjaService& n = app.ninja();
+    std::string icon = app.trade().currency_image(id);
+    if (icon.empty()) icon = n.currency_icon(id);
+    if (const uint64_t tex = app.icons().texture(icon)) {
+        const float h = ImGui::GetTextLineHeight();
+        ImGui::SameLine(0.0f, 3.0f);
+        ImGui::Image(tex, ImVec2(h, h));
+    }
+    ImGui::SameLine(0.0f, 3.0f);
+    std::string name = app.trade().currency_name(id);
+    if (name == id) name = n.currency_name(id);
+    ImGui::TextUnformatted(name.c_str());
+}
+
+/// A poe.ninja price in the trade site's own form, so the two prices on screen read alike:
+/// `5 x [icon] Divine Orb`. `per` turns it from a price into a rate — `201 x [icon] Chaos Orb
+/// per [icon] Divine Orb`, which is the only thing the two orbs the market is denominated in
+/// can be checked for. A stack adds what all of it is worth: the unit price is what says
+/// whether a pile is worth moving, the total is what it sells for, and neither substitutes
+/// for the other. The stack's currency is named only when it is not the unit's already —
+/// six thousand chaos is said in divine even though one chaos is not.
+void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
+    std::string amount = trade::price_text(r.price.amount);
+    if (ambiguous) amount += " \xe2\x80\x93 " + trade::price_text(r.high.amount);
+    ImGui::TextUnformatted((amount + " x").c_str());
+    draw_currency(app, r.price.currency);
+    if (!r.per.empty()) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("per");
+        draw_currency(app, r.per);
+    }
+    if (r.stack <= 1) return;
+    ImGui::SameLine(0.0f, 6.0f);
+    // "x" and not "×": Fontin has no multiplication sign and draws it as a box.
+    ImGui::TextDisabled("\xe2\x80\x94 x%d = %s", r.stack,
+                        trade::price_text(r.stack_price.amount).c_str());
+    if (r.stack_price.currency != r.price.currency) draw_currency(app, r.stack_price.currency);
+}
+
+/// What poe.ninja says the item goes for — the going rate for a unique, a gem or a stack of
+/// currency, which a stat query cannot give and which for currency is the *only* answer, since
+/// those strategies have no search behind them at all. Deliberately absent on a rare: poe.ninja
+/// has no price for one and never will.
+///
+/// Three columns, no header: the source, the price, and the week behind it. The whole row is
+/// one click-through to the item's own page, which is where the variants, the history and the
+/// listings actually are — everything this row has to leave out.
+void draw_reference_price(App& app) {
+    switch (app.plan().strategy) {
     case item::Strategy::Unique:
     case item::Strategy::Currency:
     case item::Strategy::Gem:
+    case item::Strategy::BaseItem:
+    case item::Strategy::Modifiers:
         break;
     default:
+        return; // a map: poe.ninja prices nothing about it that this row could show
+    }
+    const NinjaService& n = app.ninja();
+    const ninja::Reference& r = n.reference();
+
+    if (n.state() == NinjaState::Loading) {
+        ImGui::TextDisabled("poe.ninja\xe2\x80\xa6");
         return;
     }
-    ImGui::TextDisabled("poe.ninja \xe2\x80\x94 reference pricing is not built yet");
+    if (r.state == ninja::Reference::State::None) {
+        // Never silent: an empty slot where a price belongs reads as a price of nothing. Wrapped
+        // — these say *why* there is none, and a sentence cut off at the panel edge does not.
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("poe.ninja \xe2\x80\x94 %s",
+                            !n.error().empty()  ? n.error().c_str()
+                            : !r.note.empty()   ? r.note.c_str()
+                                                : "no reference price");
+        ImGui::PopTextWrapPos();
+        return;
+    }
+
+    const bool ambiguous = r.state == ninja::Reference::State::Ambiguous;
+    constexpr ImGuiTableFlags kFlags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+    if (!ImGui::BeginTable("reference", 3, kFlags)) return;
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableNextRow();
+
+    ImGui::TableSetColumnIndex(0);
+    const float line_h = ImGui::GetTextLineHeight();
+    // The row is the click target, and it has to be laid down before the cells so they draw
+    // on top of it. AllowOverlap is what lets the hover fall through to it.
+    if (ImGui::Selectable("##ninja_row", false,
+                          ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
+                          ImVec2(0, line_h)))
+        app.open_reference_page();
+    const bool hovered = ImGui::IsItemHovered();
+    ImGui::SameLine(0.0f, 0.0f);
+    if (const uint64_t tex = app.icons().texture(ninja::kLogoUrl))
+        ImGui::Image(tex, ImVec2(line_h, line_h));
+    else
+        ImGui::TextDisabled("ninja");
+
+    ImGui::TableSetColumnIndex(1);
+    draw_ninja_price(app, r, ambiguous);
+
+    ImGui::TableSetColumnIndex(2);
+    ImGui::BeginGroup();
+    if (ambiguous) {
+        // A trend across four different items is not a trend. The count is what the reader
+        // needs here anyway: it says why there are two numbers in the column beside it.
+        ImGui::TextDisabled("%zu variants", r.variants.size());
+    } else {
+        draw_spark(r.spark, kSparkW, line_h);
+        if (r.spark.known) {
+            ImGui::SameLine(0.0f, 4.0f);
+            ImGui::TextColored(r.spark.change >= 0 ? kUp : kDown, "%+.0f%%",
+                               static_cast<double>(r.spark.change));
+        }
+    }
+    ImGui::EndGroup();
+
+    if (hovered) {
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted("poe.ninja \xe2\x80\x94 click to open the item's page");
+        if (!r.label.empty()) ImGui::TextDisabled("Priced as: %s", r.label.c_str());
+        if (!r.note.empty()) ImGui::TextColored(kWarn, "%s", r.note.c_str());
+        if (r.listings > 0) ImGui::TextDisabled("%d listings behind the price", r.listings);
+        if (r.fetched_at > 0)
+            ImGui::TextDisabled("Updated %s ago",
+                                trade::age_text(r.fetched_at, std::time(nullptr)).c_str());
+        // Every variant with its own price: the one thing that turns "somewhere between these
+        // two numbers" back into a price the reader can pick out for themselves.
+        for (const ninja::Variant& v : r.variants) {
+            ImGui::Separator();
+            ImGui::Text("%s", v.label.empty() ? "(no variant)" : v.label.c_str());
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s %s", trade::price_text(v.price.amount).c_str(),
+                                app.trade().currency_name(v.price.currency).c_str());
+        }
+        ImGui::EndTooltip();
+    }
+    ImGui::EndTable();
+}
+
+/// Volumes on this market run to eight figures, and the reader wants the order of magnitude
+/// rather than the digits: a market that moved seventeen million chaos in an hour is liquid and
+/// one that moved sixty is a rumour.
+std::string volume_text(double n) {
+    char buf[32];
+    if (n >= 1e6) std::snprintf(buf, sizeof buf, "%.1fM", n / 1e6);
+    else if (n >= 1e4) std::snprintf(buf, sizeof buf, "%.0fk", n / 1e3);
+    else std::snprintf(buf, sizeof buf, "%.0f", n);
+    return buf;
+}
+
+/// One market as a line: `35 – 50 x [icon] Chaos Orb each`, or turned round when that keeps the
+/// numbers above one — `2 – 2.2 per [icon] Chaos Orb`, which is how the pile is actually
+/// quoted in game. The band is the hour's cheapest and dearest ratio and not an average: the
+/// exchange is an order book, and an hour of one has two ends.
+void draw_exchange_rate(App& app, const exchange::Rate& r, const char* against) {
+    if (!r.known()) return;
+    const exchange::Reading v = exchange::read(r);
+    std::string amount = trade::price_text(v.low);
+    if (v.high != v.low) amount += " \xe2\x80\x93 " + trade::price_text(v.high);
+
+    ImGui::TextUnformatted(v.inverted ? amount.c_str() : (amount + " x").c_str());
+    if (v.inverted) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("per");
+    }
+    draw_currency(app, against);
+    if (!v.inverted) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("each");
+    }
+    if (r.volume > 0) {
+        ImGui::SameLine(0.0f, 6.0f);
+        ImGui::TextDisabled("\xe2\x80\x94 %s traded", volume_text(r.volume).c_str());
+    }
+}
+
+/// What the **in-game currency exchange** did with this item in the last published hour.
+///
+/// Drawn only when the item actually appears in that feed, which is the whole of the marker
+/// the row is: currency, cards, scarabs and fragments trade there and nothing else does. It is
+/// also why these items have no search below — an exchange market is not a listing, so the
+/// trade site has nothing to say about them, and offering a search for one is offering the
+/// wrong question rather than an empty answer.
+void draw_exchange_price(App& app) {
+    const ExchangeService& x = app.currency_exchange();
+    if (x.state() == ExchangeState::Loading) {
+        ImGui::TextDisabled("Currency exchange\xe2\x80\xa6");
+        return;
+    }
+    const exchange::Listing* l = x.listing();
+    if (!l) return; // not traded there, or no data: nothing to claim either way
+
+    ImGui::TextDisabled("Currency exchange");
+    ImGui::Indent(8.0f);
+    draw_exchange_rate(app, l->chaos, "chaos");
+    draw_exchange_rate(app, l->divine, "divine");
+    // The hour is not a detail. An exchange price is always at least an hour old — the feed
+    // publishes nothing about the hour in progress — and saying so is what keeps a stale
+    // number from reading as a live one.
+    if (const int64_t h = x.hour(); h > 0) {
+        const std::time_t t = static_cast<std::time_t>(h + 3600);
+        std::tm utc{};
+#ifdef _WIN32
+        gmtime_s(&utc, &t);
+#else
+        gmtime_r(&t, &utc);
+#endif
+        char when[16];
+        std::snprintf(when, sizeof when, "%02d:%02d UTC", utc.tm_hour, utc.tm_min);
+        ImGui::TextDisabled("in the hour to %s", when);
+    }
+    ImGui::Unindent(8.0f);
 }
 
 /// The Search / Open in browser pair, plus whatever the last search had to say. Both act on
@@ -206,7 +444,13 @@ void draw_search_controls(App& app) {
     if (busy) {
         ImGui::TextDisabled("Searching\xe2\x80\xa6");
     } else if (!can) {
-        ImGui::TextDisabled("Nothing to search");
+        // Where the answer is, not just that there is no search: currency, cards, scarabs and
+        // fragments have nothing a stat query could ask for — they are bought in bulk on the
+        // in-game exchange — so the poe.ninja row above is the whole price check, and a bare
+        // "Nothing to search" over it reads as a failure.
+        ImGui::TextDisabled("%s", app.plan().strategy == item::Strategy::Currency
+                                      ? "Priced by poe.ninja, not by a trade search"
+                                      : "Nothing to search");
     } else if (t.state() == TradeState::Ok) {
         // The total, not the number fetched: "20 of 4" would be a lie and "20 listings" hides
         // that there are two thousand more.
@@ -250,29 +494,56 @@ void draw_price(App& app, const trade::Listing& l, bool fee_tip) {
         ImGui::SetTooltip("Fee: %s gold", trade::gold_text(l.fee).c_str());
 }
 
+/// The item the check is about, in the **gutter beside the panel** rather than at the top of it.
+/// The panel is a column on a screen that is always wider than it is tall, so the vertical space
+/// the item used to take was the scarcest thing in it — at 1080p and below it left the filters
+/// and the listings fighting over what was left. Beside the panel it costs nothing but gutter,
+/// which is otherwise empty until a row is hovered.
+///
+/// Returns the y the rest of the gutter is free from, or 0 when there was no room to draw it and
+/// the panel has to show the item itself. Width is fixed rather than auto-fit: `draw_item_tooltip`
+/// centres every line on `GetContentRegionAvail()`, which in an auto-sizing window is whatever
+/// the last frame happened to be.
+float draw_item_card(App& app, const item::Item& it) {
+    const PanelLayout& lay = app.layout();
+    if (lay.tip_w < kMinGutter) return 0.0f;
+    ImGui::SetNextWindowPos(ImVec2(lay.tip_x, 0));
+    // (w, 0): fixed width, height auto-fit to the item. ImGui clamps the auto-fit to the
+    // viewport, so a very long item scrolls inside the card instead of running off the screen.
+    ImGui::SetNextWindowSize(ImVec2(lay.tip_w, 0.0f));
+    ImGui::Begin("##item_card", nullptr,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav);
+    draw_item_tooltip(it, app.derived(), app.fonts());
+    const float bottom = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
+    ImGui::End();
+    return bottom;
+}
+
 /// The seller's item while its row is hovered — the same renderer the panel uses for the item
 /// in hand, on an item parsed from the clipboard text the API ships with every listing. Two
 /// rows of a price table look alike; the items behind them do not, and on a rare that
 /// difference is the whole reason one is cheaper.
 ///
-/// It goes in the **gutter beside the panel** (`App::layout`), over the game rather than over
-/// the listings it is there to be compared against. Both position and width are set
-/// explicitly: `SetNextWindowPos` overrides a tooltip's follow-the-mouse placement, and
-/// `SetNextWindowSize` overrides its auto-fit per axis, so `(w, 0)` fixes the width and leaves
-/// the height to the item. The width has to be fixed either way — `draw_item_tooltip` centres
-/// every line on `GetContentRegionAvail()`, which in an auto-sizing window is whatever the
-/// last frame happened to be.
+/// It goes in the **gutter beside the panel** (`App::layout`), under the item in hand — the
+/// point of the hover is comparing the two, so the one being compared against stays on screen.
+/// Both position and width are set explicitly: `SetNextWindowPos` overrides a tooltip's
+/// follow-the-mouse placement, and `SetNextWindowSize` overrides its auto-fit per axis, so
+/// `(w, 0)` fixes the width and leaves the height to the item.
 ///
-/// Aligned to the top of its own row, clamped so a long item does not run off the bottom.
-/// The clamp uses the height this drew at last frame, which is one frame stale and settles
-/// immediately; there is no way to know it before drawing.
-void draw_listing_tooltip(App& app, const trade::Listing& l, const ListingItem& li,
-                          float row_top) {
+/// Aligned to the top of its own row, but never above `gutter_top` and never so far down that it
+/// runs off the bottom. The bottom clamp uses the height this drew at last frame, which is one
+/// frame stale and settles immediately; there is no way to know it before drawing.
+void draw_listing_tooltip(App& app, const trade::Listing& l, const ListingItem& li, float row_top,
+                          float gutter_top) {
     const PanelLayout& lay = app.layout();
     static float last_h = 0;
     if (lay.tip_w >= kMinGutter) {
         const float max_y = std::max(0.0f, ImGui::GetIO().DisplaySize.y - last_h);
-        ImGui::SetNextWindowPos(ImVec2(lay.tip_x, std::clamp(row_top, 0.0f, max_y)));
+        // Not std::clamp: on a gutter whose card leaves less room than the listing needs, the
+        // low bound is above the high one, which clamp is not defined for. The card wins.
+        ImGui::SetNextWindowPos(ImVec2(lay.tip_x, std::max(gutter_top, std::min(row_top, max_y))));
         ImGui::SetNextWindowSize(ImVec2(lay.tip_w, 0.0f));
     } else {
         // A game window too narrow to spare a gutter: fall back to the panel's own width and
@@ -312,7 +583,7 @@ void draw_load_more_row(App& app) {
     ImGui::TextDisabled("%zu left", t.remaining());
 }
 
-void draw_results(App& app) {
+void draw_results(App& app, float gutter_top) {
     const TradeService& t = app.trade();
     if (!t.error().empty()) {
         ImGui::PushTextWrapPos(0.0f);
@@ -371,7 +642,7 @@ void draw_results(App& app) {
         ImGui::PopID();
         // After the cells: the tooltip is a window of its own, and opening it mid-row would
         // leave the table's cursor inside it.
-        if (popup) draw_listing_tooltip(app, l, *li, row_top);
+        if (popup) draw_listing_tooltip(app, l, *li, row_top, gutter_top);
     }
     draw_load_more_row(app);
     ImGui::EndTable();
@@ -397,8 +668,17 @@ void draw_debug_footer(App& app) {
 
 void draw_pricecheck_screen(App& app) {
     ImGuiIO& io = ImGui::GetIO();
-    // The panel occupies its own slice of the window; the rest is the tooltip gutter, which
-    // stays transparent because nothing draws into it until a row is hovered.
+    const item::Item* it = app.item();
+    // The item itself lives in the gutter beside the panel, so the panel's own column is filters,
+    // price and listings — the things that need the height. Drawn before the panel purely for
+    // reading order; the two windows never overlap. 0 back means there was no gutter to draw it
+    // in and the panel has to.
+    const float gutter_top = it ? draw_item_card(app, *it) : 0.0f;
+    // The card is opaque UI of ours over the game, not the transient tooltip the gutter used to
+    // hold: a click on it must not read as a click away from the panel.
+    app.set_card_height(gutter_top);
+
+    // The panel occupies its own slice of the window; the rest is the gutter.
     const PanelLayout& lay = app.layout();
     const float panel_w = lay.panel_w > 0 ? lay.panel_w : io.DisplaySize.x;
     ImGui::SetNextWindowPos(ImVec2(lay.panel_x, 0));
@@ -428,7 +708,6 @@ void draw_pricecheck_screen(App& app) {
         ImGui::Separator();
     }
 
-    const item::Item* it = app.item();
     // The body is a child filling everything above the footer, which keeps the footer pinned to
     // the bottom without seeking the cursor past the content.
     const float footer_h =
@@ -440,11 +719,15 @@ void draw_pricecheck_screen(App& app) {
     if (!it) {
         ImGui::TextDisabled("Nothing to show.");
     } else {
-        draw_item_tooltip(*it, app.derived(), app.fonts());
+        // Only when the game window left no room for a gutter: then the item is still the first
+        // thing in the panel, as it was before it had anywhere else to go.
+        if (gutter_top == 0.0f) {
+            draw_item_tooltip(*it, app.derived(), app.fonts());
+            ImGui::Dummy(ImVec2(0, 8));
+            ImGui::Separator();
+        }
 
         item::SearchPlan& plan = app.plan();
-        ImGui::Dummy(ImVec2(0, 8));
-        ImGui::Separator();
         if (!gd) {
             ImGui::TextDisabled("No pricing data yet, so nothing has been matched.");
         } else {
@@ -461,9 +744,16 @@ void draw_pricecheck_screen(App& app) {
             ImGui::PopTextWrapPos();
             ImGui::Dummy(ImVec2(0, 6));
             ImGui::Separator();
-            draw_reference_price(plan);
-            draw_search_controls(app);
-            draw_results(app);
+            draw_reference_price(app);
+            draw_exchange_price(app);
+            // An item that trades on the in-game exchange gets no Search and no Open in
+            // browser: it has no listings for either to find, and a button that can only ever
+            // come back empty reads as the item being unsellable rather than as the wrong
+            // market having been asked.
+            if (!app.currency_exchange().listing()) {
+                draw_search_controls(app);
+                draw_results(app, gutter_top);
+            }
         }
     }
     ImGui::EndChild();

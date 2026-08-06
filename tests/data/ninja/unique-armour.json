@@ -1,0 +1,233 @@
+{
+ "lines": [
+  {
+   "id": 168285,
+   "name": "Ralakesh's Impatience",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9SYWxha2VzaHNJbXBhdGllbmNlIiwidyI6MiwiaCI6Miwic2NhbGUiOjF9XQ/54540f0f3d/RalakeshsImpatience.png",
+   "levelRequired": 36,
+   "baseType": "Riveted Boots",
+   "variant": "Power",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": -68.02,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     0,
+     -25.88,
+     -68.02
+    ]
+   },
+   "explicitModifiers": [
+    {
+     "text": "+(15-25)% to Cold Resistance",
+     "optional": false
+    },
+    {
+     "text": "+(15-25)% to Chaos Resistance",
+     "optional": false
+    },
+    {
+     "text": "(15-25)% increased Movement Speed",
+     "optional": false
+    },
+    {
+     "text": "Corrupted Blood cannot be inflicted on you",
+     "optional": false
+    },
+    {
+     "text": "Count as having maximum number of Power Charges",
+     "optional": false
+    }
+   ],
+   "itemType": "Boots",
+   "chaosValue": 805.6,
+   "exaltedValue": 482.4,
+   "divineValue": 4.0,
+   "count": 399,
+   "detailsId": "ralakeshs-impatience-power-riveted-boots",
+   "tradeInfo": [
+    {
+     "mod": "explicit.stat_800091665",
+     "min": 0,
+     "max": 0
+    }
+   ],
+   "listingCount": 1019
+  },
+  {
+   "id": 168288,
+   "name": "Ralakesh's Impatience",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9SYWxha2VzaHNJbXBhdGllbmNlIiwidyI6MiwiaCI6Miwic2NhbGUiOjF9XQ/54540f0f3d/RalakeshsImpatience.png",
+   "levelRequired": 36,
+   "baseType": "Riveted Boots",
+   "variant": "Endurance",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": -33.5,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     0,
+     -7.45,
+     -33.5
+    ]
+   },
+   "implicitModifiers": [
+    {
+     "text": "Item sells for much more to vendors",
+     "optional": true
+    }
+   ],
+   "explicitModifiers": [
+    {
+     "text": "+(15-25)% to Cold Resistance",
+     "optional": false
+    },
+    {
+     "text": "+(15-25)% to Chaos Resistance",
+     "optional": false
+    },
+    {
+     "text": "(15-25)% increased Movement Speed",
+     "optional": false
+    },
+    {
+     "text": "Corrupted Blood cannot be inflicted on you",
+     "optional": false
+    },
+    {
+     "text": "Count as having maximum number of Endurance Charges",
+     "optional": false
+    }
+   ],
+   "itemType": "Boots",
+   "chaosValue": 133.0,
+   "exaltedValue": 79.64,
+   "divineValue": 0.66,
+   "count": 399,
+   "detailsId": "ralakeshs-impatience-endurance-riveted-boots",
+   "tradeInfo": [
+    {
+     "mod": "explicit.stat_1090017486",
+     "min": 0,
+     "max": 0
+    }
+   ],
+   "listingCount": 748
+  },
+  {
+   "id": 168286,
+   "name": "Ralakesh's Impatience",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9SYWxha2VzaHNJbXBhdGllbmNlIiwidyI6MiwiaCI6Miwic2NhbGUiOjF9XQ/54540f0f3d/RalakeshsImpatience.png",
+   "levelRequired": 36,
+   "baseType": "Riveted Boots",
+   "variant": "Frenzy",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": -50,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     0,
+     -33.33,
+     -50
+    ]
+   },
+   "explicitModifiers": [
+    {
+     "text": "+(15-25)% to Cold Resistance",
+     "optional": false
+    },
+    {
+     "text": "+(15-25)% to Chaos Resistance",
+     "optional": false
+    },
+    {
+     "text": "(15-25)% increased Movement Speed",
+     "optional": false
+    },
+    {
+     "text": "Corrupted Blood cannot be inflicted on you",
+     "optional": false
+    },
+    {
+     "text": "Count as having maximum number of Frenzy Charges",
+     "optional": false
+    }
+   ],
+   "itemType": "Boots",
+   "chaosValue": 75.0,
+   "exaltedValue": 44.91,
+   "divineValue": 0.37,
+   "count": 399,
+   "detailsId": "ralakeshs-impatience-frenzy-riveted-boots",
+   "tradeInfo": [
+    {
+     "mod": "explicit.stat_2046300872",
+     "min": 0,
+     "max": 0
+    }
+   ],
+   "listingCount": 1250
+  },
+  {
+   "id": 1894,
+   "name": "Wondertrap",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9Xb25kZXJ0cmFwIiwidyI6MiwiaCI6Miwic2NhbGUiOjF9XQ/6af24f543f/Wondertrap.png",
+   "levelRequired": 9,
+   "baseType": "Velvet Slippers",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "explicitModifiers": [
+    {
+     "text": "+(5-30) to Strength",
+     "optional": false
+    },
+    {
+     "text": "+(5-30) to Dexterity",
+     "optional": false
+    },
+    {
+     "text": "+(5-30) to Intelligence",
+     "optional": false
+    },
+    {
+     "text": "+(5-30) to maximum Energy Shield",
+     "optional": false
+    },
+    {
+     "text": "100% increased Rarity of Items found when on Low Life",
+     "optional": false
+    },
+    {
+     "text": "(10-25)% increased Movement Speed",
+     "optional": false
+    }
+   ],
+   "itemType": "Boots",
+   "chaosValue": 1.0,
+   "exaltedValue": 0.6,
+   "count": 399,
+   "detailsId": "wondertrap-velvet-slippers",
+   "listingCount": 2271
+  }
+ ]
+}

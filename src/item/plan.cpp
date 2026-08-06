@@ -375,6 +375,15 @@ Strategy default_strategy(const Item& it) {
     // A map is not priced on its modifiers, and trade's own map filters are not built: pricing
     // one as a rare would search for gear carrying map mods.
     if (it.item_class == "Maps") return Strategy::Unsupported;
+    // A map item splits on whether it prints an **item level**, which is what says whether it
+    // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
+    // every copy is identical, there is nothing to filter on, and they change hands on the
+    // in-game currency exchange rather than through a listing — so pricing one as a base type
+    // asked poe.ninja a question about crafting bases and the trade site one about item level
+    // and influences, and none of that exists here. One that *does* print an item level can
+    // carry a rarity and its own quantity/rarity modifiers exactly as a map does, and is sold
+    // as an item, so it falls through to the ordinary rules below.
+    if (it.is_map_fragment() && !it.item_level) return Strategy::Currency;
     switch (it.rarity) {
         case Rarity::Unique: return Strategy::Unique;
         case Rarity::Normal: return Strategy::BaseItem;
@@ -429,17 +438,35 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             break;
         case Strategy::Modifiers:
             // Deliberately not constrained to this base: a rare is bought for its mods, and
-            // the class is what decides where they can go.
+            // the class is what decides where they can go. A flask is the exception — its base
+            // is half of what its mods are worth. "25% increased Movement Speed" is a
+            // sought-after suffix on a Quicksilver Flask and nothing on a Ruby one, and the
+            // tier decides what a Life Flask recovers; trade files every flask under one
+            // category, so the type term is the only place to say which. Only ever a
+            // *resolved* base: an unstripped magic name ("Surgeon's Quicksilver Flask of the
+            // Cheetah") as the type matches nothing, which reads as nobody selling one.
+            if (it.is_flask()) {
+                if (it.base) {
+                    p.type = it.base_name;
+                    if (!it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+                } else {
+                    p.notes.push_back("\"" + it.base_type +
+                                      "\" is not a base in this data bundle, so the search "
+                                      "cannot name the flask type and covers every flask");
+                }
+            }
             add_numeric(p, "ilvl", "Item Level",
                         it.item_level ? std::optional<double>(*it.item_level) : std::nullopt,
                         false);
             break;
         default:
-            p.notes.push_back(p.strategy == Strategy::Unsupported
-                                  ? "pricing an item of class \"" + it.item_class +
-                                        "\" is not implemented yet"
-                                  : std::string(to_string(p.strategy)) +
-                                        " pricing is not implemented yet");
+            // Currency and gems are priced by poe.ninja rather than by a stat query — bulk is
+            // what they sell in, and a stat filter has nothing to say about a stack of orbs.
+            // So this is not a gap to warn about, it is where the search stops and the
+            // reference price is the answer. Only a class nothing prices is worth a note.
+            if (p.strategy == Strategy::Unsupported)
+                p.notes.push_back("pricing an item of class \"" + it.item_class +
+                                  "\" is not implemented yet");
             break;
     }
 

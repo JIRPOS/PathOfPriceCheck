@@ -53,6 +53,8 @@ Config Config::load() {
     c.panel_width = j.value("panel_width", c.panel_width);
     c.stash_edge = j.value("stash_edge", c.stash_edge);
     c.inventory_edge = j.value("inventory_edge", c.inventory_edge);
+    c.status_right = j.value("status_right", c.status_right);
+    c.status_bottom = j.value("status_bottom", c.status_bottom);
     c.debug_log = j.value("debug_log", c.debug_log);
     return c;
 }
@@ -71,6 +73,8 @@ bool Config::save() const {
     j["panel_width"] = panel_width;
     j["stash_edge"] = stash_edge;
     j["inventory_edge"] = inventory_edge;
+    j["status_right"] = status_right;
+    j["status_bottom"] = status_bottom;
     j["debug_log"] = debug_log;
     std::ofstream out(path());
     if (!out) return false;

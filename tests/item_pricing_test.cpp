@@ -657,6 +657,10 @@ TEST_CASE("a magic flask searches its affixes and says nothing else") {
 
     CHECK(p.strategy == Strategy::Modifiers);
     CHECK(p.category == "flask");
+    // Unlike every other rare or magic item, a flask names its base: trade has one category
+    // for all of them, and the same suffix is worth one thing on a Silver Flask and nothing
+    // on a Ruby one.
+    CHECK(p.type == "Silver Flask");
 
     // The Surgeon's prefix. Its wording used to reach two stat records — the game renders this
     // stat both as a chance and as the 100% "Gain a Flask Charge…", and trade hashes each — so
@@ -678,4 +682,71 @@ TEST_CASE("a magic flask searches its affixes and says nothing else") {
     // The flask's own effect is properties, so there is nothing left to warn about. Before the
     // parser knew that, "Lasts 6 Seconds" and three more lines each came back an unrecognised mod.
     CHECK(p.notes.empty());
+}
+
+TEST_CASE("a flask whose base the bundle does not know says so instead of searching a name") {
+    auto gd = fixture();
+    // Quicksilver Flask is not in the fixture bundle, so the affixes are never stripped and
+    // `base_name` is still the whole magic name. Sending that as the trade type would match
+    // nothing at all, which reads as "no such item is for sale".
+    const Item it = resolved(*gd, capture("item_2.txt", "examples"));
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+    CHECK(p.strategy == Strategy::Modifiers);
+    CHECK(p.type.empty());
+    bool said = false;
+    for (const std::string& n : p.notes)
+        if (n.find("cannot name the flask type") != std::string::npos) said = true;
+    CHECK(said);
+}
+
+TEST_CASE("a rare flask names its base too — that is where its modifiers are worth something") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, R"(Item Class: Utility Flasks
+Rarity: Rare
+Cataclysm Cure
+Granite Flask
+--------
+Lasts 4.50 Seconds
+Consumes 30 of 60 Charges on use
+Currently has 0 Charges
++1500 to Armour
+--------
+Item Level: 84
+--------
+35% chance to gain a Flask Charge when you deal a Critical Strike
+)");
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+    CHECK(p.strategy == Strategy::Modifiers);
+    CHECK(p.type == "Granite Flask");
+    // The rare's own name is randomly generated, so it is never part of the search.
+    CHECK(p.name.empty());
+}
+
+TEST_CASE("a map item is a bulk good or an item, and the item level is what says which") {
+    // No item level: every copy is identical, there is nothing to filter on, and it changes
+    // hands on the in-game currency exchange rather than through a listing.
+    for (const char* f : {"fragment-scarab.txt", "fragment-allflame-ember.txt",
+                          "fragment-phoenix.txt", "fragment-mavens-writ.txt"}) {
+        std::optional<Item> it = parse_item(capture(f));
+        REQUIRE_MESSAGE(it.has_value(), f);
+        CHECK_MESSAGE(!it->item_level.has_value(), f);
+        CHECK_MESSAGE(default_strategy(*it) == Strategy::Currency, f);
+    }
+
+    // One that prints an item level can also carry a rarity and its own quantity/rarity
+    // modifiers, exactly as a map does, so it goes down the ordinary path for its rarity.
+    const std::optional<Item> inv = parse_item(capture("invitation-writhing.txt"));
+    REQUIRE(inv.has_value());
+    CHECK(inv->item_level == 83);
+    CHECK(default_strategy(*inv) == Strategy::BaseItem);
+
+    // Same class, same absence of a rarity worth the name — a rare one is priced on what it
+    // rolled, which is the whole reason the item level is the split.
+    Item rare = *inv;
+    rare.rarity = Rarity::Rare;
+    CHECK(default_strategy(rare) == Strategy::Modifiers);
+    rare.item_level.reset();
+    CHECK(default_strategy(rare) == Strategy::Currency);
 }

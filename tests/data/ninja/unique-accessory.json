@@ -1,0 +1,212 @@
+{
+ "lines": [
+  {
+   "id": 142079,
+   "name": "Mageblood",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjF9XQ/21ec0269de/InjectorBelt.png",
+   "levelRequired": 44,
+   "baseType": "Heavy Belt",
+   "variant": "5 Flasks",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": 119.0,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     0,
+     88.2,
+     119.0
+    ]
+   },
+   "itemType": "Belt",
+   "chaosValue": 329220,
+   "exaltedValue": 197138,
+   "divineValue": 1635,
+   "count": 5,
+   "detailsId": "mageblood-5-flasks-heavy-belt",
+   "listingCount": 5
+  },
+  {
+   "id": 142076,
+   "name": "Mageblood",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjF9XQ/21ec0269de/InjectorBelt.png",
+   "levelRequired": 44,
+   "baseType": "Heavy Belt",
+   "variant": "4 Flasks",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": 40.98,
+    "data": [
+     0,
+     13.02,
+     16.35,
+     20.83,
+     27.73,
+     34.71,
+     40.98
+    ]
+   },
+   "implicitModifiers": [
+    {
+     "text": "+(25-42) to Strength",
+     "optional": false
+    }
+   ],
+   "explicitModifiers": [
+    {
+     "text": "+(30-60) to Dexterity",
+     "optional": false
+    },
+    {
+     "text": "+(15-30)% to Fire Resistance",
+     "optional": false
+    },
+    {
+     "text": "+(15-30)% to Cold Resistance",
+     "optional": false
+    },
+    {
+     "text": "Magic Utility Flasks cannot be Used",
+     "optional": false
+    },
+    {
+     "text": "Leftmost 4 Magic Utility Flasks constantly apply their Flask Effects to you",
+     "optional": false
+    },
+    {
+     "text": "Magic Utility Flask Effects cannot be removed",
+     "optional": false
+    }
+   ],
+   "itemType": "Belt",
+   "chaosValue": 45355,
+   "exaltedValue": 27159,
+   "divineValue": 225.2,
+   "count": 242,
+   "detailsId": "mageblood-4-flasks-heavy-belt",
+   "listingCount": 242
+  },
+  {
+   "id": 142077,
+   "name": "Mageblood",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjF9XQ/21ec0269de/InjectorBelt.png",
+   "levelRequired": 44,
+   "baseType": "Heavy Belt",
+   "variant": "3 Flasks",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": 49.09,
+    "data": [
+     0,
+     8.18,
+     16.9,
+     26.61,
+     24.31,
+     27.99,
+     49.09
+    ]
+   },
+   "implicitModifiers": [
+    {
+     "text": "+(25-42) to Strength",
+     "optional": false
+    }
+   ],
+   "explicitModifiers": [
+    {
+     "text": "+(30-60) to Dexterity",
+     "optional": false
+    },
+    {
+     "text": "+(15-25)% to Fire Resistance",
+     "optional": false
+    },
+    {
+     "text": "+(15-25)% to Cold Resistance",
+     "optional": false
+    },
+    {
+     "text": "Magic Utility Flasks cannot be Used",
+     "optional": false
+    },
+    {
+     "text": "Leftmost 3 Magic Utility Flasks constantly apply their Flask Effects to you",
+     "optional": false
+    },
+    {
+     "text": "Magic Utility Flask Effects cannot be removed",
+     "optional": false
+    }
+   ],
+   "itemType": "Belt",
+   "chaosValue": 34238,
+   "exaltedValue": 20502,
+   "divineValue": 170.0,
+   "count": 65,
+   "detailsId": "mageblood-3-flasks-heavy-belt",
+   "listingCount": 65
+  },
+  {
+   "id": 142078,
+   "name": "Mageblood",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvSW5qZWN0b3JCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjF9XQ/21ec0269de/InjectorBelt.png",
+   "levelRequired": 44,
+   "baseType": "Heavy Belt",
+   "variant": "2 Flasks",
+   "itemClass": 3,
+   "sparkLine": {
+    "totalChange": 34.85,
+    "data": [
+     0,
+     16.25,
+     25.21,
+     36.77,
+     29.69,
+     39.42,
+     34.85
+    ]
+   },
+   "implicitModifiers": [
+    {
+     "text": "+(25-42) to Strength",
+     "optional": false
+    }
+   ],
+   "explicitModifiers": [
+    {
+     "text": "+(30-60) to Dexterity",
+     "optional": false
+    },
+    {
+     "text": "+(15-25)% to Fire Resistance",
+     "optional": false
+    },
+    {
+     "text": "+(15-25)% to Cold Resistance",
+     "optional": false
+    },
+    {
+     "text": "Magic Utility Flasks cannot be Used",
+     "optional": false
+    },
+    {
+     "text": "Leftmost 2 Magic Utility Flasks constantly apply their Flask Effects to you",
+     "optional": false
+    },
+    {
+     "text": "Magic Utility Flask Effects cannot be removed",
+     "optional": false
+    }
+   ],
+   "itemType": "Belt",
+   "chaosValue": 15105,
+   "exaltedValue": 9045,
+   "divineValue": 75.0,
+   "count": 73,
+   "detailsId": "mageblood-2-flasks-heavy-belt",
+   "listingCount": 73
+  }
+ ]
+}

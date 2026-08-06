@@ -71,16 +71,61 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
 // Save button under whatever the user was just reading.
 constexpr int kSettingsW = 640, kSettingsH = 860;
 
-// SPIKE: a small always-on marker so we can eyeball whether the transparent,
-// click-through overlay actually floats over the (fullscreen) game. Not final UI.
-void draw_idle_marker() {
+// The idle status: two short lines over the middle of the mana globe. Wide enough for a long
+// data version at the size below, and no wider — the window is what swallows mouse input, and
+// while idle it is only click-through because nothing else is open.
+constexpr int kStatusW = 200, kStatusH = 48;
+constexpr float kStatusFontSize = 15.0f;
+constexpr float kStatusAlpha = 0.5f; ///< it sits on top of the game's own HUD
+
+/// What the second status line says when there is no bundle version to print — which is either
+/// a first run still downloading or a client that has never managed to. A blank line there reads
+/// as something broken.
+std::string data_status_line(const data::DataUpdater::Status& st) {
+    if (!st.data_version.empty()) return st.data_version;
+    switch (st.state) {
+    case data::DataUpdater::State::Idle:
+    case data::DataUpdater::State::Failed: return "no data";
+    default: return "updating\xe2\x80\xa6";
+    }
+}
+
+/// One centred line in yellow with a black outline, drawn straight into the draw list: the
+/// overlay has no background of its own here, so the text is over whatever the game is showing
+/// and needs to carry its own contrast. The outline is the same string stamped at eight offsets
+/// around the glyphs, which is cheap at two lines and needs no shader.
+void draw_outlined_line(const char* text, float centre_x, float y, float alpha) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    ImFont* font = ImGui::GetFont();
+    const float size = ImGui::GetFontSize();
+    const ImVec2 extent = ImGui::CalcTextSize(text);
+    const ImVec2 at(centre_x - extent.x * 0.5f, y);
+    const ImU32 outline = IM_COL32(0, 0, 0, static_cast<int>(alpha * 255));
+    for (const ImVec2 d : {ImVec2(-1, -1), ImVec2(0, -1), ImVec2(1, -1), ImVec2(-1, 0),
+                           ImVec2(1, 0), ImVec2(-1, 1), ImVec2(0, 1), ImVec2(1, 1)})
+        dl->AddText(font, size, ImVec2(at.x + d.x, at.y + d.y), outline, text);
+    dl->AddText(font, size, at, IM_COL32(255, 215, 0, static_cast<int>(alpha * 255)), text);
+}
+
+/// The idle marker: the application's version and the data bundle's, over the middle of the mana
+/// globe (see `Config::status_right`). It says the overlay is alive and which data it is pricing
+/// against — the two things there is no other way to see without opening Settings. Only drawn
+/// while the game is the window in front; `update_overlay_placement` unmaps it otherwise.
+void draw_status_marker(App& app) {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 84.0f, 8.0f));
-    ImGui::SetNextWindowBgAlpha(0.35f);
-    ImGui::Begin("##ppc_idle", nullptr,
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGui::Begin("##ppc_status", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
-                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
-    ImGui::TextColored(ImVec4(0.79f, 0.62f, 0.29f, 1.0f), "\xe2\x97\x8f PPC");
+                     ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings);
+    ImGui::PushFont(app.fonts().small_caps, kStatusFontSize);
+    const std::string version = "PoPC v" APP_VERSION;
+    const std::string data = data_status_line(app.data_status());
+    const float line_h = ImGui::GetTextLineHeightWithSpacing();
+    const float top = (io.DisplaySize.y - line_h * 2) * 0.5f;
+    draw_outlined_line(version.c_str(), io.DisplaySize.x * 0.5f, top, kStatusAlpha);
+    draw_outlined_line(data.c_str(), io.DisplaySize.x * 0.5f, top + line_h, kStatusAlpha);
+    ImGui::PopFont();
     ImGui::End();
 }
 
@@ -111,7 +156,7 @@ int App::run() {
         return 1;
     }
     // SDL hands back a contiguous range, so the offsets are guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(4);
+    const uint32_t event_base = SDL_RegisterEvents(6);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -121,6 +166,8 @@ int App::run() {
     league_event_ = event_base + 1;
     data_event_ = event_base + 2;
     trade_event_ = event_base + 3;
+    ninja_event_ = event_base + 4;
+    exchange_event_ = event_base + 5;
 
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
@@ -142,6 +189,8 @@ int App::run() {
     leagues_.load_cache(); // file read only; the network is touched when Settings opens
     trade_.init(trade_event_);
     trade_.load_cache(); // currency symbols; the search itself fetches them if they are stale
+    ninja_.init(ninja_event_);
+    currency_exchange_.init(exchange_event_);
     icons_.init();
 
     // Reclaim superseded bundles and map the installed one before anything else can hold a
@@ -166,7 +215,11 @@ int App::run() {
         overlay_.set_visible(true);
         // PPC_DEV_ITEM=<file> opens the price-check panel on a captured clipboard instead,
         // which is the only way to iterate on it without the game running.
-        if (const char* path = std::getenv("PPC_DEV_ITEM")) {
+        if (std::getenv("PPC_DEV_IDLE")) {
+            // The idle status marker, which otherwise only ever appears while the game is the
+            // window in front. Laid out against the display, since there is no game to measure.
+            place_overlay();
+        } else if (const char* path = std::getenv("PPC_DEV_ITEM")) {
             std::ifstream in(path, std::ios::binary);
             if (in) {
                 std::ostringstream ss;
@@ -214,7 +267,7 @@ int App::run() {
             else if (screen_ == Screen::PriceCheck)
                 draw_pricecheck_screen(*this);
             else
-                draw_idle_marker();
+                draw_status_marker(*this);
             overlay_.end_frame();
             need_redraw_ = false;
         }
@@ -224,6 +277,8 @@ int App::run() {
     hotkeys_.reset();
     leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
     trade_.shutdown();
+    ninja_.shutdown();
+    currency_exchange_.shutdown();
     icons_.shutdown(); // frees GL textures, so before the context goes with the overlay
     updater_.shutdown();
     net::shutdown();
@@ -265,6 +320,12 @@ void App::handle_event(const SDL_Event& e) {
     } else if (e.type == trade_event_) {
         trade_.on_done(e);
         listing_items_.clear(); // the rows they were parsed for may be gone; re-parse on hover
+    } else if (e.type == ninja_event_) {
+        ninja_.on_done(e);
+        need_redraw_ = true;
+    } else if (e.type == exchange_event_) {
+        currency_exchange_.on_done(e);
+        need_redraw_ = true;
     } else if (e.type == data_event_) {
         if (auto gd = updater_.take_ready_bundle()) {
             data_ = std::move(gd);
@@ -480,6 +541,7 @@ void App::rebuild_plan() {
         item::resolve_item(*item_data_, *item_);
         derived_ = item::derive(item_data_.get(), *item_);
         plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        price_reference();
     } else {
         // No bundle yet: the item still parses and renders, it just cannot be priced.
         derived_ = item::derive(nullptr, *item_);
@@ -489,9 +551,34 @@ void App::rebuild_plan() {
 
 void App::set_strategy(item::Strategy s) {
     strategy_override_ = s;
-    if (item_ && item_data_)
+    if (item_ && item_data_) {
         plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        // The strategy is what decides whether poe.ninja prices this at all — a rare read as
+        // a base item has no reference price, and switching back has to bring it back.
+        price_reference();
+    }
     need_redraw_ = true;
+}
+
+/// Ask poe.ninja about the item as the plan now reads it. Unlike a trade search this is not
+/// on a button: it spends no GGG request, and the overviews behind it are shared by every
+/// check and refreshed at most twice an hour.
+void App::price_reference() {
+    if (!item_) return;
+    ninja_.price(ninja::query_for(*item_, plan_, config_.league));
+    // The exchange is asked about every item, not only the ones planned as currency: whether
+    // a thing trades there is a fact about the market rather than about our strategy, and the
+    // feed is one download for all of them. An item whose base carries no metadata id — an
+    // older bundle — asks nothing.
+    currency_exchange_.lookup(config_.league,
+                              item_->base ? item_->base->metadata_id : std::string());
+}
+
+void App::open_reference_page() {
+    const std::string& url = ninja_.reference().url;
+    if (url.empty()) return;
+    debug::log("[ninja]  opening %s", url.c_str());
+    if (!SDL_OpenURL(url.c_str())) debug::log("[ninja]  SDL_OpenURL failed: %s", SDL_GetError());
 }
 
 void App::poll_click_away() {
@@ -512,11 +599,16 @@ void App::poll_click_away() {
     int wx = 0, wy = 0, ww = 0, wh = 0;
     SDL_GetWindowPosition(overlay_.window(), &wx, &wy);
     SDL_GetWindowSize(overlay_.window(), &ww, &wh);
-    // Against the *panel*, not the window: the window now carries a transparent gutter beside
-    // it, and a click there is a click on the game, which has to dismiss like any other.
+    // Against the *panel*, not the window: the window carries a gutter beside it, and a click on
+    // the transparent part of that is a click on the game, which has to dismiss like any other.
+    // The item card at the top of the gutter is the exception — that is our own UI.
     const float px = wx + layout_.panel_x;
     const float pw = layout_.panel_w > 0 ? layout_.panel_w : float(ww);
-    if (gx < px || gy < wy || gx >= px + pw || gy >= wy + wh) set_screen(Screen::Hidden);
+    const bool on_panel = gx >= px && gx < px + pw && gy >= wy && gy < wy + wh;
+    const bool on_card = card_h_ > 0 && gx >= wx + layout_.tip_x &&
+                         gx < wx + layout_.tip_x + layout_.tip_w && gy >= wy &&
+                         gy < wy + card_h_;
+    if (!on_panel && !on_card) set_screen(Screen::Hidden);
 }
 
 void App::handle_action(Action a) {
@@ -627,11 +719,28 @@ void App::place_overlay() {
         gx = r.x, gy = r.y, gw = r.w, gh = r.h;
     }
 
-    if (screen_ != Screen::PriceCheck) {
+    if (screen_ == Screen::Settings) {
         SDL_SetWindowSize(overlay_.window(), kSettingsW, kSettingsH);
         SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2,
                               gy + (gh - kSettingsH) / 2);
         layout_ = PanelLayout{0, kSettingsW, 0, 0};
+        return;
+    }
+
+    if (screen_ == Screen::Hidden) {
+        // Over the middle of the mana globe, which hangs off the bottom-right corner and scales
+        // with the game's height — so both offsets are fractions of that height, exactly like the
+        // two frame edges. The window is no bigger than the text: it is click-through while idle,
+        // but it is also what the compositor has to composite every time the game redraws.
+        const int cx = gx + gw - static_cast<int>(gh * config_.status_right);
+        const int cy = gy + gh - static_cast<int>(gh * config_.status_bottom);
+        SDL_SetWindowSize(overlay_.window(), kStatusW, kStatusH);
+        // max(min()), not clamp: a game window narrower than the marker puts the low bound above
+        // the high one, and clamp is not defined for that.
+        SDL_SetWindowPosition(overlay_.window(),
+                              std::max(gx, std::min(cx - kStatusW / 2, gx + gw - kStatusW)),
+                              std::max(gy, std::min(cy - kStatusH / 2, gy + gh - kStatusH)));
+        layout_ = PanelLayout{0, kStatusW, 0, 0};
         return;
     }
 
@@ -708,6 +817,9 @@ void App::copy_check_id() {
 void App::set_screen(Screen s) {
     debug::log("[app]    screen %d -> %d", (int)screen_, (int)s);
     screen_ = s;
+    // The card is re-measured on the first frame of the new screen, and poll_click_away runs
+    // before that frame: without this it would spend one iteration on the last check's card.
+    card_h_ = 0;
     bool active = s != Screen::Hidden;
     if (!active) copy_pending_ = false; // nothing left to fill in; stop watching the clipboard
     place_overlay();                    // each screen has its own geometry; apply before showing

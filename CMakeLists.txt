@@ -134,6 +134,10 @@ add_library(ppc_core STATIC
   src/item/resolve.cpp
   src/item/derive.cpp
   src/item/plan.cpp
+  src/ninja/ninja.cpp
+  src/ninja/cache.cpp
+  src/exchange/exchange.cpp
+  src/exchange/cache.cpp
   src/trade/query.cpp
   src/trade/currency.cpp
   src/trade/ratelimit.cpp
@@ -153,6 +157,10 @@ set(APP_SOURCES
   src/league_service.cpp
   src/trade_service.cpp
   src/trade/client.cpp
+  src/ninja_service.cpp
+  src/ninja/client.cpp
+  src/exchange_service.cpp
+  src/exchange/client.cpp
   src/icon_cache.cpp
   src/data/updater.cpp
   src/net/http.cpp
@@ -176,6 +184,9 @@ else()
 endif()
 
 add_executable(PathOfPriceCheck ${APP_SOURCES})
+# GUI subsystem on Windows: a console-subsystem binary opens a console window beside an
+# application whose whole UI is an overlay and a tray icon. Entry point is WinMain (src/main.cpp).
+set_target_properties(PathOfPriceCheck PROPERTIES WIN32_EXECUTABLE TRUE)
 target_include_directories(PathOfPriceCheck PRIVATE src)
 target_compile_definitions(PathOfPriceCheck PRIVATE APP_VERSION="${APP_VERSION}" SDL_MAIN_HANDLED)
 target_link_libraries(PathOfPriceCheck PRIVATE ppc_core SDL3::SDL3 imgui
@@ -232,4 +243,6 @@ ppc_add_test(install_test)
 ppc_add_test(item_parse_test)
 ppc_add_test(item_pricing_test)
 ppc_add_test(trade_query_test)
+ppc_add_test(ninja_test)
+ppc_add_test(exchange_test)
 ppc_add_test(ratelimit_test)
