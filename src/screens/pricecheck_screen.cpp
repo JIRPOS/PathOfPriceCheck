@@ -240,9 +240,11 @@ void draw_reference_price(App& app) {
     case item::Strategy::Unique:
     case item::Strategy::Currency:
     case item::Strategy::Gem:
+    case item::Strategy::BaseItem:
+    case item::Strategy::Modifiers:
         break;
     default:
-        return;
+        return; // a map: poe.ninja prices nothing about it that this row could show
     }
     const NinjaService& n = app.ninja();
     const ninja::Reference& r = n.reference();
@@ -252,11 +254,14 @@ void draw_reference_price(App& app) {
         return;
     }
     if (r.state == ninja::Reference::State::None) {
-        // Never silent: an empty slot where a price belongs reads as a price of nothing.
+        // Never silent: an empty slot where a price belongs reads as a price of nothing. Wrapped
+        // — these say *why* there is none, and a sentence cut off at the panel edge does not.
+        ImGui::PushTextWrapPos(0.0f);
         ImGui::TextDisabled("poe.ninja \xe2\x80\x94 %s",
                             !n.error().empty()  ? n.error().c_str()
                             : !r.note.empty()   ? r.note.c_str()
                                                 : "no reference price");
+        ImGui::PopTextWrapPos();
         return;
     }
 

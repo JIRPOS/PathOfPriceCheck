@@ -143,11 +143,91 @@ TEST_CASE("the currency market leads every lookup that has one") {
     q.names = {"The Doctor"};
     CHECK(ninja::keys_for(q)[1].type == "DivinationCard");
 
-    // A rare is priced by its own modifiers; poe.ninja has never claimed to price one.
+    // Everything rolled is priced as its base, which is the only thing poe.ninja knows how to
+    // say about one.
     q.strategy = item::Strategy::Modifiers;
-    CHECK(ninja::keys_for(q).empty());
+    CHECK(ninja::keys_for(q)[1].type == "BaseType");
     q.strategy = item::Strategy::BaseItem;
+    CHECK(ninja::keys_for(q)[1].type == "BaseType");
+
+    // A map is priced on neither, so there is nothing to ask and nothing to draw.
+    q.strategy = item::Strategy::Unsupported;
     CHECK(ninja::keys_for(q).empty());
+}
+
+TEST_CASE("a rolled item is priced as its base — item level and influences, not its name") {
+    const ninja::Overview currency = load("currency.json", ninja::Feed::Exchange, "Currency");
+    const ninja::Overview bases = load("base-type.json", ninja::Feed::StashItem, "BaseType");
+
+    SUBCASE("the eldritch influences are not base influences and must not be asked for") {
+        // A Twilight Regalia at item level 84 carrying Searing Exarch and Eater of Worlds.
+        // Those come from implicits rather than from the base, so poe.ninja does not split
+        // bases by them — asking for them would match nothing at all.
+        const item::Item it = parse_example("item_6.txt");
+        item::SearchPlan plan;
+        plan.strategy = item::Strategy::Modifiers;
+        plan.category = "armour.chest";
+        const ninja::Query q = ninja::query_for(it, plan, "Allflame");
+        CHECK(q.influences.empty());
+        CHECK(q.item_level == 84);
+
+        const ninja::Reference r = ninja::reference_for(q, {&currency, &bases});
+        CHECK(r.state == ninja::Reference::State::Priced);
+        CHECK(r.price.amount == doctest::Approx(5.0)); // the uninfluenced ilvl-84 line
+        CHECK(r.label == "item level 84");
+        // The rare's own modifiers are not this: the trade search below prices those.
+        CHECK(!r.note.empty());
+        CHECK(r.url == "https://poe.ninja/poe1/economy/allflame/base-types/twilight-regalia-84");
+    }
+    SUBCASE("an influence is matched exactly, never approximately") {
+        ninja::Query q;
+        q.strategy = item::Strategy::BaseItem;
+        q.league = "Allflame";
+        q.base_type = "Twilight Regalia";
+        q.item_level = 84;
+        q.influences = {"Warlord"};
+        const ninja::Reference r = ninja::reference_for(q, {&currency, &bases});
+        // 1370 chaos against 5 for the uninfluenced one: falling back would be wrong by two
+        // orders of magnitude, so an influence poe.ninja does not list is no price at all.
+        CHECK(r.price.amount == doctest::Approx(6.8)); // 1370 chaos, in divine
+        CHECK(r.label == "item level 84, Warlord");
+
+        q.influences = {"Crusader", "Shaper"}; // order is ours, not poe.ninja's
+        CHECK(ninja::reference_for(q, {&currency, &bases}).label == "item level 84, Shaper/Crusader");
+
+        q.influences = {"Elder", "Hunter"}; // a pairing nothing is listed under
+        const ninja::Reference none = ninja::reference_for(q, {&currency, &bases});
+        CHECK(none.state == ninja::Reference::State::None);
+        CHECK(none.note == "no price for a Elder/Hunter one");
+    }
+    SUBCASE("the best bracket the item has reached, and nothing below the lowest") {
+        ninja::Query q;
+        q.strategy = item::Strategy::BaseItem;
+        q.league = "Allflame";
+        q.base_type = "Infiltrator Mitts";
+
+        q.item_level = 100; // above the top bracket, which is an open end
+        CHECK(ninja::reference_for(q, {&currency, &bases}).label == "item level 86");
+        q.item_level = 84;
+        CHECK(ninja::reference_for(q, {&currency, &bases}).label == "item level 84");
+        q.item_level = 82;
+        CHECK(ninja::reference_for(q, {&currency, &bases}).label == "item level 82");
+
+        // item_7 is a real capture at item level 78 — under everything poe.ninja publishes,
+        // which is a fact about the item rather than a gap in the data.
+        q.item_level = 78;
+        const ninja::Reference r = ninja::reference_for(q, {&currency, &bases});
+        CHECK(r.state == ninja::Reference::State::None);
+        CHECK(r.note == "ilvl too low (<82)");
+    }
+    SUBCASE("a base poe.ninja does not price says so") {
+        ninja::Query q;
+        q.strategy = item::Strategy::BaseItem;
+        q.league = "Allflame";
+        q.base_type = "Driftwood Wand";
+        q.item_level = 84;
+        CHECK(ninja::reference_for(q, {&currency, &bases}).state == ninja::Reference::State::None);
+    }
 }
 
 TEST_CASE("a unique with one line is priced outright") {

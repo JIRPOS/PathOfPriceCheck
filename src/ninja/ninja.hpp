@@ -95,8 +95,12 @@ struct Line {
     std::string details_id; ///< last path segment of its page
     std::string icon;       ///< absolute image URL; empty when the payload carried none
     double chaos = 0;
-    int links = 0;          ///< 0 unless the price is specifically for a linked item
-    int gem_level = 0;      ///< 0 when not a gem
+    int links = 0; ///< 0 unless the price is specifically for a linked item
+    /// The payload's `levelRequired`, which means **two different things**: on a base-type line
+    /// it is the item-level bracket the price is for (82 to 86), on every other line it is the
+    /// character level needed to equip the item. Only the base-type path reads it.
+    int level = 0;
+    int gem_level = 0; ///< 0 when not a gem
     int gem_quality = 0;
     bool corrupted = false;
     int listings = 0; ///< listings behind the price; 0 when the payload did not say
@@ -145,6 +149,11 @@ struct Query {
     int links = 0;      ///< the item's largest linked group, 0 below five
     int gem_level = 0;  ///< gems only
     int gem_quality = 0;
+    int item_level = 0; ///< base-type pricing only; 0 when the item text did not print one
+    /// The influences a base is priced by, as poe.ninja names them. **Not** every influence the
+    /// item has: Searing Exarch and Eater of Worlds come from an implicit rather than from the
+    /// base, so poe.ninja does not split base types by them and neither does this.
+    std::vector<std::string> influences;
 };
 
 Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_view league);
@@ -194,8 +203,11 @@ struct Reference {
     std::string label; ///< which variant or gem tier this price is for, when it needed saying
     std::vector<Variant> variants; ///< Ambiguous only, cheapest first
     Spark spark;
-    std::string url;   ///< the item's page, for the click-through
-    std::string note;  ///< why there is no price, or the caveat on the one there is
+    std::string url; ///< the item's page, for the click-through
+    /// Why there is no price, or the caveat on the one there is. **Never names poe.ninja when
+    /// the state is `None`** — that note is drawn after the row's own "poe.ninja — " prefix and
+    /// would read twice. The other two states put it in the tooltip, where naming it is right.
+    std::string note;
     int listings = 0;
     int64_t fetched_at = 0; ///< when the overview behind this was downloaded
 };

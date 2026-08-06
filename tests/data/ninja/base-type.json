@@ -1,0 +1,1733 @@
+{
+ "lines": [
+  {
+   "id": 121773,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Shaper/Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 20140,
+   "exaltedValue": 12060,
+   "divineValue": 100.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-86-shaper-elder",
+   "listingCount": 1
+  },
+  {
+   "id": 121939,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Shaper/Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -31.11,
+    "data": [
+     null,
+     null,
+     null,
+     0,
+     -31.11,
+     null,
+     null
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 14400,
+   "exaltedValue": 8623,
+   "divineValue": 71.5,
+   "count": 4,
+   "detailsId": "twilight-regalia-85-shaper-crusader",
+   "listingCount": 4
+  },
+  {
+   "id": 120088,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Shaper/Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 9063,
+   "exaltedValue": 5427,
+   "divineValue": 45.0,
+   "count": 2,
+   "detailsId": "twilight-regalia-86-shaper-redeemer",
+   "listingCount": 2
+  },
+  {
+   "id": 126293,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Shaper/Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 5035,
+   "exaltedValue": 3015,
+   "divineValue": 25.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-84-shaper-crusader",
+   "listingCount": 1
+  },
+  {
+   "id": 122446,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Crusader/Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 4431,
+   "exaltedValue": 2653,
+   "divineValue": 22.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-86-crusader-hunter",
+   "listingCount": 1
+  },
+  {
+   "id": 126153,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Elder/Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 4028,
+   "exaltedValue": 2412,
+   "divineValue": 20.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-84-elder-crusader",
+   "listingCount": 1
+  },
+  {
+   "id": 121712,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Crusader/Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 3907,
+   "exaltedValue": 2340,
+   "divineValue": 19.4,
+   "count": 3,
+   "detailsId": "twilight-regalia-85-crusader-redeemer",
+   "listingCount": 3
+  },
+  {
+   "id": 124150,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Crusader/Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 3081,
+   "exaltedValue": 1845,
+   "divineValue": 15.3,
+   "count": 2,
+   "detailsId": "twilight-regalia-85-crusader-warlord",
+   "listingCount": 2
+  },
+  {
+   "id": 123171,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Shaper/Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     0
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 2719,
+   "exaltedValue": 1628,
+   "divineValue": 13.5,
+   "count": 12,
+   "detailsId": "twilight-regalia-86-shaper-crusader",
+   "listingCount": 12
+  },
+  {
+   "id": 123428,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Shaper/Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 2618,
+   "exaltedValue": 1568,
+   "divineValue": 13.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-85-shaper-hunter",
+   "listingCount": 1
+  },
+  {
+   "id": 122071,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Crusader/Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     0,
+     null,
+     null
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 2417,
+   "exaltedValue": 1447,
+   "divineValue": 12.0,
+   "count": 2,
+   "detailsId": "twilight-regalia-86-crusader-redeemer",
+   "listingCount": 2
+  },
+  {
+   "id": 121351,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Redeemer/Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 2014,
+   "exaltedValue": 1206,
+   "divineValue": 10.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-86-redeemer-hunter",
+   "listingCount": 1
+  },
+  {
+   "id": 123530,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Redeemer/Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 2014,
+   "exaltedValue": 1206,
+   "divineValue": 10.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-85-redeemer-warlord",
+   "listingCount": 1
+  },
+  {
+   "id": 122954,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Crusader/Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 1510,
+   "exaltedValue": 904.5,
+   "divineValue": 7.5,
+   "count": 2,
+   "detailsId": "twilight-regalia-85-crusader-hunter",
+   "listingCount": 2
+  },
+  {
+   "id": 120303,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 1370,
+   "exaltedValue": 820.1,
+   "divineValue": 6.8,
+   "count": 3,
+   "detailsId": "twilight-regalia-84-warlord",
+   "listingCount": 3
+  },
+  {
+   "id": 123322,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Elder/Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 1148,
+   "exaltedValue": 687.4,
+   "divineValue": 5.7,
+   "count": 2,
+   "detailsId": "twilight-regalia-86-elder-crusader",
+   "listingCount": 2
+  },
+  {
+   "id": 122313,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Shaper/Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 1128,
+   "exaltedValue": 675.4,
+   "divineValue": 5.6,
+   "count": 2,
+   "detailsId": "twilight-regalia-85-shaper-warlord",
+   "listingCount": 2
+  },
+  {
+   "id": 121235,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 83,
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 805.6,
+   "exaltedValue": 482.4,
+   "divineValue": 4.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-83",
+   "listingCount": 1
+  },
+  {
+   "id": 121696,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Crusader/Warlord",
+   "itemClass": 0,
+   "sparkLine": {
+    "totalChange": -56.72,
+    "data": [
+     null,
+     0,
+     null,
+     147.6,
+     186.6,
+     -33.73,
+     -56.72
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 684.8,
+   "exaltedValue": 410.0,
+   "divineValue": 3.4,
+   "count": 5,
+   "detailsId": "twilight-regalia-86-crusader-warlord",
+   "listingCount": 5
+  },
+  {
+   "id": 121652,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Redeemer/Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -25.13,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     0,
+     6.83,
+     -25.13
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 604.2,
+   "exaltedValue": 361.8,
+   "divineValue": 3.0,
+   "count": 9,
+   "detailsId": "twilight-regalia-85-redeemer-hunter",
+   "listingCount": 9
+  },
+  {
+   "id": 123215,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Shaper/Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 402.8,
+   "exaltedValue": 241.2,
+   "divineValue": 2.0,
+   "count": 1,
+   "detailsId": "twilight-regalia-85-shaper-elder",
+   "listingCount": 1
+  },
+  {
+   "id": 119724,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Crusader",
+   "itemClass": 1,
+   "sparkLine": {
+    "totalChange": 14.89,
+    "data": [
+     0,
+     92.01,
+     -0.4,
+     2.91,
+     5.02,
+     7.07,
+     14.89
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 201.4,
+   "exaltedValue": 120.6,
+   "divineValue": 1.0,
+   "count": 90,
+   "detailsId": "twilight-regalia-86-crusader",
+   "listingCount": 90
+  },
+  {
+   "id": 121019,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 83,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 201.4,
+   "exaltedValue": 120.6,
+   "divineValue": 1.0,
+   "count": 1,
+   "detailsId": "infiltrator-mitts-83-redeemer",
+   "listingCount": 1
+  },
+  {
+   "id": 119775,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 367.3,
+    "data": [
+     0,
+     710.8,
+     541.8,
+     703.7,
+     622.6,
+     100.9,
+     367.3
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 100.0,
+   "exaltedValue": 59.88,
+   "divineValue": 0.5,
+   "count": 16,
+   "detailsId": "twilight-regalia-84-crusader",
+   "listingCount": 16
+  },
+  {
+   "id": 120446,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 12.5,
+    "data": [
+     0,
+     -6.25,
+     -6.25,
+     43.3,
+     125,
+     88.75,
+     12.5
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 90.0,
+   "exaltedValue": 53.89,
+   "divineValue": 0.45,
+   "count": 39,
+   "detailsId": "twilight-regalia-86-warlord",
+   "listingCount": 39
+  },
+  {
+   "id": 120184,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 134.3,
+    "data": [
+     null,
+     0,
+     7.14,
+     null,
+     null,
+     null,
+     134.3
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 82.0,
+   "exaltedValue": 49.1,
+   "divineValue": 0.41,
+   "count": 5,
+   "detailsId": "twilight-regalia-84-redeemer",
+   "listingCount": 5
+  },
+  {
+   "id": 121013,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 83,
+   "variant": "Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 67.42,
+   "exaltedValue": 40.37,
+   "divineValue": 0.33,
+   "count": 4,
+   "detailsId": "infiltrator-mitts-83-warlord",
+   "listingCount": 4
+  },
+  {
+   "id": 120135,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 83,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 65.14,
+   "exaltedValue": 39.01,
+   "divineValue": 0.32,
+   "count": 2,
+   "detailsId": "infiltrator-mitts-83-hunter",
+   "listingCount": 2
+  },
+  {
+   "id": 120985,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 82,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 55.0,
+   "exaltedValue": 32.93,
+   "divineValue": 0.27,
+   "count": 2,
+   "detailsId": "infiltrator-mitts-82-elder",
+   "listingCount": 2
+  },
+  {
+   "id": 119741,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -55,
+    "data": [
+     0,
+     69.8,
+     73.6,
+     72.2,
+     0,
+     0,
+     -55
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 45.0,
+   "exaltedValue": 26.95,
+   "divineValue": 0.22,
+   "count": 55,
+   "detailsId": "twilight-regalia-86-redeemer",
+   "listingCount": 55
+  },
+  {
+   "id": 119877,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 73.33,
+    "data": [
+     0,
+     4.17,
+     4.17,
+     150,
+     108.3,
+     66.67,
+     73.33
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 41.6,
+   "exaltedValue": 24.91,
+   "divineValue": 0.21,
+   "count": 193,
+   "detailsId": "twilight-regalia-85-crusader",
+   "listingCount": 193
+  },
+  {
+   "id": 120285,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -77.18,
+    "data": [
+     0,
+     -3.82,
+     -20.14,
+     -54.93,
+     -77.18,
+     -77.18,
+     -77.18
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 40.0,
+   "exaltedValue": 23.95,
+   "divineValue": 0.2,
+   "count": 52,
+   "detailsId": "twilight-regalia-86-hunter",
+   "listingCount": 52
+  },
+  {
+   "id": 118459,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 116.7,
+    "data": [
+     0,
+     122.2,
+     111.1,
+     66.67,
+     66.67,
+     55.56,
+     116.7
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 39.0,
+   "exaltedValue": 23.35,
+   "divineValue": 0.19,
+   "count": 399,
+   "detailsId": "twilight-regalia-86",
+   "listingCount": 2919
+  },
+  {
+   "id": 119924,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Shaper",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 20,
+    "data": [
+     0,
+     80,
+     60,
+     40,
+     42,
+     20,
+     20
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 30.0,
+   "exaltedValue": 17.96,
+   "divineValue": 0.15,
+   "count": 194,
+   "detailsId": "twilight-regalia-86-shaper",
+   "listingCount": 194
+  },
+  {
+   "id": 120355,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 86,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 57.89,
+    "data": [
+     0,
+     136.8,
+     107.9,
+     57.89,
+     57.89,
+     52.63,
+     57.89
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 30.0,
+   "exaltedValue": 17.96,
+   "divineValue": 0.15,
+   "count": 67,
+   "detailsId": "twilight-regalia-86-elder",
+   "listingCount": 67
+  },
+  {
+   "id": 120494,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 84,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 18.2,
+   "exaltedValue": 10.9,
+   "divineValue": 0.09,
+   "count": 3,
+   "detailsId": "infiltrator-mitts-84-hunter",
+   "listingCount": 3
+  },
+  {
+   "id": 119915,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 86,
+   "variant": "Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -48.84,
+    "data": [
+     null,
+     0,
+     -32.56,
+     -54.26,
+     -48.84,
+     null,
+     null
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 15.2,
+   "exaltedValue": 9.1,
+   "divineValue": 0.08,
+   "count": 3,
+   "detailsId": "infiltrator-mitts-86-crusader",
+   "listingCount": 3
+  },
+  {
+   "id": 120058,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 84,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 15.0,
+   "exaltedValue": 8.98,
+   "divineValue": 0.07,
+   "count": 1,
+   "detailsId": "infiltrator-mitts-84-redeemer",
+   "listingCount": 1
+  },
+  {
+   "id": 120986,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 86,
+   "variant": "Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -37.5,
+    "data": [
+     0,
+     -37.5,
+     -37.5,
+     -37.5,
+     -37.5,
+     -37.5,
+     -37.5
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 15.0,
+   "exaltedValue": 8.98,
+   "divineValue": 0.07,
+   "count": 10,
+   "detailsId": "infiltrator-mitts-86-warlord",
+   "listingCount": 10
+  },
+  {
+   "id": 121003,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 82,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 15.0,
+   "exaltedValue": 8.98,
+   "divineValue": 0.07,
+   "count": 1,
+   "detailsId": "infiltrator-mitts-82-hunter",
+   "listingCount": 1
+  },
+  {
+   "id": 120113,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 82,
+   "variant": "Shaper",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 10.6,
+   "exaltedValue": 6.35,
+   "divineValue": 0.05,
+   "count": 4,
+   "detailsId": "infiltrator-mitts-82-shaper",
+   "listingCount": 4
+  },
+  {
+   "id": 119402,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 86,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -27.46,
+    "data": [
+     0,
+     0,
+     -3.52,
+     -10.56,
+     -10.56,
+     -8.45,
+     -27.46
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 10.3,
+   "exaltedValue": 6.17,
+   "divineValue": 0.05,
+   "count": 12,
+   "detailsId": "infiltrator-mitts-86-hunter",
+   "listingCount": 12
+  },
+  {
+   "id": 119007,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 85,
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 100,
+    "data": [
+     0,
+     0,
+     0,
+     0,
+     60,
+     80,
+     100
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 10.0,
+   "exaltedValue": 5.99,
+   "divineValue": 0.05,
+   "count": 399,
+   "detailsId": "infiltrator-mitts-85",
+   "listingCount": 1578
+  },
+  {
+   "id": 119227,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 86,
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 11.11,
+    "data": [
+     0,
+     11.11,
+     -11.11,
+     -11.11,
+     -11.11,
+     8.89,
+     11.11
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 10.0,
+   "exaltedValue": 5.99,
+   "divineValue": 0.05,
+   "count": 399,
+   "detailsId": "infiltrator-mitts-86",
+   "listingCount": 973
+  },
+  {
+   "id": 119579,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Shaper",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 100,
+    "data": [
+     0,
+     100,
+     0,
+     0,
+     100,
+     100,
+     100
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 10.0,
+   "exaltedValue": 5.99,
+   "divineValue": 0.05,
+   "count": 83,
+   "detailsId": "twilight-regalia-84-shaper",
+   "listingCount": 83
+  },
+  {
+   "id": 120805,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 86,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 10.0,
+   "exaltedValue": 5.99,
+   "divineValue": 0.05,
+   "count": 3,
+   "detailsId": "infiltrator-mitts-86-redeemer",
+   "listingCount": 3
+  },
+  {
+   "id": 121654,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 82,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 10.0,
+   "exaltedValue": 5.99,
+   "divineValue": 0.05,
+   "count": 1,
+   "detailsId": "infiltrator-mitts-82-redeemer",
+   "listingCount": 1
+  },
+  {
+   "id": 120175,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 86,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 34.29,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     0,
+     34.29
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 9.4,
+   "exaltedValue": 5.63,
+   "divineValue": 0.05,
+   "count": 5,
+   "detailsId": "infiltrator-mitts-86-elder",
+   "listingCount": 5
+  },
+  {
+   "id": 120912,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 84,
+   "variant": "Shaper",
+   "itemClass": 0,
+   "sparkLine": {
+    "totalChange": 145.7,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     0,
+     0,
+     145.7
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 8.6,
+   "exaltedValue": 5.15,
+   "divineValue": 0.04,
+   "count": 5,
+   "detailsId": "infiltrator-mitts-84-shaper",
+   "listingCount": 5
+  },
+  {
+   "id": 118767,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Shaper",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 60,
+    "data": [
+     0,
+     0,
+     0,
+     0,
+     100,
+     100,
+     60
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 8.0,
+   "exaltedValue": 4.79,
+   "divineValue": 0.04,
+   "count": 399,
+   "detailsId": "twilight-regalia-85-shaper",
+   "listingCount": 431
+  },
+  {
+   "id": 120279,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -74.19,
+    "data": [
+     0,
+     -54.84,
+     -67.74,
+     -67.74,
+     -74.19,
+     -70.97,
+     -74.19
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 8.0,
+   "exaltedValue": 4.79,
+   "divineValue": 0.04,
+   "count": 153,
+   "detailsId": "twilight-regalia-85-redeemer",
+   "listingCount": 153
+  },
+  {
+   "id": 120443,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 85,
+   "variant": "Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -20,
+    "data": [
+     0,
+     0,
+     0,
+     -20,
+     -20,
+     -20,
+     -20
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 8.0,
+   "exaltedValue": 4.79,
+   "divineValue": 0.04,
+   "count": 31,
+   "detailsId": "infiltrator-mitts-85-warlord",
+   "listingCount": 31
+  },
+  {
+   "id": 119447,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     0,
+     -14.29,
+     -28.57,
+     0,
+     -14.29,
+     0
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 7.0,
+   "exaltedValue": 4.19,
+   "divineValue": 0.03,
+   "count": 136,
+   "detailsId": "twilight-regalia-85-hunter",
+   "listingCount": 136
+  },
+  {
+   "id": 119872,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 35,
+    "data": [
+     0,
+     112.5,
+     67.5,
+     25,
+     25,
+     50,
+     35
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 5.4,
+   "exaltedValue": 3.23,
+   "divineValue": 0.03,
+   "count": 102,
+   "detailsId": "twilight-regalia-85-warlord",
+   "listingCount": 102
+  },
+  {
+   "id": 118310,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "itemClass": 1,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     100,
+     -40,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 399,
+   "detailsId": "twilight-regalia-84",
+   "listingCount": 3361
+  },
+  {
+   "id": 118501,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     100,
+     -20,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 399,
+   "detailsId": "twilight-regalia-85",
+   "listingCount": 3783
+  },
+  {
+   "id": 118826,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxLCJzZWFyaW5nIjp0cnVlLCJ0YW5nbGVkIjp0cnVlfV0/00a4570b30/GlovesDexInt2.png",
+   "levelRequired": 83,
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     -20,
+     -36,
+     -20,
+     0,
+     0,
+     0
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 399,
+   "detailsId": "infiltrator-mitts-83",
+   "listingCount": 839
+  },
+  {
+   "id": 119105,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 84,
+   "variant": "Warlord",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 1,
+   "detailsId": "infiltrator-mitts-84-warlord",
+   "listingCount": 1
+  },
+  {
+   "id": 119203,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 84,
+   "itemClass": 1,
+   "sparkLine": {
+    "totalChange": 25,
+    "data": [
+     0,
+     25,
+     25,
+     25,
+     25,
+     25,
+     25
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 399,
+   "detailsId": "infiltrator-mitts-84",
+   "listingCount": 762
+  },
+  {
+   "id": 119536,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -80.77,
+    "data": [
+     null,
+     0,
+     -38.46,
+     null,
+     null,
+     -73.08,
+     -80.77
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 6,
+   "detailsId": "twilight-regalia-84-hunter",
+   "listingCount": 6
+  },
+  {
+   "id": 119588,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 83,
+   "variant": "Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 1,
+   "detailsId": "infiltrator-mitts-83-crusader",
+   "listingCount": 1
+  },
+  {
+   "id": 119632,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 85,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 66.67,
+    "data": [
+     0,
+     66.67,
+     66.67,
+     66.67,
+     66.67,
+     66.67,
+     66.67
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 301,
+   "detailsId": "twilight-regalia-85-elder",
+   "listingCount": 301
+  },
+  {
+   "id": 119863,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 85,
+   "variant": "Hunter",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     84,
+     24,
+     4,
+     0,
+     0,
+     0
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 31,
+   "detailsId": "infiltrator-mitts-85-hunter",
+   "listingCount": 31
+  },
+  {
+   "id": 120416,
+   "name": "Twilight Regalia",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+   "levelRequired": 84,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 13.64,
+    "data": [
+     0,
+     161.4,
+     13.64,
+     13.64,
+     13.64,
+     13.64,
+     13.64
+    ]
+   },
+   "itemType": "Body Armour",
+   "chaosValue": 5.0,
+   "exaltedValue": 2.99,
+   "divineValue": 0.02,
+   "count": 53,
+   "detailsId": "twilight-regalia-84-elder",
+   "listingCount": 53
+  },
+  {
+   "id": 119509,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 85,
+   "variant": "Redeemer",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 88.46,
+    "data": [
+     0,
+     19.23,
+     38.46,
+     30.77,
+     38.46,
+     80.77,
+     88.46
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 4.9,
+   "exaltedValue": 2.93,
+   "divineValue": 0.02,
+   "count": 10,
+   "detailsId": "infiltrator-mitts-85-redeemer",
+   "listingCount": 10
+  },
+  {
+   "id": 119355,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 86,
+   "variant": "Shaper",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 90,
+    "data": [
+     0,
+     150,
+     0,
+     0,
+     0,
+     100,
+     90
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 3.8,
+   "exaltedValue": 2.28,
+   "divineValue": 0.02,
+   "count": 39,
+   "detailsId": "infiltrator-mitts-86-shaper",
+   "listingCount": 39
+  },
+  {
+   "id": 120229,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 85,
+   "variant": "Crusader",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 35.71,
+    "data": [
+     0,
+     64.29,
+     57.14,
+     39.29,
+     28.57,
+     21.43,
+     35.71
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 3.8,
+   "exaltedValue": 2.28,
+   "divineValue": 0.02,
+   "count": 15,
+   "detailsId": "infiltrator-mitts-85-crusader",
+   "listingCount": 15
+  },
+  {
+   "id": 120525,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 84,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -58.89,
+    "data": [
+     0,
+     2.22,
+     188.9,
+     133.3,
+     120,
+     8.89,
+     -58.89
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 3.7,
+   "exaltedValue": 2.22,
+   "divineValue": 0.02,
+   "count": 10,
+   "detailsId": "infiltrator-mitts-84-elder",
+   "listingCount": 10
+  },
+  {
+   "id": 118917,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxLCJzZWFyaW5nIjp0cnVlLCJ0YW5nbGVkIjp0cnVlfV0/00a4570b30/GlovesDexInt2.png",
+   "levelRequired": 82,
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 2.0,
+   "exaltedValue": 1.2,
+   "divineValue": 0.01,
+   "count": 267,
+   "detailsId": "infiltrator-mitts-82",
+   "listingCount": 267
+  },
+  {
+   "id": 119210,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 85,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     5,
+     50,
+     10,
+     50,
+     50,
+     0
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 2.0,
+   "exaltedValue": 1.2,
+   "divineValue": 0.01,
+   "count": 112,
+   "detailsId": "infiltrator-mitts-85-elder",
+   "listingCount": 112
+  },
+  {
+   "id": 119350,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 85,
+   "variant": "Shaper",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     0,
+     0,
+     0,
+     50,
+     50,
+     0,
+     0
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 2.0,
+   "exaltedValue": 1.2,
+   "divineValue": 0.01,
+   "count": 84,
+   "detailsId": "infiltrator-mitts-85-shaper",
+   "listingCount": 84
+  },
+  {
+   "id": 120055,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 83,
+   "variant": "Elder",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": []
+   },
+   "itemType": "Gloves",
+   "chaosValue": 1.6,
+   "exaltedValue": 0.96,
+   "divineValue": 0.01,
+   "count": 4,
+   "detailsId": "infiltrator-mitts-83-elder",
+   "listingCount": 4
+  },
+  {
+   "id": 121122,
+   "name": "Infiltrator Mitts",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/e18b986979/GlovesDexInt2.png",
+   "levelRequired": 83,
+   "variant": "Shaper",
+   "itemClass": 2,
+   "sparkLine": {
+    "totalChange": -61.54,
+    "data": [
+     null,
+     null,
+     null,
+     0,
+     188.5,
+     -61.54,
+     -61.54
+    ]
+   },
+   "itemType": "Gloves",
+   "chaosValue": 1.0,
+   "exaltedValue": 0.6,
+   "count": 7,
+   "detailsId": "infiltrator-mitts-83-shaper",
+   "listingCount": 7
+  }
+ ]
+}

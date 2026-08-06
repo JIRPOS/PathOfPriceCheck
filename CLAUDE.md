@@ -8,8 +8,8 @@ The overlay, Settings, the league list, the **static game-data layer**, the **it
 (parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) and the
 **trade search** (query builder, two-step client, shared rate limiter, results in the panel) are
 built and tested, including the **per-unique modifier data** that decides which of a unique's
-modifiers are worth searching on. **poe.ninja reference pricing** — uniques, gems and currency,
-the categories a stat query cannot price — is built too.
+modifiers are worth searching on. **poe.ninja reference pricing** — uniques, gems, currency and
+base types, the going rates a stat query cannot give — is built too.
 
 Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
@@ -664,12 +664,13 @@ call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
 
 ### The poe.ninja reference price (built)
 
-`src/ninja/` is the going rate for what a stat query cannot price. A rare is worth whatever its
-own modifiers are worth and only trade can say; a Divine Orb, a level-21 gem and a unique whose
-copies are all alike are worth what the market is paying, which is the one thing poe.ninja
-measures and trade does not. It is one row under the filters (`draw_reference_price`): the site's
-mark, the price, and the week behind it — and the whole row is a click-through to the item's own
-page, which holds the variants and the history the row has to leave out.
+`src/ninja/` is the going rate a stat query cannot give. A Divine Orb, a level-21 gem and a
+unique whose copies are all alike are worth what the market is paying, which is the one thing
+poe.ninja measures and trade does not — and a **white, magic or rare item is priced as its base
+type**, which is all poe.ninja knows how to say about one. It is one row under the filters
+(`draw_reference_price`): the site's mark, the price, and the week behind it — and the whole row
+is a click-through to the item's own page, which holds the variants and the history the row has
+to leave out. A map is the only strategy with no row at all.
 
 - **Only the economy endpoints are public API** (https://poe.ninja/docs/api). The builds and
   profile endpoints are explicitly closed to third parties; do not reach for them. The paths moved
@@ -706,6 +707,21 @@ page, which holds the variants and the history the row has to leave out.
   what its silence means. Where that leaves several (Mageblood's flask count, Voices' passives) the
   row states the **span** and the count rather than picking one; a confident wrong price is the
   failure this whole layer avoids, and the click-through settles it.
+- **A rolled item is priced as its base, on three things and only three**: the base, the **item
+  level** and the **influences**. poe.ninja carries no quality on a base line, so a 20% quality
+  base is priced as any other. The influence set is matched **exactly** — an uninfluenced
+  Twilight Regalia at item level 84 is 5 chaos and a Warlord one is 1370, so falling back to the
+  wrong influence would be wrong by two orders of magnitude — and it is compared as a *set*,
+  because "Shaper/Crusader" is the site's ordering and an item is not priced differently for
+  being read backwards. **Searing Exarch and Eater of Worlds are excluded**: they come from an
+  implicit rather than from the base, poe.ninja does not split bases by them, and asking for
+  them would match nothing (`examples/item_6` is exactly that item). Item level is bracketed —
+  82 up, today — so the best bracket the item has reached is what it is worth, and the top one
+  is an open end. Below the lowest there is no price, which is a fact about the item rather than
+  a gap in the data (`examples/item_7`, item level 78). On a **rare** the note says outright
+  that this is the bare base and its modifiers are the search below: without that, a floor price
+  reads as the item's price. The base name is the only name matched — a rare's own name is
+  randomly generated and a hit on it could only ever be a coincidence, and a wrong price.
 - **Which overview to ask** is `keys_for`, off the trade category, and the currency market always
   leads: it carries the rate and the symbols every other price is drawn with. A currency item is
   looked for *in* it before anything else is downloaded — it holds the orbs and catalysts most
@@ -734,6 +750,10 @@ page, which holds the variants and the history the row has to leave out.
   which insists on a frame and a background.
 - `item/plan` no longer notes that currency and gem pricing "is not implemented yet" — that note
   now sits directly above the price, and read as "this item has no price".
+- **A `None` note never names poe.ninja**; it is drawn after the row's own "poe.ninja — " prefix
+  and would read twice. The `Priced` and `Ambiguous` notes go in the tooltip instead, where
+  naming it is right. The row's note wraps, because these say *why* there is no price and a
+  sentence cut off at the panel edge does not.
 
 ### Still to build
 
@@ -886,4 +906,6 @@ the lines a case turns on, kept verbatim so a payload change reads back as a par
 than as a test that quietly stopped covering anything. Each one is there for a reason — the
 currency market for the rate, `unique-armour.json` for a variant the item's own modifiers resolve,
 `unique-accessory.json` for one they cannot, `skill-gem.json` for the tiers poe.ninja publishes
-against the ones it does not.
+against the ones it does not, `base-type.json` for the two bases the captures already cover —
+`item_6`'s Twilight Regalia (item level 84, eldritch influences that must be ignored) and
+`item_7`'s Infiltrator Mitts (item level 78, under everything poe.ninja publishes).

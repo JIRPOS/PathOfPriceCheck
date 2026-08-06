@@ -87,5 +87,11 @@ Decisions taken without asking, for the record:
   own responses — plus a conditional request when it expires, so an unchanged overview costs a
   304 rather than four megabytes. The divine rate rides in the currency market's payload, so it
   is not a separate thing to remember: it is fetched with the first check of every half hour.
-- **A rare says nothing at all.** The row is drawn only for the strategies poe.ninja could ever
-  price, so a rare does not carry a permanent empty slot.
+- **A white, magic or rare item is priced as its base type** (asked for after the first pass).
+  poe.ninja splits bases on three things and this matches all three: the base, the item level
+  (bracketed, 82 up — below that there is no price at all) and the influences (exactly; Searing
+  Exarch and Eater of Worlds are excluded, being implicit-borne rather than base influences).
+  It carries no quality on a base line, so quality is not part of it. On a rare the row says
+  outright that this is the bare base and the search below is what prices its modifiers.
+- **A map is the only strategy with no row at all**, since poe.ninja prices one on its tier and
+  nothing in the item layer gets that far.

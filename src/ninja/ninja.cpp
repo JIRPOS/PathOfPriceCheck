@@ -18,9 +18,9 @@ namespace {
 /// kebab-case of the category name, verified against the live pages rather than derived — the
 /// two do not always agree, and a wrong slug is a link to a 404.
 ///
-/// Deliberately not the whole list: the categories priced on something other than an item's
-/// identity (maps by tier, base types by influence and item level) are a different kind of
-/// lookup and are not what this row answers.
+/// Deliberately not the whole list: what is missing is what nothing here can reach. Maps are
+/// priced by tier and a map never gets this far (`Strategy::Unsupported`), and the rest —
+/// incubators, beasts, memories, temples — has no strategy behind it either.
 constexpr Category kCategories[] = {
     {Feed::Exchange, "Currency", "currency"},
     {Feed::Exchange, "Fragment", "fragments"},
@@ -48,6 +48,7 @@ constexpr Category kCategories[] = {
     {Feed::StashItem, "UniqueTincture", "unique-tinctures"},
     {Feed::StashItem, "UniqueRelic", "unique-relics"},
     {Feed::StashItem, "SkillGem", "skill-gems"},
+    {Feed::StashItem, "BaseType", "base-types"},
 };
 
 /// The exchange overview a currency-like item is in, when the currency market itself does not
@@ -191,6 +192,7 @@ bool parse_stash_items(const json& j, Overview& out) {
         l.icon = image_url(text(e, "icon"));
         l.chaos = number(e, "chaosValue");
         l.links = integer(e, "links");
+        l.level = integer(e, "levelRequired");
         l.gem_level = integer(e, "gemLevel");
         l.gem_quality = integer(e, "gemQuality");
         // Absent and null both mean "not corrupted"; only `true` splits the market.
@@ -229,15 +231,31 @@ void narrow(std::vector<const Line*>& candidates, Pred pred) {
     if (!kept.empty()) candidates.swap(kept);
 }
 
-std::vector<const Line*> by_name(const Overview& ov, const Query& q) {
+std::vector<const Line*> by_name(const Overview& ov, const std::vector<std::string>& names) {
     std::vector<const Line*> out;
-    for (const std::string& name : q.names) {
+    for (const std::string& name : names) {
+        if (name.empty()) continue;
         for (const Line& l : ov.lines)
             if (iequal(l.name, name)) out.push_back(&l);
-        // The names are in preference order, so a hit on the printed name settles it: a
-        // "Foulborn Headhunter" is priced separately from a Headhunter and is not one.
+        // The names are in preference order, so a hit on the first settles it: a "Foulborn
+        // Headhunter" is priced separately from a Headhunter and is not one.
         if (!out.empty()) return out;
     }
+    return out;
+}
+
+/// The influence set a base-type line is priced for, out of poe.ninja's `/`-joined variant
+/// ("Shaper/Elder"). Compared as a set rather than as a string: the order is the game's own and
+/// agrees with ours today, but an item is not priced differently for being read backwards.
+std::vector<std::string> variant_influences(std::string_view variant) {
+    std::vector<std::string> out;
+    size_t pos = 0;
+    while (pos <= variant.size()) {
+        const size_t end = std::min(variant.find('/', pos), variant.size());
+        if (end > pos) out.emplace_back(variant.substr(pos, end - pos));
+        pos = end + 1;
+    }
+    std::sort(out.begin(), out.end());
     return out;
 }
 
@@ -368,6 +386,66 @@ const Line* nearest_gem(const std::vector<const Line*>& candidates, int level, i
     return best;
 }
 
+/// Price a normal, magic or rare item as its **base type**, which is the only thing poe.ninja
+/// can say about one. A rare is bought for its modifiers and the trade search below is what
+/// prices those; this is the floor under it — what the item is worth stripped back to the base
+/// somebody would craft on, and for a white or magic item it is the whole answer.
+///
+/// Three things decide a base's price and poe.ninja splits on all three: the base itself, the
+/// **item level** and the **influences**. Quality is not one of them — it carries no quality
+/// field for bases, so a 20% quality base is priced as any other.
+Reference base_type_reference(const Query& q, const Overview& ov, double per_divine) {
+    Reference r;
+    r.fetched_at = ov.fetched_at;
+
+    std::vector<const Line*> candidates = by_name(ov, {q.base_type});
+    if (candidates.empty()) {
+        r.note = "\"" + q.base_type + "\" is not priced as a base";
+        return r;
+    }
+
+    // Exact, never a preference: an uninfluenced Twilight Regalia is 5 chaos and a Warlord one
+    // is 1370. Falling back to the wrong influence would be wrong by two orders of magnitude.
+    std::vector<std::string> want = q.influences;
+    std::sort(want.begin(), want.end());
+    std::vector<const Line*> matched;
+    for (const Line* l : candidates)
+        if (variant_influences(l->variant) == want) matched.push_back(l);
+    if (matched.empty()) {
+        std::string influences;
+        for (const std::string& i : want) influences += (influences.empty() ? "" : "/") + i;
+        r.note = influences.empty() ? "no price for this base uninfluenced"
+                                    : "no price for a " + influences + " one";
+        return r;
+    }
+
+    if (q.item_level <= 0) {
+        r.note = "no item level in the item text";
+        return r;
+    }
+    // poe.ninja brackets bases by item level and publishes only the top few — 82 up, today.
+    // The best bracket the item has reached is what it is worth, and its highest is an open
+    // top end: an item level 92 base is sold as, and priced as, the last bracket.
+    const Line* best = nullptr;
+    int lowest = 0;
+    for (const Line* l : matched) {
+        if (lowest == 0 || l->level < lowest) lowest = l->level;
+        if (l->level > q.item_level) continue;
+        if (!best || l->level > best->level) best = l;
+    }
+    if (!best) {
+        r.note = "ilvl too low (<" + std::to_string(lowest) + ")";
+        return r;
+    }
+
+    fill_price(r, *best, ov.key, per_divine);
+    r.label = "item level " + std::to_string(best->level);
+    if (!best->variant.empty()) r.label += ", " + best->variant;
+    if (q.strategy == item::Strategy::Modifiers)
+        r.note = "the bare base, not this item: what its modifiers are worth is the search below";
+    return r;
+}
+
 } // namespace
 
 const Category* category(std::string_view type) {
@@ -464,6 +542,14 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
     for (const item::Modifier& m : it.mods)
         for (const std::string& line : m.lines) q.mods.push_back(line);
 
+    q.item_level = it.item_level.value_or(0);
+    for (const item::Influence i : it.influences)
+        // The two eldritch influences come from an implicit rather than from the base, so
+        // poe.ninja does not split base types by them — and an item carrying one would match
+        // nothing if they were asked for.
+        if (i != item::Influence::SearingExarch && i != item::Influence::EaterOfWorlds)
+            q.influences.emplace_back(item::to_string(i));
+
     if (plan.strategy == item::Strategy::Gem) {
         for (const item::Property& p : it.properties)
             if (p.label == "Level" && p.num) q.gem_level = static_cast<int>(*p.num);
@@ -488,6 +574,13 @@ std::vector<Key> keys_for(const Query& q) {
     case item::Strategy::Gem:
         type = "SkillGem";
         break;
+    // A white, magic or rare item is priced as its **base**, which is all poe.ninja knows how
+    // to say about one. For a rare that is the floor under what the trade search finds; for the
+    // other two it is the whole answer.
+    case item::Strategy::BaseItem:
+    case item::Strategy::Modifiers:
+        type = "BaseType";
+        break;
     case item::Strategy::Currency:
         if (q.category == "card") {
             type = "DivinationCard";
@@ -506,7 +599,7 @@ std::vector<Key> keys_for(const Query& q) {
         }
         break;
     default:
-        return out; // a rare, a base item, a map: nothing here prices one
+        return out; // a map, or a class nothing prices: there is no overview to ask
     }
     if (type.empty() && q.strategy != item::Strategy::Currency) return out;
 
@@ -540,7 +633,7 @@ Reference reference_for(const Query& q, const std::vector<const Overview*>& have
     const double per_divine = currency ? currency->chaos_per_divine : 0;
     if (currency) r.fetched_at = currency->fetched_at;
     if (currency && currency->lines.empty()) {
-        r.note = "poe.ninja tracks no economy for " + q.league;
+        r.note = "no economy tracked for " + q.league;
         return r;
     }
 
@@ -549,20 +642,27 @@ Reference reference_for(const Query& q, const std::vector<const Overview*>& have
     const Overview* ov = nullptr;
     std::vector<const Line*> candidates;
     if (q.strategy == item::Strategy::Currency && currency) {
-        candidates = by_name(*currency, q);
+        candidates = by_name(*currency, q.names);
         if (!candidates.empty()) ov = currency;
     }
     if (candidates.empty()) {
         ov = item_overview(have);
         if (!ov) {
-            r.note = "poe.ninja prices nothing of this kind";
+            r.note = "nothing of this kind is priced here";
             return r;
         }
         r.fetched_at = ov->fetched_at;
-        candidates = by_name(*ov, q);
+        // A base is looked up by its base name alone. A rare's own name is randomly generated
+        // and matching on it could only ever be a coincidence, and a wrong price.
+        if (ov->key.type == "BaseType") {
+            Reference base = base_type_reference(q, *ov, per_divine);
+            base.fetched_at = ov->fetched_at;
+            return base;
+        }
+        candidates = by_name(*ov, q.names);
     }
     if (candidates.empty()) {
-        r.note = "poe.ninja has no price for this item";
+        r.note = "no price for this item";
         return r;
     }
 
@@ -572,7 +672,7 @@ Reference reference_for(const Query& q, const std::vector<const Overview*>& have
         narrow(candidates, [&](const Line& l) { return l.corrupted == q.corrupted; });
         const Line* best = nearest_gem(candidates, q.gem_level, q.gem_quality);
         if (!best) {
-            r.note = "poe.ninja has no price for this gem";
+            r.note = "no price for this gem";
             return r;
         }
         fill_price(r, *best, ov->key, per_divine);
