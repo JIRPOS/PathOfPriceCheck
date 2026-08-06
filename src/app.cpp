@@ -183,6 +183,11 @@ int App::run() {
     // both SDL's X11 backend (XIM) and the tray's GTK call setlocale(LC_ALL, "") during init
     // and undo an earlier attempt. Parsing never consults the locale (from_chars).
     std::setlocale(LC_NUMERIC, "C");
+    // Dates are the opposite case: a timestamp is for the reader, not for the game, so it is
+    // written the way their machine writes one. Explicit rather than inherited, because
+    // nothing calls setlocale on Windows — a GUI-subsystem binary gets neither SDL's XIM nor
+    // GTK — and a C-locale date is exactly the invariant-looking format this avoids.
+    std::setlocale(LC_TIME, "");
 
     net::init();
     leagues_.init(league_event_);
@@ -674,7 +679,13 @@ void App::update_overlay_placement() {
     // business floating over other applications. Keep polling either way. An open panel is
     // exempt: Settings holds the focus itself, so the game is never foreground while it's up,
     // and price-check dismisses on its own terms.
-    if (!g.present || (!g.focused && screen_ == Screen::Hidden)) {
+    //
+    // **Our own window counts as the game being in front**, because from the user's side it
+    // is: closing a panel that had taken the focus (a click on it, or the clipboard handover
+    // nudge) leaves the focus on our now-empty overlay for as long as the compositor takes to
+    // hand it back, and the marker used to blink out for exactly that gap. It is not a hole in
+    // the rule above — focusing anything else takes the focus off us too, and the marker goes.
+    if (!g.present || (!g.focused && !overlay_.has_focus() && screen_ == Screen::Hidden)) {
         if (overlay_.visible() && screen_ == Screen::Hidden) overlay_.set_visible(false);
         if (!g.present) { // forget geometry so it re-places when the game comes back
             game_present_ = false;

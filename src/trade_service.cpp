@@ -36,6 +36,7 @@ void TradeService::adopt_currencies(std::vector<trade::CurrencyEntry> entries, b
         trade::currency_cache::store(trade::CurrencyList{entries, currencies_at_});
     }
     for (trade::CurrencyEntry& e : entries) {
+        if (!e.text.empty()) by_name_.try_emplace(e.text, e.image);
         std::string id = e.id;
         currencies_.insert_or_assign(std::move(id), std::move(e));
     }
@@ -154,6 +155,12 @@ std::string TradeService::currency_image(const std::string& id) const {
     const auto it = currencies_.find(id);
     if (it == currencies_.end()) return {};
     return std::string(trade::kCdnBase) + it->second.image;
+}
+
+std::string TradeService::image_for_name(const std::string& name) const {
+    const auto it = by_name_.find(name);
+    if (it == by_name_.end()) return {};
+    return std::string(trade::kCdnBase) + it->second;
 }
 
 std::string TradeService::currency_name(const std::string& id) const {

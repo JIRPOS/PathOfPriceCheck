@@ -47,25 +47,37 @@ std::string cache_name(int64_t hour);
 
 /// What one item was worth in one denominating currency over the hour.
 ///
-/// The payload gives the cheapest and dearest *ratio* traded rather than an average, so this
-/// is a band and is drawn as one. A band is the honest shape: the exchange is an order book,
-/// not a price list, and an hour of it has two ends.
+/// The payload gives the cheapest and dearest *ratio* traded rather than an average, so the
+/// band is the honest shape of the hour: the exchange is an order book, not a price list, and
+/// an hour of one has two ends. What it does publish is how much of **each side** changed
+/// hands, and that is an average — see `average()`.
 struct Rate {
-    double low = 0;    ///< price of one, at the cheapest ratio the hour saw
-    double high = 0;   ///< and at the dearest
-    double volume = 0; ///< units of the *item* that changed hands in this market
+    double low = 0;            ///< price of one, at the cheapest ratio the hour saw
+    double high = 0;           ///< and at the dearest
+    double volume = 0;         ///< units of the *item* that changed hands in this market
+    double volume_against = 0; ///< and units of the currency it traded against
 
     bool known() const { return low > 0 && high > 0; }
+
+    /// What one item cleared at on average over the hour, weighted by volume — every trade in
+    /// the market moved some of each side, so the two totals divided are the mean ratio of all
+    /// of them, not the midpoint of the band. 0 when either side published no volume, which
+    /// is not a price of zero and must not be drawn as one.
+    double average() const;
 };
 
 /// A rate turned into something that reads like a price.
 ///
-/// The band is stated in whichever direction keeps the numbers above one, because that is the
-/// direction players say it in: three embers to a chaos, never a third of a chaos each. Amounts
-/// are rounded to what a price is actually quoted in, the same rule the poe.ninja row uses.
+/// Quoted against whichever of the two is worth more, so the counts stay above one — that is
+/// the direction players say it in: three embers to a chaos, never a third of a chaos each.
+/// The **average** decides which way round that is, because it is the number the summary line
+/// leads with; the top of the band stands in when the hour published no volume to average.
+/// Amounts are rounded to what a price is actually quoted in, the same rule the poe.ninja row
+/// uses.
 struct Reading {
     double low = 0, high = 0;
-    /// True when the pair was turned round, so the band counts **items** per one of the
+    double avg = 0; ///< 0 when the hour published no volume on one of the sides
+    /// True when the pair was turned round, so every number counts **items** per one of the
     /// currency rather than the other way about.
     bool inverted = false;
 };

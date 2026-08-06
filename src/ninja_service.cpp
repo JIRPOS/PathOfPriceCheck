@@ -127,6 +127,14 @@ std::string NinjaService::currency_icon(const std::string& id) const {
     return l ? l->icon : std::string();
 }
 
+std::string NinjaService::icon_for_name(const std::string& name) const {
+    if (name.empty()) return {};
+    for (const std::shared_ptr<const ninja::Overview>& ov : overviews_)
+        for (const ninja::Line& l : ov->lines)
+            if (l.name == name && !l.icon.empty()) return l.icon;
+    return {};
+}
+
 std::string NinjaService::currency_name(const std::string& id) const {
     const std::shared_ptr<const ninja::Overview> ov = held(ninja::currency_key(query_.league));
     if (!ov) return id;

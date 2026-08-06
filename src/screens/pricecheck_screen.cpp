@@ -205,31 +205,54 @@ void draw_spark(const ninja::Spark& s, float w, float h) {
                                             ImDrawFlags_None, 1.5f);
 }
 
-/// The symbol and full name of a trade currency id, drawn inline. The symbol comes from the
-/// trade static data where that has been fetched and from poe.ninja's own payload where it has
-/// not — a reference price should not be the one thing that needs a trade request to render.
-void draw_currency(App& app, const std::string& id) {
-    const NinjaService& n = app.ninja();
-    std::string icon = app.trade().currency_image(id);
-    if (icon.empty()) icon = n.currency_icon(id);
+/// A symbol and the name beside it, drawn inline after whatever came before. The picture is
+/// allowed not to have arrived — `IconCache::texture` answers "not yet" and the row closes up
+/// around it when it lands — which is why the thing is always *named* as well as pictured.
+void draw_symbol(App& app, const std::string& icon, const std::string& name) {
     if (const uint64_t tex = app.icons().texture(icon)) {
         const float h = ImGui::GetTextLineHeight();
         ImGui::SameLine(0.0f, 3.0f);
         ImGui::Image(tex, ImVec2(h, h));
     }
+    if (name.empty()) return; // the glyph is the whole of it; see `draw_side`
     ImGui::SameLine(0.0f, 3.0f);
+    ImGui::TextUnformatted(name.c_str());
+}
+
+/// The symbol and full name of a trade currency id. The symbol comes from the trade static
+/// data where that has been fetched and from poe.ninja's own payload where it has not — a
+/// reference price should not be the one thing that needs a trade request to render.
+void draw_currency(App& app, const std::string& id) {
+    const NinjaService& n = app.ninja();
+    std::string icon = app.trade().currency_image(id);
+    if (icon.empty()) icon = n.currency_icon(id);
     std::string name = app.trade().currency_name(id);
     if (name == id) name = n.currency_name(id);
-    ImGui::TextUnformatted(name.c_str());
+    draw_symbol(app, icon, name);
+}
+
+/// The symbol for something the exchange trades that is **not** one of the two denominators —
+/// a scarab, an ember, an essence. It has no trade currency id to be found by: the feed states
+/// it as a `Metadata/Items/...` path and nothing else on either source is keyed that way. Its
+/// display name is the join, and both sources are asked in the same order as everywhere else.
+/// Empty is a fine answer; the name alone still reads.
+std::string icon_for_item(App& app, const std::string& name) {
+    std::string icon = app.trade().image_for_name(name);
+    if (icon.empty()) icon = app.ninja().icon_for_name(name);
+    return icon;
 }
 
 /// A poe.ninja price in the trade site's own form, so the two prices on screen read alike:
 /// `5 x [icon] Divine Orb`. `per` turns it from a price into a rate — `201 x [icon] Chaos Orb
 /// per [icon] Divine Orb`, which is the only thing the two orbs the market is denominated in
-/// can be checked for. A stack adds what all of it is worth: the unit price is what says
-/// whether a pile is worth moving, the total is what it sells for, and neither substitutes
-/// for the other. The stack's currency is named only when it is not the unit's already —
-/// six thousand chaos is said in divine even though one chaos is not.
+/// can be checked for.
+///
+/// A stack adds what all of it is worth, **on a line of its own**: the unit price is what says
+/// whether a pile is worth moving and the total is what it sells for, neither substitutes for
+/// the other, and the two of them together do not fit the width the panel has. The second line
+/// names its currency whether or not it is the first's — six thousand chaos is a number said
+/// in divine, and a line that reads `6000 x = 29.8 x` with the unit only on the row above is
+/// the one thing worse than wrapping.
 void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
     std::string amount = trade::price_text(r.price.amount);
     if (ambiguous) amount += " \xe2\x80\x93 " + trade::price_text(r.high.amount);
@@ -241,11 +264,15 @@ void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
         draw_currency(app, r.per);
     }
     if (r.stack <= 1) return;
-    ImGui::SameLine(0.0f, 6.0f);
+    if (r.per.empty()) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("each");
+    }
     // "x" and not "×": Fontin has no multiplication sign and draws it as a box.
-    ImGui::TextDisabled("\xe2\x80\x94 x%d = %s", r.stack,
-                        trade::price_text(r.stack_price.amount).c_str());
-    if (r.stack_price.currency != r.price.currency) draw_currency(app, r.stack_price.currency);
+    ImGui::TextDisabled("x%d =", r.stack);
+    ImGui::SameLine(0.0f, 6.0f);
+    ImGui::TextUnformatted((trade::price_text(r.stack_price.amount) + " x").c_str());
+    draw_currency(app, r.stack_price.currency);
 }
 
 /// What poe.ninja says the item goes for — the going rate for a unique, a gem or a stack of
@@ -256,7 +283,9 @@ void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
 /// Three columns, no header: the source, the price, and the week behind it. The whole row is
 /// one click-through to the item's own page, which is where the variants, the history and the
 /// listings actually are — everything this row has to leave out.
-void draw_reference_price(App& app) {
+///
+/// False when it drew nothing at all, so the caller knows there is no section to rule off.
+bool draw_reference_price(App& app) {
     switch (app.plan().strategy) {
     case item::Strategy::Unique:
     case item::Strategy::Currency:
@@ -265,14 +294,14 @@ void draw_reference_price(App& app) {
     case item::Strategy::Modifiers:
         break;
     default:
-        return; // a map: poe.ninja prices nothing about it that this row could show
+        return false; // a map: poe.ninja prices nothing about it that this row could show
     }
     const NinjaService& n = app.ninja();
     const ninja::Reference& r = n.reference();
 
     if (n.state() == NinjaState::Loading) {
         ImGui::TextDisabled("poe.ninja\xe2\x80\xa6");
-        return;
+        return true;
     }
     if (r.state == ninja::Reference::State::None) {
         // Never silent: an empty slot where a price belongs reads as a price of nothing. Wrapped
@@ -283,12 +312,12 @@ void draw_reference_price(App& app) {
                             : !r.note.empty()   ? r.note.c_str()
                                                 : "no reference price");
         ImGui::PopTextWrapPos();
-        return;
+        return true;
     }
 
     const bool ambiguous = r.state == ninja::Reference::State::Ambiguous;
     constexpr ImGuiTableFlags kFlags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
-    if (!ImGui::BeginTable("reference", 3, kFlags)) return;
+    if (!ImGui::BeginTable("reference", 3, kFlags)) return false;
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
@@ -349,6 +378,7 @@ void draw_reference_price(App& app) {
         ImGui::EndTooltip();
     }
     ImGui::EndTable();
+    return true;
 }
 
 /// Volumes on this market run to eight figures, and the reader wants the order of magnitude
@@ -362,30 +392,101 @@ std::string volume_text(double n) {
     return buf;
 }
 
-/// One market as a line: `35 – 50 x [icon] Chaos Orb each`, or turned round when that keeps the
-/// numbers above one — `2 – 2.2 per [icon] Chaos Orb`, which is how the pile is actually
-/// quoted in game. The band is the hour's cheapest and dearest ratio and not an average: the
-/// exchange is an order book, and an hour of one has two ends.
-void draw_exchange_rate(App& app, const exchange::Rate& r, const char* against) {
-    if (!r.known()) return;
-    const exchange::Reading v = exchange::read(r);
-    std::string amount = trade::price_text(v.low);
-    if (v.high != v.low) amount += " \xe2\x80\x93 " + trade::price_text(v.high);
+/// What to call the item on its own side of a market. The exchange trades base types —
+/// currency, cards, scarabs, fragments — so the base line is the whole name, and the resolved
+/// one wherever the bundle gave us it.
+std::string exchange_item_name(const item::Item& it) {
+    if (!it.base_name.empty()) return it.base_name;
+    if (!it.base_type.empty()) return it.base_type;
+    return it.name;
+}
 
-    ImGui::TextUnformatted(v.inverted ? amount.c_str() : (amount + " x").c_str());
-    if (v.inverted) {
-        ImGui::SameLine(0.0f, 4.0f);
-        ImGui::TextDisabled("per");
+/// One side of a market: what to call it and what to draw beside it. `currency` is set only
+/// for the two denominators — those are named and pictured from their trade id like every
+/// other price on screen — and everything else carries its own name and whatever symbol
+/// `icon_for_item` could find for it.
+struct MarketSide {
+    const char* currency = nullptr;
+    std::string name;
+    std::string icon;
+};
+
+/// One side of a market as a value, `12 x [icon] Chaos Orb`. `times` is what tells a price
+/// from a count of things: `19k Chaos Orb` traded, at `8.9 x Chaos Orb` each.
+///
+/// `named` is dropped on the summary line, which is the one place a market has to fit *both*
+/// sides on a row: an item named there as well as pictured runs off the panel, and the glyph
+/// is the thing players recognise an item by anyway. Never dropped when there is no glyph to
+/// stand in for the name, and never for a currency, whose names are two words.
+void draw_side(App& app, const std::string& amount, const MarketSide& side, bool times = true,
+               bool named = true) {
+    ImGui::TextUnformatted(times ? (amount + " x").c_str() : amount.c_str());
+    if (side.currency) draw_currency(app, side.currency);
+    else draw_symbol(app, side.icon, named || side.icon.empty() ? side.name : std::string());
+}
+
+/// One detail row of the market table: a label and a value in one of the two units.
+void draw_exchange_row(App& app, const char* label, const std::string& amount,
+                       const MarketSide& side, bool times = true) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    if (label) ImGui::TextDisabled("%s", label);
+    ImGui::TableSetColumnIndex(1);
+    draw_side(app, amount, side, times);
+}
+
+/// One market: what the hour cleared at, and the hour behind it.
+///
+/// The heading is the **volume-weighted average** — the two sides' traded volumes divided,
+/// which is where in the band the market actually sat rather than the midpoint of two extremes
+/// a single trade can set. It is stated against whichever of the two is worth more, so one
+/// side is always a single unit: `4 x Winged Scarab = 1 x Chaos Orb` is how the trade is said
+/// in game, and "0.25 chaos each" is not.
+///
+/// Underneath it, the hour it is an average of: volume on both sides and the two ends of the
+/// band, in the same direction as the heading. **Stock is deliberately absent** — what is
+/// standing in the book says how long a sale would take, not what the item is worth.
+void draw_exchange_market(App& app, const MarketSide& item, const exchange::Rate& r,
+                          const char* against) {
+    if (!r.known()) return;
+    const MarketSide other{against, {}, {}};
+    const exchange::Reading v = exchange::read(r);
+    // Which side is quoted as one unit, and therefore which unit every number below is in.
+    const MarketSide& unit = v.inverted ? item : other;
+
+    // No volume on one of the sides is no average, and then the band itself is the summary:
+    // there is nothing else in the payload that says where the hour sat.
+    std::string amount = trade::price_text(v.avg > 0 ? v.avg : v.low);
+    if (v.avg <= 0 && v.high != v.low) amount += " \xe2\x80\x93 " + trade::price_text(v.high);
+
+    ImGui::BeginGroup();
+    draw_side(app, amount, unit, /*times=*/true, /*named=*/false);
+    ImGui::SameLine(0.0f, 6.0f);
+    ImGui::TextDisabled("=");
+    ImGui::SameLine(0.0f, 6.0f);
+    draw_side(app, "1", v.inverted ? other : item, /*times=*/true, /*named=*/false);
+    ImGui::EndGroup();
+    if (v.avg > 0 && ImGui::IsItemHovered())
+        ImGui::SetTooltip("The hour's average, weighted by what actually traded");
+
+    constexpr ImGuiTableFlags kFlags =
+        ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+    ImGui::Indent(8.0f);
+    if (ImGui::BeginTable("market", 2, kFlags)) {
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 58.0f);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
+        // Both sides of the volume, because either one alone is half a sentence: a thousand
+        // scarabs and four chaos is a different market from a thousand scarabs and four divine.
+        if (r.volume > 0)
+            draw_exchange_row(app, "Volume", volume_text(r.volume), item, false);
+        if (r.volume_against > 0)
+            draw_exchange_row(app, r.volume > 0 ? nullptr : "Volume",
+                              volume_text(r.volume_against), other, false);
+        draw_exchange_row(app, "Lowest", trade::price_text(v.low), unit);
+        draw_exchange_row(app, "Highest", trade::price_text(v.high), unit);
+        ImGui::EndTable();
     }
-    draw_currency(app, against);
-    if (!v.inverted) {
-        ImGui::SameLine(0.0f, 4.0f);
-        ImGui::TextDisabled("each");
-    }
-    if (r.volume > 0) {
-        ImGui::SameLine(0.0f, 6.0f);
-        ImGui::TextDisabled("\xe2\x80\x94 %s traded", volume_text(r.volume).c_str());
-    }
+    ImGui::Unindent(8.0f);
 }
 
 /// What the **in-game currency exchange** did with this item in the last published hour.
@@ -395,35 +496,58 @@ void draw_exchange_rate(App& app, const exchange::Rate& r, const char* against) 
 /// also why these items have no search below — an exchange market is not a listing, so the
 /// trade site has nothing to say about them, and offering a search for one is offering the
 /// wrong question rather than an empty answer.
-void draw_exchange_price(App& app) {
+///
+/// False when the item does not trade there at all, which is the answer for most of what a
+/// price check sees — and then there is no section, so nothing to rule off either.
+bool draw_exchange_price(App& app, const item::Item& it) {
     const ExchangeService& x = app.currency_exchange();
     if (x.state() == ExchangeState::Loading) {
         ImGui::TextDisabled("Currency exchange\xe2\x80\xa6");
-        return;
+        return true;
     }
     const exchange::Listing* l = x.listing();
-    if (!l) return; // not traded there, or no data: nothing to claim either way
+    if (!l) return false; // not traded there, or no data: nothing to claim either way
 
     ImGui::TextDisabled("Currency exchange");
     ImGui::Indent(8.0f);
-    draw_exchange_rate(app, l->chaos, "chaos");
-    draw_exchange_rate(app, l->divine, "divine");
+    // The two orbs everything is denominated in are also the two commonest things to check, and
+    // each is priced against the other — so those go through the same id-keyed path as any
+    // price on screen, and everything else is found by name.
+    MarketSide item;
+    if (l->metadata_id == exchange::kChaosId) item.currency = "chaos";
+    else if (l->metadata_id == exchange::kDivineId) item.currency = "divine";
+    else {
+        item.name = exchange_item_name(it);
+        item.icon = icon_for_item(app, item.name);
+    }
+    draw_exchange_market(app, item, l->chaos, "chaos");
+    draw_exchange_market(app, item, l->divine, "divine");
     // The hour is not a detail. An exchange price is always at least an hour old — the feed
     // publishes nothing about the hour in progress — and saying so is what keeps a stale
     // number from reading as a live one.
+    //
+    // In the **user's own clock and their own date format**: the digest is addressed by a UTC
+    // hour, but a reader deciding whether a price is stale should have to do neither timezone
+    // nor date-order arithmetic to read it. `%x` is whatever `LC_TIME` says a short date is
+    // (`App::run` sets that from the environment, unlike `LC_NUMERIC`); the time is spelled
+    // out rather than left to `%X`, which adds a seconds field that is always zero here. Drawn
+    // in the system face — a locale's date can be Cyrillic or CJK, of which Fontin has none.
     if (const int64_t h = x.hour(); h > 0) {
         const std::time_t t = static_cast<std::time_t>(h + 3600);
-        std::tm utc{};
+        std::tm local{};
 #ifdef _WIN32
-        gmtime_s(&utc, &t);
+        localtime_s(&local, &t);
 #else
-        gmtime_r(&t, &utc);
+        localtime_r(&t, &local);
 #endif
-        char when[16];
-        std::snprintf(when, sizeof when, "%02d:%02d UTC", utc.tm_hour, utc.tm_min);
-        ImGui::TextDisabled("in the hour to %s", when);
+        char when[64];
+        if (std::strftime(when, sizeof when, "%x %H:%M", &local) == 0) when[0] = '\0';
+        ImGui::PushFont(app.fonts().unicode, 0.0f);
+        ImGui::TextDisabled("valid as of %s", when);
+        ImGui::PopFont();
     }
     ImGui::Unindent(8.0f);
+    return true;
 }
 
 /// The Search / Open in browser pair, plus whatever the last search had to say. Both act on
@@ -457,6 +581,25 @@ void draw_search_controls(App& app) {
         ImGui::TextDisabled("%d match%s in %s", t.results().total,
                             t.results().total == 1 ? "" : "es", t.league().c_str());
     }
+}
+
+/// Why there is **no** search, for the items that get none at all. The filters, the buttons and
+/// the listings are all gone for these, and an item sitting alone under two price rows with no
+/// word about it reads as a check that gave up rather than as one that has already finished.
+/// A map is the case that has to keep working: poe.ninja prices nothing about one either, so
+/// the plan's own note is the only thing on screen that says why.
+void draw_no_search_note(App& app) {
+    ImGui::PushTextWrapPos(0.0f);
+    if (app.currency_exchange().listing()) {
+        ImGui::TextDisabled("Traded on the in-game currency exchange, not through listings.");
+    } else if (const item::Strategy s = app.plan().strategy;
+               s == item::Strategy::Currency || s == item::Strategy::Gem) {
+        ImGui::TextDisabled("Priced by poe.ninja, not by a trade search.");
+    } else {
+        for (const std::string& n : app.plan().notes)
+            ImGui::TextColored(kWarn, "\xe2\x80\xa2 %s", n.c_str());
+    }
+    ImGui::PopTextWrapPos();
 }
 
 /// A price in the trade site's own form: `5× [icon] Divine Orb`. The symbol is downloaded in
@@ -669,11 +812,17 @@ void draw_debug_footer(App& app) {
 void draw_pricecheck_screen(App& app) {
     ImGuiIO& io = ImGui::GetIO();
     const item::Item* it = app.item();
+    // A search the trade site cannot be asked in the first place — currency, a card, a gem, a
+    // map, anything the in-game exchange trades — takes the whole filter half of the panel with
+    // it: there is no query for the filters to shape and no listings for a note about an
+    // unmatched modifier to have cost anybody. What is left is the item and its reference
+    // prices, so the item moves back out of the gutter and into the column the filters had.
+    const bool searchable = trade::searchable(app.plan()) && !app.currency_exchange().listing();
     // The item itself lives in the gutter beside the panel, so the panel's own column is filters,
     // price and listings — the things that need the height. Drawn before the panel purely for
     // reading order; the two windows never overlap. 0 back means there was no gutter to draw it
     // in and the panel has to.
-    const float gutter_top = it ? draw_item_card(app, *it) : 0.0f;
+    const float gutter_top = it && searchable ? draw_item_card(app, *it) : 0.0f;
     // The card is opaque UI of ours over the game, not the transient tooltip the gutter used to
     // hold: a click on it must not read as a click away from the panel.
     app.set_card_height(gutter_top);
@@ -719,8 +868,8 @@ void draw_pricecheck_screen(App& app) {
     if (!it) {
         ImGui::TextDisabled("Nothing to show.");
     } else {
-        // Only when the game window left no room for a gutter: then the item is still the first
-        // thing in the panel, as it was before it had anywhere else to go.
+        // In the panel whenever it is not in the gutter: either the game window left no room
+        // for one, or there are no filters for it to be making room for.
         if (gutter_top == 0.0f) {
             draw_item_tooltip(*it, app.derived(), app.fonts());
             ImGui::Dummy(ImVec2(0, 8));
@@ -731,28 +880,39 @@ void draw_pricecheck_screen(App& app) {
         if (!gd) {
             ImGui::TextDisabled("No pricing data yet, so nothing has been matched.");
         } else {
-            draw_strategy_picker(app, *it, plan);
-            ImGui::Dummy(ImVec2(0, 4));
-            draw_filters(*it, plan);
-            // A dropped filter has to be visible: silently searching without it reads as a
-            // successful price check on an item that is not this one.
-            ImGui::PushTextWrapPos(0.0f);
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(kWarn));
-            for (const std::string& n : plan.notes)
-                ImGui::TextUnformatted(("\xe2\x80\xa2 " + n).c_str());
-            ImGui::PopStyleColor();
-            ImGui::PopTextWrapPos();
-            ImGui::Dummy(ImVec2(0, 6));
-            ImGui::Separator();
-            draw_reference_price(app);
-            draw_exchange_price(app);
+            // Every one of these is about a search: which one to run, what to ask it for, and
+            // what had to be left out of the asking. None of it means anything for an item
+            // nobody can search, and printing it there says a price check failed at something
+            // it never attempted.
+            if (searchable) {
+                draw_strategy_picker(app, *it, plan);
+                ImGui::Dummy(ImVec2(0, 4));
+                draw_filters(*it, plan);
+                // A dropped filter has to be visible: silently searching without it reads as a
+                // successful price check on an item that is not this one.
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(kWarn));
+                for (const std::string& n : plan.notes)
+                    ImGui::TextUnformatted(("\xe2\x80\xa2 " + n).c_str());
+                ImGui::PopStyleColor();
+                ImGui::PopTextWrapPos();
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Separator();
+            }
+            // Each priced section is ruled off from the next, and only when it drew: two
+            // separators with nothing between them is what an unconditional one gives on the
+            // items that have one source of price and not the other.
+            if (draw_reference_price(app)) ImGui::Separator();
+            if (draw_exchange_price(app, *it)) ImGui::Separator();
             // An item that trades on the in-game exchange gets no Search and no Open in
             // browser: it has no listings for either to find, and a button that can only ever
             // come back empty reads as the item being unsellable rather than as the wrong
             // market having been asked.
-            if (!app.currency_exchange().listing()) {
+            if (searchable) {
                 draw_search_controls(app);
                 draw_results(app, gutter_top);
+            } else {
+                draw_no_search_note(app);
             }
         }
     }

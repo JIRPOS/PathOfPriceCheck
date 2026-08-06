@@ -69,7 +69,8 @@ TEST_CASE("a digest is cut down to one league and to the pairs a price check can
         REQUIRE(aw != nullptr);
         CHECK(aw->chaos.low == doctest::Approx(35));
         CHECK(aw->chaos.high == doctest::Approx(50));
-        CHECK(aw->chaos.volume == doctest::Approx(151)); // the item's units, not the chaos
+        CHECK(aw->chaos.volume == doctest::Approx(151)); // the item's units…
+        CHECK(aw->chaos.volume_against == doctest::Approx(6464)); // …and the chaos they cost
         CHECK_FALSE(aw->divine.known());                 // it has no divine market this hour
 
         // And it is not a fixed sense of the two names: on this market the counts move on both
@@ -95,7 +96,26 @@ TEST_CASE("a digest is cut down to one league and to the pairs a price check can
     }
 }
 
-TEST_CASE("a band is stated in whichever direction keeps the numbers above one") {
+TEST_CASE("the average is the hour weighted by what actually traded") {
+    const exchange::Digest d = parse("Allflame");
+
+    // Not the midpoint of the band — a single trade can set either end of that. The two sides'
+    // volumes divided are the mean ratio every trade in the hour cleared at, and it lands
+    // inside the band, which is the evidence that the two are measuring the same thing.
+    const exchange::Listing* aw = d.find(kAwakener);
+    CHECK(aw->chaos.average() == doctest::Approx(6464.0 / 151)); // 42.8, band 35 – 50
+
+    // Both denominators, from both sides: 17.3M chaos against 86k divine.
+    CHECK(d.find(exchange::kDivineId)->chaos.average() == doctest::Approx(201.4).epsilon(0.001));
+    CHECK(d.find(exchange::kChaosId)->divine.average() == doctest::Approx(1 / 201.4).epsilon(0.001));
+
+    // A market published with zeros has no average, and 0 is not a price. Same for a side that
+    // traded nothing at all.
+    CHECK(exchange::Rate{}.average() == 0);
+    CHECK(exchange::Rate{35, 50, 151, 0}.average() == 0);
+}
+
+TEST_CASE("a market is quoted against whichever of the two is worth more") {
     const exchange::Digest d = parse("Allflame");
 
     // A Chaos Orb is worth 1/204th of a divine, which is not how anyone says it.
@@ -103,18 +123,31 @@ TEST_CASE("a band is stated in whichever direction keeps the numbers above one")
     CHECK(rate.inverted);
     CHECK(rate.low == doctest::Approx(199));
     CHECK(rate.high == doctest::Approx(204));
+    // Rounded to what a price is said in: past a hundred, nobody quotes the decimal.
+    CHECK(rate.avg == doctest::Approx(201));
 
-    // A Divine Orb from the other side is already the right way round.
+    // The same market from the other side is already the right way round, and reads the same.
     const exchange::Reading div = exchange::read(d.find(exchange::kDivineId)->chaos);
     CHECK_FALSE(div.inverted);
     CHECK(div.low == doctest::Approx(199));
+    CHECK(div.avg == doctest::Approx(201));
 
-    // 0.5 – 2 chaos: the top of the band is over one, so it stays a price in chaos rather
-    // than turning into a count of embers.
+    // 0.5 – 2 chaos an ember: the band straddles one and has no direction of its own, so the
+    // average is what decides. It cleared at 1.33, so the ember is the dearer of the two and
+    // the price stays in chaos rather than turning into a count of embers.
     const exchange::Reading toad = exchange::read(d.find(kToad)->chaos);
     CHECK_FALSE(toad.inverted);
+    CHECK(toad.avg == doctest::Approx(76.0 / 57).epsilon(0.01));
     CHECK(toad.low == doctest::Approx(0.5));
     CHECK(toad.high == doctest::Approx(2));
+
+    // Without volume to average there is nothing but the band, and the top of it is the only
+    // thing left to take the direction from: four to a chaos, not a quarter of one each.
+    const exchange::Reading no_vol = exchange::read(exchange::Rate{0.2, 0.25, 0, 0});
+    CHECK(no_vol.inverted);
+    CHECK(no_vol.avg == 0);
+    CHECK(no_vol.low == doctest::Approx(4));
+    CHECK(no_vol.high == doctest::Approx(5));
 
     CHECK(exchange::read(exchange::Rate{}).low == 0); // nothing known, nothing claimed
 }

@@ -217,7 +217,10 @@ drops any action fired while PoE is not the foreground window — otherwise they
 browser. The lone exception is the Settings hotkey while Settings is open: that panel holds the
 keyboard focus itself, so the game *can't* be foreground, and the hotkey has to be able to close it.
 The idle status marker follows the same rule and unmaps whenever the game isn't in front, so it
-never floats over other applications. In the other direction we never force focus *onto the game*:
+never floats over other applications — with **our own overlay counting as the game being in front**,
+because from the user's side it is: closing a panel that had taken the focus leaves it on our
+now-empty window for as long as the compositor takes to hand it back, and the marker used to blink
+out for exactly that gap. Focusing anything else takes the focus off us too, so the rule still holds. In the other direction we never force focus *onto the game*:
 the copy path used to call `focus_game_window()` on a window it had just confirmed was foreground,
 and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
 the game on close **only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
@@ -252,7 +255,10 @@ against. It is only as wide as the game actually leaves free (capped at the pane
 the window still swallows mouse input everywhere it covers.
 
 **The item being priced is drawn at the top of that gutter, not at the top of the panel**
-(`draw_item_card`), and the panel therefore begins at the filters. Every screen is wider than it is
+(`draw_item_card`), and the panel therefore begins at the filters — *unless there are no filters*,
+which is the case for every item the trade site cannot be asked about (currency, a card, a gem, a
+map, anything the in-game exchange trades). There the whole search half of the panel is gone, so
+the item moves back into the column it left and the panel is the item and its reference prices. Every screen is wider than it is
 tall, so the panel's column runs out of *height* long before the window runs out of width — at 1080p
 and below the item, the filters and the listings were all competing for the same few hundred pixels.
 A hovered listing's item stacks underneath it, which is also the comparison the hover is for. Three
@@ -657,8 +663,12 @@ no API call and always matches the filters as they are ticked *now* — the id o
 would open whatever was ticked when it ran. When there is nothing to search the button says **why**
 rather than only that: a stack of currency is bought in bulk on the in-game currency exchange and
 has nothing a stat query could ask for, so its poe.ninja row is the whole answer and a bare
-"Nothing to search" reads as a failure. An item the exchange feed actually has a market for goes
-one further and gets **no buttons at all** — see the currency-exchange section below.
+"Nothing to search" reads as a failure. Where there is no search *at all* — `trade::searchable`
+is false, or the exchange feed has a market for it — the buttons, the filters, the strategy picker
+and the plan's notes all go together: every one of them is about a query nobody can run, and a note
+saying a modifier could not be matched charges a price check with failing at something it never
+attempted. What replaces them is the item itself (above) and one line saying where the answer is
+instead — see the currency-exchange section below.
 
 Rendering lives in `screens/item_view.cpp` (the game's palette: rarity-coloured name plate, grey
 property labels, blue mods, light blue crafted/enchant, tan fractured, magenta scourge, red
@@ -701,7 +711,11 @@ of the concrete case instead; the maintainer can reproduce one in-game.
 `LC_NUMERIC` reads that as `1`, and every DPS number downstream was wrong. Parsing uses
 `std::from_chars` (locale-independent by definition) and `App::run` forces `LC_NUMERIC=C` for
 formatting — *after* the tray and window exist, since SDL's X11 backend (XIM) and the tray's GTK both
-call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
+call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt. **`LC_TIME` goes the
+other way**, set from the environment in the same place: a date is written for the reader, not for
+the game, so it is written the way their machine writes one. It has to be explicit rather than
+inherited because nothing calls `setlocale` at all on Windows — a GUI-subsystem binary gets neither
+XIM nor GTK — and the C locale's date is the invariant-looking format this avoids.
 
 ### The poe.ninja reference price (built)
 
@@ -805,7 +819,10 @@ to leave out. A map is the only strategy with no row at all.
   a count far past it is normal rather than a parse error. `Reference::stack_price` is quoted on
   its own rather than scaled from the unit price, because the two cross the divine line at
   different times: one chaos is one chaos and six thousand of them is 29.8 divine. Left at one for
-  an `Ambiguous` price, where a span times a count would be four numbers.
+  an `Ambiguous` price, where a span times a count would be four numbers. It is drawn on **a line of
+  its own** under the unit price, which names its currency whether or not that is the unit's: the two
+  do not fit the panel's width side by side, and `x6000 = 29.8 x` with the unit only on the row above
+  is worse than either.
 - **A gem is priced at the nearest tier poe.ninja publishes**, which is rarely the one in hand — it
   lists 1, 20, 20/20, 21/20 corrupted and nothing between. The best of those the gem has already
   reached is a floor on what it is worth, labelled with poe.ninja's own name for it so it is clear
@@ -866,20 +883,48 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
   because the counts move on both sides; `min`/`max` is what covers both. A market that saw no
   trade is published with zeros, and dividing by that would put a nonsense price on screen rather
   than none.
-- **The band is stated in whichever direction keeps the numbers above one** (`exchange::read`),
-  because that is the direction players say it in: three embers to a chaos, never a third of a
-  chaos each. It falls out that a Chaos Orb in hand reads `199 – 204 per Divine Orb` — the same
-  rate the poe.ninja row states for both orbs, from GGG's own book and an hour old rather than
-  half an hour.
+- **The volume-weighted average is the headline, and the band is the detail under it.**
+  `volume_traded` is published for *both* sides of a market, and the two divided
+  (`Rate::average`) are the mean ratio every trade in the hour cleared at — not the midpoint of
+  a band whose ends one trade can set. Each market is drawn as a summary line and a small table
+  beneath it: volume on both sides, then the lowest and the highest the hour saw. **Stock is
+  deliberately not shown** — what is standing in the book says how long a sale would take, not
+  what the item is worth. Zero volume on either side is no average at all (not a price of zero),
+  and then the band itself is the summary.
+- **A market is quoted against whichever of the two is worth more**, so one side is always a
+  single unit: `4 x Winged Scarab = 1 x Chaos Orb` is how the trade is said in game and
+  "0.25 chaos each" is not. The **average** is what decides the direction (`exchange::read`),
+  because a band can straddle one — 0.5 – 2 chaos an ember — and then has no direction of its
+  own; the top of the band stands in when there is no volume to average. It falls out that a
+  Chaos Orb in hand reads `208 x Chaos Orb = 1 x Divine Orb` — the same rate the poe.ninja row
+  states for both orbs, from GGG's own book and an hour old rather than half an hour.
+- **Every item in the feed is drawn with its own glyph, not just the two denominators.** The
+  feed keys on metadata paths and neither symbol source has ever heard of one, so the join is
+  the **display name**: `TradeService::image_for_name` over every group of
+  `/api/trade/data/static` that carries an image, falling back to
+  `NinjaService::icon_for_name` across the overviews already held — the same two sources in the
+  same order as every other symbol, and for the same reason (the trade static data is not
+  fetched at all until the user's first search). The summary line draws the item's glyph
+  **without** its name: it is the one row that has to fit both sides, "Cartography Scarab of
+  Corruption" twice does not, and the full name is in every row under it.
+- **The hour is stated in the user's own clock and date format** — the digest is addressed by a
+  UTC hour, and a reader deciding whether a price is stale should have to do neither timezone
+  nor date-order arithmetic. `strftime("%x %H:%M")` on `localtime`, so `App::run` sets
+  `LC_TIME` from the environment (the opposite call to the `LC_NUMERIC` one beside it, and
+  needed because a GUI-subsystem Windows binary has nothing else calling `setlocale`), and the
+  line is drawn in `fonts.unicode` since a locale's date can be Cyrillic or CJK.
 - **Only markets against Chaos or Divine are kept.** A scarab-for-essence market is a real market
   and no use to somebody asking what a scarab is worth.
 - **A market only appears in an hour it traded in.** Measured on a live hour: 840 of the ~940
   Allflame items that trade at all, and 115 of ~200 scarab varieties. An item with no market this
   hour draws no exchange row at all — poe.ninja still prices it — rather than claiming a rate it
   does not have.
-- **An item that appears in the feed gets no Search and no Open in browser.** It has no listings
-  for either to find, and a button that can only ever come back empty reads as the item being
-  unsellable rather than as the wrong market having been asked.
+- **An item that appears in the feed gets no Search, no Open in browser and no filter list.** It
+  has no listings for either button to find, and a button that can only ever come back empty
+  reads as the item being unsellable rather than as the wrong market having been asked. The
+  filters go with them (see the panel layout above): they exist to shape a query nobody can run
+  here, and their notes about unmatched modifiers charge the check with a failure it never
+  attempted. One line says where the answer is instead.
 - **`ExchangeService`** is the fourth of the `LeagueService` family and the smallest, because the
   feed is: one digest in memory at a time, a lookup is a string compare, and the second check of
   the hour is free whatever the item. It is asked about **every** item, not only the ones planned
