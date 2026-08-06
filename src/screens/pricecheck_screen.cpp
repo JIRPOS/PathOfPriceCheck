@@ -11,6 +11,7 @@
 #include <imgui.h>
 
 #include "app.hpp"
+#include "ninja/ninja.hpp"
 #include "screens/item_view.hpp"
 #include "trade/query.hpp"
 #include "util/debug_log.hpp"
@@ -171,13 +172,71 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan) {
     }
 }
 
-/// Where poe.ninja's reference price will go: the going rate for a unique, a gem or a stack of
-/// currency, which a stat query cannot give — and which for currency is the *only* answer, since
-/// those strategies have no search behind them at all. Drawn as an empty slot rather than left
-/// out, so the layout it lands in is the one being looked at now. Deliberately absent on a rare:
-/// poe.ninja has no price for one and never will.
-void draw_reference_price(const item::SearchPlan& plan) {
-    switch (plan.strategy) {
+constexpr ImVec4 kUp(0.40f, 0.78f, 0.42f, 1.0f);
+constexpr ImVec4 kDown(0.85f, 0.36f, 0.36f, 1.0f);
+/// Wide enough to read a week's shape at a glance, narrow enough to leave the price column
+/// most of a 460px panel.
+constexpr float kSparkW = 58.0f;
+
+/// poe.ninja's seven daily samples, drawn by hand rather than with `PlotLines`: that one
+/// insists on a frame and a background, and this is one line on the row it belongs to.
+/// Coloured by where the week ended, which is the same thing the percentage beside it says.
+void draw_spark(const ninja::Spark& s, float w, float h) {
+    const ImVec2 at = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(w, h));
+    if (s.data.size() < 2) return;
+
+    float low = s.data[0], high = s.data[0];
+    for (const float v : s.data) {
+        low = std::min(low, v);
+        high = std::max(high, v);
+    }
+    // A flat week is a straight line through the middle, not a divide by zero.
+    const float span = high - low > 0.01f ? high - low : 1.0f;
+    std::vector<ImVec2> pts;
+    pts.reserve(s.data.size());
+    for (size_t i = 0; i < s.data.size(); ++i) {
+        const float x = at.x + w * static_cast<float>(i) / static_cast<float>(s.data.size() - 1);
+        pts.push_back(ImVec2(x, at.y + h - (s.data[i] - low) / span * h));
+    }
+    ImGui::GetWindowDrawList()->AddPolyline(pts.data(), static_cast<int>(pts.size()),
+                                            ImGui::GetColorU32(s.change >= 0 ? kUp : kDown),
+                                            ImDrawFlags_None, 1.5f);
+}
+
+/// A poe.ninja price in the trade site's own form, so the two prices on screen read alike:
+/// `5 x [icon] Divine Orb`. The symbol comes from the trade static data where that has been
+/// fetched and from poe.ninja's own payload where it has not — a reference price should not
+/// be the one thing that needs a trade request to render.
+void draw_ninja_price(App& app, const ninja::Quote& q, const ninja::Quote* high) {
+    const NinjaService& n = app.ninja();
+    std::string amount = trade::price_text(q.amount);
+    if (high) amount += " \xe2\x80\x93 " + trade::price_text(high->amount);
+    ImGui::TextUnformatted((amount + " x").c_str());
+
+    std::string icon = app.trade().currency_image(q.currency);
+    if (icon.empty()) icon = n.currency_icon(q.currency);
+    if (const uint64_t tex = app.icons().texture(icon)) {
+        const float h = ImGui::GetTextLineHeight();
+        ImGui::SameLine(0.0f, 3.0f);
+        ImGui::Image(tex, ImVec2(h, h));
+    }
+    ImGui::SameLine(0.0f, 3.0f);
+    std::string name = app.trade().currency_name(q.currency);
+    if (name == q.currency) name = n.currency_name(q.currency);
+    ImGui::TextUnformatted(name.c_str());
+}
+
+/// What poe.ninja says the item goes for — the going rate for a unique, a gem or a stack of
+/// currency, which a stat query cannot give and which for currency is the *only* answer, since
+/// those strategies have no search behind them at all. Deliberately absent on a rare: poe.ninja
+/// has no price for one and never will.
+///
+/// Three columns, no header: the source, the price, and the week behind it. The whole row is
+/// one click-through to the item's own page, which is where the variants, the history and the
+/// listings actually are — everything this row has to leave out.
+void draw_reference_price(App& app) {
+    switch (app.plan().strategy) {
     case item::Strategy::Unique:
     case item::Strategy::Currency:
     case item::Strategy::Gem:
@@ -185,7 +244,85 @@ void draw_reference_price(const item::SearchPlan& plan) {
     default:
         return;
     }
-    ImGui::TextDisabled("poe.ninja \xe2\x80\x94 reference pricing is not built yet");
+    const NinjaService& n = app.ninja();
+    const ninja::Reference& r = n.reference();
+
+    if (n.state() == NinjaState::Loading) {
+        ImGui::TextDisabled("poe.ninja\xe2\x80\xa6");
+        return;
+    }
+    if (r.state == ninja::Reference::State::None) {
+        // Never silent: an empty slot where a price belongs reads as a price of nothing.
+        ImGui::TextDisabled("poe.ninja \xe2\x80\x94 %s",
+                            !n.error().empty()  ? n.error().c_str()
+                            : !r.note.empty()   ? r.note.c_str()
+                                                : "no reference price");
+        return;
+    }
+
+    const bool ambiguous = r.state == ninja::Reference::State::Ambiguous;
+    constexpr ImGuiTableFlags kFlags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+    if (!ImGui::BeginTable("reference", 3, kFlags)) return;
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+    ImGui::TableNextRow();
+
+    ImGui::TableSetColumnIndex(0);
+    const float line_h = ImGui::GetTextLineHeight();
+    // The row is the click target, and it has to be laid down before the cells so they draw
+    // on top of it. AllowOverlap is what lets the hover fall through to it.
+    if (ImGui::Selectable("##ninja_row", false,
+                          ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap,
+                          ImVec2(0, line_h)))
+        app.open_reference_page();
+    const bool hovered = ImGui::IsItemHovered();
+    ImGui::SameLine(0.0f, 0.0f);
+    if (const uint64_t tex = app.icons().texture(ninja::kLogoUrl))
+        ImGui::Image(tex, ImVec2(line_h, line_h));
+    else
+        ImGui::TextDisabled("ninja");
+
+    ImGui::TableSetColumnIndex(1);
+    draw_ninja_price(app, r.price, ambiguous ? &r.high : nullptr);
+
+    ImGui::TableSetColumnIndex(2);
+    ImGui::BeginGroup();
+    if (ambiguous) {
+        // A trend across four different items is not a trend. The count is what the reader
+        // needs here anyway: it says why there are two numbers in the column beside it.
+        ImGui::TextDisabled("%zu variants", r.variants.size());
+    } else {
+        draw_spark(r.spark, kSparkW, line_h);
+        if (r.spark.known) {
+            ImGui::SameLine(0.0f, 4.0f);
+            ImGui::TextColored(r.spark.change >= 0 ? kUp : kDown, "%+.0f%%",
+                               static_cast<double>(r.spark.change));
+        }
+    }
+    ImGui::EndGroup();
+
+    if (hovered) {
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted("poe.ninja \xe2\x80\x94 click to open the item's page");
+        if (!r.label.empty()) ImGui::TextDisabled("Priced as: %s", r.label.c_str());
+        if (!r.note.empty()) ImGui::TextColored(kWarn, "%s", r.note.c_str());
+        if (r.listings > 0) ImGui::TextDisabled("%d listings behind the price", r.listings);
+        if (r.fetched_at > 0)
+            ImGui::TextDisabled("Updated %s ago",
+                                trade::age_text(r.fetched_at, std::time(nullptr)).c_str());
+        // Every variant with its own price: the one thing that turns "somewhere between these
+        // two numbers" back into a price the reader can pick out for themselves.
+        for (const ninja::Variant& v : r.variants) {
+            ImGui::Separator();
+            ImGui::Text("%s", v.label.empty() ? "(no variant)" : v.label.c_str());
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s %s", trade::price_text(v.price.amount).c_str(),
+                                app.trade().currency_name(v.price.currency).c_str());
+        }
+        ImGui::EndTooltip();
+    }
+    ImGui::EndTable();
 }
 
 /// The Search / Open in browser pair, plus whatever the last search had to say. Both act on
@@ -500,7 +637,7 @@ void draw_pricecheck_screen(App& app) {
             ImGui::PopTextWrapPos();
             ImGui::Dummy(ImVec2(0, 6));
             ImGui::Separator();
-            draw_reference_price(plan);
+            draw_reference_price(app);
             draw_search_controls(app);
             draw_results(app, gutter_top);
         }

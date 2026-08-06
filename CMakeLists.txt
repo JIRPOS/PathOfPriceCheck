@@ -134,6 +134,8 @@ add_library(ppc_core STATIC
   src/item/resolve.cpp
   src/item/derive.cpp
   src/item/plan.cpp
+  src/ninja/ninja.cpp
+  src/ninja/cache.cpp
   src/trade/query.cpp
   src/trade/currency.cpp
   src/trade/ratelimit.cpp
@@ -153,6 +155,8 @@ set(APP_SOURCES
   src/league_service.cpp
   src/trade_service.cpp
   src/trade/client.cpp
+  src/ninja_service.cpp
+  src/ninja/client.cpp
   src/icon_cache.cpp
   src/data/updater.cpp
   src/net/http.cpp
@@ -235,4 +239,5 @@ ppc_add_test(install_test)
 ppc_add_test(item_parse_test)
 ppc_add_test(item_pricing_test)
 ppc_add_test(trade_query_test)
+ppc_add_test(ninja_test)
 ppc_add_test(ratelimit_test)

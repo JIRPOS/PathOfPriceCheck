@@ -156,7 +156,7 @@ int App::run() {
         return 1;
     }
     // SDL hands back a contiguous range, so the offsets are guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(4);
+    const uint32_t event_base = SDL_RegisterEvents(5);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -166,6 +166,7 @@ int App::run() {
     league_event_ = event_base + 1;
     data_event_ = event_base + 2;
     trade_event_ = event_base + 3;
+    ninja_event_ = event_base + 4;
 
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
@@ -187,6 +188,7 @@ int App::run() {
     leagues_.load_cache(); // file read only; the network is touched when Settings opens
     trade_.init(trade_event_);
     trade_.load_cache(); // currency symbols; the search itself fetches them if they are stale
+    ninja_.init(ninja_event_);
     icons_.init();
 
     // Reclaim superseded bundles and map the installed one before anything else can hold a
@@ -273,6 +275,7 @@ int App::run() {
     hotkeys_.reset();
     leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
     trade_.shutdown();
+    ninja_.shutdown();
     icons_.shutdown(); // frees GL textures, so before the context goes with the overlay
     updater_.shutdown();
     net::shutdown();
@@ -314,6 +317,9 @@ void App::handle_event(const SDL_Event& e) {
     } else if (e.type == trade_event_) {
         trade_.on_done(e);
         listing_items_.clear(); // the rows they were parsed for may be gone; re-parse on hover
+    } else if (e.type == ninja_event_) {
+        ninja_.on_done(e);
+        need_redraw_ = true;
     } else if (e.type == data_event_) {
         if (auto gd = updater_.take_ready_bundle()) {
             data_ = std::move(gd);
@@ -529,6 +535,7 @@ void App::rebuild_plan() {
         item::resolve_item(*item_data_, *item_);
         derived_ = item::derive(item_data_.get(), *item_);
         plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        price_reference();
     } else {
         // No bundle yet: the item still parses and renders, it just cannot be priced.
         derived_ = item::derive(nullptr, *item_);
@@ -538,9 +545,28 @@ void App::rebuild_plan() {
 
 void App::set_strategy(item::Strategy s) {
     strategy_override_ = s;
-    if (item_ && item_data_)
+    if (item_ && item_data_) {
         plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        // The strategy is what decides whether poe.ninja prices this at all — a rare read as
+        // a base item has no reference price, and switching back has to bring it back.
+        price_reference();
+    }
     need_redraw_ = true;
+}
+
+/// Ask poe.ninja about the item as the plan now reads it. Unlike a trade search this is not
+/// on a button: it spends no GGG request, and the overviews behind it are shared by every
+/// check and refreshed at most twice an hour.
+void App::price_reference() {
+    if (!item_) return;
+    ninja_.price(ninja::query_for(*item_, plan_, config_.league));
+}
+
+void App::open_reference_page() {
+    const std::string& url = ninja_.reference().url;
+    if (url.empty()) return;
+    debug::log("[ninja]  opening %s", url.c_str());
+    if (!SDL_OpenURL(url.c_str())) debug::log("[ninja]  SDL_OpenURL failed: %s", SDL_GetError());
 }
 
 void App::poll_click_away() {

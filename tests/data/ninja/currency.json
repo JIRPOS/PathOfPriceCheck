@@ -1,0 +1,144 @@
+{
+ "core": {
+  "items": [],
+  "rates": {
+   "divine": 0.004965
+  },
+  "primary": "chaos",
+  "secondary": "divine"
+ },
+ "lines": [
+  {
+   "id": "accelerating-catalyst",
+   "primaryValue": 2.06,
+   "volumePrimaryValue": 2527,
+   "maxVolumeCurrency": "chaos",
+   "maxVolumeRate": 0.4847,
+   "sparkline": {
+    "totalChange": 21.64,
+    "data": [
+     -7.88,
+     -0.13,
+     15.59,
+     10.45,
+     -1.08,
+     4.05,
+     21.64
+    ]
+   }
+  },
+  {
+   "id": "chaos",
+   "primaryValue": 1,
+   "volumePrimaryValue": 26143932,
+   "maxVolumeCurrency": "divine",
+   "maxVolumeRate": 201.4,
+   "sparkline": {
+    "totalChange": -8.83,
+    "data": [
+     5.43,
+     6.17,
+     6.32,
+     2.02,
+     -0.92,
+     -3.57,
+     -8.83
+    ]
+   }
+  },
+  {
+   "id": "divine",
+   "primaryValue": 201.4,
+   "volumePrimaryValue": 26143932,
+   "maxVolumeCurrency": "chaos",
+   "maxVolumeRate": 0.004965,
+   "sparkline": {
+    "totalChange": 9.69,
+    "data": [
+     -5.13,
+     -5.8,
+     -5.94,
+     -1.93,
+     0.97,
+     3.74,
+     9.69
+    ]
+   }
+  },
+  {
+   "id": "exalted",
+   "primaryValue": 1.67,
+   "volumePrimaryValue": 198304,
+   "maxVolumeCurrency": "chaos",
+   "maxVolumeRate": 0.5978,
+   "sparkline": {
+    "totalChange": 28.37,
+    "data": [
+     9.44,
+     7.55,
+     -4.63,
+     -14.14,
+     1.45,
+     5.46,
+     28.37
+    ]
+   }
+  },
+  {
+   "id": "mirror",
+   "primaryValue": 109740,
+   "volumePrimaryValue": 15363582,
+   "maxVolumeCurrency": "divine",
+   "maxVolumeRate": 0.001835,
+   "sparkline": {
+    "totalChange": 48.88,
+    "data": [
+     2.82,
+     -0.36,
+     3.72,
+     20.26,
+     40.36,
+     47.69,
+     48.88
+    ]
+   }
+  }
+ ],
+ "items": [
+  {
+   "id": "accelerating-catalyst",
+   "name": "Accelerating Catalyst",
+   "image": "/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ2F0YWx5c3RzL1NwZWVkTW9kaWZpZXJDYXRhbHlzdCIsInNjYWxlIjoxfV0/6493f34e78/SpeedModifierCatalyst.png",
+   "category": "Catalysts",
+   "detailsId": "accelerating-catalyst"
+  },
+  {
+   "id": "chaos",
+   "name": "Chaos Orb",
+   "image": "/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lSZXJvbGxSYXJlIiwic2NhbGUiOjF9XQ/46a2347805/CurrencyRerollRare.png",
+   "category": "Currency",
+   "detailsId": "chaos-orb"
+  },
+  {
+   "id": "divine",
+   "name": "Divine Orb",
+   "image": "/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lNb2RWYWx1ZXMiLCJzY2FsZSI6MX1d/ec48896769/CurrencyModValues.png",
+   "category": "Currency",
+   "detailsId": "divine-orb"
+  },
+  {
+   "id": "exalted",
+   "name": "Exalted Orb",
+   "image": "/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lBZGRNb2RUb1JhcmUiLCJzY2FsZSI6MX1d/33f2656aea/CurrencyAddModToRare.png",
+   "category": "Currency",
+   "detailsId": "exalted-orb"
+  },
+  {
+   "id": "mirror",
+   "name": "Mirror of Kalandra",
+   "image": "/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lEdXBsaWNhdGUiLCJzY2FsZSI6MX1d/8d7fea29d1/CurrencyDuplicate.png",
+   "category": "Currency",
+   "detailsId": "mirror-of-kalandra"
+  }
+ ]
+}

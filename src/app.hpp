@@ -13,6 +13,7 @@
 #include "item/plan.hpp"
 #include "icon_cache.hpp"
 #include "league_service.hpp"
+#include "ninja_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
 #include "trade_service.hpp"
@@ -91,6 +92,12 @@ public:
     // Trade search. The plan on screen is the query: the user ticks filters and presses
     // Search, or opens the same search on the site without spending an API call on it.
     const TradeService& trade() const { return trade_; }
+    /// poe.ninja's reference price for the item in hand — the going rate for the kinds of
+    /// item a stat query cannot price. Refreshed with the plan, never on a button: it costs
+    /// no GGG request and at most one poe.ninja request per category per half hour.
+    const NinjaService& ninja() const { return ninja_; }
+    /// Open the item's poe.ninja page, which is where the variants and the full history are.
+    void open_reference_page();
     IconCache& icons() { return icons_; }
     void start_search();
     void open_search_in_browser();
@@ -131,6 +138,7 @@ private:
     void nudge_clipboard_handover(uint64_t elapsed); ///< make the game let go of the copy
     void accept_clipboard(std::string text); ///< take item text: parse, resolve, plan
     void rebuild_plan();                     ///< re-resolve and re-plan the item in hand
+    void price_reference();                  ///< ask poe.ninja about the item as planned
     void poll_click_away();                  ///< dismiss price-check on a click outside it
     void update_overlay_placement();         ///< track the game window; move the overlay over it
     void place_overlay();                    ///< size + position the overlay for the current screen
@@ -145,6 +153,7 @@ private:
     Overlay overlay_;
     LeagueService leagues_;
     TradeService trade_;
+    NinjaService ninja_;
     IconCache icons_;
     data::DataUpdater updater_;
     std::shared_ptr<data::GameData> data_;
@@ -188,6 +197,7 @@ private:
     uint32_t league_event_ = 0; ///< carries a LeagueService::Result*
     uint32_t data_event_ = 0;   ///< the data updater changed state
     uint32_t trade_event_ = 0;  ///< carries a TradeService::Result*
+    uint32_t ninja_event_ = 0;  ///< carries a NinjaService::Result*
 
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry

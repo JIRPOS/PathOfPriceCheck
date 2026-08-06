@@ -435,11 +435,13 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                         false);
             break;
         default:
-            p.notes.push_back(p.strategy == Strategy::Unsupported
-                                  ? "pricing an item of class \"" + it.item_class +
-                                        "\" is not implemented yet"
-                                  : std::string(to_string(p.strategy)) +
-                                        " pricing is not implemented yet");
+            // Currency and gems are priced by poe.ninja rather than by a stat query — bulk is
+            // what they sell in, and a stat filter has nothing to say about a stack of orbs.
+            // So this is not a gap to warn about, it is where the search stops and the
+            // reference price is the answer. Only a class nothing prices is worth a note.
+            if (p.strategy == Strategy::Unsupported)
+                p.notes.push_back("pricing an item of class \"" + it.item_class +
+                                  "\" is not implemented yet");
             break;
     }
 

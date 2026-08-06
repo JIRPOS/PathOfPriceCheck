@@ -63,3 +63,29 @@ Decisions taken without asking, for the record:
 - **A click on the item card does not dismiss the panel.** It is our own opaque UI now, not the
   transient tooltip the gutter used to hold, so `poll_click_away` has to know about it; a click
   on the transparent part of the gutter still dismisses, because that is a click on the game.
+
+# Notes from the second commit (poe.ninja)
+
+Decisions taken without asking, for the record:
+
+- **The API had moved.** `poe.ninja/api/data/currencyoverview` and `itemoverview` are 404 now;
+  PoE 1 is under `poe.ninja/poe1/api/economy/`, in two feeds with different payload shapes. The
+  docs also state outright that only the *economy* endpoints are public and that breaking
+  changes can happen without notice, so every field is parsed as optional.
+- **It fetches on its own, not on a button.** It costs no GGG request, and the overviews are
+  shared by every check and refreshed at most twice an hour, so making the user press something
+  to see a reference price would be friction with nothing behind it. A trade search stays on its
+  button because that one does spend the user's rate limit.
+- **A unique's variant is matched on its modifiers**, which the notes did not ask for but which
+  is the difference between a right price and a ten-fold wrong one: Ralakesh's Impatience is
+  three lines on poe.ninja at 805, 133 and 75 chaos, and the copy in hand names which it is.
+  Where the modifiers cannot separate them (Mageblood's flask count) the row states the span and
+  the count instead of picking one, and the click-through settles it.
+- **The trend graph is in.** `sparkLine`/`sparkline` is seven daily samples plus the percentage,
+  which is exactly the SVG the site draws, so it needed no scraping.
+- **A 30-minute cache on everything, as asked**, which happens to be what poe.ninja sets on its
+  own responses — plus a conditional request when it expires, so an unchanged overview costs a
+  304 rather than four megabytes. The divine rate rides in the currency market's payload, so it
+  is not a separate thing to remember: it is fetched with the first check of every half hour.
+- **A rare says nothing at all.** The row is drawn only for the strategies poe.ninja could ever
+  price, so a rare does not carry a permanent empty slot.

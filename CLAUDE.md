@@ -8,8 +8,8 @@ The overlay, Settings, the league list, the **static game-data layer**, the **it
 (parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) and the
 **trade search** (query builder, two-step client, shared rate limiter, results in the panel) are
 built and tested, including the **per-unique modifier data** that decides which of a unique's
-modifiers are worth searching on. **poe.ninja pricing** — the categories a stat query cannot
-price — is the next piece of work.
+modifiers are worth searching on. **poe.ninja reference pricing** — uniques, gems and currency,
+the categories a stat query cannot price — is built too.
 
 Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
@@ -333,8 +333,8 @@ mappings are a function-local static and must outlive the atlas.
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
 so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
 the debug log, which every platform seam writes into), all of `item/`, all of `data/` except the
-updater, and all of `trade/` except its client. The rule is that `ppc_core` links no SDL3, no
-ImGui, no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
+updater, and all of `trade/` and `ninja/` except their clients. The rule is that `ppc_core` links
+no SDL3, no ImGui, no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
 
 ### Static game data (built)
 
@@ -613,9 +613,7 @@ and width are set explicitly:
 `SetNextWindowPos` overrides a tooltip's follow-the-mouse placement and `SetNextWindowSize`
 overrides its auto-fit **per axis**, so `(w, 0)` fixes the width and leaves the height to the item.
 The width has to be fixed either way — `draw_item_tooltip` centres every line on
-`GetContentRegionAvail()`, which in an auto-sizing window is whatever the last frame happened to be. `draw_reference_price` is the empty slot poe.ninja will fill,
-drawn only for the strategies it could ever price (unique, currency, gem) so a rare does not carry a
-permanent "not built yet".
+`GetContentRegionAvail()`, which in an auto-sizing window is whatever the last frame happened to be.
 
 Searching is **on a button, not automatic**. `Config::auto_search` exists and defaults off: a
 price check the user meant only to read the item with should not spend a request against their
@@ -664,12 +662,87 @@ of the concrete case instead; the maintainer can reproduce one in-game.
 formatting — *after* the tray and window exist, since SDL's X11 backend (XIM) and the tray's GTK both
 call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
 
+### The poe.ninja reference price (built)
+
+`src/ninja/` is the going rate for what a stat query cannot price. A rare is worth whatever its
+own modifiers are worth and only trade can say; a Divine Orb, a level-21 gem and a unique whose
+copies are all alike are worth what the market is paying, which is the one thing poe.ninja
+measures and trade does not. It is one row under the filters (`draw_reference_price`): the site's
+mark, the price, and the week behind it — and the whole row is a click-through to the item's own
+page, which holds the variants and the history the row has to leave out.
+
+- **Only the economy endpoints are public API** (https://poe.ninja/docs/api). The builds and
+  profile endpoints are explicitly closed to third parties; do not reach for them. The paths moved
+  — `poe.ninja/api/data/currencyoverview` is a 404 now, and PoE 1 lives under
+  `poe.ninja/poe1/api/economy/`. Two feeds with different payload shapes: `exchange/current/overview`
+  is the currency market (id → chaos, plus `core.rates`), `stash/current/item/overview` is what
+  individual items are listed at (name, base, variant, `chaosValue`, `sparkLine`).
+- **It is not GGG traffic and does not go through `trade::request`.** That limiter serves GGG's
+  published per-policy budgets; this is a different host with different rules, honoured differently:
+  a **30-minute disk cache** (what poe.ninja sets on its own responses, and PoE 1 overviews only
+  refresh every fifteen minutes anyway), a conditional request when that expires so an unchanged
+  overview costs a 304, and one request per *category*, not per price check. The docs ask desktop
+  apps to proxy through a backend; we have none, so the cache is what stands in for it.
+  `ninja/cache` keeps the body verbatim after a one-line JSON header — a gem overview is four
+  megabytes and escaping it into a JSON string field would cost more than the download did — and
+  `prune` drops what nothing has read in a week, or the cache grows by every league ever played.
+- **The divine rate comes from the Divine Orb's own line, not from `core.rates`.** That field is
+  the reciprocal rounded to four figures, and converting the divine line's own price with it puts
+  a Divine Orb at 0.9995 divine. Priced against itself it is exactly one. `quote()` switches to
+  divine at one divine and rounds to what a price is actually said in; `quote_in` forces a
+  currency, because both ends of a span have to be in one or "79.4 – 4" is what the pair reads as.
+- **A unique's variant is read off the modifiers the copy in hand rolled** (`narrow_by_mods`), and
+  this is the difference between a right price and a ten-fold wrong one: Ralakesh's Impatience is
+  three lines — Power, Endurance, Frenzy — 805, 133 and 75 chaos, and the item says outright which
+  it is. poe.ninja's variant *labels* are its own shorthand and are never guessed at, but the
+  modifiers behind them are the game's wordings. Two comparisons, because poe.ninja states a
+  unique's rolled modifiers as ranges and its fixed ones as plain numbers: a range means only the
+  wording is compared (`collapse_ranges` → `data::placeholder_form`, so `+(15-25)%` meets the
+  game's `+22%`), while **a number with no range around it is fixed on that variant** — Mageblood's
+  "Leftmost 4 Magic Utility Flasks" — and the line is compared verbatim. Mismatches are counted
+  *relatively*, never absolutely: the two sources' wordings drift, and a miss every candidate
+  shares says nothing. A candidate the source published with **no** modifiers is not scored at all
+  and stops the whole comparison, or it would win on a mismatch count of zero — the opposite of
+  what its silence means. Where that leaves several (Mageblood's flask count, Voices' passives) the
+  row states the **span** and the count rather than picking one; a confident wrong price is the
+  failure this whole layer avoids, and the click-through settles it.
+- **Which overview to ask** is `keys_for`, off the trade category, and the currency market always
+  leads: it carries the rate and the symbols every other price is drawn with. A currency item is
+  looked for *in* it before anything else is downloaded — it holds the orbs and catalysts most
+  currency checks are about — and only a name it does not have sends us to one of the seventeen
+  other exchange overviews, chosen by a keyword on the item's own name. That keyword table exists
+  because the clipboard cannot tell a Scarab from an Essence: both are the "Stackable Currency"
+  item class.
+- **A gem is priced at the nearest tier poe.ninja publishes**, which is rarely the one in hand — it
+  lists 1, 20, 20/20, 21/20 corrupted and nothing between. The best of those the gem has already
+  reached is a floor on what it is worth, labelled with poe.ninja's own name for it so it is clear
+  it is not this gem. Corruption filters first: it is a hard split, not a preference.
+- **A league poe.ninja has no economy for answers 200 with an empty payload**, not a 404 — so an
+  SSF league parses fine and matches nothing, and that is reported as "tracks no economy for X"
+  rather than as a broken response. The website's league slug is **not** the league id: "Hardcore
+  Allflame" is `allflamehc`, not `hardcore-allflame` (`league_slug`).
+- **`NinjaService`** is the third of the `LeagueService` triplets, with the work split the other
+  way round: the worker only *downloads*, because matching an item to a priced line is pure and
+  cheap, so it happens on the main thread and the second check of a kind is free. Overviews are
+  kept for the life of the process and are about the economy rather than the item they were
+  fetched for, so they are installed whatever the panel has moved on to. A check landing on a
+  download already in flight cannot wait for it — that one was told to fetch a *different* item's
+  categories — so `restart_` repeats it when that one lands.
+- The row draws the currency symbol from the **trade** static data where that has been fetched and
+  from poe.ninja's own payload where it has not: a reference price must not be the one thing that
+  needs a trade request to render. The sparkline is drawn by hand rather than with `PlotLines`,
+  which insists on a frame and a background.
+- `item/plan` no longer notes that currency and gem pricing "is not implemented yet" — that note
+  now sits directly above the price, and read as "this item has no price".
+
 ### Still to build
 
-- **poe.ninja client** — bulk/reference pricing for the categories a stat query cannot price:
-  currency, fragments, divination cards, and uniques. `Strategy::Currency` / `Strategy::Gem` exist
-  and currently only say they are not implemented; the panel already draws the empty slot the
-  price will go in (`draw_reference_price`).
+- **Telling apart the variants a modifier wording cannot.** `narrow_by_mods` resolves a unique
+  whose variants differ in *wording*; the ones that differ only in a **number poe.ninja publishes
+  for some variants and not others** stay a span. Mageblood is the case: the item prints "Leftmost
+  5 Magic Utility Flasks" and the dearest line carries no modifiers at all, so there is nothing to
+  compare it against. Matching the number where every candidate does publish one would close most
+  of the gap.
 - **Offering the pool modifiers the item does *not* have.** Reading the per-unique data is built
   (above); the other half of what it is for is not. A Watcher's Eye search is worth little without
   being able to add "and also has Discipline energy-shield-on-hit" — `ref` gives the wording to show,
@@ -724,11 +797,25 @@ comes from static-data endpoints that must be fetched and cached:
 
 ### poe.ninja
 
-Docs: https://poe.ninja/docs/api. Two overview endpoints:
-- `GET https://poe.ninja/api/data/currencyoverview?league=<league>&type=<Currency|Fragment>`
-- `GET https://poe.ninja/api/data/itemoverview?league=<league>&type=<UniqueWeapon|DivinationCard|...>`
+Docs: <https://poe.ninja/docs/api>. **Only the economy endpoints are public**; the builds and
+profile endpoints are closed to third parties and must not be touched. The old
+`poe.ninja/api/data/currencyoverview` and `itemoverview` paths are **gone** (404) — PoE 1 is under
+`poe.ninja/poe1/api/economy/`, and there are two overview endpoints with different payload shapes:
 
-Cache aggressively (prices move slowly relative to how often a user hovers items).
+- `GET .../poe1/api/economy/exchange/current/overview?league=<league>&type=<Currency|Fragment|DivinationCard|Essence|Scarab|…>`
+  — the currency market. `lines[]` is `{id, primaryValue (chaos), sparkline}`, joined by `id` to a
+  sibling `items[]` for the name and icon; `core.rates.divine` is the chaos↔divine rate.
+- `GET .../poe1/api/economy/stash/current/item/overview?league=<league>&type=<UniqueWeapon|SkillGem|…>`
+  — what individual items are listed at: `{name, baseType, variant, chaosValue, divineValue,
+  links, gemLevel, gemQuality, corrupted, detailsId, sparkLine, explicitModifiers}`.
+
+Item pages are `poe.ninja/poe1/economy/<league-slug>/<category-slug>/<detailsId>`, and the league
+slug is not the league id (see `league_slug`). There is no versioning and no SLA: the docs say
+outright that breaking changes to these can happen without notice, which is why `parse_overview`
+treats every field as optional and an unreadable payload as "no price" rather than an error.
+
+Cache aggressively — 30 minutes, matching what poe.ninja sets on its own responses — send
+conditional requests, and identify the app in the User-Agent. See `src/ninja/` above for how.
 
 ### Rate limits — treat as a hard requirement
 
@@ -793,3 +880,10 @@ not covered offline — it is verified against an installed bundle by hand. Addi
 one weapon base) to `STATS`/`ITEMS` in the slicer would close that gap. `tests/data/examples/` and
 `tests/data/items/` hold clipboard captures for the parser; those are plain text and need no byte
 discipline.
+
+`tests/data/ninja/` is the same idea for the reference price: real poe.ninja responses cut down to
+the lines a case turns on, kept verbatim so a payload change reads back as a parse failure rather
+than as a test that quietly stopped covering anything. Each one is there for a reason — the
+currency market for the rate, `unique-armour.json` for a variant the item's own modifiers resolve,
+`unique-accessory.json` for one they cannot, `skill-gem.json` for the tiers poe.ninja publishes
+against the ones it does not.
