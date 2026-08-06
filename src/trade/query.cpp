@@ -4,9 +4,11 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 
+#include "data/types.hpp"
 #include "util/base64.hpp"
 
 using json = nlohmann::json;
@@ -219,6 +221,87 @@ bool parse_search(std::string_view body, SearchResults& out) {
     return true;
 }
 
+namespace {
+
+/// Put back the mod-type markers `extended.text` leaves off.
+///
+/// That text is the clipboard format, which is the whole point of it — one parser, one view —
+/// but the site's renderer only writes the " (enchant)" suffix. An implicit, a crafted mod and
+/// a fractured one arrive as bare lines: a fractured mod is simply printed first in the explicit
+/// block. Nothing downstream can tell them apart, so a listing's fractured mod rendered in the
+/// explicit blue and its implicit sat in the explicit block.
+///
+/// The payload does say which is which — `domain` per mod, and the array it arrived in for the
+/// older shape where each entry is a plain string — and the mod's own domain outranks the array,
+/// since a fractured or crafted mod is listed among the explicits.
+std::string restore_mod_markers(std::string text, const json& item) {
+    struct ModArray {
+        const char* key;
+        data::ModType type;
+    };
+    static constexpr ModArray kArrays[]{
+        {"implicitMods", data::ModType::Implicit}, {"explicitMods", data::ModType::Explicit},
+        {"craftedMods", data::ModType::Crafted},   {"fracturedMods", data::ModType::Fractured},
+        {"enchantMods", data::ModType::Enchant},   {"veiledMods", data::ModType::Veiled},
+        {"scourgeMods", data::ModType::Scourge},   {"crucibleMods", data::ModType::Crucible},
+    };
+
+    // The markers still owed, as (line, type). One entry per printed line: the game suffixes
+    // every line of a multi-line mod, and a description holds them all.
+    std::vector<std::pair<std::string, data::ModType>> want;
+    for (const ModArray& a : kArrays) {
+        const auto arr = item.find(a.key);
+        if (arr == item.end() || !arr->is_array()) continue;
+        for (const json& m : *arr) {
+            data::ModType type = a.type;
+            std::string desc;
+            if (m.is_string()) {
+                desc = m.get<std::string>();
+            } else if (m.is_object()) {
+                if (const auto d = m.find("description"); d != m.end() && d->is_string())
+                    desc = d->get<std::string>();
+                if (const auto d = m.find("domain"); d != m.end() && d->is_string())
+                    type = data::mod_type_from_prefix(d->get<std::string>()).value_or(type);
+            }
+            if (desc.empty() || type == data::ModType::Explicit) continue;
+            for (size_t at = 0; at < desc.size();) {
+                const size_t nl = desc.find('\n', at);
+                std::string line = desc.substr(at, nl - at);
+                if (!line.empty() && line.back() == '\r') line.pop_back();
+                if (!line.empty()) want.emplace_back(std::move(line), type);
+                if (nl == std::string::npos) break;
+                at = nl + 1;
+            }
+        }
+    }
+    if (want.empty()) return text;
+
+    std::string out;
+    out.reserve(text.size() + want.size() * 12);
+    for (size_t at = 0; at < text.size();) {
+        const size_t nl = text.find('\n', at);
+        const size_t end = nl == std::string::npos ? text.size() : nl + 1;
+        size_t stop = nl == std::string::npos ? text.size() : nl;
+        if (stop > at && text[stop - 1] == '\r') --stop;
+        const std::string_view line(text.data() + at, stop - at);
+        // A line the site already marked does not match any description, so it is left alone.
+        const auto w = std::find_if(want.begin(), want.end(),
+                                    [line](const auto& p) { return p.first == line; });
+        out.append(text, at, stop - at);
+        if (w != want.end()) {
+            out += " (";
+            out += data::trade_prefix(w->second);
+            out += ')';
+            want.erase(w); // one marker per printed line, so a repeated mod marks each copy
+        }
+        out.append(text, stop, end - stop);
+        at = end;
+    }
+    return out;
+}
+
+} // namespace
+
 bool parse_fetch(std::string_view body, std::vector<Listing>& out) {
     const json j = json::parse(body, nullptr, /*allow_exceptions=*/false);
     if (j.is_discarded() || !j.is_object()) return false;
@@ -256,7 +339,7 @@ bool parse_fetch(std::string_view body, std::vector<Listing>& out) {
             if (const auto x = it->find("extended"); x != it->end() && x->is_object())
                 if (const auto t = x->find("text"); t != x->end() && t->is_string())
                     if (std::optional<std::string> s = base64_decode(t->get<std::string>()))
-                        li.item_text = std::move(*s);
+                        li.item_text = restore_mod_markers(std::move(*s), *it);
         out.push_back(std::move(li));
     }
     return true;

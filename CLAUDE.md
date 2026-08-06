@@ -597,9 +597,19 @@ mis-sized and mis-placed. `AllowOverlap` on the row's `Selectable` is what lets 
 hovering the price cell hovers the row too.
 
 **Hovering a row draws the seller's own item** over the panel, through the *same* renderer as the
-item in hand — because the fetch response carries `item.extended.text`, which is base64 of the
-exact clipboard bytes PoE writes on Ctrl+C. So there is no second parser and no second view:
-decode (`util/base64`) → `parse_item` → `resolve` → `derive` → `draw_item_tooltip`. Parsed lazily
+item in hand — because the fetch response carries `item.extended.text`, base64 of the item in the
+clipboard format PoE writes on Ctrl+C. So there is no second parser and no second view:
+decode (`util/base64`) → `restore_mod_markers` → `parse_item` → `resolve` → `derive` →
+`draw_item_tooltip`. **It is not byte-identical to a real copy: the site's renderer leaves the
+mod-type markers off.** It writes " (enchant)" but never " (implicit)", " (crafted)" or
+" (fractured)" — a fractured mod is simply printed first in the explicit block, with nothing in
+the text saying so, and the parser typed every one of them Explicit (a fractured mod in the
+explicit blue, an implicit inside the explicit block). The payload does say: each entry of
+`implicitMods`/`explicitMods`/… carries a `domain`, and a fractured or crafted mod is listed
+**among the explicits**, so the mod's own domain outranks the array it came in. `parse_fetch`
+appends the suffix the game would have printed, matching a description against the line verbatim —
+a line the site already marked matches nothing and is left alone. Verified against real fetch
+responses for four fractured items, a crafted one and two enchanted ones. Parsed lazily
 on hover and cached in `App::listing_items_`, resolved against the same pinned `item_data_`
 snapshot, and dropped whenever a trade result lands. The row is a `Selectable` with
 `SpanAllColumns | AllowOverlap` so the row is the hover target and lights up to say so, while the

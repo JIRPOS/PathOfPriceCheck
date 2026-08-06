@@ -3,6 +3,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "item/item.hpp"
 #include "trade/currency.hpp"
 #include "trade/query.hpp"
 #include "util/base64.hpp"
@@ -256,9 +257,64 @@ TEST_CASE("base64 round-trips, and refuses rather than guessing") {
     CHECK_FALSE(base64_decode("Z").has_value());     // one digit encodes nothing
 }
 
+TEST_CASE("the mod-type markers the site's item text leaves off are put back") {
+    // A real fetch response (Hydrascale Boots, Allflame), cut to what this turns on. The site
+    // renders the clipboard format but writes no "(implicit)", "(crafted)" or "(fractured)" —
+    // the fractured mod is simply the first line of the explicit block, and the payload's
+    // `domain` is the only thing that says so.
+    const std::string text =
+        "Item Class: Boots\r\nRarity: Rare\r\nHate Pace\r\nHydrascale Boots\r\n--------\r\n"
+        "Item Level: 71\r\n--------\r\n"
+        "+460 to Accuracy Rating\r\n--------\r\n"
+        "59% increased Armour and Evasion\r\n"
+        "14% increased Life Regeneration rate\r\n"
+        "13% increased Movement Speed\r\n--------\r\nFractured Item\r\n";
+    const std::string body = R"({"result":[{"id":"aa","listing":{"account":{"name":"A#1"}},
+      "item":{"typeLine":"Hydrascale Boots",
+        "implicitMods":[{"description":"+460 to Accuracy Rating","domain":"implicit"}],
+        "explicitMods":[
+          {"description":"14% increased Life Regeneration rate","domain":"explicit"},
+          {"description":"13% increased Movement Speed","flags":{"crafted":true},
+           "domain":"crafted"},
+          {"description":"59% increased Armour and Evasion","flags":{"fractured":true},
+           "domain":"fractured"}],
+        "extended":{"text":")" + ppc::base64_encode(text) + R"("}}}]})";
+
+    std::vector<Listing> ls;
+    REQUIRE(parse_fetch(body, ls));
+    REQUIRE(ls.size() == 1);
+    const std::optional<ppc::item::Item> it = ppc::item::parse_item(ls[0].item_text);
+    REQUIRE(it);
+    CHECK(it->fractured_item);
+    REQUIRE(it->mods_of(ppc::data::ModType::Fractured).size() == 1);
+    CHECK(it->mods_of(ppc::data::ModType::Fractured).front()->lines.front() ==
+          "59% increased Armour and Evasion");
+    REQUIRE(it->mods_of(ppc::data::ModType::Crafted).size() == 1);
+    CHECK(it->mods_of(ppc::data::ModType::Crafted).front()->lines.front() ==
+          "13% increased Movement Speed");
+    REQUIRE(it->mods_of(ppc::data::ModType::Implicit).size() == 1);
+    CHECK(it->mods_of(ppc::data::ModType::Explicit).size() == 1);
+
+    // The site does mark an enchant, so a marked line must not be marked twice.
+    const std::string enchanted =
+        "Item Class: Amulets\r\nRarity: Rare\r\nDeath Medallion\r\nSand Spitter Talisman\r\n"
+        "--------\r\n12% increased Movement Speed (enchant)\r\n--------\r\n"
+        "+20 to all Attributes\r\n";
+    const std::string body2 = R"({"result":[{"id":"aa","listing":{"account":{"name":"A#1"}},
+      "item":{"typeLine":"Sand Spitter Talisman",
+        "enchantMods":[{"description":"12% increased Movement Speed","domain":"enchant"}],
+        "explicitMods":[{"description":"+20 to all Attributes","domain":"explicit"}],
+        "extended":{"text":")" + ppc::base64_encode(enchanted) + R"("}}}]})";
+    std::vector<Listing> ls2;
+    REQUIRE(parse_fetch(body2, ls2));
+    REQUIRE(ls2.size() == 1);
+    CHECK(ls2[0].item_text == enchanted);
+}
+
 TEST_CASE("a listing carries the seller's item as clipboard text") {
-    // What the API actually sends: item.extended.text, base64 of the exact Ctrl+C bytes,
-    // CRLF and all. That is what lets a listing go through the same parser as a real copy.
+    // What the API sends: item.extended.text, base64 of the item in clipboard format, CRLF and
+    // all. That is what lets a listing go through the same parser as a real copy — bar the mod
+    // markers it drops, which `parse_fetch` puts back (above).
     const std::string text = "Item Class: Belts\r\nRarity: Unique\r\nGraven's Secret\r\n";
     const std::string body = R"({"result":[{"id":"aa","listing":{"account":{"name":"A#1"}},
       "item":{"name":"Graven's Secret","extended":{"text":")" +
