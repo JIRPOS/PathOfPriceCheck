@@ -14,6 +14,10 @@
 {"craftable":{"category":"Instance Local Items"},"dropLevel":1,"h":1,"metadataId":"Metadata/Items/TradeProxy/MapKey","name":"Map","namespace":"ITEM","refName":"Map","tradeDisc":"map","w":1}
 {"craftable":{"category":"Maps"},"dropLevel":83,"h":1,"metadataId":"Metadata/Items/Maps/MapKeyShaperGuardian","name":"Shaper Guardian Map","namespace":"ITEM","refName":"Shaper Guardian Map","w":1}
 {"name":"Olmec's Sanctum","namespace":"UNIQUE","refName":"Olmec's Sanctum","tradeDisc":"map","unique":{"base":"Map"}}
+{"craftable":{"category":"Maps"},"dropLevel":84,"h":1,"metadataId":"Metadata/Items/Maps/MapKeyReliquary","name":"Valdo Map","namespace":"ITEM","refName":"Valdo Map","w":1}
+{"name":"Hrimsorrow","namespace":"UNIQUE","refName":"Hrimsorrow","unique":{"base":"Goathide Gloves"}}
+{"craftable":{"category":"Divination Cards"},"dropLevel":62,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheBlazingFire","name":"The Blazing Fire","namespace":"DIVINATION_CARD","refName":"The Blazing Fire","w":1}
+{"craftable":{"category":"Stackable Currency"},"dropLevel":26,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyEssenceHatred3","name":"Weeping Essence of Hatred","namespace":"ITEM","refName":"Weeping Essence of Hatred","w":1}
 {"craftable":{"category":"Support Gems"},"dropLevel":38,"h":1,"metadataId":"Metadata/Items/Gems/SupportGemAdditionalLevel","name":"Empower Support","namespace":"GEM","refName":"Empower Support","w":1}
 {"craftable":{"category":"Skill Gems"},"dropLevel":28,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemTornadoShot","name":"Tornado Shot","namespace":"GEM","refName":"Tornado Shot","w":1}
 {"craftable":{"category":"Skill Gems"},"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemVaalBlight","name":"Vaal Blight","namespace":"GEM","refName":"Vaal Blight","w":1}

@@ -72,6 +72,15 @@ STATS = [
     "Item Quantity increases amount of Rewards Baran drops by #% of its value",
     # And a map affix, which that plan must leave out without calling it unrecognised.
     "Monsters have #% chance to Hinder on Hit with Spells",
+    # A blighted map's implicit, both halves of it — the plan searches every implicit a map
+    # has, so leaving one out of the fixture would show up as an unrecognised modifier.
+    "Area is infested with Fungal Growths\n"
+    "Map's Item Quantity Modifiers also affect Blight Chest count at #% value\n"
+    "Can be Anointed up to # times",
+    "Natural inhabitants of this area have been removed",
+    # The one modifier a Valdo map is searched on, and the only one anything is searched on in
+    # **both** directions: absent, it becomes a `not` group rather than being left open.
+    "Players who Die in area are sent to the Void",
 ]
 
 ITEMS = [
@@ -96,6 +105,17 @@ ITEMS = [
     "ITEM::Map",
     "ITEM::Shaper Guardian Map",
     "UNIQUE::Olmec's Sanctum",
+    # A Valdo map and the unique one of them pays out. The reward is searched as the unique's
+    # own name, so the record is what turns the printed "Foil Hrimsorrow" into a term the trade
+    # site will accept — and a blighted map has no record of its own at all, which is why it
+    # resolves against "ITEM::Map" above.
+    "ITEM::Valdo Map",
+    "UNIQUE::Hrimsorrow",
+    # A second card, because the capture that proves a card resolves at all is a real one.
+    "DIVINATION_CARD::The Blazing Fire",
+    # An essence, for the other half of that: both are traded in bulk on the in-game exchange,
+    # which states every item by the `metadataId` only a resolved base carries.
+    "ITEM::Weeping Essence of Hatred",
     # The three shapes a gem's name comes in. An ordinary one is what the clipboard prints; a
     # Vaal gem is filed under a name the clipboard prints only halfway down the tooltip; and a
     # transfigured one is filed under the skill it alters, with a discriminator, so its record

@@ -202,6 +202,66 @@ TEST_CASE("a gem's level and quality are misc filters, and both are exact") {
     CHECK(q["stats"][0]["filters"].empty()); // a gem has nothing to filter on
 }
 
+TEST_CASE("blight and a Valdo map's payout are map options, not type terms") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.category = "map";
+    p.type = "Map";
+    p.discriminator = "map";
+    p.blighted = true;
+    const json f = query_of(p)["filters"]["map_filters"]["filters"];
+    // A type of "Blighted Map" is accepted by the site and matches nothing at all, so the
+    // type stays the base every map shares and the flag says which kind it is.
+    CHECK(f["map_blighted"]["option"] == "true");
+    CHECK_FALSE(f.contains("map_uberblighted"));
+
+    // Never asked for in the negative: the two are mutually exclusive, so a blighted map's
+    // own search already excludes the ravaged ones.
+    p.blighted = false;
+    p.blight_ravaged = true;
+    const json g = query_of(p)["filters"]["map_filters"]["filters"];
+    CHECK(g["map_uberblighted"]["option"] == "true");
+    CHECK_FALSE(g.contains("map_blighted"));
+
+    // The reward is an option over the unique list — the "Foil " the game prints in front of
+    // it is the plan's to strip, and this layer sends the name it was given.
+    p.blight_ravaged = false;
+    p.map_reward = "Hrimsorrow";
+    CHECK(query_of(p)["filters"]["map_filters"]["filters"]["map_completion_reward"]["option"] ==
+          "Hrimsorrow");
+}
+
+TEST_CASE("a modifier the item does not have is asked for as a second, negated group") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.category = "map";
+    ppc::item::StatFilter present;
+    present.id = "explicit.stat_1";
+    present.enabled = true;
+    ppc::item::StatFilter absent;
+    absent.id = "explicit.stat_1095765106";
+    absent.enabled = true;
+    absent.negated = true;
+    p.stats = {present, absent};
+
+    const json stats = query_of(p)["stats"];
+    // Two groups, not one: the site spells an absence as a group of type "not", and a Valdo
+    // map that does not void the character who dies in it is bought for exactly that.
+    REQUIRE(stats.size() == 2);
+    CHECK(stats[0]["type"] == "and");
+    REQUIRE(stats[0]["filters"].size() == 1);
+    CHECK(stats[0]["filters"][0]["id"] == "explicit.stat_1");
+    CHECK(stats[1]["type"] == "not");
+    REQUIRE(stats[1]["filters"].size() == 1);
+    CHECK(stats[1]["filters"][0]["id"] == "explicit.stat_1095765106");
+    // No bounds ride along: there is no roll to compare, only presence.
+    CHECK_FALSE(stats[1]["filters"][0].contains("value"));
+
+    // And with nothing absent there is no second group at all.
+    p.stats = {present};
+    CHECK(query_of(p)["stats"].size() == 1);
+}
+
 TEST_CASE("a gem the plan could not name is not searched at all") {
     // Every other strategy has modifiers or a category to fall back on. A gem has neither, so
     // the search would be every gem in the game at this level and its cheapest listing would

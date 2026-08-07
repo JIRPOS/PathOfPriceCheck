@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "data/stat_normalize.hpp"
+#include "item/resolve.hpp"
 
 namespace ppc::item {
 namespace {
@@ -601,13 +602,56 @@ void plan_gem(const Item& it, SearchPlan& p) {
     exact("quality", "Quality", it.quality.value_or(0));
 }
 
+/// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
+/// other map prints one, which is what makes it the marker as well as the thing searched for.
+const Property* reward_property(const Item& it) {
+    for (const Property& prop : it.properties)
+        if (prop.label == "Reward") return &prop;
+    return nullptr;
+}
+
+/// Whether a character who dies in the map is sent to the Void — the one thing about a Valdo
+/// map's modifiers a buyer chooses on, and it is chosen in **both** directions. A map that
+/// voids is a different item from one that does not, so the copy in hand decides which
+/// question is asked: present, and the search asks for it; absent, and it asks for the
+/// absence, which is what `StatFilter::negated` is for. Leaving it open prices the two
+/// together, which is the whole of what there was to get wrong here.
+void add_void_rule(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    static constexpr std::string_view kVoid = "Players who Die in area are sent to the Void";
+    const data::Stat* stat = gd.find_stat_by_ref(kVoid);
+    if (!stat) return; // an older bundle: the reward is still the search, so say nothing
+    const std::vector<std::string>& ids = stat->trade_ids(data::ModType::Explicit);
+    if (ids.empty()) return;
+
+    StatFilter f;
+    f.id = ids.front();
+    f.text = std::string(kVoid);
+    f.enabled = true;
+    for (size_t i = 0; i < it.mods.size(); ++i) {
+        const Modifier& m = it.mods[i];
+        if (m.match && m.match->stat && m.match->stat->ref == kVoid) {
+            f.mod_index = i;
+            f.text = m.text();
+            break;
+        }
+    }
+    f.negated = !f.mod_index;
+    p.stats.push_back(std::move(f));
+}
+
 /// A map is priced on where it goes and what was spent on it, and on nothing else.
 ///
 /// Which area it is comes from the tier where the base line prints one ("Map (Tier 16)" — every
 /// ordinary map shares the one base type now, so the tier is the whole of its identity) and from
 /// the base's own name where it does not ("Shaper Guardian Map", "Nightmare Map"). A unique map
 /// is its name plus that same tier.
-void plan_map(const Item& it, SearchPlan& p) {
+///
+/// A **Valdo map** is the one shape that is not any of that: it is bought for the unique it
+/// pays out, its quantity and pack size come from unique modifiers rather than from an affix
+/// roll, and the only thing about those modifiers a buyer picks on is whether dying in the map
+/// voids the character. So the reward is imposed, the void rule goes in both directions, and
+/// the drop bonuses are offered rather than asked for.
+void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
     p.rarity = it.rarity == Rarity::Unique ? "unique" : "nonunique";
     if (it.rarity == Rarity::Unique) {
         p.name = it.unique_entry ? it.unique_entry->name : it.name;
@@ -628,11 +672,34 @@ void plan_map(const Item& it, SearchPlan& p) {
         p.notes.emplace_back("\"" + it.base_name +
                              "\" is not a base in this data bundle, and trade matches no map "
                              "without the discriminator its record carries");
+    // Blight is a filter and not a type: the base line is the only place the clipboard says so,
+    // and `resolve_base` has already pointed the base at the ordinary map it shares with every
+    // other one. Never asked for in the negative — the two flags are mutually exclusive, so a
+    // blighted map's own search already excludes the ravaged ones and vice versa.
+    p.blighted = it.blighted;
+    p.blight_ravaged = it.blight_ravaged;
 
     // Exact, not a floor: a tier-16 map is not a better tier-14 one, it is a different area.
     if (it.map_tier)
         add_numeric(p, "map_tier", "Map Tier", static_cast<double>(*it.map_tier), true, 0, {},
                     static_cast<double>(*it.map_tier));
+
+    // A Valdo map's own numbers come from the unique modifiers it is stamped with rather than
+    // from a roll, so they say nothing about which of them a buyer wants; the reward does.
+    const Property* reward = reward_property(it);
+    if (reward) {
+        // The site takes the **unique's own name** here and rejects anything else outright
+        // ("Unknown reward output provided", which fails the whole search rather than widening
+        // it) — so the "Foil " the game prints in front of the payout has to go, and only a
+        // name the bundle confirms is a unique is ever sent.
+        p.map_reward = find_unique_in(gd, reward->value);
+        if (p.map_reward.empty())
+            p.notes.push_back("\"" + reward->value +
+                              "\" is not a unique in this data bundle, and the trade site "
+                              "rejects a reward it does not know, so the search is for any "
+                              "map of this kind");
+        add_void_rule(gd, it, p);
+    }
 
     struct Bonus {
         const char* label; ///< the property the game prints
@@ -649,7 +716,7 @@ void plan_map(const Item& it, SearchPlan& p) {
     for (const Bonus& b : kBonuses)
         for (const Property& prop : it.properties)
             if (prop.label == b.label && prop.num)
-                add_numeric(p, b.key, b.label, *prop.num, b.enabled);
+                add_numeric(p, b.key, b.label, *prop.num, b.enabled && !reward);
 }
 
 } // namespace
@@ -748,7 +815,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                         it.item_level ? std::optional<double>(*it.item_level) : std::nullopt,
                         false);
             break;
-        case Strategy::Map: plan_map(it, p); break;
+        case Strategy::Map: plan_map(gd, it, p); break;
         case Strategy::Gem: plan_gem(it, p); break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat

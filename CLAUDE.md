@@ -501,6 +501,11 @@ bundle, and only the third and fourth encode pricing judgement.
     the display names existed has: three "Vaal Blight" rows, only one of them the plain gem. A
     transfigured gem is exactly the one with a discriminator, so nothing falls back to
     "whichever came first".
+  - **A card's own record** (`Namespace::DivinationCard`). Nothing about a card is *searched* — it
+    is `Strategy::Currency` and the in-game exchange is the whole answer — but that answer is
+    keyed on `BaseType::metadata_id`, which only a resolved base carries, so a card that fell
+    through this had no base, no metadata id and therefore no price at all. An essence needed
+    nothing: it is an ordinary `Namespace::Item` base and already resolved.
 - **`item/derive`** — the numbers the game leaves implicit. **Quality scales the base's own inherent
   value and nothing else**: not the flat local rolls added to it, though the local *increases* then
   apply to both. One rule for a weapon's physical damage and for armour / evasion / energy shield /
@@ -698,6 +703,34 @@ bundle, and only the third and fourth encode pricing judgement.
     numbers** — see the bound rule above, which a map is exempt from needing evidence for. The
     implicit is the one modifier a currency cannot re-roll, and it is what names the boss, the
     influence or the memory.
+  - **Blight, which is a filter and never a type.** The base line is the only place the clipboard
+    says so — `Blighted Map (Tier 12)`, `Blight-ravaged Map (Tier 16)`, no flag line and no
+    property — so `parse_header` sets `Item::blighted` / `blight_ravaged` off it and
+    `resolve_base` then points the base at the ordinary `Map` every other one shares. Sending
+    `"Blighted Map"` as the `type` is *accepted* by the site and matches nothing at all
+    (measured: 0 listings against 1449 for the Map base plus `map_filters.map_blighted` at tier
+    12), and no bundle carries a base under that name either. The two flags are mutually
+    exclusive, so neither is ever asked for in the negative: a blighted map's own search already
+    excludes the ravaged ones.
+
+  **A Valdo map is the one map that is none of the above** (`plan_map`'s `reward` branch). It is
+  bought for the unique it pays out, its quantity and pack size come from unique modifiers rather
+  than from an affix roll, and so those are *offered* rather than imposed — they say nothing about
+  which Valdo map a buyer wants. What is searched is `map_filters.map_completion_reward`, an option
+  over the **unique list**: the game prints the payout as `Reward: Foil Hrimsorrow`, where the foil
+  is the reward's own variant, and sending that whole string answers
+  `{"code":2,"message":"Unknown reward output provided"}` — which fails the entire search rather
+  than widening it. So `find_unique_in` takes the longest run of those words that names a unique
+  the bundle knows, and a reward it cannot name becomes a note instead of a guess. The `Reward`
+  property is also the marker: no other map prints one.
+
+  The other half is **the only thing anything here is searched on in both directions**. Whether
+  dying in the map sends the character to the Void is what a buyer picks on, and a map that voids
+  is a different item from one that does not — so the copy in hand decides which question is asked:
+  present, and the search asks for it; absent, and it asks for the *absence*. Leaving it open
+  prices the two together. That is `StatFilter::negated`, which `build_query` sends as a second
+  stat group of type `not` beside the `and` one, carrying an id and no bounds. Measured on the same
+  reward: 133 listings that void against 101 that do not.
 
   Two things this needed elsewhere. `StatFilter::mod_index` is an `optional` now, because a pseudo
   total has no single modifier behind it; anything walking back to `Item::mods` has to check.
@@ -907,8 +940,11 @@ is that it is fractured.
 Column four is **what the search asks for**, and it is last rather than beside the code because it
 is the one thing here that becomes editable: `46-48` between two bounds, `≥46` for a floor, `≤50`
 for a ceiling (**borrowed** glyphs — Fontin's own are blank outlines, see Fonts above — spelled out
-as `>=` and `<=` where there was nothing to borrow from), and **nothing at all** for a
-filter that only asks the modifier to be present. It is `StatFilter::min`/`max`, while the origin
+as `>=` and `<=` where there was nothing to borrow from), **nothing at all** for a
+filter that only asks the modifier to be present, and **`absent`** for one asking that it not be
+there (`StatFilter::negated` — a Valdo map that does not void). That last one belongs in this
+column and nowhere else: the row is otherwise identical to one asking *for* the modifier, and a
+tick beside a wording the item does not have reads backwards. It is `StatFilter::min`/`max`, while the origin
 column is `roll_min`/`roll_max` — what the modifier *can* roll against what the search asks of it,
 which is why they are two fields: the range-match setting is exactly the distance between them, so
 `[77-90]` beside `81-90` is the 5% window doing its job. The numeric filters share the table, so a defence
@@ -929,11 +965,14 @@ which is the only way to iterate on it without the game running. Captures live i
 `tests/data/examples/` — each `item_N.txt` is a real clipboard capture paired with `item_N.jpeg`, a
 screenshot of the same tooltip, which is what the rendering is checked against. `tests/data/items/`
 holds the captures with no screenshot beside them — two transcribed from one (the rapier and the
-Elder bow), the map fragments and invitation, the nine `map-*.txt` maps (every shape one comes in:
-tiered rare, corrupted eight-mod, chiselled for extra drops, magic, white, unique, and the two that
-name their own area instead of printing a tier), the five `gem-*.txt` gems (a Vaal gem, whose
-second half is the only thing naming it; a transfigured one; two supports, one of them with a
-socket requirement far above its own level; and one with quality), and
+Elder bow), the map fragments and invitation, the eleven `map-*.txt` maps (every shape one comes in:
+tiered rare, corrupted eight-mod, chiselled for extra drops, magic, white, unique, the two that
+name their own area instead of printing a tier, a blighted one — whose base line is the only
+statement of that — and a Valdo one, which is searched on none of the things any of the others
+are), the five `gem-*.txt` gems (a Vaal gem, whose second half is the only thing naming it; a
+transfigured one; two supports, one of them with a socket requirement far above its own level; and
+one with quality), `card-blazing-fire.txt` and `currency-essence.txt` (the two shapes of thing the
+in-game exchange trades in bulk that are neither an orb nor a fragment), and
 `currency-chaos-stack.txt`, which is **written rather than captured**: it is a 6000/20 stack, the
 case a currency stash tab makes ordinary and nothing else covers. Prefer a real capture for
 anything new.
@@ -1358,6 +1397,13 @@ release that keys gems on the name the game prints. The transfigured one
 (`Raise Zombie of Falling`) is the whole point of that field and is the record to check after
 any re-slice: it is the only one carrying `tradeName`, and on an older bundle it does not exist
 under that name at all.
+
+Two records in it are there for their **`metadataId`** rather than for anything a search does with
+them — `DIVINATION_CARD::The Blazing Fire` and `ITEM::Weeping Essence of Hatred` — because that
+field is the only key the in-game exchange states an item by, and it only reaches the app through a
+resolved base. `UNIQUE::Hrimsorrow` is there for the opposite reason: it is what turns a Valdo
+map's printed `Foil Hrimsorrow` into a name the trade site accepts. A **blighted** map needs no
+record at all, which is itself the point — it resolves against `ITEM::Map` like every other one.
 
 `tests/data/exchange/digest.json` is a slice of one real hourly digest, and every market in it is
 there to be dropped or kept for a stated reason: the chaos/divine pair (the rate, read from both

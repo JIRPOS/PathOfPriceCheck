@@ -293,6 +293,10 @@ void parse_header(const Section& sec, Item& it) {
             it.base_type.erase(open);
         }
     }
+    // Blight is printed as part of the base line and nowhere else — there is no flag line and
+    // no property saying so, only "Blighted Map" where an ordinary map says "Map".
+    it.blighted = it.base_type == "Blighted Map";
+    it.blight_ravaged = it.base_type == "Blight-ravaged Map";
     it.base_name = it.base_type;
 }
 

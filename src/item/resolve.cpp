@@ -112,6 +112,15 @@ void resolve_base(const data::GameData& gd, Item& it) {
         return;
     }
 
+    // A card is a base type in a namespace of its own, and resolving it is what gives the
+    // check its `metadata_id` — which is the only key the in-game currency exchange states an
+    // item by, and cards are traded there in bulk exactly as currency is.
+    if (it.rarity == Rarity::DivinationCard) {
+        for (const data::BaseType* c : gd.find_bases(data::Namespace::DivinationCard, it.base_name))
+            it.base = c;
+        return;
+    }
+
     if (it.rarity == Rarity::Unique && !it.name.empty()) {
         for (const data::BaseType* u : gd.find_bases(data::Namespace::Unique, it.name)) {
             it.unique_entry = u;
@@ -132,6 +141,13 @@ void resolve_base(const data::GameData& gd, Item& it) {
         const std::string stripped = strip_magic_affixes(gd, it.base_type, it.item_class);
         if (!stripped.empty()) it.base_name = stripped;
     }
+
+    // Trade files a blighted map under the *ordinary* map base and says which it is with a
+    // filter (`map_blighted` / `map_uberblighted`), not with a type: "Blighted Map" is a term
+    // the site accepts and matches nothing at all, and no bundle carries a base under that
+    // name either. Measured — a tier-12 search sent as "Blighted Map" returned 0 listings
+    // against 1398 for the Map base plus the filter.
+    if (it.blighted || it.blight_ravaged) it.base_name = "Map";
 
     for (const data::BaseType* b : gd.find_bases(data::Namespace::Item, it.base_name)) {
         // Same-named bases (the three Two-Stone Rings) are told apart by their defences,
@@ -231,6 +247,10 @@ std::string find_known_name(const data::GameData& gd, std::string_view printed,
 std::string strip_magic_affixes(const data::GameData& gd, std::string_view printed,
                                 std::string_view item_class) {
     return find_known_name(gd, printed, data::Namespace::Item, item_class);
+}
+
+std::string find_unique_in(const data::GameData& gd, std::string_view printed) {
+    return find_known_name(gd, printed, data::Namespace::Unique, {});
 }
 
 void resolve_item(const data::GameData& gd, Item& it) {

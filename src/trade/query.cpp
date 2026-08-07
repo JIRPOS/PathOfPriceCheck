@@ -119,9 +119,16 @@ std::string_view status_label(std::string_view id) {
 }
 
 std::string build_query(const item::SearchPlan& p, std::string_view status) {
-    json stats = json::array();
+    // Two groups, because a filter can ask for a modifier's **absence** as readily as for its
+    // presence: the site spells that as a second stat group of type "not", and a Valdo map
+    // that does not void the character who dies in it is bought for exactly that.
+    json stats = json::array(), absent = json::array();
     for (const item::StatFilter& f : p.stats) {
         if (!f.enabled) continue;
+        if (f.negated) {
+            absent.push_back(json{{"id", f.id}, {"disabled", false}});
+            continue;
+        }
         std::optional<double> min = f.min, max = f.max;
         // The site indexes this stat with the opposite sign to the one the game prints, so
         // the interval flips end for end as well as in sign — a floor becomes a ceiling.
@@ -162,6 +169,13 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
          : g == "map_filters"    ? map
                                  : weapon)[f.key] = std::move(v);
     }
+    // Blight and a Valdo map's payout are `map_filters` options rather than intervals, so they
+    // ride on the plan itself the way corruption does. `map_completion_reward` takes the
+    // unique's own name and errors the whole search on one it does not know, which is why the
+    // plan only ever fills it in from a name the bundle confirmed.
+    if (p.blighted) map["map_blighted"] = option(true);
+    if (p.blight_ravaged) map["map_uberblighted"] = option(true);
+    if (!p.map_reward.empty()) map["map_completion_reward"] = json{{"option", p.map_reward}};
 
     json filters = json::object();
     filters["type_filters"] = json{{"filters", std::move(type_filters)}};
@@ -183,6 +197,8 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
         q["type"] = term(p.type, p.strategy == item::Strategy::Unique ? std::string()
                                                                       : p.discriminator);
     q["stats"] = json::array({json{{"type", "and"}, {"filters", std::move(stats)}}});
+    if (!absent.empty())
+        q["stats"].push_back(json{{"type", "not"}, {"filters", std::move(absent)}});
     q["filters"] = std::move(filters);
 
     return json{{"query", std::move(q)}, {"sort", json{{"price", "asc"}}}}.dump();

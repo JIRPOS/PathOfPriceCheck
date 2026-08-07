@@ -1,0 +1,21 @@
+Item Class: Stackable Currency
+Rarity: Currency
+Weeping Essence of Hatred
+--------
+Stack Size: 4/10
+--------
+Upgrades a normal item to rare with one guaranteed property
+Properties restricted to level 60 and below
+
+Bow: Adds (29-40) to (58-68) Cold Damage
+Quiver: (18-23)% to Cold Resistance
+Two Handed Melee Weapon: Adds (29-40) to (58-68) Cold Damage
+Other Weapon: Adds (16-21) to (31-37) Cold Damage
+
+Armour: (18-23)% to Cold Resistance
+
+Belt: (18-23)% to Cold Resistance
+Other Jewellery: (15-18)% increased Cold Damage
+--------
+Right click this item then left click a normal item to apply it.
+Shift click to unstack.

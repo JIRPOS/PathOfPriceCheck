@@ -48,6 +48,11 @@ struct StatFilter {
     bool tiered = false;
     /// The trade site indexes this stat with the opposite sign; the query builder flips it.
     bool inverted = false;
+    /// Ask for the modifier being **absent** rather than present — a `not` stat group instead
+    /// of the `and` one. A filter for a modifier the item in hand does not have, which is only
+    /// ever worth asking where its absence is itself the thing being bought: a Valdo map that
+    /// does not void the character who dies in it. Carries no bounds; there is no roll.
+    bool negated = false;
     int dp = 0;
 
     /// What this modifier *can* roll, whichever source said so: the affix tier's own range
@@ -90,6 +95,15 @@ struct SearchPlan {
 
     std::optional<bool> corrupted; ///< match exactly; corruption always matters
     bool synthesised = false, fractured = false, mirrored = false;
+    /// Blight, which the site asks about with a `map_filters` flag rather than with a type.
+    /// Only ever set true, and never both: the two are mutually exclusive on the site as well
+    /// as in the game, and an ordinary map's search leaves them open rather than asking for
+    /// their absence.
+    bool blighted = false, blight_ravaged = false;
+    /// A Valdo map's payout, as the **unique's own name** — `map_filters.map_completion_reward`
+    /// is an option over the unique list, so the "Foil " the game prints in front of it is
+    /// rejected outright. Empty for every other item, and for a reward the bundle cannot name.
+    std::string map_reward;
     std::vector<Influence> influences;
 
     std::vector<StatFilter> stats;

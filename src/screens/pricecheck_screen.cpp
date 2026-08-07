@@ -254,9 +254,12 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
             std::string note;
             if (f.pooled)
                 note = f.pool_hint.empty() ? "one of several possible modifiers" : f.pool_hint;
+            // "absent" goes in the column that says what the search asks for, because that is
+            // the whole difference: the row is otherwise identical to one asking for the
+            // modifier, and a tick beside a wording the item does not have reads backwards.
             draw_filter_row(static_cast<int>(1000 + i), f.enabled, origin_of(it, f),
                             strip_roll_ranges(f.text), note,
-                            filter_text(f.min, f.max, f.dp, glyphs));
+                            f.negated ? "absent" : filter_text(f.min, f.max, f.dp, glyphs));
         }
         ImGui::EndTable();
     }

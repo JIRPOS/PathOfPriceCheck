@@ -17,4 +17,9 @@ void resolve_item(const data::GameData& gd, Item& it);
 std::string strip_magic_affixes(const data::GameData& gd, std::string_view printed,
                                 std::string_view item_class);
 
+/// The unique named inside `printed`, or "" — the longest run of its words that names one.
+/// A Valdo map states its payout as "Foil Hrimsorrow", where the foil is the reward's own
+/// variant and only "Hrimsorrow" is a name the trade site will accept.
+std::string find_unique_in(const data::GameData& gd, std::string_view printed);
+
 } // namespace ppc::item

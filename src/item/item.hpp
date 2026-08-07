@@ -128,6 +128,10 @@ struct Item {
     /// The tier the base line printed, "Map (Tier 16)". Absent on a map that names its own
     /// area instead ("Shaper Guardian Map"), and on everything that is not a map.
     std::optional<int> map_tier;
+    /// Blight, which the base line is the only statement of: "Blighted Map (Tier 12)" and
+    /// "Blight-ravaged Map (Tier 16)". The two are mutually exclusive — a search asking for
+    /// both comes back empty — and neither is a base the trade site knows; see `resolve_base`.
+    bool blighted = false, blight_ravaged = false;
     /// The gem's own level, off the property block — **not** the "Level:" under
     /// `Requirements:`, which is the character level needed to socket it and is a different
     /// number on every gem past the first.

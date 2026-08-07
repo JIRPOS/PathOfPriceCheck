@@ -980,6 +980,27 @@ TEST_CASE("a map item is a bulk good or an item, and the item level is what says
     CHECK(default_strategy(rare) == Strategy::Currency);
 }
 
+TEST_CASE("what the in-game exchange trades in bulk has to resolve to a base to be found") {
+    auto gd = fixture();
+    // The exchange states every item by its metadata path and carries no names at all, so the
+    // *only* way an item is looked up there is through the base record `resolve_base` found.
+    // An essence already went down the ordinary path; a divination card is a namespace of its
+    // own and used to fall through it, so a card had no base, no metadata id and no price.
+    for (const char* f : {"currency-essence.txt", "card-blazing-fire.txt"}) {
+        const Item it = resolved(*gd, capture(f));
+        REQUIRE_MESSAGE(it.base != nullptr, f);
+        CHECK_MESSAGE(!it.base->metadata_id.empty(), f);
+    }
+
+    const Item card = resolved(*gd, capture("card-blazing-fire.txt"));
+    CHECK(card.rarity == Rarity::DivinationCard);
+    CHECK(card.base->metadata_id == "Metadata/Items/DivinationCards/DivinationCardTheBlazingFire");
+    // Still not something a stat query can ask about: the exchange is the whole answer.
+    const SearchPlan p = build_plan(*gd, card, derive(gd.get(), card));
+    CHECK(p.strategy == Strategy::Currency);
+    CHECK(p.category == "card");
+}
+
 TEST_CASE("a map is priced on where it goes and what was spent on it, never on its affixes") {
     auto gd = fixture();
 
@@ -1108,6 +1129,95 @@ TEST_CASE("a map is priced on where it goes and what was spent on it, never on i
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
         CHECK(filter_for(p, "pseudo.pseudo_number_of_affix_mods") == nullptr);
         CHECK(p.notes.size() == 1); // said, rather than silently counted as zero
+    }
+}
+
+TEST_CASE("blight is a filter on the ordinary map base, not a type of its own") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, capture("map-blighted.txt"));
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+    // The clipboard's "Blighted Map" is not a base in any bundle and not a type the trade site
+    // matches anything under — measured, 0 listings against 1398 for the Map base plus the
+    // flag. So the base resolves to the one every map shares and the flag says which it is.
+    CHECK(it.blighted);
+    CHECK_FALSE(it.blight_ravaged);
+    CHECK(it.base_type == "Blighted Map"); // what was printed, which is what the panel draws
+    CHECK(it.base_name == "Map");
+    CHECK(p.type == "Map");
+    CHECK(p.discriminator == "map");
+    CHECK(p.blighted);
+    CHECK_FALSE(p.blight_ravaged);
+
+    REQUIRE(numeric_for(p, "map_tier") != nullptr);
+    CHECK(numeric_for(p, "map_tier")->min == 12);
+    CHECK(numeric_for(p, "map_tier")->max == 12);
+    // Its implicit is searched like any map's, and neither half of it goes unrecognised.
+    CHECK(p.stats.size() == 2);
+    CHECK(p.notes.empty());
+}
+
+TEST_CASE("a Valdo map is bought for its reward and for whether dying in it voids you") {
+    auto gd = fixture();
+    const std::string text = capture("map-valdo.txt");
+
+    SUBCASE("the reward is the unique's own name, not the foil the game prints") {
+        const Item it = resolved(*gd, text);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.type == "Valdo Map");
+        // "Foil Hrimsorrow" is rejected by the site outright — the option is over the unique
+        // list, and an unknown one fails the whole search rather than widening it.
+        CHECK(p.map_reward == "Hrimsorrow");
+
+        // This copy voids, so the search asks for that modifier and for nothing else.
+        REQUIRE(p.stats.size() == 1);
+        CHECK(p.stats[0].id == "explicit.stat_1095765106");
+        CHECK(p.stats[0].enabled);
+        CHECK_FALSE(p.stats[0].negated);
+        CHECK(p.stats[0].mod_index.has_value());
+
+        // The quantity and pack size come from unique modifiers rather than from a roll, so
+        // they say nothing about which Valdo map a buyer wants: offered, never imposed.
+        REQUIRE(numeric_for(p, "map_iiq") != nullptr);
+        CHECK_FALSE(numeric_for(p, "map_iiq")->enabled);
+        CHECK_FALSE(numeric_for(p, "map_packsize")->enabled);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a map that does not void asks for the absence, not for nothing") {
+        // Leaving it open would price the two kinds together, and they are different items.
+        static constexpr std::string_view kVoidBlock =
+            "{ Unique Modifier }\n"
+            "Players who Die in area are sent to the Void\n"
+            "(Characters sent to Void Leagues are no longer playable, and cannot be restored "
+            "for any reason)\n";
+        std::string safe = text;
+        const size_t at = safe.find(kVoidBlock);
+        REQUIRE(at != std::string::npos);
+        safe.erase(at, kVoidBlock.size());
+
+        const Item it = resolved(*gd, safe);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        REQUIRE(p.stats.size() == 1);
+        CHECK(p.stats[0].id == "explicit.stat_1095765106");
+        CHECK(p.stats[0].enabled);
+        CHECK(p.stats[0].negated);
+        CHECK_FALSE(p.stats[0].mod_index.has_value());
+    }
+
+    SUBCASE("a reward the bundle cannot name is said, never guessed at") {
+        static constexpr std::string_view kReward = "Reward: Foil Hrimsorrow";
+        std::string unknown = text;
+        const size_t at = unknown.find(kReward);
+        REQUIRE(at != std::string::npos);
+        unknown.replace(at, kReward.size(), "Reward: Foil Nothingsorrow");
+
+        const Item it = resolved(*gd, unknown);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.map_reward.empty());
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes[0].find("Foil Nothingsorrow") != std::string::npos);
     }
 }
 
