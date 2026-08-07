@@ -81,6 +81,10 @@ STATS = [
     # The one modifier a Valdo map is searched on, and the only one anything is searched on in
     # **both** directions: absent, it becomes a `not` group rather than being left open.
     "Players who Die in area are sent to the Void",
+    # A chart's implicit. The voyage modifier is not revealed until the chart is sailed, so on
+    # most of them this promise of one is the whole of what an implicit search has to go on —
+    # and it is a real stat with a real trade id, not prose.
+    "Voyage Modifier will be revealed once Charted",
 ]
 
 ITEMS = [
@@ -125,6 +129,11 @@ ITEMS = [
     "GEM::Tornado Shot",
     "GEM::Vaal Blight",
     "GEM::Raise Zombie of Falling",
+    # A chart and the area it covers, which are two different records: the base is what the
+    # clipboard's base line says, and the area is what trade files the chart under — under its
+    # internal id, with the "chart" discriminator and no display name anywhere on it.
+    "ITEM::Coral Reef Chart",
+    "ITEM::SeafloorRidges",
 ]
 
 UNIQUE_MODS = [
@@ -134,7 +143,7 @@ UNIQUE_MODS = [
 ]
 
 ITEM_CLASSES = ["Rings", "Boots", "Body Armours", "Stackable Currency", "Divination Cards",
-                "Jewels", "Utility Flasks", "Maps", "Skill Gems", "Support Gems"]
+                "Jewels", "Utility Flasks", "Maps", "Skill Gems", "Support Gems", "Chart"]
 
 LANG = "en"
 

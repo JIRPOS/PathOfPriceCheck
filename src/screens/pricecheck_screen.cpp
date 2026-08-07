@@ -164,9 +164,9 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     ImGui::SameLine();
     // A rolled item can be worth more as a base than as the sum of its mods — a fractured
     // mod, a good influence, a high item level — and only the user knows which they meant.
-    // Not a map: neither reading is what a map is bought for, and its own strategy covers
-    // every rarity it prints.
-    if (!it.is_map() &&
+    // Not a map or a chart: neither reading is what either is bought for, and the strategy the
+    // two share covers every rarity they print.
+    if (!it.is_map() && !it.is_chart() &&
         (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare)) {
         for (const item::Strategy s : {item::Strategy::Modifiers, item::Strategy::BaseItem}) {
             const bool on = plan.strategy == s;
@@ -242,14 +242,13 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
 
-        // The flags a plan does *not* show are the ordinary answers — uncorrupted, unmirrored,
+        // The options a plan does *not* show are the ordinary answers — uncorrupted, unmirrored,
         // identified — and they are imposed silently rather than spending three rows saying
-        // that nothing is unusual about the item. See `item::FlagFilter`.
-        for (size_t i = 0; i < plan.flags.size(); ++i) {
-            item::FlagFilter& f = plan.flags[i];
+        // that nothing is unusual about the item. See `item::OptionFilter`.
+        for (size_t i = 0; i < plan.options.size(); ++i) {
+            item::OptionFilter& f = plan.options[i];
             if (!f.shown) continue;
-            draw_filter_row(static_cast<int>(2000 + i), f.enabled, {}, f.label, {},
-                            f.value ? "yes" : "no");
+            draw_filter_row(static_cast<int>(2000 + i), f.enabled, {}, f.label, {}, f.display);
         }
         for (size_t i = 0; i < plan.numerics.size(); ++i) {
             item::NumericFilter& f = plan.numerics[i];

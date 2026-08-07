@@ -46,13 +46,20 @@ void add_numeric(SearchPlan& p, std::string key, std::string label,
     p.numerics.push_back(std::move(f));
 }
 
-void add_flag(SearchPlan& p, std::string key, std::string label, bool value, bool shown) {
-    FlagFilter f;
+void add_option(SearchPlan& p, std::string key, std::string label, std::string option,
+                std::string display, bool shown = false) {
+    OptionFilter f;
     f.key = std::move(key);
     f.label = std::move(label);
-    f.value = value;
+    f.option = std::move(option);
+    f.display = std::move(display);
     f.shown = shown;
-    p.flags.push_back(std::move(f));
+    p.options.push_back(std::move(f));
+}
+
+void add_flag(SearchPlan& p, std::string key, std::string label, bool value, bool shown) {
+    add_option(p, std::move(key), std::move(label), value ? "true" : "false", value ? "yes" : "no",
+               shown);
 }
 
 /// A property the game prints as `Label: value`, turned into the `misc_filters` interval trade
@@ -658,6 +665,96 @@ void add_void_rule(const data::GameData& gd, const Item& it, SearchPlan& p) {
     p.stats.push_back(std::move(f));
 }
 
+/// The key an area's own record is filed under, from the name the game prints.
+///
+/// Trade files a chart under **the area it covers**, as a `type` option carrying the `chart`
+/// discriminator and the area's internal id for a value: `SeafloorRidges`, not "Seafloor
+/// Ridges". The bundle carries those records, but only under that id — there is no display name
+/// on them — so the printed name has to be turned back into one. Apostrophes go, spaces and
+/// hyphens are word breaks, and every word is capitalised: "Brine King's Domain" is
+/// `BrineKingsDomain` and "Clam-infested Shelf" is `ClamInfestedShelf`.
+///
+/// **This is only ever a lookup key.** A record has to come back under it, carrying the
+/// discriminator that proves it is an area rather than some other base, or nothing is sent — so
+/// a convention that turns out to be wrong costs a coarser search (the chart's own base type),
+/// never a wrong one.
+std::string chart_area_key(std::string_view printed) {
+    std::string out;
+    bool at_word_start = true;
+    for (const char c : printed) {
+        if (c == '\'') continue;
+        if (c == ' ' || c == '-') {
+            at_word_start = true;
+            continue;
+        }
+        out += at_word_start ? static_cast<char>(std::toupper(static_cast<unsigned char>(c))) : c;
+        at_word_start = false;
+    }
+    return out;
+}
+
+const data::BaseType* find_chart_area(const data::GameData& gd, std::string_view printed) {
+    if (printed.empty()) return nullptr;
+    for (const data::BaseType* b : gd.find_bases(data::Namespace::Item, chart_area_key(printed)))
+        if (b->trade_disc == "chart") return b;
+    return nullptr;
+}
+
+/// The `chart_shape` option ids, from `map_filters` in `/api/trade/data/filters`. A closed
+/// vocabulary — five shapes, numbered — so it is a table rather than something fetched, and the
+/// game prints the option's own text, which is what makes the join possible at all. Sending the
+/// text instead answers `{"code":2,"message":"Invalid chart shape"}` and fails the whole search.
+std::string_view chart_shape_id(std::string_view printed) {
+    static constexpr std::pair<std::string_view, std::string_view> kShapes[]{
+        {"End", "1"}, {"Corner", "2"}, {"Straight", "3"}, {"Junction", "4"}, {"Crossing", "5"}};
+    for (const auto& [text, id] : kShapes)
+        if (text == printed) return id;
+    return {};
+}
+
+/// A chart is a map by another name, and the strategy it shares says why: its prefixes and
+/// suffixes are the danger the buyer is choosing among rather than the thing they are buying, so
+/// they are left out here exactly as a map's are. What is left is what a currency cannot redo.
+///
+/// - **Which area it covers**, which the game prints as the leading prose line of the property
+///   block and trade takes as the type. A chart whose area the bundle cannot name falls back to
+///   its own base type ("Coral Reef Chart"), which is a real search and simply a coarser one.
+/// - **The area's level**, exact rather than a floor, and for the same reason a map's tier is:
+///   a level 83 area is a different area from a level 78 one, not a better one.
+/// - **The shape**, which is what says how the chart joins to the ones around it on the voyage.
+/// - **The sulphur it yields**, alongside the quantity and pack size every map already asks for.
+/// - **Its voyage modifier**, which is an implicit and so is already enabled by the map strategy
+///   — including on a chart that has not been sailed yet and prints only the promise of one
+///   ("Voyage Modifier will be revealed once Charted"), which is itself a searchable stat.
+void plan_chart(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    if (const data::BaseType* area = find_chart_area(gd, it.type_line)) {
+        p.type = area->name;
+        p.discriminator = area->trade_disc;
+    } else {
+        p.type = it.base_name;
+        if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+        if (!it.type_line.empty())
+            p.notes.push_back("\"" + it.type_line +
+                              "\" is not an area in this data bundle, so the search is for any "
+                              "chart of this kind rather than for this one's area");
+    }
+
+    if (const Property* lvl = property_of(it, "Area Level"); lvl && lvl->num)
+        add_numeric(p, "area_level", "Area Level", *lvl->num, true, 0, {}, *lvl->num);
+    if (const Property* shape = property_of(it, "Chart Shape"); shape && !shape->value.empty()) {
+        if (const std::string_view id = chart_shape_id(shape->value); !id.empty())
+            add_option(p, "chart_shape", "Chart Shape", std::string(id), shape->value, true);
+        else
+            p.notes.push_back("\"" + shape->value +
+                              "\" is not a chart shape the trade site knows, so the search does "
+                              "not ask for the shape");
+    }
+    // The league's own currency, so the same reasoning as a map's quantity rather than as its
+    // rarity: it is what the area is run for, and a copy yielding less of it is worth less.
+    if (const Property* s = property_of(it, "Dead Man's Sulphur"); s && s->num)
+        add_numeric(p, "chart_sulphur", "Dead Man's Sulphur", *s->num, true);
+}
+
 /// A map is priced on where it goes and what was spent on it, and on nothing else.
 ///
 /// Which area it is comes from the tier where the base line prints one ("Map (Tier 16)" — every
@@ -679,45 +776,53 @@ void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
                 "unidentified: the clipboard does not say which unique map "
                 "this is");
     }
-    p.type = it.base_name;
-    // "Map" is a type on trade *and* the prefix of every unique map's own entry, so it always
-    // carries a discriminator; the unique's record repeats it, which is what lets one field
-    // serve both terms. It is **load-bearing** rather than a tie-break: a query sending the
-    // type as a bare "Map" is accepted and matches nothing at all, which reads as an empty
-    // market rather than as a search that could not be built.
-    if (const data::BaseType* b = it.rarity == Rarity::Unique ? it.unique_entry : it.base)
-        if (!b->trade_disc.empty()) p.discriminator = b->trade_disc;
-    if (p.discriminator.empty() && it.map_tier)
-        p.notes.emplace_back("\"" + it.base_name +
-                             "\" is not a base in this data bundle, and trade matches no map "
-                             "without the discriminator its record carries");
-    // Blight is a filter and not a type: the base line is the only place the clipboard says so,
-    // and `resolve_base` has already pointed the base at the ordinary map it shares with every
-    // other one. Never asked for in the negative — the two flags are mutually exclusive, so a
-    // blighted map's own search already excludes the ravaged ones and vice versa.
-    p.blighted = it.blighted;
-    p.blight_ravaged = it.blight_ravaged;
+    const Property* reward = nullptr;
+    if (it.is_chart()) {
+        plan_chart(gd, it, p);
+    } else {
+        p.type = it.base_name;
+        // "Map" is a type on trade *and* the prefix of every unique map's own entry, so it
+        // always carries a discriminator; the unique's record repeats it, which is what lets one
+        // field serve both terms. It is **load-bearing** rather than a tie-break: a query sending
+        // the type as a bare "Map" is accepted and matches nothing at all, which reads as an
+        // empty market rather than as a search that could not be built.
+        if (const data::BaseType* b = it.rarity == Rarity::Unique ? it.unique_entry : it.base)
+            if (!b->trade_disc.empty()) p.discriminator = b->trade_disc;
+        if (p.discriminator.empty() && it.map_tier)
+            p.notes.emplace_back("\"" + it.base_name +
+                                 "\" is not a base in this data bundle, and trade matches no map "
+                                 "without the discriminator its record carries");
+        // Blight is a filter and not a type: the base line is the only place the clipboard says
+        // so, and `resolve_base` has already pointed the base at the ordinary map it shares with
+        // every other one. Never asked for in the negative — the two flags are mutually
+        // exclusive, so a blighted map's own search already excludes the ravaged ones.
+        if (it.blighted) add_flag(p, "map_blighted", "Blighted", true, false);
+        if (it.blight_ravaged) add_flag(p, "map_uberblighted", "Blight-ravaged", true, false);
 
-    // Exact, not a floor: a tier-16 map is not a better tier-14 one, it is a different area.
-    if (it.map_tier)
-        add_numeric(p, "map_tier", "Map Tier", static_cast<double>(*it.map_tier), true, 0, {},
-                    static_cast<double>(*it.map_tier));
+        // Exact, not a floor: a tier-16 map is not a better tier-14 one, it is a different area.
+        if (it.map_tier)
+            add_numeric(p, "map_tier", "Map Tier", static_cast<double>(*it.map_tier), true, 0, {},
+                        static_cast<double>(*it.map_tier));
 
-    // A Valdo map's own numbers come from the unique modifiers it is stamped with rather than
-    // from a roll, so they say nothing about which of them a buyer wants; the reward does.
-    const Property* reward = reward_property(it);
-    if (reward) {
-        // The site takes the **unique's own name** here and rejects anything else outright
-        // ("Unknown reward output provided", which fails the whole search rather than widening
-        // it) — so the "Foil " the game prints in front of the payout has to go, and only a
-        // name the bundle confirms is a unique is ever sent.
-        p.map_reward = find_unique_in(gd, reward->value);
-        if (p.map_reward.empty())
-            p.notes.push_back("\"" + reward->value +
-                              "\" is not a unique in this data bundle, and the trade site "
-                              "rejects a reward it does not know, so the search is for any "
-                              "map of this kind");
-        add_void_rule(gd, it, p);
+        // A Valdo map's own numbers come from the unique modifiers it is stamped with rather
+        // than from a roll, so they say nothing about which of them a buyer wants; the reward
+        // does.
+        reward = reward_property(it);
+        if (reward) {
+            // The site takes the **unique's own name** here and rejects anything else outright
+            // ("Unknown reward output provided", which fails the whole search rather than
+            // widening it) — so the "Foil " the game prints in front of the payout has to go,
+            // and only a name the bundle confirms is a unique is ever sent.
+            const std::string named = find_unique_in(gd, reward->value);
+            if (named.empty())
+                p.notes.push_back("\"" + reward->value +
+                                  "\" is not a unique in this data bundle, and the trade site "
+                                  "rejects a reward it does not know, so the search is for any "
+                                  "map of this kind");
+            else
+                add_option(p, "map_completion_reward", "Reward", named, named);
+            add_void_rule(gd, it, p);
+        }
     }
 
     struct Bonus {
@@ -798,16 +903,19 @@ bool SearchPlan::has_enabled_stats() const {
     return std::any_of(stats.begin(), stats.end(), [](const StatFilter& f) { return f.enabled; });
 }
 
-const FlagFilter* SearchPlan::flag(std::string_view key) const {
-    for (const FlagFilter& f : flags)
+const OptionFilter* SearchPlan::option(std::string_view key) const {
+    for (const OptionFilter& f : options)
         if (f.key == key) return &f;
     return nullptr;
 }
 
 Strategy default_strategy(const Item& it) {
     // A map is priced on none of the things a rare is, at any rarity it prints: pricing one as
-    // gear would search for a chest piece carrying map modifiers.
-    if (it.is_map()) return Strategy::Map;
+    // gear would search for a chest piece carrying map modifiers. A **chart** is the same item
+    // in all the ways that matter — an area with rolled danger, bought for where it goes — so it
+    // shares the strategy rather than getting one of its own; the extras it needs are three
+    // filters inside `plan_map`.
+    if (it.is_map() || it.is_chart()) return Strategy::Map;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the

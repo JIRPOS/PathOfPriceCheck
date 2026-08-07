@@ -654,9 +654,14 @@ bundle, and only the third and fourth encode pricing judgement.
   elemental damage feeds `edps` and `dps` but not `pdps`; "#% increased Elemental Damage" feeds
   none of them, because it never touches what the weapon displays. The base percentile is the one
   derived number a local roll is **not** inside: it is recovered by taking those rolls back out.
-  **The `misc_filters` booleans are `SearchPlan::flags`**, and the rule is one line: the search
+  **Everything the site takes as an `{"option": …}` is a `SearchPlan::options` entry** — the
+  booleans (corrupted, mirrored, identified, blighted), and the closed vocabularies (a chart's
+  shape, a Valdo map's payout). One struct, because the wire form is one thing and only the
+  source of the string differs; `option_group_for` in `trade/query` is what files each under
+  `misc_filters` or `map_filters`.
+  The rule for the booleans is one line: the search
   asks the item to be what it is, and it says so out loud only where that is not the ordinary
-  answer. `FlagFilter::shown` is the whole of the struct's reason to exist — an uncorrupted,
+  answer. `OptionFilter::shown` is the whole of the struct's reason to exist — an uncorrupted,
   unmirrored, identified item is what nearly every check is about, so those three are imposed
   with no row at all, and three rows saying nothing is unusual would push the modifiers off the
   panel. The *unusual* value gets the row, because that is the one a buyer might want to widen
@@ -750,6 +755,41 @@ bundle, and only the third and fourth encode pricing judgement.
     exclusive, so neither is ever asked for in the negative: a blighted map's own search already
     excludes the ravaged ones.
 
+  **A chart is a map under another name and shares the strategy** (`plan_chart`), which is the
+  point rather than a shortcut: a Deepwater chart is an area with rolled danger and rolled
+  rewards, its prefixes and suffixes are the danger a buyer is choosing among rather than the
+  thing being bought, and trade puts it in the same filter group — `map_filters` is titled
+  "Map/Chart Filters" for that reason. So the affixes are left out exactly as a map's are, and
+  four things are added on top:
+  - **Which area it covers.** The game prints it as the leading prose line of the property block
+    ("Seafloor Ridges"), i.e. `Item::type_line`, and trade takes it as the **type** — as an
+    option carrying the `chart` discriminator, whose value is the area's *internal id*
+    (`SeafloorRidges`). The bundle carries those records, but only under that id and with no
+    display name anywhere on them, so `chart_area_key` turns the printed name back into one:
+    apostrophes go, spaces and hyphens are word breaks, every word is capitalised
+    ("Brine King's Domain" → `BrineKingsDomain`, "Clam-infested Shelf" → `ClamInfestedShelf`).
+    **That convention is only ever a lookup key** — a record has to come back under it carrying
+    the discriminator, or the search falls back to the chart's own base type ("Coral Reef Chart",
+    which is a real search and simply a coarser one) plus a note. A wrong guess therefore costs
+    breadth, never correctness.
+  - **The area's level**, `map_filters.area_level`, **exact** for the same reason a map's tier is:
+    a level 83 area is a different area from a level 78 one, not a better one. Measured: 5526
+    listings at exactly 83 against 10000+ for the area alone, so it does discriminate.
+  - **The shape** — `chart_shape`, whose five ids are `1`–`5` for End/Corner/Straight/Junction/
+    Crossing. The game prints the option's own **text**, which is what makes the join possible;
+    sending that text answers `{"code":2,"message":"Invalid chart shape"}` and fails the whole
+    search, so it is a table in `plan_chart` copied from `/api/trade/data/filters`, the same
+    closed-vocabulary argument as `status_options`.
+  - **The sulphur** ("Dead Man's Sulphur: +45%") as `chart_sulphur`, a floor and ticked: it is
+    the league's own currency and therefore what the area is run for, so the same reasoning as a
+    map's quantity rather than as its rarity.
+
+  Its **voyage modifier** needs nothing new — it is an implicit, so the map strategy already
+  enables it, **including on a chart nobody has sailed yet**, which prints only the promise of
+  one ("Voyage Modifier will be revealed once Charted"). That promise is a real stat with a real
+  trade id, not prose, and a buyer choosing between a revealed and an unrevealed chart is
+  choosing on exactly it.
+
   **A Valdo map is the one map that is none of the above** (`plan_map`'s `reward` branch). It is
   bought for the unique it pays out, its quantity and pack size come from unique modifiers rather
   than from an affix roll, and so those are *offered* rather than imposed — they say nothing about
@@ -805,9 +845,10 @@ bundle, and only the third and fourth encode pricing judgement.
   indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
   contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
   (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`) and rejects one filed in the
-  wrong place. `SearchPlan::flags` go out as `misc_filters` options and an **unticked one is not
-  sent at all** — whether a flag has a row in the panel is the plan's business, and this layer
-  only reads `enabled`.
+  wrong place. `option_group_for` is the same contract for `SearchPlan::options`, which go out as
+  `{"option": …}` under `misc_filters` or `map_filters`; an **unticked one is not sent at all** —
+  whether an option has a row in the panel is the plan's business, and this layer only reads
+  `enabled`.
   Whether the search names a `type` is the **plan's** call and this layer sends whatever it was
   given: a `Modifiers` plan leaves it empty (a rare is bought for its mods, and the category
   already says where those can live) **except on a flask**, where it names the base.
@@ -1015,12 +1056,18 @@ transfigured one; two supports, one of them with a socket requirement far above 
 one with quality), `card-blazing-fire.txt` and `currency-essence.txt` (the two shapes of thing the
 in-game exchange trades in bulk that are neither an orb nor a fragment), and
 `currency-chaos-stack.txt`, which is **written rather than captured**: it is a 6000/20 stack, the
-case a currency stash tab makes ordinary and nothing else covers. Three more cover the
+case a currency stash tab makes ordinary and nothing else covers. The three `chart-*`/
+`listing-chart-*` files are every shape a chart comes in — one with Advanced Mod Descriptions on,
+one without and carrying the sulphur property, and one unidentified, which prints no name line at
+all. Three more cover the
 `misc_filters` properties: `currency-facetors-lens.txt` (the one currency item a search can tell
 two copies of apart), `memory-strands-boots.txt`, and `listing-intangibility-ring.txt` — which is
 captured from a **listing** rather than from the game, and is named so, because the site's
 renderer writes the keyword-link markup `[Intangibility|Intangibility]: 8%` where the clipboard
-writes a plain label. `strip_link_markup` in `item/parse` is what drops it, and without that a
+writes a plain label. That `listing-` prefix is what every capture taken from a fetch response
+carries, and it means one more thing: the site's renderer leaves the mod-type markers off, so
+those files hold the suffix `restore_mod_markers` puts back — which is what the app hands
+`parse_item` for a hovered listing, and without it a chart's implicit reads as an affix. `strip_link_markup` in `item/parse` is what drops it, and without that a
 hovered listing drew the markup and its property matched nothing anything looks up by name.
 Prefer a real capture for anything new.
 
@@ -1474,6 +1521,11 @@ not covered offline — it is verified against an installed bundle by hand. Addi
 one weapon base) to `STATS`/`ITEMS` in the slicer would close that gap. `tests/data/examples/` and
 `tests/data/items/` hold clipboard captures for the parser; those are plain text and need no byte
 discipline.
+
+The two chart records are a pair on purpose: `ITEM::Coral Reef Chart` is what the clipboard's
+base line says, and `ITEM::SeafloorRidges` is what trade files the chart under — under its
+internal id, with the `chart` discriminator and no display name on it at all, which is the whole
+reason `chart_area_key` exists.
 
 The slice's four `GEM::` records need a bundle from `data-20260807.23` or later, which is the
 release that keys gems on the name the game prints. The transfigured one

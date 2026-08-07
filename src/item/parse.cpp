@@ -490,9 +490,11 @@ bool is_prose_section(const Section& sec) {
 /// reason: a Nightmare map prints it in a section of its own under the usage note, where the
 /// prose rules would otherwise read it as an unmatchable modifier.
 bool is_help_section(const Section& sec) {
-    static constexpr std::array<std::string_view, 6> kNeedles{
+    static constexpr std::array<std::string_view, 7> kNeedles{
         "Right click", "Shift click", "Place into an item socket", "Map Device",
-        "Can be used in a personal Map Device", "Modifiable only with"};
+        "Can be used in a personal Map Device", "Modifiable only with",
+        // A chart's, which is where a map prints its Map Device line.
+        "Take this item to Valerie"};
     return std::any_of(sec.begin(), sec.end(), [](const std::string& line) {
         return std::any_of(kNeedles.begin(), kNeedles.end(), [&](std::string_view n) {
             return line.find(n) != std::string::npos;
