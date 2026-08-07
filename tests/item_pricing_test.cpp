@@ -52,6 +52,13 @@ const StatFilter* filter_saying(const SearchPlan& p, std::string_view text) {
     return nullptr;
 }
 
+// These point into the plan's own vector, so a plan passed as a temporary leaves every caller
+// holding freed memory the moment the full expression ends. glibc hands the bytes back
+// unchanged and the checks pass; MSVC's debug heap poisons them and they do not. Deleted
+// rather than commented, so the next one is a compile error instead of a Windows-only failure.
+const StatFilter* filter_for(SearchPlan&&, std::string_view) = delete;
+const StatFilter* filter_saying(SearchPlan&&, std::string_view) = delete;
+
 /// "At least what it rolled and nothing else", for the cases that are about **which side** a
 /// bound lands on rather than how wide it opens. A window is symmetric, so the direction rule
 /// `seed_bounds` applies to a stat that is better the lower it goes only shows with one side
@@ -382,7 +389,8 @@ Item Level: 84
     CHECK(life->max == doctest::Approx(89));
 
     // And the default 5% window only meets that gate at the top: 89 is what the tier gives.
-    const StatFilter* dflt = filter_for(build_plan(*gd, it, d), "explicit.stat_3299347043");
+    const SearchPlan dflt_plan = build_plan(*gd, it, d);
+    const StatFilter* dflt = filter_for(dflt_plan, "explicit.stat_3299347043");
     REQUIRE(dflt != nullptr);
     CHECK(dflt->min == doctest::Approx(84));
     CHECK(dflt->max == doctest::Approx(89));
@@ -426,7 +434,8 @@ Inflict Cold Exposure on Hit, applying -11% to Cold Resistance
 
     // Both sides open onto a window and the direction stops showing: -11 widens outwards to
     // -12..-10 rather than inwards, which is what taking the slack off the magnitude buys.
-    const StatFilter* both = filter_for(build_plan(*gd, it, d), "implicit.stat_3005701891");
+    const SearchPlan both_plan = build_plan(*gd, it, d);
+    const StatFilter* both = filter_for(both_plan, "implicit.stat_3005701891");
     REQUIRE(both != nullptr);
     CHECK(both->min == doctest::Approx(-12));
     CHECK(both->max == doctest::Approx(-10));
