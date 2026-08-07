@@ -654,6 +654,37 @@ bundle, and only the third and fourth encode pricing judgement.
   elemental damage feeds `edps` and `dps` but not `pdps`; "#% increased Elemental Damage" feeds
   none of them, because it never touches what the weapon displays. The base percentile is the one
   derived number a local roll is **not** inside: it is recovered by taking those rolls back out.
+  **The `misc_filters` booleans are `SearchPlan::flags`**, and the rule is one line: the search
+  asks the item to be what it is, and it says so out loud only where that is not the ordinary
+  answer. `FlagFilter::shown` is the whole of the struct's reason to exist — an uncorrupted,
+  unmirrored, identified item is what nearly every check is about, so those three are imposed
+  with no row at all, and three rows saying nothing is unusual would push the modifiers off the
+  panel. The *unusual* value gets the row, because that is the one a buyer might want to widen
+  back out: a mirrored item cannot be crafted on, an unidentified one is a different product, a
+  corrupted one is a different market. Synthesis and fracturing are asked in one direction only —
+  evidence about the copy in hand rather than a choice, and an ordinary item's search has no
+  reason to rule out the strictly more constrained copies. **`identified` is not asked of a gem
+  or a currency item**, measured rather than assumed: `identified: true` returns **0 listings**
+  under `category: gem` and **0** for a Facetor's Lens, against 10000 and 177 without it, because
+  trade indexes the flag only for what can be unidentified. `mirrored: false` was checked the
+  same way and is safe everywhere.
+- **`item/plan`'s three property filters** (`add_property_filters`) are the `misc_filters`
+  intervals that come off a **property line** rather than off a modifier, so none has a tier to
+  gate against and none gets a window: the number is what this copy has, and all a filter can say
+  is "no worse". **Which side that leaves open is the judgement**, and it differs per property.
+  **Memory Strands** (1–100) are spent to raise the tier of a modifier a craft adds, so more is
+  more of what is being bought — a floor, ticked. **Intangibility** is the opposite: the penalty
+  an item accrues from Allflame crafting, the chance the next craft comes back with one outcome
+  instead of several, so less is better and it is a **ceiling** — left unticked, since a buyer
+  who will not craft on the item does not care what it accrued. **Stored Experience** is the one
+  thing telling two copies of a Facetor's Lens apart.
+  That last one is why **the Facetor's Lens is the one currency item with a trade search**. Every
+  copy holds a different number, so they are listed individually rather than traded by the stack,
+  and naming the type is all a search needs — the same shape as the map fragment that prints an
+  item level: what says a currency item is not interchangeable is that it prints something no
+  other copy of it does. The strategy stays `Currency` (poe.ninja still prices it in the currency
+  market, which is the floor under the search) and `trade::searchable` reads the `type` the plan
+  filled in, exactly as it does for a gem.
 - **`item/plan`'s per-unique join** (`apply_unique_mods`) is what makes a unique searchable at all.
   A unique's modifier can be variable **without printing a range**: Ralakesh's Impatience rolls one of
   three charge mods, each `1..1`, and the clipboard prints that exactly like the four every copy has.
@@ -774,7 +805,9 @@ bundle, and only the third and fourth encode pricing judgement.
   indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
   contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
   (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`) and rejects one filed in the
-  wrong place.
+  wrong place. `SearchPlan::flags` go out as `misc_filters` options and an **unticked one is not
+  sent at all** — whether a flag has a row in the panel is the plan's business, and this layer
+  only reads `enabled`.
   Whether the search names a `type` is the **plan's** call and this layer sends whatever it was
   given: a `Modifiers` plan leaves it empty (a rare is bought for its mods, and the category
   already says where those can live) **except on a flask**, where it names the base.
@@ -950,7 +983,9 @@ as `>=` and `<=` where there was nothing to borrow from), **nothing at all** for
 filter that only asks the modifier to be present, and **`absent`** for one asking that it not be
 there (`StatFilter::negated` — a Valdo map that does not void). That last one belongs in this
 column and nowhere else: the row is otherwise identical to one asking *for* the modifier, and a
-tick beside a wording the item does not have reads backwards. It is `StatFilter::min`/`max`, while the origin
+tick beside a wording the item does not have reads backwards. A `misc_filters` boolean puts
+**`yes`/`no`** there, and only the flags the plan marks `shown` get a row at all — see
+`item/plan`. It is `StatFilter::min`/`max`, while the origin
 column is `roll_min`/`roll_max` — what the modifier *can* roll against what the search asks of it,
 which is why they are two fields: the range-match setting is exactly the distance between them, so
 `[77-90]` beside `81-90` is the 5% window doing its job. The numeric filters share the table, so a defence
@@ -980,8 +1015,14 @@ transfigured one; two supports, one of them with a socket requirement far above 
 one with quality), `card-blazing-fire.txt` and `currency-essence.txt` (the two shapes of thing the
 in-game exchange trades in bulk that are neither an orb nor a fragment), and
 `currency-chaos-stack.txt`, which is **written rather than captured**: it is a 6000/20 stack, the
-case a currency stash tab makes ordinary and nothing else covers. Prefer a real capture for
-anything new.
+case a currency stash tab makes ordinary and nothing else covers. Three more cover the
+`misc_filters` properties: `currency-facetors-lens.txt` (the one currency item a search can tell
+two copies of apart), `memory-strands-boots.txt`, and `listing-intangibility-ring.txt` — which is
+captured from a **listing** rather than from the game, and is named so, because the site's
+renderer writes the keyword-link markup `[Intangibility|Intangibility]: 8%` where the clipboard
+writes a plain label. `strip_link_markup` in `item/parse` is what drops it, and without that a
+hovered listing drew the markup and its property matched nothing anything looks up by name.
+Prefer a real capture for anything new.
 
 **Pin numbers to those captures, not to another tool's output.** The Q20 DPS formula was chosen
 because it reproduced a number read off a screenshot of a reference tool, which turned out to be

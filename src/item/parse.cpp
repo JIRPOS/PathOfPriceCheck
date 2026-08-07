@@ -137,6 +137,32 @@ std::vector<Section> split_sections(std::string_view text) {
     return out;
 }
 
+/// Drop the keyword-link markup the *trade site's* renderer writes and the game does not.
+///
+/// A listing's item text comes back as `[Intangibility|Intangibility]: 8%` where the clipboard
+/// says `Intangibility: 8%`, so a hovered listing drew the markup and — worse — its property
+/// label matched nothing this layer looks one up by. The first half is the keyword being linked
+/// and the second is what is displayed, so the second is what is kept.
+std::string strip_link_markup(std::string_view s) {
+    if (s.find('[') == std::string_view::npos) return std::string(s);
+    std::string out;
+    out.reserve(s.size());
+    for (size_t at = 0; at < s.size();) {
+        const size_t open = s.find('[', at);
+        const size_t close = open == std::string_view::npos ? open : s.find(']', open);
+        if (close == std::string_view::npos) {
+            out.append(s.substr(at));
+            break;
+        }
+        out.append(s.substr(at, open - at));
+        const std::string_view inner = s.substr(open + 1, close - open - 1);
+        const size_t bar = inner.rfind('|');
+        out.append(bar == std::string_view::npos ? inner : inner.substr(bar + 1));
+        at = close + 1;
+    }
+    return out;
+}
+
 /// A property line is "Label: value". The label never contains a digit, which is what keeps
 /// mod wordings that happen to hold a colon out.
 bool is_property_line(std::string_view line) {
@@ -403,7 +429,7 @@ void parse_properties(const Section& sec, Item& it) {
         }
         const size_t colon = line.find(':');
         Property p;
-        p.label = std::string(trim(std::string_view(line).substr(0, colon)));
+        p.label = strip_link_markup(trim(std::string_view(line).substr(0, colon)));
         p.value = strip_value_annotations(std::string_view(line).substr(colon + 1), &p.augmented);
         p.num = first_number(p.value);
         take_typed_property(p, it);

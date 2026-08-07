@@ -79,6 +79,23 @@ struct NumericFilter {
     std::string note;  ///< why the value is what it is, e.g. "at 20% quality"
 };
 
+/// A `misc_filters` boolean — corrupted, mirrored, identified. Not a stat and not an interval:
+/// the site takes these as a three-way option and the item either is the thing or is not.
+///
+/// **`shown` is the whole point of the struct.** Most of these are answered by the item without
+/// the user having anything to decide: an uncorrupted, unmirrored, identified rare is the
+/// ordinary case, and three rows saying so would push the modifiers — the thing being read —
+/// off the panel. So they are imposed silently. It is the *unusual* value that is worth a row,
+/// because that is the one a buyer might want to relax: a mirrored item cannot be crafted on,
+/// an unidentified one is a different product, and a corrupted one is a different market.
+struct FlagFilter {
+    std::string key;   ///< the `misc_filters` name: "corrupted", "mirrored", "identified"
+    std::string label; ///< "Corrupted"
+    bool value = false; ///< what the search asks the item to be
+    bool enabled = true;
+    bool shown = false; ///< offered as a row the user can untick, rather than imposed silently
+};
+
 /// Everything a search for this item would ask for. Purely declarative — building the trade
 /// query JSON out of this, and running it, is the next layer up.
 struct SearchPlan {
@@ -93,8 +110,11 @@ struct SearchPlan {
     /// is a search across both markets at once and nothing here ever means that.
     std::string rarity = "nonunique";
 
-    std::optional<bool> corrupted; ///< match exactly; corruption always matters
-    bool synthesised = false, fractured = false, mirrored = false;
+    /// The `misc_filters` booleans, in the order they are offered. Corruption, mirroring and
+    /// identification are on every plan whether or not they have a row; synthesis and fracturing
+    /// are only ever asked for in the positive, because their absence is not what a buyer of an
+    /// ordinary item is choosing.
+    std::vector<FlagFilter> flags;
     /// Blight, which the site asks about with a `map_filters` flag rather than with a type.
     /// Only ever set true, and never both: the two are mutually exclusive on the site as well
     /// as in the game, and an ordinary map's search leaves them open rather than asking for
@@ -113,6 +133,8 @@ struct SearchPlan {
     std::vector<std::string> notes;
 
     bool has_enabled_stats() const;
+    /// The flag under `key`, or null. Also the answer to "is this asked for at all".
+    const FlagFilter* flag(std::string_view key) const;
 };
 
 /// The strategy an item gets unless the user overrides it.

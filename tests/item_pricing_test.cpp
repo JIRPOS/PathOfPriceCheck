@@ -75,6 +75,12 @@ const NumericFilter* numeric_for(const SearchPlan& p, std::string_view key) {
     return nullptr;
 }
 
+/// What the search asks a `misc_filters` boolean to be, or nothing when it does not ask.
+std::optional<bool> flag_of(const SearchPlan& p, std::string_view key) {
+    const FlagFilter* f = p.flag(key);
+    return f && f->enabled ? std::optional<bool>(f->value) : std::nullopt;
+}
+
 constexpr std::string_view kRareChest = R"(Item Class: Body Armours
 Rarity: Rare
 Doom Shroud
@@ -105,7 +111,7 @@ TEST_CASE("a rare's modifiers become enabled stat filters") {
     CHECK(p.category == "armour.chest");
     // A rare is bought for its mods, so the base is not part of the search.
     CHECK(p.type.empty());
-    CHECK(p.corrupted == false);
+    CHECK(flag_of(p, "corrupted") == false);
 
     const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
     REQUIRE(life != nullptr);
@@ -316,7 +322,7 @@ Fractured Item
     CHECK(phys->type == ppc::data::ModType::Fractured);
     CHECK(phys->id.starts_with("fractured."));
     CHECK(phys->enabled);
-    CHECK(p.fractured); // and the item-level `misc_filters` flag goes with it
+    CHECK(flag_of(p, "fractured_item") == true); // and the item-level `misc_filters` flag goes with it
 
     // The ordinary roll beside it is still unimposed: nothing about it is fixed to this copy.
     REQUIRE(filter_saying(p, "increased Attack Speed") != nullptr);
@@ -611,7 +617,7 @@ Fractured Item
     const SearchPlan p = build_plan(*gd, it, d, Strategy::BaseItem);
 
     CHECK(p.type == "Vaal Regalia");
-    CHECK(p.fractured);
+    CHECK(flag_of(p, "fractured_item") == true);
     REQUIRE(numeric_for(p, "ilvl") != nullptr);
     CHECK(numeric_for(p, "ilvl")->enabled);
     const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
@@ -1330,7 +1336,7 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
         CHECK(p.rarity == "nonunique");
         CHECK(p.type == "Empower Support");
         CHECK(p.discriminator.empty());
-        CHECK(p.corrupted == false);
+        CHECK(flag_of(p, "corrupted") == false);
 
         // Exact on both ends, the same reasoning as a map's tier: a level 3 Empower is not a
         // better level 2 one, it is what the gem sells as. A floor would show its price here.
@@ -1369,7 +1375,7 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
 
         CHECK(p.type == "Vaal Blight"); // the header said "Blight", which is another gem
         CHECK(p.discriminator.empty());
-        CHECK(p.corrupted == true);     // what lets it reach level 21 and 23% quality at all
+        CHECK(flag_of(p, "corrupted") == true); // what lets it reach level 21 and 23% quality at all
         CHECK(numeric_for(p, "gem_level")->min == 1);
         CHECK(p.notes.empty());
     }
@@ -1395,5 +1401,118 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
         CHECK(p.numerics.empty());
         REQUIRE(p.notes.size() == 1);
         CHECK(p.notes.front().find("Empower Support") != std::string::npos);
+    }
+}
+
+TEST_CASE("the misc_filters booleans ask the item to be what it is, and only say so when that "
+          "is not the ordinary answer") {
+    const std::shared_ptr<GameData> gd = fixture();
+
+    SUBCASE("an ordinary rare imposes all three without spending a row on any") {
+        const Item it = resolved(*gd, kRareChest);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        for (const char* key : {"corrupted", "mirrored", "identified"}) {
+            const FlagFilter* f = p.flag(key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK(f->enabled);
+            CHECK_FALSE(f->shown);
+        }
+        CHECK(p.flag("corrupted")->value == false);
+        CHECK(p.flag("mirrored")->value == false);
+        CHECK(p.flag("identified")->value == true); // it is, so the search asks for identified
+    }
+
+    SUBCASE("an unidentified item asks for that, and offers the row") {
+        const Item it = resolved(*gd, R"(Item Class: Body Armours
+Rarity: Rare
+Doom Shroud
+Vaal Regalia
+--------
+Energy Shield: 200
+--------
+Item Level: 84
+--------
+Unidentified
+)");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const FlagFilter* f = p.flag("identified");
+        REQUIRE(f != nullptr);
+        CHECK(f->value == false);
+        CHECK(f->enabled);
+        CHECK(f->shown); // an unidentified copy is a different product; the buyer may widen it
+    }
+
+    SUBCASE("a mirrored item is the only one that offers the mirrored row") {
+        Item it = resolved(*gd, kRareChest);
+        it.mirrored = true;
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const FlagFilter* f = p.flag("mirrored");
+        REQUIRE(f != nullptr);
+        CHECK(f->value == true);
+        CHECK(f->enabled);
+        CHECK(f->shown);
+    }
+
+    SUBCASE("a gem is never asked to be identified") {
+        const Item it = resolved(*gd, capture("gem-support-empower.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        // Measured, not assumed: `identified: true` under `category: gem` returns 0 listings
+        // against 10000 without it, because trade indexes the flag only for what can be
+        // unidentified. A filter matching nothing reads as a gem nobody is selling.
+        CHECK(p.flag("identified") == nullptr);
+        CHECK(p.flag("mirrored") != nullptr); // this one is safe everywhere, and was checked
+    }
+}
+
+TEST_CASE("the three misc properties are filtered on the side that makes them better") {
+    const std::shared_ptr<GameData> gd = fixture();
+
+    SUBCASE("memory strands are a floor, ticked") {
+        const Item it = resolved(*gd, capture("memory-strands-boots.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        const NumericFilter* f = numeric_for(p, "memory_level");
+        REQUIRE(f != nullptr);
+        CHECK(f->enabled);
+        CHECK(f->min == 43);
+        CHECK_FALSE(f->max.has_value()); // more of them is more of what is being bought
+    }
+
+    SUBCASE("intangibility is a ceiling, unticked") {
+        // Captured from a listing rather than from the game, which is why the property label
+        // carries the site's keyword-link markup — the parser is what drops it.
+        const Item it = resolved(*gd, capture("listing-intangibility-ring.txt"));
+        REQUIRE_FALSE(it.properties.empty());
+        CHECK(it.properties.front().label == "Intangibility");
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const NumericFilter* f = numeric_for(p, "intangibility");
+        REQUIRE(f != nullptr);
+        CHECK_FALSE(f->enabled); // a buyer who will not craft on it does not care
+        CHECK_FALSE(f->min.has_value());
+        CHECK(f->max == 8); // it is the penalty accrued from crafting: less is better
+    }
+
+    SUBCASE("a Facetor's Lens is the one currency item a search can tell apart") {
+        const Item it = resolved(*gd, capture("currency-facetors-lens.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Currency); // still priced by poe.ninja as well
+        CHECK(p.type == "Facetor's Lens");       // …but named, which is what makes it searchable
+        const NumericFilter* f = numeric_for(p, "stored_experience");
+        REQUIRE(f != nullptr);
+        CHECK(f->enabled);
+        CHECK(f->min == 42420246);
+        // Nothing about a lens can be unidentified, and trade does not index the flag for one.
+        CHECK(p.flag("identified") == nullptr);
+    }
+
+    SUBCASE("a currency item with nothing to tell two copies apart is still not searched") {
+        const Item it = resolved(*gd, capture("currency-chaos-stack.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type.empty());
+        CHECK(numeric_for(p, "stored_experience") == nullptr);
     }
 }

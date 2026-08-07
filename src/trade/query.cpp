@@ -20,7 +20,9 @@ namespace {
 /// under a group and rejects one filed in the wrong place, so this table is the contract
 /// between `item/plan` and the wire format.
 std::string_view group_for(std::string_view key) {
-    if (key == "ilvl" || key == "quality" || key == "gem_level") return "misc_filters";
+    if (key == "ilvl" || key == "quality" || key == "gem_level" || key == "memory_level" ||
+        key == "intangibility" || key == "stored_experience")
+        return "misc_filters";
     if (key == "ar" || key == "ev" || key == "es" || key == "ward" ||
         key == "base_defence_percentile")
         return "armour_filters";
@@ -76,6 +78,10 @@ bool searchable(const item::SearchPlan& p) {
         // not name it has nothing left to ask: the search would be every gem in the game at
         // this level, and its cheapest listing would read as this gem's price.
         case item::Strategy::Gem: return !p.type.empty();
+        // Currency is bought in bulk and has nothing a stat query could ask about — except the
+        // one kind that is not interchangeable, which the plan says so about by naming a type.
+        // See `build_plan`'s Facetor's Lens branch.
+        case item::Strategy::Currency: return !p.type.empty();
         default: return false;
     }
 }
@@ -150,10 +156,10 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!p.rarity.empty()) type_filters["rarity"] = json{{"option", p.rarity}};
 
     json misc = json::object();
-    if (p.corrupted) misc["corrupted"] = option(*p.corrupted);
-    if (p.mirrored) misc["mirrored"] = option(true);
-    if (p.synthesised) misc["synthesised_item"] = option(true);
-    if (p.fractured) misc["fractured_item"] = option(true);
+    // Whether a flag has a row in the panel is the plan's business; all that matters here is
+    // that an unticked one is not asked for.
+    for (const item::FlagFilter& f : p.flags)
+        if (f.enabled) misc[f.key] = option(f.value);
     for (const item::Influence i : p.influences)
         if (const std::string_view k = influence_key(i); !k.empty()) misc[std::string(k)] = option(true);
 

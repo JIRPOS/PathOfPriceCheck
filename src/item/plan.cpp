@@ -34,7 +34,7 @@ std::string one_line(const Modifier& m) {
 void add_numeric(SearchPlan& p, std::string key, std::string label,
                  std::optional<double> min, bool enabled, int dp = 0, std::string note = {},
                  std::optional<double> max = std::nullopt) {
-    if (!min) return;
+    if (!min && !max) return;
     NumericFilter f;
     f.key = std::move(key);
     f.label = std::move(label);
@@ -44,6 +44,25 @@ void add_numeric(SearchPlan& p, std::string key, std::string label,
     f.dp = dp;
     f.note = std::move(note);
     p.numerics.push_back(std::move(f));
+}
+
+void add_flag(SearchPlan& p, std::string key, std::string label, bool value, bool shown) {
+    FlagFilter f;
+    f.key = std::move(key);
+    f.label = std::move(label);
+    f.value = value;
+    f.shown = shown;
+    p.flags.push_back(std::move(f));
+}
+
+/// A property the game prints as `Label: value`, turned into the `misc_filters` interval trade
+/// indexes it under. These are not rolls and there is no tier behind them — the number is
+/// simply what this copy has — so the filter is one-sided, and which side it is open on is what
+/// "better" means for that property.
+const Property* property_of(const Item& it, std::string_view label) {
+    for (const Property& p : it.properties)
+        if (p.label == label) return &p;
+    return nullptr;
 }
 
 /// The 20%-quality note that explains why a filter's number is not the one on the item.
@@ -719,12 +738,70 @@ void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
                 add_numeric(p, b.key, b.label, *prop.num, b.enabled && !reward);
 }
 
+/// The `misc_filters` booleans every plan carries, and whether the user is offered a say.
+///
+/// The rule is one line: **the search asks the item to be what it is**, and it says so out loud
+/// only where that is not the ordinary answer. An uncorrupted, unmirrored, identified item is
+/// what nearly every check is about, so those three are imposed without a row; a corrupted,
+/// mirrored or unidentified one is a different product, and *that* is worth a row, because it is
+/// the one a buyer might want to widen back out.
+///
+/// Two of the five are asked in one direction only. Synthesis and fracturing are evidence about
+/// the copy in hand rather than a choice — an ordinary item's search has no reason to rule out
+/// the fractured ones, which are strictly more constrained versions of it.
+///
+/// **`identified` is not asked of a gem or a currency item**, measured rather than assumed:
+/// `identified: true` returns 0 listings under `category: gem` and 0 for a Facetor's Lens (10000
+/// and 177 without it), because trade indexes the flag only for what can be unidentified. A
+/// filter that matches nothing reads as an item nobody is selling. `mirrored: false` is safe
+/// everywhere and was checked the same way.
+void add_item_flags(const Item& it, SearchPlan& p) {
+    if (p.strategy == Strategy::Unsupported) return;
+    // Corruption is never incidental: it fixes the item's mods forever and splits the market in
+    // two, so it is matched exactly whatever the strategy.
+    add_flag(p, "corrupted", "Corrupted", it.corrupted, it.corrupted);
+    add_flag(p, "mirrored", "Mirrored", it.mirrored, it.mirrored);
+    if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||
+        p.strategy == Strategy::Unique || p.strategy == Strategy::Map)
+        add_flag(p, "identified", "Identified", it.identified, !it.identified);
+    if (it.synthesised) add_flag(p, "synthesised_item", "Synthesised", true, false);
+    if (it.fractured_item) add_flag(p, "fractured_item", "Fractured", true, false);
+}
+
+/// The three `misc_filters` intervals that come off a property line rather than off a modifier.
+///
+/// None of them is a roll, so none has a tier to gate against and none gets a window around it:
+/// the number is what this copy has, and all a filter can say is "no worse". Which side that
+/// leaves open is the whole of the judgement here, and it differs per property:
+///
+/// - **Memory Strands** (1–100) are spent to raise the tier of a modifier a craft adds, so more
+///   of them is more of the thing being bought — a floor, ticked.
+/// - **Intangibility** is the opposite: it is the penalty an item accrues from Allflame crafting,
+///   the chance the *next* craft on it comes back with one outcome instead of several. Less is
+///   better, so it is a **ceiling** — and it is left unticked, because a buyer who is not going
+///   to craft on the item does not care what it has accrued.
+/// - **Stored Experience** is what a Facetor's Lens is, and the only thing telling two apart.
+void add_property_filters(const Item& it, SearchPlan& p) {
+    if (const Property* m = property_of(it, "Memory Strands"); m && m->num)
+        add_numeric(p, "memory_level", "Memory Strands", *m->num, true);
+    if (const Property* i = property_of(it, "Intangibility"); i && i->num)
+        add_numeric(p, "intangibility", "Intangibility", std::nullopt, false, 0, {}, *i->num);
+    if (const Property* x = property_of(it, "Stored Experience"); x && x->num)
+        add_numeric(p, "stored_experience", "Stored Experience", *x->num, true);
+}
+
 } // namespace
 
 std::string_view to_string(Strategy s) { return kStrategies[static_cast<size_t>(s)]; }
 
 bool SearchPlan::has_enabled_stats() const {
     return std::any_of(stats.begin(), stats.end(), [](const StatFilter& f) { return f.enabled; });
+}
+
+const FlagFilter* SearchPlan::flag(std::string_view key) const {
+    for (const FlagFilter& f : flags)
+        if (f.key == key) return &f;
+    return nullptr;
 }
 
 Strategy default_strategy(const Item& it) {
@@ -761,12 +838,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         p.notes.push_back("item class \"" + it.item_class +
                           "\" maps to no trade category in this data bundle");
 
-    // Corruption is never incidental: it fixes the item's mods forever and splits the market
-    // in two, so it is matched exactly whatever the strategy.
-    p.corrupted = it.corrupted;
-    p.mirrored = it.mirrored;
-    p.synthesised = it.synthesised;
-    p.fractured = it.fractured_item;
+    add_item_flags(it, p);
     p.rarity = p.strategy == Strategy::Unique ? "unique" : "nonunique";
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers)
         p.influences = it.influences;
@@ -825,6 +897,17 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             if (p.strategy == Strategy::Unsupported)
                 p.notes.push_back("pricing an item of class \"" + it.item_class +
                                   "\" is not implemented yet");
+            // **Except the one currency item that is not a bulk good.** A Facetor's Lens carries
+            // the experience stored in it, every copy holds a different amount, and that number
+            // is the whole of what one is worth — so they are listed individually rather than
+            // traded by the stack, and naming the type is all a search needs. Same shape as the
+            // map fragment that prints an item level: what says a currency item is not
+            // interchangeable is that it prints something no other copy of it does. poe.ninja
+            // still prices it in the currency market, which is the floor under the search.
+            else if (p.strategy == Strategy::Currency && property_of(it, "Stored Experience")) {
+                p.type = it.base ? it.base->name : it.base_name;
+                if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+            }
             break;
     }
 
@@ -877,6 +960,9 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         // Last, because it is a question about the numerics that were just added.
         unimpose_derived_mods(it, p);
     }
+    // Driven by the properties being printed rather than by the strategy: what carries them is
+    // what a crafting mechanic touched, and that is a fact about the copy in hand.
+    if (p.strategy != Strategy::Unsupported) add_property_filters(it, p);
     // A gem is nothing but its own effect, so saying this about one is noise.
     if (!it.inherent_lines.empty() && it.rarity != Rarity::Gem)
         p.notes.emplace_back("the base's own effect is not part of the search");

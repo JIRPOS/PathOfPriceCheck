@@ -1,0 +1,22 @@
+Item Class: Boots
+Rarity: Rare
+Pandemonium Stride
+Wyvernscale Boots
+--------
+Armour: 367 (augmented)
+Evasion Rating: 367 (augmented)
+Memory Strands: 43
+--------
+Requirements:
+Level: 84
+Str: 98
+Dex: 98
+--------
+Sockets: W 
+--------
+Item Level: 85
+--------
+74% increased Armour and Evasion
++84 to maximum Life
+Regenerate 48.3 Life per second
++41% to Cold Resistance

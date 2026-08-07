@@ -242,6 +242,15 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
 
+        // The flags a plan does *not* show are the ordinary answers — uncorrupted, unmirrored,
+        // identified — and they are imposed silently rather than spending three rows saying
+        // that nothing is unusual about the item. See `item::FlagFilter`.
+        for (size_t i = 0; i < plan.flags.size(); ++i) {
+            item::FlagFilter& f = plan.flags[i];
+            if (!f.shown) continue;
+            draw_filter_row(static_cast<int>(2000 + i), f.enabled, {}, f.label, {},
+                            f.value ? "yes" : "no");
+        }
         for (size_t i = 0; i < plan.numerics.size(); ++i) {
             item::NumericFilter& f = plan.numerics[i];
             draw_filter_row(static_cast<int>(i), f.enabled, {}, f.label, f.note,

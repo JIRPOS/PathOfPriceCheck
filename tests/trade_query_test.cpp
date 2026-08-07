@@ -22,7 +22,7 @@ SearchPlan rare_plan() {
     p.strategy = Strategy::Modifiers;
     p.category = "armour.helmet";
     // No `type`: the plan leaves it empty for a rare, and this layer sends what it was given.
-    p.corrupted = false;
+    p.flags = {{"corrupted", "Corrupted", false, true, false}};
     ppc::item::StatFilter f;
     f.id = "explicit.stat_3299347043";
     f.enabled = true;
@@ -184,7 +184,7 @@ TEST_CASE("a gem's level and quality are misc filters, and both are exact") {
     p.category = "gem.activegem";
     p.type = "Raise Zombie";
     p.discriminator = "alt_y"; // a transfigured gem: trade knows it by the skill it alters
-    p.corrupted = false;
+    p.flags = {{"corrupted", "Corrupted", false, true, false}};
     p.numerics = {{"gem_level", "Gem Level", 20, 20, true, 0, {}},
                   {"quality", "Quality", 20, 20, true, 0, {}}};
     const json q = query_of(p);
@@ -502,4 +502,31 @@ TEST_CASE("the static currency data keeps only what can be drawn") {
     CHECK(c[0].text == "Chaos Orb");
     CHECK(c[1].id == "dusk");
     CHECK(parse_static_currencies("{}").empty());
+}
+
+TEST_CASE("misc flags are sent as options, and an unticked one is not sent at all") {
+    SearchPlan p = rare_plan();
+    p.flags = {{"corrupted", "Corrupted", true, true, true},
+               {"mirrored", "Mirrored", false, true, false},
+               {"identified", "Identified", false, false, true}};
+    const json misc = query_of(p)["filters"]["misc_filters"]["filters"];
+
+    CHECK(misc["corrupted"]["option"] == "true");
+    CHECK(misc["mirrored"]["option"] == "false");
+    // Whether a flag has a row is the panel's business; unticking it is what stops the asking.
+    CHECK_FALSE(misc.contains("identified"));
+}
+
+TEST_CASE("the three misc properties are filed under misc_filters, one-sided as seeded") {
+    SearchPlan p = rare_plan();
+    p.numerics = {{"memory_level", "Memory Strands", 43, std::nullopt, true, 0, {}},
+                  {"intangibility", "Intangibility", std::nullopt, 8, true, 0, {}},
+                  {"stored_experience", "Stored Experience", 42420246, std::nullopt, true, 0, {}}};
+    const json misc = query_of(p)["filters"]["misc_filters"]["filters"];
+
+    CHECK(misc["memory_level"]["min"] == 43);
+    CHECK_FALSE(misc["memory_level"].contains("max"));
+    CHECK(misc["intangibility"]["max"] == 8);
+    CHECK_FALSE(misc["intangibility"].contains("min"));
+    CHECK(misc["stored_experience"]["min"] == 42420246);
 }

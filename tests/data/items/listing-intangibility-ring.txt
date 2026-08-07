@@ -1,0 +1,17 @@
+Item Class: Rings
+Rarity: Rare
+Phoenix Knot
+Diamond Ring
+--------
+[Intangibility|Intangibility]: 8%
+--------
+Requirements:
+Level: 20
+--------
+Item Level: 29
+--------
+22% increased Global Critical Strike Chance
+--------
++15 to Strength
++27 to maximum Life
++19% to Lightning Resistance
