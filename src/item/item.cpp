@@ -113,6 +113,11 @@ bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }
 
+bool Item::needs_unique_choice() const {
+    return rarity == Rarity::Unique && !identified && !unique_entry &&
+           unique_candidates.size() > 1;
+}
+
 bool Item::is_gear() const {
     // A fragment prints "Rarity: Normal" only because the game has nothing else to print on
     // that line. It has no modifiers at all — what looks like one is what the fragment does —

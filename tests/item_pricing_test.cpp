@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -804,7 +805,7 @@ Item Level: 70
     CHECK_FALSE(cold->enabled);
 }
 
-TEST_CASE("a modifier the unique's record does not have is reported, not dropped") {
+TEST_CASE("a modifier the unique's record does not have says so on its own row") {
     auto gd = fixture();
     // Nothing says this one is fixed, so it cannot be left out of the search in silence:
     // it is either something added to this copy or a modifier the source has not caught up
@@ -822,11 +823,13 @@ Item Level: 70
     const Derived d = derive(gd.get(), it);
     const SearchPlan p = build_plan(*gd, it, d);
 
-    CHECK_FALSE(filter_for(p, "explicit.stat_3299347043")->enabled);
-    REQUIRE(p.notes.size() == 1);
-    CHECK(p.notes.front() ==
-          "not in the modifier data for \"Ralakesh's Impatience\", so not searched: "
-          "+42 to maximum Life");
+    const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
+    REQUIRE(life != nullptr);
+    CHECK_FALSE(life->enabled);
+    // On the row, not under the list: the row already names the modifier and shows its box
+    // unticked, and a note repeating that wording is the same sentence twice.
+    CHECK(life->caveat.starts_with("not in the modifier data for \"Ralakesh's Impatience\""));
+    CHECK(p.notes.empty());
 }
 
 TEST_CASE("a pool the data states but does not enumerate is named rather than implied away") {
@@ -843,20 +846,64 @@ Corrupted Blood cannot be inflicted on you
     const Derived d = derive(gd.get(), it);
     const SearchPlan p = build_plan(*gd, it, d);
 
-    REQUIRE(p.notes.size() == 2);
-    // The one modifier this copy shows is not in the record either, so both notes fire: what
-    // the item has that the data does not know, and what the data knows it cannot enumerate.
-    CHECK(p.notes[0].starts_with("not in the modifier data"));
-    CHECK(p.notes[1] ==
+    // Prose with nothing on screen behind it: no row of the filter list is about "4 random
+    // Charm modifiers", so a note is the only place the app can say it is leaving them out.
+    REQUIRE(p.notes.size() == 1);
+    CHECK(p.notes.front() ==
           "the modifier data states but does not enumerate this, so it is not searched: "
           "4 random Charm modifiers");
+    // The modifier the copy does show is the other half, and it is on its own row instead.
+    CHECK(filter_saying(p, "Corrupted Blood")->caveat.starts_with("not in the modifier data"));
 }
 
-TEST_CASE("an unidentified unique says so instead of searching for the wrong thing") {
+TEST_CASE("an unlisted pool the item does print is the row, not a note under it") {
     auto gd = fixture();
+    // Triad Grip's four conversion modifiers are unlisted in the record *and* printed on the
+    // item, so they used to be said twice each — once as "not in the modifier data" and once as
+    // "states but does not enumerate" — and twelve lines of panel went on four unticked boxes.
+    // The fixture's stand-in for that shape is Rumi's, whose enchant the record does not carry.
+    const Item it = resolved(*gd, R"(Item Class: Utility Flasks
+Rarity: Unique
+Rumi's Concoction
+Granite Flask
+--------
+Lasts 4.00 Seconds
+Consumes 30 of 60 Charges on use
+Currently has 60 Charges
++3000 to Armour
+--------
+Requirements:
+Level: 27
+--------
+Item Level: 70
+--------
+Used when Charges reach full (enchant)
+--------
+16% Chance to Block Attack Damage during Effect
+9% Chance to Block Spell Damage during Effect
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    // An enchant is `added_to_copy`: absent from a record about the unique by definition, so it
+    // gets neither a note nor a caveat — saying so reads as failing to recognise it.
+    const StatFilter* enchant = filter_saying(p, "Used when Charges reach full");
+    REQUIRE(enchant != nullptr);
+    CHECK(enchant->caveat.empty());
+    // Nothing about the modifier data is said underneath the list; the flask's own effect,
+    // which has no row anywhere, still is.
+    CHECK(std::none_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("modifier data") != std::string::npos;
+    }));
+}
+
+TEST_CASE("an unidentified unique on a base with one unique is that unique") {
+    auto gd = fixture();
+    // Riveted Boots roll into Ralakesh's Impatience and nothing else, so the name is not a
+    // guess: reading it off the base is the only thing the clipboard leaves to be worked out.
     const Item it = resolved(*gd, R"(Item Class: Boots
 Rarity: Unique
-Goathide Boots
+Riveted Boots
 --------
 Evasion Rating: 30
 --------
@@ -868,10 +915,90 @@ Unidentified
     const SearchPlan p = build_plan(*gd, it, d);
 
     CHECK_FALSE(it.identified);
+    CHECK_FALSE(it.needs_unique_choice());
+    REQUIRE(it.unique_candidates.size() == 1);
+    REQUIRE(it.unique_entry != nullptr);
+    CHECK(p.name == "Ralakesh's Impatience");
+    CHECK(p.type == "Riveted Boots");
+    CHECK(p.rarity == "unique");
+    // The flag the item states about itself is asked for, and offered as a row: an unidentified
+    // copy is a different product from the identified ones beside it.
+    CHECK(flag_of(p, "identified") == std::optional<bool>(false));
+    REQUIRE(p.option("identified") != nullptr);
+    CHECK(p.option("identified")->shown);
+    // The item level is the one number an unidentified copy carries, and it bounds what the
+    // item can still turn out to have rolled — a floor, ticked.
+    REQUIRE(numeric_for(p, "ilvl") != nullptr);
+    CHECK(numeric_for(p, "ilvl")->enabled);
+    CHECK(numeric_for(p, "ilvl")->min == doctest::Approx(84));
+    CHECK_FALSE(numeric_for(p, "ilvl")->max.has_value());
+    // Said out loud: nothing on the item printed this name.
+    CHECK(std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("only unique that drops") != std::string::npos;
+    }));
+}
+
+TEST_CASE("an unidentified unique on a base with several is a question, not a search") {
+    auto gd = fixture();
+    // Goathide Gloves roll into both Hrimsorrow and Hrimburn, which share nothing but the base.
+    const Item it = resolved(*gd, capture("unique-unidentified-gloves.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(it.unique_candidates.size() == 2);
+    CHECK(it.needs_unique_choice());
+    CHECK(it.unique_entry == nullptr);
+    // No name to ask for, and the plan says which question is unanswered rather than searching
+    // the base among every unique that drops on it.
     CHECK(p.name.empty());
-    CHECK(p.type == "Goathide Boots");
-    REQUIRE(p.notes.size() == 1);
-    CHECK(p.notes.front().starts_with("unidentified"));
+    CHECK(p.type == "Goathide Gloves");
+    CHECK(std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("2 uniques drop on") != std::string::npos;
+    }));
+
+    SUBCASE("choosing one searches for it, still unidentified") {
+        Item chosen = it;
+        choose_unique(chosen, chosen.unique_candidates[1]);
+        const SearchPlan cp = build_plan(*gd, chosen, d);
+        CHECK_FALSE(chosen.needs_unique_choice());
+        CHECK(cp.name == chosen.unique_candidates[1]->name);
+        CHECK(flag_of(cp, "identified") == std::optional<bool>(false));
+        CHECK(numeric_for(cp, "ilvl")->min == doctest::Approx(84));
+    }
+
+    SUBCASE("nothing outside the candidates can be chosen") {
+        Item chosen = it;
+        // A record from the previous item, or from a bundle the updater has swapped out.
+        choose_unique(chosen, gd->find_bases(ppc::data::Namespace::Unique, "Hrimsorrow").front());
+        CHECK(chosen.unique_entry != nullptr); // that one *is* a candidate
+        choose_unique(chosen, gd->find_bases(ppc::data::Namespace::Unique,
+                                             "Ralakesh's Impatience").front());
+        CHECK(chosen.unique_entry->name == "Hrimsorrow"); // refused, and the choice stands
+        choose_unique(chosen, nullptr);
+        CHECK(chosen.unique_entry == nullptr);
+    }
+}
+
+TEST_CASE("an identified unique is not read off its base") {
+    auto gd = fixture();
+    // The candidate list is only ever about the gap an unidentified item leaves: an identified
+    // one names itself, and offering it a choice between the base's uniques would be a way to
+    // search for the wrong one.
+    const Item it = resolved(*gd, R"(Item Class: Gloves
+Rarity: Unique
+Hrimsorrow
+Goathide Gloves
+--------
+Item Level: 84
+)");
+    CHECK(it.unique_candidates.empty());
+    CHECK_FALSE(it.needs_unique_choice());
+    REQUIRE(it.unique_entry != nullptr);
+    CHECK(it.unique_entry->name == "Hrimsorrow");
+    // And no item-level filter: which copy of an identified unique this is has nothing to do
+    // with what it dropped at.
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(numeric_for(p, "ilvl") == nullptr);
 }
 
 TEST_CASE("a magic item's base is found under its affixes") {

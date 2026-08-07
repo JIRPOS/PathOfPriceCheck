@@ -20,7 +20,7 @@ Exhaustively — this is every outbound request the binary can make.
 | `www.pathofexile.com/api/trade/data/static` | before the first search; cached a week | nothing but the request |
 | `www.pathofexile.com/api/trade/search/<league>` | when you press **Search** (or on open, if you turned on `auto_search`) | the search query: trade stat identifiers and numeric bounds derived from the item under your cursor, plus the league and the listing-status filter |
 | `www.pathofexile.com/api/trade/fetch/...` | after a search, and on **load more** | the result hashes the search returned |
-| `web.poecdn.com` | when an item's symbol is first needed — a currency, or anything the in-game exchange trades; cached on disk forever after | nothing but the request |
+| `web.poecdn.com` | when an item's picture is first needed — a currency symbol, anything the in-game exchange trades, or the artwork of each unique offered for an unidentified one; cached on disk forever after | nothing but the request |
 | `web.poecdn.com/api/currency-exchange/<hour>` | when an item is priced and the newest published hour is not already on disk; **one download covers every item and every league** | nothing but the request |
 | `poe.ninja/poe1/api/economy/...` | when a reference price is needed and the 30-minute cache has expired; **once per category**, not per price check | nothing but the request and the league name |
 | `poe.ninja/favicons/favicon-32x32.png` | once, for the reference row's source mark | nothing but the request |

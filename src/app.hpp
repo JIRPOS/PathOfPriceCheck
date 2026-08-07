@@ -89,6 +89,11 @@ public:
     /// Re-derive the plan for a different pricing strategy — a rare is sometimes worth more
     /// as a base than as its rolls, and only the user knows which they meant.
     void set_strategy(item::Strategy s);
+    /// Say which unique an unidentified one is, from `Item::unique_candidates`. Null puts it
+    /// back to undecided, which is what the panel's "change" affordance does. Re-plans and
+    /// re-prices exactly as a strategy change does: from here on the item is that unique,
+    /// still unidentified.
+    void set_unique(const data::BaseType* u);
 
     // Trade search. The plan on screen is the query: the user ticks filters and presses
     // Search, or opens the same search on the site without spending an API call on it.
@@ -180,6 +185,10 @@ private:
     /// result lands, which is cheaper than reasoning about whether it invalidated anything.
     std::vector<std::optional<ListingItem>> listing_items_;
     std::optional<item::Strategy> strategy_override_; ///< the user's choice, until the next item
+    /// Which unique the user said an unidentified one is, by **name** rather than by the record
+    /// — `rebuild_plan` re-resolves against whatever bundle is current, and a pointer into the
+    /// one it was chosen from would not survive a data update. Cleared with the item.
+    std::string unique_choice_;
     std::unique_ptr<HotkeyListener> hotkeys_;
     SDL_Tray* tray_ = nullptr;
     Screen screen_ = Screen::Hidden;

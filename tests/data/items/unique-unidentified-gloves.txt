@@ -1,0 +1,15 @@
+Item Class: Gloves
+Rarity: Unique
+Goathide Gloves
+--------
+Evasion Rating: 36
+--------
+Requirements:
+Level: 9
+Dex: 17
+--------
+Sockets: G-R B
+--------
+Item Level: 84
+--------
+Unidentified

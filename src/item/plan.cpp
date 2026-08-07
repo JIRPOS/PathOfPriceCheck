@@ -329,6 +329,18 @@ Roll unique_range(const data::UniqueModFilter& uf, const Modifier& m, bool avera
     return r;
 }
 
+/// The filter whose modifier printed `line`, or null. The join is the game's own wording,
+/// which is what both sides have: the per-unique data's unlisted pools are stated as the lines
+/// the client prints, and so are the modifiers the parser read off the clipboard.
+StatFilter* filter_saying(SearchPlan& p, const Item& it, std::string_view line) {
+    for (StatFilter& f : p.stats) {
+        if (!f.mod_index) continue;
+        for (const std::string& l : it.mods[*f.mod_index].lines)
+            if (l == line) return &f;
+    }
+    return nullptr;
+}
+
 /// Fold the bundle's per-unique modifier data into the plan.
 ///
 /// Without it `Strategy::Unique` can only enable a roll whose printed range proves it is
@@ -384,12 +396,16 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
         if (e == by_id.end()) {
             // Either something added to this copy of the item, or a modifier the source has
             // not caught up with, or one it cannot search. Nothing says it is fixed, so it is
-            // reported rather than silently left out of the search — but only for a modifier
-            // the record is *about*. A crafted one is absent from it by definition, and saying
-            // so reads as a failure to recognise a modifier that is right there in the list.
+            // said rather than silently left out of the search — but only for a modifier the
+            // record is *about*. A crafted one is absent from it by definition, and saying so
+            // reads as a failure to recognise a modifier that is right there in the list.
+            //
+            // On the **row** and not in a note underneath: the row is already the statement —
+            // it names the modifier and its box is not ticked — and a paragraph repeating that
+            // wording costs three lines of panel to say it a second time. This is why.
             if (!f.enabled && !added_to_copy(f.type))
-                p.notes.push_back("not in the modifier data for \"" + um->name +
-                                  "\", so not searched: " + one_line(it.mods[*f.mod_index]));
+                f.caveat = "not in the modifier data for \"" + um->name +
+                           "\", so nothing can tell it from a modifier every copy has";
             continue;
         }
         const Modifier& m = it.mods[*f.mod_index];
@@ -433,11 +449,23 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
         }
     }
 
-    for (const std::string& u : um->unlisted)
+    // An unlisted pool is prose the source never turned into modifiers — "One to three random
+    // Synthesis implicit modifiers". Where it names something the item in hand actually has, it
+    // is **already a row** in the filter list and the note would be the same wording a second
+    // time: Triad Grip's four conversion modifiers are unlisted *and* printed on the item, so
+    // between this and the loop above they cost twelve lines of panel to say what four unticked
+    // boxes said. Only prose with nothing on screen behind it is worth a note of its own.
+    for (const std::string& u : um->unlisted) {
+        if (StatFilter* f = filter_saying(p, it, u)) {
+            f->caveat = "the modifier data states this but does not enumerate it, so nothing "
+                        "here knows what it can roll";
+            continue;
+        }
         p.notes.push_back(
             "the modifier data states but does not enumerate this, so it is not "
             "searched: " +
             u);
+    }
 }
 
 /// Fold filters that share a trade id into one, summing their bounds.
@@ -897,6 +925,51 @@ void add_property_filters(const Item& it, SearchPlan& p) {
         add_numeric(p, "stored_experience", "Stored Experience", *x->num, true);
 }
 
+/// What a search for an **unidentified** unique can ask, and what it has to say about the gap.
+///
+/// The clipboard prints no name line at all, so the base is the whole of what such an item
+/// states about itself and the bundle's base → uniques index is what turns that back into a
+/// name (`resolve_item`). One candidate is not a guess and is already taken; several is a
+/// question only the user can settle, and until they do the search has no name to ask for —
+/// which is a different search, not a worse one, so it is said out loud rather than run
+/// silently as "some unique of this base".
+///
+/// **The item level is the one number an unidentified copy carries that matters**, and it is
+/// what the rolls it can still turn out to have are bounded by — so it is a floor and it is
+/// ticked, the same reading a base item's is given. Everything else about the item is behind
+/// the identification; the `Unidentified` flag itself is already on every plan (`add_flag`).
+void plan_unidentified(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    add_numeric(p, "ilvl", "Item Level",
+                it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
+
+    if (p.name.empty()) {
+        if (!gd.has_unique_bases())
+            p.notes.emplace_back("unidentified: this data bundle carries no index of which "
+                                 "uniques drop on a base, so which one this is cannot be "
+                                 "worked out — the search asks only for an unidentified "
+                                 "unique of this base");
+        else if (it.unique_candidates.empty())
+            p.notes.push_back("unidentified: no unique in this data bundle drops on \"" +
+                              it.base_name + "\", so the search asks only for an unidentified "
+                              "unique of this base");
+        else
+            p.notes.push_back("unidentified: " + std::to_string(it.unique_candidates.size()) +
+                              " uniques drop on \"" + it.base_name +
+                              "\" — pick which one this is to search for it by name");
+        return;
+    }
+    // Taken rather than chosen: worth saying, because nothing on the item says this name and
+    // the panel is otherwise showing a search for a unique the clipboard never mentioned.
+    if (it.unique_candidates.size() == 1)
+        p.notes.push_back("unidentified: \"" + p.name + "\" is the only unique that drops on \"" +
+                          it.base_name + "\", so that is what the search asks for");
+    // The trade search asks for an unidentified copy (`add_item_flags`); poe.ninja does not
+    // split a unique's price by that, and an unidentified one is a different product — the
+    // gamble on the rolls rather than the rolls.
+    p.notes.emplace_back("a reference price is what identified copies sell for; an "
+                         "unidentified one is priced on what it might roll");
+}
+
 } // namespace
 
 std::string_view to_string(Strategy s) { return kStrategies[static_cast<size_t>(s)]; }
@@ -961,10 +1034,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             p.type = it.base_name;
             if (it.unique_entry && !it.unique_entry->trade_disc.empty())
                 p.discriminator = it.unique_entry->trade_disc;
-            if (!it.identified)
-                p.notes.emplace_back(
-                    "unidentified: the clipboard does not say which unique this is — picking "
-                    "it from the base's uniques is not implemented yet");
+            if (!it.identified) plan_unidentified(gd, it, p);
             else if (!it.unique_entry)
                 p.notes.push_back("\"" + it.name + "\" is not in this data bundle");
             break;

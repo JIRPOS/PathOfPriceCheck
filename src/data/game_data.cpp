@@ -65,6 +65,15 @@ std::optional<ModType> mod_type_from_prefix(std::string_view s) {
     return std::nullopt;
 }
 
+std::string item_image_url(std::string_view art, int w, int h) {
+    if (art.empty()) return {};
+    std::string url = "https://web.poecdn.com/image/";
+    url += art;
+    if (w > 0 && h > 0)
+        url += "?w=" + std::to_string(w) + "&h=" + std::to_string(h) + "&scale=1";
+    return url;
+}
+
 const StatMatcher* Stat::matcher_for(std::string_view normalized) const {
     for (const StatMatcher& m : matchers)
         if (m.string == normalized) return &m;
@@ -100,6 +109,11 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         !gd->stats_ref_index_.attach(gd->stats_ref_idx_.data(), gd->stats_ref_idx_.size()) ||
         !gd->items_name_index_.attach(gd->items_name_idx_.data(), gd->items_name_idx_.size()))
         return fail("malformed index (not a whole number of rows)");
+
+    // Also optional, and on an older bundle an unidentified unique simply stays unidentified:
+    // the index is the only thing that can turn a base line into the uniques that drop on it.
+    if (gd->items_base_idx_.open(dir / (p + "items-base.index.bin")))
+        gd->items_base_index_.attach(gd->items_base_idx_.data(), gd->items_base_idx_.size());
 
     // Optional, and missing on every bundle published before the dataset existed: a unique
     // then falls back to what a printed range can prove, which is what the app did before.
@@ -204,6 +218,7 @@ const BaseType* GameData::base_at(uint32_t offset) const {
     b->trade_name = j.value("tradeName", std::string());
     b->metadata_id = j.value("metadataId", std::string());
     b->exchange = j.value("exchange", false);
+    b->art = j.value("art", std::string());
     b->w = j.value("w", 0);
     b->h = j.value("h", 0);
     b->drop_level = j.value("dropLevel", 0);
@@ -315,6 +330,23 @@ std::vector<const BaseType*> GameData::find_bases(Namespace ns,
     for (uint32_t off : offsets) {
         const BaseType* b = base_at(off);
         if (b && b->ns == ns && b->name == name) out.push_back(b);
+    }
+    return out;
+}
+
+std::vector<const BaseType*> GameData::find_uniques_on_base(std::string_view base) const {
+    // Keyed under the *unique* namespace, because the records it addresses are uniques: it is
+    // "the uniques of this base", not "this base".
+    std::string key(to_string(Namespace::Unique));
+    key += "::";
+    key += base;
+
+    std::vector<uint32_t> offsets;
+    items_base_index_.lookup(key, offsets);
+    std::vector<const BaseType*> out;
+    for (uint32_t off : offsets) {
+        const BaseType* b = base_at(off);
+        if (b && b->ns == Namespace::Unique && b->unique_base == base) out.push_back(b);
     }
     return out;
 }

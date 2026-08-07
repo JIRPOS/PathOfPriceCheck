@@ -114,6 +114,49 @@ TEST_CASE("uniques record the base they roll on") {
     CHECK(u.front()->unique_base == "Goathide Boots");
 }
 
+TEST_CASE("a base answers with the uniques that drop on it") {
+    auto gd = fixture();
+    CHECK(gd->has_unique_bases());
+    // The lookup an unidentified unique is read with: it prints its base and nothing else.
+    const auto gloves = gd->find_uniques_on_base("Goathide Gloves");
+    REQUIRE(gloves.size() == 2);
+    CHECK(gloves[0]->name == "Hrimsorrow");
+    CHECK(gloves[1]->name == "Hrimburn");
+    for (const BaseType* u : gloves) CHECK(u->ns == Namespace::Unique);
+
+    // One is the ordinary case and is what lets the app take the answer itself.
+    const auto boots = gd->find_uniques_on_base("Riveted Boots");
+    REQUIRE(boots.size() == 1);
+    CHECK(boots.front()->name == "Ralakesh's Impatience");
+
+    // A base nothing drops on, and the base's own record, which lives under a different key.
+    CHECK(gd->find_uniques_on_base("Two-Toned Boots").empty());
+    CHECK(gd->find_uniques_on_base("Hrimsorrow").empty());
+}
+
+TEST_CASE("a unique carries the path its artwork is served at") {
+    auto gd = fixture();
+    const auto u = gd->find_bases(Namespace::Unique, "Ralakesh's Impatience");
+    REQUIRE_FALSE(u.empty());
+    CHECK(u.front()->art == "Art/2DItems/Armours/Boots/RalakeshsImpatience.png");
+    // The size is the base's, since a unique is not a base type and has none of its own.
+    CHECK(item_image_url(u.front()->art, 2, 2) ==
+          "https://web.poecdn.com/image/Art/2DItems/Armours/Boots/RalakeshsImpatience.png"
+          "?w=2&h=2&scale=1");
+    // Unknown size is the same picture unscaled, never a URL with empty parameters in it.
+    CHECK(item_image_url(u.front()->art) ==
+          "https://web.poecdn.com/image/Art/2DItems/Armours/Boots/RalakeshsImpatience.png");
+
+    // Two uniques sharing one picture is what the game data says, not a join gone wrong.
+    CHECK(gd->find_bases(Namespace::Unique, "Hrimburn").front()->art ==
+          gd->find_bases(Namespace::Unique, "Hrimsorrow").front()->art);
+
+    // No picture is drawn for anything else, and a missing path is never turned into a URL —
+    // that would be a 404 fetched once a frame.
+    CHECK(gd->find_bases(Namespace::Item, "Riveted Boots").front()->art.empty());
+    CHECK(item_image_url("", 2, 2).empty());
+}
+
 TEST_CASE("the namespace is part of the key") {
     auto gd = fixture();
     // A unique name must not resolve as a plain base.
