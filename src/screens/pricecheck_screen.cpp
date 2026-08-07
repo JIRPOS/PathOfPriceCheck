@@ -363,23 +363,25 @@ constexpr float kUniqueGridArt = 46.0f;
 
 /// A unique's own artwork, fitted into a `box`-sided square without being stretched.
 ///
-/// The aspect comes from the **base's inventory footprint** (`BaseType::w`/`h`), which the
-/// bundle carries and which is what the game draws the art to: a body armour is 2×3, and
-/// squashing that into a square is what makes two candidates hard to tell apart at this size.
+/// **Straight from GGG's CDN**, at the path the data bundle carries for the unique
+/// (`BaseType::art`) — the same picture the game draws, and no third party between the two.
+/// The **base's inventory footprint** is both the request's size and the aspect to draw at: a
+/// body armour is 2×3, and squashing that into a square is what makes two candidates hard to
+/// tell apart at this size. It comes from the base rather than the unique because a unique is
+/// not a base type in the game's data and carries no size of its own.
 ///
 /// The picture is downloaded in the background like every other symbol on the panel, so it is
-/// allowed not to have arrived. **It can also never arrive**: the only source of unique art
-/// here is the poe.ninja overview this item class is priced from, which lists what is being
-/// sold this league and nothing else — measured at 1193 of the bundle's 1526 uniques, and worse
-/// than that on jewels, half of whose uniques are league-restricted and unpriced. So the name
-/// is never left to the picture; false says there was none, and the caller puts the name in the
-/// space the art would have taken.
-bool draw_unique_art(App& app, const data::BaseType* u, float box) {
-    const std::string url = icon_for_item(app, u->name);
+/// allowed not to have arrived — and 110 uniques have no path at all, as does every bundle
+/// published before the field existed. So the name is never left to the picture: false says
+/// there was none, and the caller puts the name in the space the art would have taken.
+bool draw_unique_art(App& app, const data::BaseType* u, const data::BaseType* base, float box) {
+    const int cw = base && base->w > 0 ? base->w : 0;
+    const int ch = base && base->h > 0 ? base->h : 0;
+    const std::string url = data::item_image_url(u->art, cw, ch);
     const uint64_t tex = url.empty() ? 0 : app.icons().texture(url);
     if (!tex) return false;
-    const float w = u->w > 0 ? static_cast<float>(u->w) : 1.0f;
-    const float h = u->h > 0 ? static_cast<float>(u->h) : 1.0f;
+    const float w = cw > 0 ? static_cast<float>(cw) : 1.0f;
+    const float h = ch > 0 ? static_cast<float>(ch) : 1.0f;
     const float scale = box / std::max(w, h);
     ImGui::Image(tex, ImVec2(w * scale, h * scale));
     return true;
@@ -415,7 +417,7 @@ void draw_unique_choice(App& app, const item::Item& it) {
                                   ImVec2(0, kUniqueRowArt)))
                 app.set_unique(us[i]);
             ImGui::SetCursorPos(at);
-            if (draw_unique_art(app, us[i], kUniqueRowArt)) ImGui::SameLine(0.0f, 6.0f);
+            if (draw_unique_art(app, us[i], it.base, kUniqueRowArt)) ImGui::SameLine(0.0f, 6.0f);
             // Centred against the art rather than sat on its top edge, which is where a line of
             // text lands in a row twice its height.
             ImGui::SetCursorPosY(at.y + (kUniqueRowArt - ImGui::GetTextLineHeight()) * 0.5f);
@@ -445,7 +447,7 @@ void draw_unique_choice(App& app, const item::Item& it) {
         // itself, and the tooltip belongs to the thing that is clickable.
         const bool hovered = ImGui::IsItemHovered();
         ImGui::SetCursorPos(at);
-        if (!draw_unique_art(app, us[i], kUniqueGridArt)) {
+        if (!draw_unique_art(app, us[i], it.base, kUniqueGridArt)) {
             // No art for this one, and an empty square is a cell nobody can tell from the next
             // empty square. The name goes in the box instead — wrapped to it, and **clipped**
             // to it, since a name three lines long would otherwise be drawn straight over the

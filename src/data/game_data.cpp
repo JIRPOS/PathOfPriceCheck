@@ -65,6 +65,15 @@ std::optional<ModType> mod_type_from_prefix(std::string_view s) {
     return std::nullopt;
 }
 
+std::string item_image_url(std::string_view art, int w, int h) {
+    if (art.empty()) return {};
+    std::string url = "https://web.poecdn.com/image/";
+    url += art;
+    if (w > 0 && h > 0)
+        url += "?w=" + std::to_string(w) + "&h=" + std::to_string(h) + "&scale=1";
+    return url;
+}
+
 const StatMatcher* Stat::matcher_for(std::string_view normalized) const {
     for (const StatMatcher& m : matchers)
         if (m.string == normalized) return &m;
@@ -209,6 +218,7 @@ const BaseType* GameData::base_at(uint32_t offset) const {
     b->trade_name = j.value("tradeName", std::string());
     b->metadata_id = j.value("metadataId", std::string());
     b->exchange = j.value("exchange", false);
+    b->art = j.value("art", std::string());
     b->w = j.value("w", 0);
     b->h = j.value("h", 0);
     b->drop_level = j.value("dropLevel", 0);

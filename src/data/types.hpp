@@ -73,6 +73,16 @@ struct BaseType {
     /// False both for an item that does not trade there and on a bundle published before the
     /// flag existed, so it is only an answer once `GameData::has_exchange_flags()` is true.
     bool exchange = false;
+    /// Where GGG's CDN serves this item's picture, `Art/2DItems/Armours/Gloves/Hrimsorrow.png`
+    /// — see `item_image_url`. **Uniques only**: a unique is not a base type in the game's data
+    /// but a name, a base and a mod list put together when the item drops, so the picture is
+    /// the one thing about it no other record can be asked for.
+    ///
+    /// Empty for 110 of trade's uniques (the sanctum relics, the Harbinger pieces, a few the
+    /// client's word list has renamed) and on every bundle published before the field existed.
+    /// Unlike the exchange flag that needs no bundle-level signal beside it: nothing here reads
+    /// an absent picture as a claim about the item, it just draws the name instead.
+    std::string art;
     int w = 0, h = 0;
     int drop_level = 0;
     bool corrupted = false;
@@ -125,6 +135,14 @@ struct UniqueMods {
     /// instead of implying the item has nothing more.
     std::vector<std::string> unlisted;
 };
+
+/// Where GGG's CDN serves `BaseType::art`, sized to an item that occupies `w`×`h` inventory
+/// cells. Empty in, empty out — an item the bundle has no picture for is named rather than
+/// drawn, never given a guessed URL, which would be a 404 fetched once per frame.
+///
+/// The size is the same request the game's own tooltip makes and halves the download; both are
+/// dropped when the caller does not know them, since the unscaled image is the same picture.
+std::string item_image_url(std::string_view art, int w = 0, int h = 0);
 
 struct ItemClass {
     std::string item_class;     ///< as printed by the clipboard, e.g. "Rings"

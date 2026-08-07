@@ -1059,14 +1059,17 @@ line, the base percentile under the last defence line.
 
 **An unidentified unique is asked about rather than guessed at** (`draw_unique_choice`), above the
 filters, because until it is answered they are filters on nothing. Its candidates come from the
-bundle (`item/resolve`) and their **artwork from the poe.ninja overview this item class is priced
-from** — that payload's `icon` is a `web.poecdn.com` URL, and `IconCache` already turns a URL into
-a texture — joined by display name through the same `image_for_name` → `icon_for_name` pair every
-other symbol on the panel uses. **The art is not guaranteed**: an overview lists what is being sold
-this league, which is 1193 of the bundle's 1526 uniques and much worse on jewels, so nothing is
-ever left to the picture — a candidate with no art puts its name in the space the art would have
-taken. The aspect is the **base's inventory footprint** (`BaseType::w`/`h`), since squashing a 2×3
-body armour into a square is what makes two candidates hard to tell apart at 46 pixels.
+bundle (`item/resolve`) and so does their **artwork**: `BaseType::art` is the path GGG's own CDN
+serves the picture at, so `data::item_image_url` builds the URL and `IconCache` fetches it —
+**the same picture the game draws, with nothing between the two**. Not poe.ninja: its overviews
+carry a `web.poecdn.com` URL too, but only for what is being *sold* this league, which was 1193 of
+the bundle's 1526 uniques and 27 of the Cobalt Jewel's 54. Off the bundle it is 1416 and 53.
+The **base's inventory footprint** (`BaseType::w`/`h`) is both the size asked of the CDN and the
+aspect it is drawn at — squashing a 2×3 body armour into a square is what makes two candidates
+hard to tell apart at 46 pixels — and it comes off the base because a unique is not a base type in
+the game's data and carries no size of its own. **The art is still never load-bearing**: 110
+uniques have no path, an older bundle has none at all, and a download can be in flight, so a
+candidate with no picture puts its name in the space the picture would have taken.
 Two shapes, and the list's own height picks between them: **one per row with the name** while that
 fits half of what is left of the panel, and past it a **grid of artwork alone** with the name on
 hover, because fifty rows would push the prices and the item itself off the panel entirely. Each is

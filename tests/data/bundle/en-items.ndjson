@@ -1,23 +1,23 @@
 {"craftable":{"category":"Rings"},"dropLevel":20,"h":1,"metadataId":"Metadata/Items/Rings/Ring12","name":"Two-Stone Ring","namespace":"ITEM","refName":"Two-Stone Ring","w":1}
 {"armour":{"es":[171,197]},"craftable":{"category":"Body Armours"},"dropLevel":68,"h":3,"metadataId":"Metadata/Items/Armours/BodyArmours/BodyInt17","name":"Vaal Regalia","namespace":"ITEM","refName":"Vaal Regalia","w":2}
 {"armour":{"es":[26,30],"ev":[126,145]},"craftable":{"category":"Boots"},"dropLevel":70,"h":2,"metadataId":"Metadata/Items/Armours/Boots/BootsAtlas1","name":"Two-Toned Boots","namespace":"ITEM","refName":"Two-Toned Boots","w":2}
-{"name":"Abberath's Hooves","namespace":"UNIQUE","refName":"Abberath's Hooves","unique":{"base":"Goathide Boots"}}
+{"art":"Art/2DItems/Armours/Boots/AbberathsHooves.png","name":"Abberath's Hooves","namespace":"UNIQUE","refName":"Abberath's Hooves","unique":{"base":"Goathide Boots"}}
 {"craftable":{"category":"Divination Cards"},"dropLevel":75,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheDoctor","name":"The Doctor","namespace":"DIVINATION_CARD","refName":"The Doctor","w":1}
 {"craftable":{"category":"Stackable Currency"},"dropLevel":12,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollRare","name":"Chaos Orb","namespace":"ITEM","refName":"Chaos Orb","w":1}
 {"armour":{"ar":[65,71],"es":[14,15]},"craftable":{"category":"Boots"},"dropLevel":36,"h":2,"metadataId":"Metadata/Items/Armours/Boots/BootsStrInt4","name":"Riveted Boots","namespace":"ITEM","refName":"Riveted Boots","w":2}
-{"name":"Ralakesh's Impatience","namespace":"UNIQUE","refName":"Ralakesh's Impatience","unique":{"base":"Riveted Boots"}}
+{"art":"Art/2DItems/Armours/Boots/RalakeshsImpatience.png","name":"Ralakesh's Impatience","namespace":"UNIQUE","refName":"Ralakesh's Impatience","unique":{"base":"Riveted Boots"}}
 {"craftable":{"category":"Jewels"},"dropLevel":20,"h":1,"metadataId":"Metadata/Items/Jewels/JewelStr","name":"Crimson Jewel","namespace":"ITEM","refName":"Crimson Jewel","w":1}
-{"name":"That Which Was Taken","namespace":"UNIQUE","refName":"That Which Was Taken","unique":{"base":"Crimson Jewel"}}
+{"art":"Art/2DItems/Jewels/AfflictionJewel.png","name":"That Which Was Taken","namespace":"UNIQUE","refName":"That Which Was Taken","unique":{"base":"Crimson Jewel"}}
 {"craftable":{"category":"Utility Flasks"},"dropLevel":27,"h":2,"metadataId":"Metadata/Items/Flasks/FlaskUtility14","name":"Silver Flask","namespace":"ITEM","refName":"Silver Flask","w":1}
 {"craftable":{"category":"Utility Flasks"},"dropLevel":27,"h":2,"metadataId":"Metadata/Items/Flasks/FlaskUtility5","name":"Granite Flask","namespace":"ITEM","refName":"Granite Flask","w":1}
-{"name":"Rumi's Concoction","namespace":"UNIQUE","refName":"Rumi's Concoction","unique":{"base":"Granite Flask"}}
+{"art":"Art/2DItems/Flasks/BlockFlask.png","name":"Rumi's Concoction","namespace":"UNIQUE","refName":"Rumi's Concoction","unique":{"base":"Granite Flask"}}
 {"craftable":{"category":"Instance Local Items"},"dropLevel":1,"h":1,"metadataId":"Metadata/Items/TradeProxy/MapKey","name":"Map","namespace":"ITEM","refName":"Map","tradeDisc":"map","w":1}
 {"craftable":{"category":"Maps"},"dropLevel":83,"h":1,"metadataId":"Metadata/Items/Maps/MapKeyShaperGuardian","name":"Shaper Guardian Map","namespace":"ITEM","refName":"Shaper Guardian Map","w":1}
-{"name":"Olmec's Sanctum","namespace":"UNIQUE","refName":"Olmec's Sanctum","tradeDisc":"map","unique":{"base":"Map"}}
+{"art":"Art/2DItems/Maps/olmec.png","name":"Olmec's Sanctum","namespace":"UNIQUE","refName":"Olmec's Sanctum","tradeDisc":"map","unique":{"base":"Map"}}
 {"craftable":{"category":"Maps"},"dropLevel":84,"h":1,"metadataId":"Metadata/Items/Maps/MapKeyReliquary","name":"Valdo Map","namespace":"ITEM","refName":"Valdo Map","w":1}
-{"name":"Hrimsorrow","namespace":"UNIQUE","refName":"Hrimsorrow","unique":{"base":"Goathide Gloves"}}
+{"art":"Art/2DItems/Armours/Gloves/Hrimsorrow.png","name":"Hrimsorrow","namespace":"UNIQUE","refName":"Hrimsorrow","unique":{"base":"Goathide Gloves"}}
 {"armour":{"ev":[32,42]},"craftable":{"category":"Gloves"},"dropLevel":9,"h":2,"metadataId":"Metadata/Items/Armours/Gloves/GlovesDex2","name":"Goathide Gloves","namespace":"ITEM","refName":"Goathide Gloves","w":2}
-{"name":"Hrimburn","namespace":"UNIQUE","refName":"Hrimburn","unique":{"base":"Goathide Gloves"}}
+{"art":"Art/2DItems/Armours/Gloves/Hrimsorrow.png","name":"Hrimburn","namespace":"UNIQUE","refName":"Hrimburn","unique":{"base":"Goathide Gloves"}}
 {"craftable":{"category":"Divination Cards"},"dropLevel":62,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheBlazingFire","name":"The Blazing Fire","namespace":"DIVINATION_CARD","refName":"The Blazing Fire","w":1}
 {"craftable":{"category":"Stackable Currency"},"dropLevel":26,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyEssenceHatred3","name":"Weeping Essence of Hatred","namespace":"ITEM","refName":"Weeping Essence of Hatred","w":1}
 {"craftable":{"category":"Support Gems"},"dropLevel":38,"h":1,"metadataId":"Metadata/Items/Gems/SupportGemAdditionalLevel","name":"Empower Support","namespace":"GEM","refName":"Empower Support","w":1}
