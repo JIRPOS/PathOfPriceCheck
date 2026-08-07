@@ -133,7 +133,25 @@ modifiers, so "LShift" registers as "Shift".
 - **Comments:** doc comments (Doxygen `///`) on public API; inline comments **only for the
   non-obvious** — hacks, surprising behavior, workarounds, protocol quirks. No narration of what the
   code plainly says.
-- **Commit messages / PRs:** precise, not verbose. State what changed and why; skip the essay.
+- **Commit messages / PRs:** precise, not verbose. The **subject is the topic, summarised** — what
+  this commit is about, not a list of what it touched. The body is three labelled groups, always
+  in this order and only the ones that apply:
+
+  ```text
+  ADDED: <one line, one thing>
+  ADDED: <…>
+  CHANGED: <…>
+  REMOVED: <…>
+  ```
+
+  One sentence per line is enough for nearly everything. Where a line needs its *reason* — a
+  measurement, a rejected alternative, a rule that reads backwards without it — put it on the
+  following lines as bullet points under that entry, not in the entry itself.
+
+  A **pull request summarises the commits it contains and invents nothing**: take each commit's
+  own `ADDED:`/`CHANGED:`/`REMOVED:` lines, pool them, and re-sort into the same three groups.
+  Reasons ride along with the lines they belong to. Prefer the commit's wording over a fresh one —
+  the PR is a merge of what is already written, not a second telling of it.
 - **The maintainer is `JIRPOS`.** Use the GitHub alias in every file — docs, licenses, anything
   published. The legal name goes in no file, here or in the data repo. Git's own `user.name` is a
   separate matter and is **not** to be changed: the commits are GPG-signed, the key is bound to
