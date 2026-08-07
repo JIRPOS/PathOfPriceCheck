@@ -74,7 +74,7 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 
 | path | what |
 |---|---|
-| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count |
+| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges |
 | `<config>/cookies.txt` | the cookie jar above |
 | `<cache>/data/<version>/` | the downloaded game-data bundle, plus a `current` pointer |
 | `<cache>/leagues.json`, `<cache>/trade-static.json` | cached trade static data |

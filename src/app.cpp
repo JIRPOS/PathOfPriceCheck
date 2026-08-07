@@ -68,8 +68,9 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
 
 // Settings is a free-floating dialog, centered over the game; only price-check docks. Sized to
 // hold every section without scrolling — the panel is a form, and a form that scrolls hides the
-// Save button under whatever the user was just reading.
-constexpr int kSettingsW = 640, kSettingsH = 860;
+// Save button under whatever the user was just reading. Capped at the game's own height, since
+// a dialog taller than the screen scrolls whatever this says.
+constexpr int kSettingsW = 640, kSettingsH = 980;
 
 // The idle status: two short lines over the middle of the mana globe. Wide enough for a long
 // data version at the size below, and no wider — the window is what swallows mouse input, and
@@ -545,7 +546,8 @@ void App::rebuild_plan() {
     if (item_data_) {
         item::resolve_item(*item_data_, *item_);
         derived_ = item::derive(item_data_.get(), *item_);
-        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
+                                 config_.range_match);
         price_reference();
     } else {
         // No bundle yet: the item still parses and renders, it just cannot be priced.
@@ -557,7 +559,8 @@ void App::rebuild_plan() {
 void App::set_strategy(item::Strategy s) {
     strategy_override_ = s;
     if (item_ && item_data_) {
-        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
+                                 config_.range_match);
         // The strategy is what decides whether poe.ninja prices this at all — a rare read as
         // a base item has no reference price, and switching back has to bring it back.
         price_reference();
@@ -731,9 +734,9 @@ void App::place_overlay() {
     }
 
     if (screen_ == Screen::Settings) {
-        SDL_SetWindowSize(overlay_.window(), kSettingsW, kSettingsH);
-        SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2,
-                              gy + (gh - kSettingsH) / 2);
+        const int sh = std::min(kSettingsH, gh);
+        SDL_SetWindowSize(overlay_.window(), kSettingsW, sh);
+        SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2, gy + (gh - sh) / 2);
         layout_ = PanelLayout{0, kSettingsW, 0, 0};
         return;
     }

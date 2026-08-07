@@ -8,6 +8,7 @@
 #include "data/game_data.hpp"
 #include "item/derive.hpp"
 #include "item/item.hpp"
+#include "item/range_match.hpp"
 
 namespace ppc::item {
 
@@ -41,12 +42,19 @@ struct StatFilter {
     data::ModType type = data::ModType::Explicit;
     bool enabled = false;
     std::optional<double> min, max;
-    /// The bounds are the affix tier's own range, from Advanced Mod Descriptions. Without
-    /// them all we can say is "at least what it rolled".
+    /// The modifier's own tier range is known — Advanced Mod Descriptions printed one, or the
+    /// per-unique data supplied it — so `BoundMode::WithinTiered` had something to gate the
+    /// bounds against. Without it all a filter can say is what the roll itself is worth.
     bool tiered = false;
     /// The trade site indexes this stat with the opposite sign; the query builder flips it.
     bool inverted = false;
     int dp = 0;
+
+    /// What this modifier *can* roll, whichever source said so: the affix tier's own range
+    /// where Advanced Mod Descriptions printed one, the per-unique record's range otherwise.
+    /// Kept apart from `min`/`max` on purpose — those are what the search asks for, and the
+    /// two are only equal until the asking is something the user can edit.
+    std::optional<double> roll_min, roll_max;
 
     // From the bundle's per-unique modifier data, on a unique it has a record of.
     /// The unique picks this modifier from a pool rather than always having it, so not every
@@ -54,9 +62,6 @@ struct StatFilter {
     /// never reveal — Ralakesh's Impatience rolls one of three charge modifiers, each 1..1.
     bool pooled = false;
     std::string pool_hint; ///< the source's prose for that pool, when it states one
-    /// What this modifier can roll on this unique, whether or not the game printed a range —
-    /// the clipboard only prints one with Advanced Mod Descriptions on.
-    std::optional<double> unique_min, unique_max;
 };
 
 /// A numeric trade filter: `key` is the name in the trade query's filter groups.
@@ -101,8 +106,9 @@ Strategy default_strategy(const Item& it);
 
 /// Build the plan. `force` overrides the strategy — a rare with a fractured mod or a good
 /// base is often worth more as a base item than as the sum of its rolls, and only the user
-/// knows which they meant.
+/// knows which they meant. `rm` is how wide each modifier's filter is seeded; it is a setting
+/// rather than a fact about the item, which is why it arrives from outside.
 SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d,
-                      std::optional<Strategy> force = std::nullopt);
+                      std::optional<Strategy> force = std::nullopt, const RangeMatch& rm = {});
 
 } // namespace ppc::item

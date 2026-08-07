@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <ctime>
 #include <memory>
-#include <span>
 #include <string>
 #include <vector>
 
@@ -34,28 +33,32 @@ std::string format_number(double v, int dp) {
     return buf;
 }
 
-/// "80 to 89", "at least 42", or nothing at all for a mod with no roll to filter on.
-std::string bounds_text(const std::optional<double>& min, const std::optional<double>& max,
-                        int dp) {
+/// What the search asks for, in the column it shares with every other filter's answer to the
+/// same question: two bounds as `46-48`, a floor as `≥46`, a ceiling as `≤50`, a point as a
+/// bare number, and nothing at all for a filter that asks only that the modifier be present.
+///
+/// The real glyphs are **borrowed from a system face** — Fontin's own are empty outlines, so
+/// they used to paint nothing at all (see `kBorrowedGlyphs`). `glyphs` is false only where the
+/// OS shipped nothing to borrow from, and then they are spelled out: a floor whose `≥` went
+/// missing reads as an exact match, which is a different search.
+std::string filter_text(const std::optional<double>& min, const std::optional<double>& max, int dp,
+                        bool glyphs) {
     if (min && max) {
         if (*min == *max) return format_number(*min, dp);
-        return format_number(*min, dp) + " to " + format_number(*max, dp);
+        return format_number(*min, dp) + "-" + format_number(*max, dp);
     }
-    if (min) return format_number(*min, dp) + "+";
-    // Not "up to": the filter asks for -11 and everything past it, and "up to -11" reads to
-    // half the world as the range between zero and -11.
-    if (max) return format_number(*max, dp) + " or lower";
+    if (min) return (glyphs ? "\xe2\x89\xa5" : ">=") + format_number(*min, dp);
+    if (max) return (glyphs ? "\xe2\x89\xa4" : "<=") + format_number(*max, dp);
     return {};
 }
 
-/// The same, in the compact form the stat rows use: "[77-90]" for a bounded search, "42+" for
-/// a search that only has a floor.
-std::string range_text(const std::optional<double>& min, const std::optional<double>& max,
-                       int dp) {
-    if (min && max && *min != *max)
-        return "[" + format_number(*min, dp) + "-" + format_number(*max, dp) + "]";
-    if (min && max) return "[" + format_number(*min, dp) + "]";
-    return bounds_text(min, max, dp);
+/// What the modifier *can* roll, beside where it came from: "[77-90]". Empty unless both ends
+/// are known, since half a range says nothing the filter column does not already say.
+std::string bracket_text(const std::optional<double>& min, const std::optional<double>& max,
+                         int dp) {
+    if (!min || !max) return {};
+    if (*min == *max) return "[" + format_number(*min, dp) + "]";
+    return "[" + format_number(*min, dp) + "-" + format_number(*max, dp) + "]";
 }
 
 /// The trade site's own colours for the two halves of the mod pool, which is where the user
@@ -69,32 +72,91 @@ struct Code {
     ImVec4 colour = kBounds;
 };
 
+/// The short name for a modifier that is not a rolled affix — the ones the game prints in
+/// their own colour rather than in the explicit blue. `data::trade_prefix` is the long form
+/// and does not fit a column four characters wide.
+std::string_view type_code(data::ModType t) {
+    switch (t) {
+        case data::ModType::Implicit: return "Impl";
+        case data::ModType::Enchant: return "Ench";
+        case data::ModType::Fractured: return "Frac";
+        case data::ModType::Veiled: return "Veil";
+        case data::ModType::Scourge: return "Scrg";
+        case data::ModType::Crucible: return "Cruc";
+        default: return {};
+    }
+}
+
 /// Where a modifier came from, as short as it goes: "P2" is a tier-2 prefix, "S1" a tier-1
-/// suffix, "R" a crafted one. Empty without Advanced Mod Descriptions, which is the only thing
-/// that says which side of the pool a roll is from. A crafted mod is still a prefix or a
-/// suffix, so the colour says which even though the letter no longer does.
+/// suffix, "R" a crafted one, "Impl" an implicit, "Frac2" a tier-2 fractured affix. Empty for
+/// an ordinary roll on an item whose owner has Advanced Mod Descriptions off, which is the only
+/// thing that says which side of the pool a roll came from.
+///
+/// **The colour is the side of the pool and the letters are what put the modifier there**, so
+/// the two never compete for the same four characters: a fractured prefix is a red "Frac", and
+/// what a buyer needs to know about it first is that it is fractured.
 Code affix_code(const item::Modifier& m) {
     Code c;
+    if (m.affix == item::Affix::Prefix) c.colour = kPrefix;
+    else if (m.affix == item::Affix::Suffix) c.colour = kSuffix;
     if (m.type == data::ModType::Crafted) c.text = "R";
+    else if (const std::string_view t = type_code(m.type); !t.empty()) c.text = t;
     else if (m.affix == item::Affix::Prefix) c.text = "P";
     else if (m.affix == item::Affix::Suffix) c.text = "S";
     else return {};
-    if (m.affix == item::Affix::Prefix) c.colour = kPrefix;
-    else if (m.affix == item::Affix::Suffix) c.colour = kSuffix;
     if (const int n = m.tier ? m.tier : m.rank) c.text += std::to_string(n);
     return c;
 }
 
-/// One code per modifier folded into the filter — two life rolls are searched as their total
-/// but are still two affixes, and the user is picking which to keep.
-std::vector<Code> affix_codes(const item::Item& it, const item::StatFilter& f) {
-    std::vector<Code> out;
+/// The origin column: where the filter's modifiers came from and what they can roll. One code
+/// per modifier `merge_same_stat` folded in — two life rolls are searched as their total but
+/// are still two affixes, and the user is picking which to keep.
+struct Origin {
+    std::vector<Code> codes;
+    /// An eldritch implicit's rank, "Lesser" / "Grand" / …, which is the only way that kind of
+    /// modifier states its magnitude: it comes from the tier of the currency that applied it,
+    /// so the clipboard has no range to print instead.
+    std::string qualifier;
+    std::string range; ///< "[77-90]", what the modifier can roll
+};
+
+Origin origin_of(const item::Item& it, const item::StatFilter& f) {
+    Origin o;
+    o.range = bracket_text(f.roll_min, f.roll_max, f.dp);
     // A pseudo total has no modifier behind it to have come from a side of the pool.
-    if (!f.mod_index) return out;
-    if (Code c = affix_code(it.mods[*f.mod_index]); !c.text.empty()) out.push_back(std::move(c));
+    if (!f.mod_index) return o;
+    const item::Modifier& m = it.mods[*f.mod_index];
+    o.qualifier = m.qualifier;
+    if (Code c = affix_code(m); !c.text.empty()) o.codes.push_back(std::move(c));
     for (const size_t i : f.merged)
-        if (Code c = affix_code(it.mods[i]); !c.text.empty()) out.push_back(std::move(c));
-    return out;
+        if (Code c = affix_code(it.mods[i]); !c.text.empty()) o.codes.push_back(std::move(c));
+    return o;
+}
+
+/// The origin column. The code and the range are glued together — `P2[77-90]` — because they
+/// are one fact about one affix. A filter two affixes were folded into writes them as `P3+P1`
+/// and drops the range to a line of its own, since it is then the pair's total and belongs to
+/// neither code on its own.
+void draw_origin(const Origin& o) {
+    bool anything = false;
+    for (size_t i = 0; i < o.codes.size(); ++i) {
+        if (i) {
+            ImGui::SameLine(0.0f, 0.0f);
+            ImGui::TextDisabled("+");
+            ImGui::SameLine(0.0f, 0.0f);
+        }
+        ImGui::TextColored(o.codes[i].colour, "%s", o.codes[i].text.c_str());
+        anything = true;
+    }
+    // The rank goes below the code rather than beside it: the column is as wide as its widest
+    // row, and "Impl Lesser" on one line would set that width for every modifier in the list.
+    if (!o.qualifier.empty()) {
+        ImGui::TextDisabled("%s", o.qualifier.c_str());
+        anything = true;
+    }
+    if (o.range.empty()) return;
+    if (anything && o.codes.size() <= 1) ImGui::SameLine(0.0f, 0.0f);
+    ImGui::TextColored(kBounds, "%s", o.range.c_str());
 }
 
 void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan) {
@@ -124,58 +186,81 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     if (!target.empty()) ImGui::TextColored(kDim, "%s", target.c_str());
 }
 
-/// One filter row: a toggle, where the modifier came from, what it asks for, and the wording.
-/// The codes and bounds go first because they are the part being compared; the wording wraps
-/// under them.
-void draw_filter_row(int id, bool& enabled, std::span<const Code> codes, const std::string& bounds,
-                     const std::string& text, const std::string& note) {
+/// One filter row, across the table's four columns: the toggle, the wording, where the modifier
+/// came from and what it can roll, and what the search asks for.
+///
+/// The wording comes **second**, straight after the tick, because it is the only column every
+/// row has something to put in: a pseudo total has no affix behind it and a roll on an item with
+/// Advanced Mod Descriptions off has no code, and a gap between the tick and the text reads as a
+/// missing checkbox rather than as a modifier with nothing to say about where it came from.
+void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& text,
+                     const std::string& note, const std::string& asks) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
     ImGui::PushID(id);
+    // A box the height of a line of text rather than of a framed widget. This is a list of
+    // modifiers with a tick beside each, and at the default frame padding the tick is taller
+    // than the wording it belongs to and sets the row pitch for the whole list.
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
     ImGui::Checkbox("", &enabled);
+    ImGui::PopStyleVar();
     ImGui::PopID();
-    ImGui::SameLine();
-    const float indent = ImGui::GetCursorPosX();
-    for (const Code& c : codes) {
-        ImGui::TextColored(c.colour, "%s", c.text.c_str());
-        ImGui::SameLine();
-    }
-    if (!bounds.empty()) {
-        ImGui::TextColored(kBounds, "%s", bounds.c_str());
-        ImGui::SameLine();
-    }
+
+    ImGui::TableSetColumnIndex(1);
     ImGui::PushTextWrapPos(0.0f);
     ImGui::TextUnformatted(text.c_str());
-    if (!note.empty()) {
-        ImGui::SetCursorPosX(indent);
-        ImGui::TextColored(kDim, "%s", note.c_str());
-    }
+    if (!note.empty()) ImGui::TextColored(kDim, "%s", note.c_str());
     ImGui::PopTextWrapPos();
+
+    ImGui::TableSetColumnIndex(2);
+    draw_origin(o);
+
+    ImGui::TableSetColumnIndex(3);
+    if (!asks.empty()) ImGui::TextColored(kBounds, "%s", asks.c_str());
 }
 
-void draw_filters(const item::Item& it, item::SearchPlan& plan) {
-    for (size_t i = 0; i < plan.numerics.size(); ++i) {
-        item::NumericFilter& f = plan.numerics[i];
-        draw_filter_row(static_cast<int>(i), f.enabled, {}, bounds_text(f.min, f.max, f.dp),
-                        f.label, f.note);
-    }
-    for (size_t i = 0; i < plan.stats.size(); ++i) {
-        item::StatFilter& f = plan.stats[i];
-        const std::vector<Code> codes = affix_codes(it, f);
-        std::string bounds = range_text(f.min, f.max, f.dp);
-        // What the unique itself can roll, which the clipboard only prints with Advanced Mod
-        // Descriptions on. A point range says nothing a reader cannot see.
-        if (f.unique_min && f.unique_max && *f.unique_min != *f.unique_max)
-            bounds += " of " + range_text(f.unique_min, f.unique_max, f.dp);
-        std::string note;
-        if (f.type != data::ModType::Explicit) note = data::trade_prefix(f.type);
-        // Why this one is ticked on a unique whose other modifiers are not: the item picked
-        // it out of a pool, so it is what separates this copy from every other.
-        if (f.pooled) {
-            if (!note.empty()) note += " \xe2\x80\x94 ";
-            note += f.pool_hint.empty() ? "one of several possible modifiers" : f.pool_hint;
+/// The filter list, as a table so that every row's numbers sit under the previous row's. What
+/// the search asks for is the **last** column and not part of the origin beside the code: it is
+/// the one thing here that the user will be editing.
+///
+/// The wording takes the stretch column and everything else fits its content, so the two number
+/// columns are as narrow as the widest row needs and the modifier gets the rest.
+void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
+    const ImGuiStyle& style = ImGui::GetStyle();
+    // Tight rows: a filter list is read down the column, and the default spacing puts half a
+    // line of nothing between one modifier and the next.
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(style.CellPadding.x, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(style.ItemSpacing.x, 1.0f));
+    // Banded rather than ruled off: a modifier can wrap onto three lines and its origin onto
+    // two, so what a reader needs is to see where one row ends, and a separator between every
+    // pair of them would cost a line of height per filter to say it.
+    constexpr ImGuiTableFlags kFlags = ImGuiTableFlags_SizingFixedFit |
+                                       ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg;
+    if (ImGui::BeginTable("filters", 4, kFlags)) {
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+
+        for (size_t i = 0; i < plan.numerics.size(); ++i) {
+            item::NumericFilter& f = plan.numerics[i];
+            draw_filter_row(static_cast<int>(i), f.enabled, {}, f.label, f.note,
+                            filter_text(f.min, f.max, f.dp, glyphs));
         }
-        draw_filter_row(static_cast<int>(1000 + i), f.enabled, codes, bounds,
-                        strip_roll_ranges(f.text), note);
+        for (size_t i = 0; i < plan.stats.size(); ++i) {
+            item::StatFilter& f = plan.stats[i];
+            // Why this one is ticked on a unique whose other modifiers are not: the item picked
+            // it out of a pool, so it is what separates this copy from every other.
+            std::string note;
+            if (f.pooled)
+                note = f.pool_hint.empty() ? "one of several possible modifiers" : f.pool_hint;
+            draw_filter_row(static_cast<int>(1000 + i), f.enabled, origin_of(it, f),
+                            strip_roll_ranges(f.text), note,
+                            filter_text(f.min, f.max, f.dp, glyphs));
+        }
+        ImGui::EndTable();
     }
+    ImGui::PopStyleVar(2);
 }
 
 constexpr ImVec4 kUp(0.40f, 0.78f, 0.42f, 1.0f);
@@ -890,7 +975,7 @@ void draw_pricecheck_screen(App& app) {
             if (searchable) {
                 draw_strategy_picker(app, *it, plan);
                 ImGui::Dummy(ImVec2(0, 4));
-                draw_filters(*it, plan);
+                draw_filters(*it, plan, app.fonts().has_comparison_glyphs);
                 // A dropped filter has to be visible: silently searching without it reads as a
                 // successful price check on an item that is not this one.
                 ImGui::PushTextWrapPos(0.0f);

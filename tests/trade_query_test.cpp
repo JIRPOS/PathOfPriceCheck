@@ -202,10 +202,14 @@ TEST_CASE("numeric filters land in the group the API files them under") {
     add("ilvl", 84, true);
     add("es", 300, true);
     add("pdps", 400, true);
+    // Where the base's roll sits in its range is an armour filter on the site, not a weapon
+    // one, and not a number the item's own defence carries.
+    add("base_defence_percentile", 78, true);
     add("quality", 23, false); // untouched by the user, so not sent
     const json filters = query_of(p)["filters"];
     CHECK(filters["misc_filters"]["filters"]["ilvl"]["min"] == 84);
     CHECK(filters["armour_filters"]["filters"]["es"]["min"] == 300);
+    CHECK(filters["armour_filters"]["filters"]["base_defence_percentile"]["min"] == 78);
     CHECK(filters["weapon_filters"]["filters"]["pdps"]["min"] == 400);
     CHECK_FALSE(filters["misc_filters"]["filters"].contains("quality"));
 }

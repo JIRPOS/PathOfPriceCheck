@@ -285,6 +285,13 @@ driven by a PC client. Two invariants: the dropdown is never empty (fallback →
 the configured league is never lost — it is the combo preview and is appended as a selectable when
 a fetch does not contain it, which is exactly what happens on league-launch day. No request is made
 unless Settings is opened. `poe_window_title` is config-file-only, deliberately not in the UI.
+**Filter ranges** is two rows of the same shape (`bound_row`), one per side of the interval every
+modifier's filter opens to — see `item/range_match`. The percentage box beside each is *disabled*
+rather than hidden for the two modes that do not read it: the dialog is sized to hold every section
+without scrolling, and a row whose height depends on its own value breaks that for whichever mode
+happens to be picked. The size is `kSettingsW × kSettingsH` **capped at the game's height**, since a
+dialog taller than the screen scrolls whatever that constant says; measure the content against the
+window before adding a section rather than guessing at the new number.
 
 Five SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
 data-updater state, trade result, poe.ninja result, currency-exchange result. Async results are **not** routed through `Action` — `handle_action()` gates on
@@ -347,7 +354,31 @@ embedded, because a CJK collection is ~19MB — several times the whole executab
 for everyone whose results are Latin. The files are **mapped, not read** (`data::MappedFile`, with
 `FontDataOwnedByAtlas = false`): ImGui 1.92 rasterizes on demand and keeps the bytes for the life of
 the atlas, so a face nothing on screen needs costs address space rather than resident memory. The
-mappings are a function-local static and must outlive the atlas.
+mappings are a function-local static and must outlive the atlas — and a pointer *into* that vector
+does not, because it grows; what survives a reallocation is the address the file was mapped at, so
+`FontBytes` copies that out at map time.
+
+**Fontin's `≤` and `≥` are empty outlines, and its cmap does not say so.** Both codepoints map to a
+real glyph id whose `glyf` entry is **zero bytes**, so text laid out with them advances the right
+width and paints nothing — not even the missing-glyph box that would have made it obvious, which is
+how they shipped looking verified. **A cmap entry is not evidence that a font can draw something;
+the glyph's own length is.** So `kBorrowedGlyphs` excludes the two from every Fontin source and they
+are merged in from a system face, which is what keeps the digits beside them in Fontin.
+`ImFontConfig::GlyphExcludeRanges` is what makes that possible at all — a merged source only ever
+serves a codepoint no earlier source claims, and Fontin claims these. Three consequences:
+the borrowed source carries `kOnlyBorrowed`, the *complement* of those two codepoints, because
+ImGui 1.92 loads glyphs on demand and **ignores `GlyphRanges` while doing it** — without the
+exclusion the borrowed face would also serve every script Fontin lacks, quietly replacing the boxes
+`fonts.unicode` exists to draw properly;
+`math_faces()` is its own list and not `system_faces()`, since covering the Latin scripts says
+nothing about the mathematical operators (Noto Sans, the usual first hit there, has neither, having
+split them into a Noto Sans Math nobody installs by default);
+and the result is **asked rather than assumed** — `FindGlyphNoFallback` after loading, which bakes
+on demand and answers null only when no source served the codepoint. That answer is
+`Fonts::has_comparison_glyphs`, and the price-check panel spells the two out as `>=` and `<=` when
+it is false, because a floor of 46 that loses its `≥` reads as an exact match, which is a different
+search. `×` (U+00D7) is the same argument and is left alone only because nothing draws one — it is
+absent from Fontin's cmap outright, so adding it to `kBorrowedGlyphs` is all it would take.
 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
 so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
@@ -472,11 +503,41 @@ bundle, and only the third and fourth encode pricing judgement.
   shield hybrid whose two percentiles disagree is showing rounding, not two rolls. A defence with no
   published range makes the two sums incomparable, so there is no percentile at all. There is no
   weapon percentile: the bundle publishes defence ranges for armour bases but no damage ranges for
-  weapon bases.
+  weapon bases. It is a **filter and not a remark** — `armour_filters.base_defence_percentile` on
+  the trade site — and it is **floored, never rounded**, because the filter is a minimum and a
+  78.6th-percentile item asked for at 79 does not match itself. Ticked only on a `BaseItem` plan,
+  where the base's roll is what is being bought; on a modifier search the defence totals already
+  carry it, and asking the same question twice only drops the listings that answer it once.
+- **`item/range_match`** — how wide a filter opens around the roll. It is the one input here that
+  is a **setting rather than a fact about the item**, which is why it arrives from outside as a
+  `RangeMatch` and `Config` is the only thing that owns one. Each side of the interval is
+  `Unbound` (fill nothing), `Exact` (the roll), `Within` (a percentage of it) or `WithinTiered`
+  (the same, gated by what the modifier's own tier can roll), and the default is **tier-gated 5%
+  on both**: what a buyer wants is a copy that rolled about what theirs did, and a bound outside
+  the affix's own tier can only drop the listings that answer the question exactly. Four things
+  that are easy to get wrong.
+  The window is **rounded outwards at the filter's own last digit** — floor the lower bound, ceil
+  the upper — so rounding never asks for a roll the item in hand does not have, and any non-zero
+  percentage moves the bound by at least one digit (5% of 20 is exactly 1, 5% of 1 is a twentieth,
+  and both still move by one).
+  The slack comes off the **magnitude**, so a negative roll widens outwards like a positive one:
+  -11 opens to -12..-10 rather than to that pair read backwards.
+  **`lower_is_better` swaps which mode governs which side**, because "Minimum" means the bound
+  that says *at least this good* and on a modifier the game prints negative that is the upper one.
+  It is invisible while the two modes agree — a symmetric window is symmetric either way round —
+  which is why the tests state that case with one side `Unbound`.
+  And the tier gate **never crosses the roll**: a legacy roll sits outside the range its modifier
+  publishes today, and gating to that would ask for a copy of the item that is not this one.
+  `WithinTiered` falls back to `Within` where no tier is known at all.
+  It seeds **stat filters on every strategy** — the old split, where a `Modifiers` plan took the
+  whole tier range and everything else took "no worse than this", is gone; both are now points on
+  the same dial. It deliberately does *not* touch the numeric filters: those are thresholds on a
+  total ("at least this much armour"), and a maximum on one rules out the strictly better items a
+  buyer would still take.
 - **`item/plan`** — `SearchPlan`: strategy, category/name/type, corruption, influences, stat filters
   and numeric filters, plus **`notes` for everything deliberately left out**. Strategy decides what
-  matters: `Modifiers` (magic/rare) enables every mod and bounds it by the tier it rolled when
-  Advanced Mod Descriptions gave a range, and names no base — **except on a flask**, whose base is
+  matters: `Modifiers` (magic/rare) enables every mod and seeds its bounds off the roll it made
+  (how wide is `item/range_match`, above), and names no base — **except on a flask**, whose base is
   half of what its mods are worth (the same suffix is a sought-after roll on a Quicksilver Flask
   and nothing on a Ruby one, and trade files every flask under one category, so the `type` is the
   only place to say which). Only ever off a **resolved** base: an unstripped magic name
@@ -519,11 +580,12 @@ bundle, and only the third and fourth encode pricing judgement.
   because a range is a range whichever source stated it. The one thing that does *not* work in
   reverse is a record calling a modifier fixed — the item's own printed range outranks a record
   about the unique in general.
-  An unbounded filter asks for "no worse than this", and **worse is not always smaller**: a mod
-  the game prints negative is better the more negative it is (an eldritch implicit applying `-11%`
-  to Cold Resistance — its magnitude comes from the currency tier, so the clipboard prints no range
-  to bound it with), and so is a stat the bundle marks `better: -1`. Both get the roll as a
-  **maximum**. The sign is what carries the direction for the rest, because the canonical wording
+  A filter with one side left open asks for "no worse than this", and **worse is not always
+  smaller**: a mod the game prints negative is better the more negative it is (an eldritch implicit
+  applying `-11%` to Cold Resistance — its magnitude comes from the currency tier, so the clipboard
+  prints no range to bound it with), and so is a stat the bundle marks `better: -1`. Both put the
+  open side at the top, which is what `seed_bounds` swapping the two modes does. The sign is what
+  carries the direction for the rest, because the canonical wording
   already does — "#% reduced Mana Cost" is stored as a negative increase. It reads wrong only for a
   negative roll of a stat that also rolls positive, i.e. a resistance penalty, which is a drawback
   on a unique rather than something a buyer searches for.
@@ -532,6 +594,36 @@ bundle, and only the third and fourth encode pricing judgement.
   added-damage mod is indexed as **the average of its two numbers** while every other multi-number
   wording is indexed on its **first** ("15% chance to Unnerve … for 4 seconds" is searched on 15,
   not on 9.5) — hence `StatMatch::roll_bounds` being per roll.
+  The **weapon numerics** are the three DPS totals, plus attacks per second and critical strike
+  chance — and those last two are ticked **only where the game printed the property augmented**,
+  i.e. where a modifier on this copy raised it above the base's own. Every weapon has both numbers
+  and on most of them they are the base's, so asking for one rules out nothing but the same weapon
+  in somebody else's stash. The augmented marker is the whole of the evidence: the bundle publishes
+  no base crit chance or attack speed to compare against.
+  **A modifier already inside a searched number is not searched again by name**
+  (`unimpose_derived_mods`, off `derived_filter_keys` in `item/derive`). A local roll is not
+  something the item has beside its armour — it *is* part of the armour the item displays — so a
+  query carrying both the number and the modifier behind it asks one question twice, and the
+  second asking is the brittle half: a flat roll and a local increase reach the same armour by
+  different routes, and naming this item's route rules out every other way of arriving at the
+  number the buyer wants. So the derived value is imposed and the modifier is only offered —
+  *left* in the list, not removed. It is conditional on the derived filter actually being
+  enabled: on a unique, where the defences and DPS are offered rather than imposed, the modifier
+  is all there is to ask about.
+  **A fractured roll is the exception and keeps its filter.** It cannot be re-rolled and it is
+  what survives every craft the buyer will do afterwards, so *which* modifier reached the number
+  is the point of the item rather than an over-constraint on it — and trade indexes it in a
+  namespace of its own (`fractured.stat_…`, which `to_filter` already sends off `Modifier::type`,
+  alongside the item-level `misc_filters.fractured_item`), so it is a different question from the
+  same wording rolled ordinarily. A crafted roll gets no such exemption: a bench craft is
+  something any buyer can add.
+  **Locality is the whole of it** and is decided in `item/derive` rather than in the data, from
+  the same wordings and the same guards `sum_locals` uses — "20% increased Attack Speed" is the
+  weapon's own only on a weapon, and "#% increased Energy Shield" the item's own only where the
+  item displays energy shield. Attack speed feeds `aps` *and* all three DPS numbers; added
+  elemental damage feeds `edps` and `dps` but not `pdps`; "#% increased Elemental Damage" feeds
+  none of them, because it never touches what the weapon displays. The base percentile is the one
+  derived number a local roll is **not** inside: it is recovered by taking those rolls back out.
 - **`item/plan`'s per-unique join** (`apply_unique_mods`) is what makes a unique searchable at all.
   A unique's modifier can be variable **without printing a range**: Ralakesh's Impatience rolls one of
   three charge mods, each `1..1`, and the clipboard prints that exactly like the four every copy has.
@@ -754,12 +846,43 @@ tooltip ("(Onslaught grants 20% increased Attack, Cast, and Movement Speed)"). N
 lost: `Modifier::info_text()` carries the tier's range with it (`(Tier: 2 [77-90])`), a continuation
 line repeats its affix because that is where the reader gets *its* range, and every derived number
 is a small grey line under the property block it summarises — the DPS totals under the last damage
-line, the base percentile under the last defence line. A filter row leads with where its modifier
-came from and what it asks for: `P2 [77-90]` is a tier-2 prefix, `S1` a suffix, `R` crafted, one code
-per modifier `merge_same_stat` folded in (`StatFilter::merged`). The code is **coloured by which
-half of the pool it came from** — red prefix, blue suffix, as the trade site does it — which is also
-what says whether a crafted `R` is a prefix or a suffix, since its letter no longer can. The
-item and its plan live on `App`, alongside **the bundle snapshot they were resolved against** —
+line, the base percentile under the last defence line.
+
+**The filter list is a four-column table** (`draw_filters`), so that every row's numbers sit under
+the previous row's: the toggle, the wording, where the modifier came from, and what the search asks
+for. The **wording is second, straight after the tick**, because it is the only column every row
+has something to put in — a pseudo total has no affix behind it and a roll on an item with Advanced
+Mod Descriptions off has no code, and a gap between the tick and the text reads as a missing
+checkbox. It takes the stretch column; everything else fits its content.
+
+Column three glues the code to the modifier's own range — `P2[77-90]` is a tier-2 prefix, `S1` a
+suffix, `R` crafted, `Impl` an implicit, `Frac` a fractured affix — with one code per modifier
+`merge_same_stat` folded in (`StatFilter::merged`), joined as `P3+P1` and then dropping the range to
+a line below, since it is the pair's total and belongs to neither code alone. An eldritch implicit's
+rank (`Modifier::qualifier`) goes on its own line for the same reason a compound's range does: the
+column is as wide as its widest row, and `Impl Lesser` on one line sets that width for every
+modifier in the list. **The colour is the side of the pool and the letters are what put the modifier
+there** — red prefix, blue suffix, as the trade site does it — so the two never compete for the same
+four characters: a fractured prefix is a red `Frac`, and what a buyer needs to know about it first
+is that it is fractured.
+
+Column four is **what the search asks for**, and it is last rather than beside the code because it
+is the one thing here that becomes editable: `46-48` between two bounds, `≥46` for a floor, `≤50`
+for a ceiling (**borrowed** glyphs — Fontin's own are blank outlines, see Fonts above — spelled out
+as `>=` and `<=` where there was nothing to borrow from), and **nothing at all** for a
+filter that only asks the modifier to be present. It is `StatFilter::min`/`max`, while the origin
+column is `roll_min`/`roll_max` — what the modifier *can* roll against what the search asks of it,
+which is why they are two fields: the range-match setting is exactly the distance between them, so
+`[77-90]` beside `81-90` is the 5% window doing its job. The numeric filters share the table, so a defence
+and a modifier line their numbers up in the same column. Row pitch is squashed (`CellPadding`,
+`ItemSpacing`) and the checkbox is drawn at zero `FramePadding`, i.e. a square the height of a line
+of text: at the default it is taller than the wording beside it and sets the pitch for the whole
+list. Rows are told apart by **alternating background** (`ImGuiTableFlags_RowBg`) and not by
+separators: a modifier can wrap onto three lines and its origin onto two, so what the reader needs
+is to see where one row ends — and a rule between every pair would spend a line of height per
+filter to say it.
+
+The item and its plan live on `App`, alongside **the bundle snapshot they were resolved against** —
 `item_data_` is held separately from `data_` because the updater swaps that from its own thread and
 the item holds raw pointers into it.
 

@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 
+#include "item/range_match.hpp"
 #include "platform/input.hpp"
 #include "trade/trade.hpp"
 
@@ -36,6 +37,10 @@ struct Config {
     /// what most people now mean by "for sale". Validated on load against that closed list,
     /// unlike `league`, because a value GGG does not know makes every search fail outright.
     std::string listing_status{trade::kDefaultStatus};
+
+    /// How wide each modifier's filter is seeded around the roll in hand — the tier-gated 5%
+    /// window by default. See item/range_match.hpp for what each mode means.
+    item::RangeMatch range_match;
 
     /// How many listings a search pulls — one of `trade::result_counts()`. Every ten is one
     /// more fetch request against a policy that allows 50 per five minutes, so this is a

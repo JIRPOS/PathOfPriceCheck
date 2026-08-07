@@ -34,6 +34,13 @@ STATS = [
     "#% increased Physical Damage",
     "#% increased Attack Speed",
     "#% reduced Action Speed",
+    # Added elemental damage feeds `edps` and not `pdps`, which is the other half of the rule
+    # that a modifier already inside a searched number is not searched again by name. Global
+    # critical strike multiplier is the control: it reads like a weapon number and is in none
+    # of them, because trade's `crit` is the weapon's own chance.
+    "Adds # to # Fire Damage",
+    "Adds # to # Lightning Damage",
+    "#% to Global Critical Strike Multiplier",
     # Ralakesh's Impatience, whose pool of three charge modifiers is the case per-unique
     # modifier data exists for: each rolls 1..1, so no printed range can reveal it.
     "#% to Chaos Resistance",

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <optional>
+#include <string_view>
+#include <vector>
 
 #include "data/game_data.hpp"
 #include "item/item.hpp"
@@ -42,5 +44,15 @@ struct Derived {
 
 /// `gd` is only needed for base-defence ranges (the percentiles); pass null without a bundle.
 Derived derive(const data::GameData* gd, const Item& it);
+
+/// The `NumericFilter::key`s whose value this modifier is **already inside** — "ar", "pdps",
+/// "aps" and the rest. A local roll is not a thing the item has beside its armour, it is part
+/// of the armour the item displays, so a search filtering on both asks the same question twice.
+///
+/// Locality is the whole of it and is decided here rather than in the data: "20% increased
+/// Attack Speed" is the weapon's own only on a weapon, and "#% increased Energy Shield" is the
+/// item's own only where the item displays energy shield. Empty for the modifiers that feed no
+/// derived number, which is most of them.
+std::vector<std::string_view> derived_filter_keys(const Item& it, const Modifier& m);
 
 } // namespace ppc::item

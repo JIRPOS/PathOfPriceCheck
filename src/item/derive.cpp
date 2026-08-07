@@ -40,6 +40,15 @@ constexpr std::array<LocalDefence, 15> kLocalDefences{{
 constexpr std::string_view kLocalPhysical = "#% increased Physical Damage";
 constexpr std::string_view kFlatPhysical = "Adds # to # Physical Damage";
 
+/// The wordings the game folds into a weapon's own properties, as against the ones that only
+/// act on the character holding it. "#% increased Elemental Damage" is deliberately absent:
+/// it never touches the elemental damage the weapon displays, so it is not inside `edps`.
+constexpr std::string_view kFlatElemental[]{"Adds # to # Fire Damage", "Adds # to # Cold Damage",
+                                            "Adds # to # Lightning Damage"};
+constexpr std::string_view kFlatChaos = "Adds # to # Chaos Damage";
+constexpr std::string_view kLocalAttackSpeed = "#% increased Attack Speed";
+constexpr std::string_view kLocalCrit = "#% increased Critical Strike Chance";
+
 /// A mod's roll, from the matcher when it resolved and from the text when it did not — the
 /// numbers here decide a search's bounds, so they must not depend on a bundle being loaded.
 std::optional<double> roll_of(const Modifier& m, const std::string& line) {
@@ -199,6 +208,56 @@ Derived derive(const data::GameData* gd, const Item& it) {
     }
     if (ranges_complete && it.has_defences()) d.base_pct = percentile(base_sum, range_lo, range_hi);
     return d;
+}
+
+std::vector<std::string_view> derived_filter_keys(const Item& it, const Modifier& m) {
+    std::vector<std::string_view> out;
+    const auto add = [&out](std::initializer_list<std::string_view> keys) {
+        for (const std::string_view k : keys)
+            if (std::find(out.begin(), out.end(), k) == out.end()) out.push_back(k);
+    };
+    for (const std::string& line : m.lines) {
+        const std::string form = data::placeholder_form(line);
+        if (it.is_weapon()) {
+            // Every damage roll is inside the total as well as inside its own half of it, and
+            // attack speed multiplies all three: the properties they scale are what the game
+            // prints, and the DPS numbers are those properties divided out again.
+            if (form == kLocalPhysical || form == kFlatPhysical) {
+                add({"pdps", "dps"});
+                continue;
+            }
+            if (std::find(std::begin(kFlatElemental), std::end(kFlatElemental), form) !=
+                std::end(kFlatElemental)) {
+                add({"edps", "dps"});
+                continue;
+            }
+            if (form == kFlatChaos) {
+                add({"dps"}); // trade has no chaos DPS filter; it is inside the total
+                continue;
+            }
+            if (form == kLocalAttackSpeed) {
+                add({"aps", "pdps", "edps", "dps"});
+                continue;
+            }
+            if (form == kLocalCrit) {
+                add({"crit"});
+                continue;
+            }
+        }
+        // The same guard `sum_locals` uses: these wordings are local exactly when the item
+        // displays the property they name. **Not** the base percentile — that is recovered by
+        // taking these back *out* of the displayed value, so it is the one derived number a
+        // local roll is not inside.
+        for (const LocalDefence& d : kLocalDefences) {
+            if (d.form != form) continue;
+            if (d.ar && it.armour) add({"ar"});
+            if (d.ev && it.evasion) add({"ev"});
+            if (d.es && it.energy_shield) add({"es"});
+            if (d.ward && it.ward) add({"ward"});
+            break;
+        }
+    }
+    return out;
 }
 
 } // namespace ppc::item

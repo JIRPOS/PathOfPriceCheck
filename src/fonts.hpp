@@ -18,6 +18,11 @@ struct Fonts {
     /// is not Latin renders as a row of boxes in every other face here. Assembled from
     /// whatever the OS ships; falls back to `regular`, boxes and all, when it ships nothing.
     ImFont* unicode = nullptr;
+
+    /// `≤` and `≥` will actually draw — see `kBorrowedGlyphs`. False when the OS shipped no
+    /// face to borrow them from, and then whatever wanted them has to spell them "<=" and ">=":
+    /// Fontin's own are blank, and a floor of 46 losing its `≥` reads as an exact match.
+    bool has_comparison_glyphs = false;
 };
 
 /// Loads Fontin into the current ImGui context and makes Regular the default. Uses

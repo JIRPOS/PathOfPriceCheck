@@ -21,7 +21,9 @@ namespace {
 /// between `item/plan` and the wire format.
 std::string_view group_for(std::string_view key) {
     if (key == "ilvl" || key == "quality") return "misc_filters";
-    if (key == "ar" || key == "ev" || key == "es" || key == "ward") return "armour_filters";
+    if (key == "ar" || key == "ev" || key == "es" || key == "ward" ||
+        key == "base_defence_percentile")
+        return "armour_filters";
     if (key == "dps" || key == "pdps" || key == "edps" || key == "aps" || key == "crit")
         return "weapon_filters";
     if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize")

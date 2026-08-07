@@ -51,6 +51,15 @@ std::string quality_note(const Item& it) {
     return it.quality.value_or(0) < 20 ? "normalised to 20% quality" : std::string();
 }
 
+/// Whether the game printed this property in the augmented blue, i.e. a modifier on *this
+/// copy* raised it above what the base gives. It is the only statement the clipboard makes
+/// about a property being better than default, and the bundle carries no base crit chance or
+/// attack speed to compare against.
+bool property_augmented(const Item& it, std::string_view label) {
+    return std::any_of(it.properties.begin(), it.properties.end(),
+                       [label](const Property& p) { return p.label == label && p.augmented; });
+}
+
 void add_defences(SearchPlan& p, const Item& it, const Derived& d, bool enabled) {
     const std::string note = quality_note(it);
     struct Entry {
@@ -58,23 +67,27 @@ void add_defences(SearchPlan& p, const Item& it, const Derived& d, bool enabled)
         const char* label;
         const std::optional<int>& value;
     };
-    // The percentile is the base's one roll, so it belongs to the item and is stated once,
-    // on whichever defence the item lists first.
-    bool said_percentile = false;
     for (const Entry& e : std::initializer_list<Entry>{
              {"ar", "Armour", d.search_armour},
              {"ev", "Evasion", d.search_evasion},
              {"es", "Energy Shield", d.search_energy_shield},
              {"ward", "Ward", d.search_ward}}) {
         if (!e.value) continue;
-        std::string n = note;
-        if (d.base_pct && !said_percentile) {
-            if (!n.empty()) n += ", ";
-            n += "base roll " + std::to_string(static_cast<int>(*d.base_pct * 100 + 0.5)) + "%";
-            said_percentile = true;
-        }
-        add_numeric(p, e.key, e.label, static_cast<double>(*e.value), enabled, 0, std::move(n));
+        add_numeric(p, e.key, e.label, static_cast<double>(*e.value), enabled, 0, note);
     }
+
+    // Where the base's own roll sits in its range — `armour_filters.base_defence_percentile`
+    // on the trade site, so it is a filter and not a remark under one. It is the base's single
+    // roll spread over every defence, which is why there is one of these and not one per
+    // defence.
+    //
+    // Ticked only on a base-item search, where that roll *is* what is being bought. On a
+    // modifier search the defence totals above already carry it, and asking the same question
+    // twice only drops the listings that answer it once. **Floored, never rounded**: the filter
+    // is a minimum, and a 78.6th-percentile item asked for at 79 does not match itself.
+    if (d.base_pct)
+        add_numeric(p, "base_defence_percentile", "Base Percentile",
+                    std::floor(*d.base_pct * 100), p.strategy == Strategy::BaseItem);
 }
 
 void add_weapon(SearchPlan& p, const Item& it, const Derived& d, bool enabled) {
@@ -83,9 +96,14 @@ void add_weapon(SearchPlan& p, const Item& it, const Derived& d, bool enabled) {
     add_numeric(p, "dps", "Total DPS", d.search_dps, enabled, 1, note);
     add_numeric(p, "pdps", "Physical DPS", d.search_pdps, enabled, 1, note);
     add_numeric(p, "edps", "Elemental DPS", d.search_edps, enabled, 1);
-    // Both are on plenty of items without mattering; the user enables them when they do.
-    add_numeric(p, "aps", "Attacks per Second", it.attacks_per_second, false, 2);
-    add_numeric(p, "crit", "Critical Strike Chance", it.crit_chance, false, 2);
+    // Every weapon has these two and on most of them they are the base's own numbers, which
+    // asking for would only rule out the same weapon in someone else's stash. What makes one
+    // worth searching is a modifier having raised it — and the game says exactly that by
+    // printing the value augmented.
+    add_numeric(p, "aps", "Attacks per Second", it.attacks_per_second,
+                enabled && property_augmented(it, "Attacks per Second"), 2);
+    add_numeric(p, "crit", "Critical Strike Chance", it.crit_chance,
+                enabled && property_augmented(it, "Critical Strike Chance"), 2);
 }
 
 /// The roll a trade filter for this mod is compared against, and the tier's range for it.
@@ -145,8 +163,8 @@ bool added_to_copy(data::ModType t) {
 /// `ranges_printed` is whether *this item* printed a roll range anywhere, i.e. whether the
 /// owner has Advanced Mod Descriptions on — which is what makes the absence of one on a given
 /// modifier mean something. See the bound rule below.
-std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s,
-                                    bool ranges_printed) {
+std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bool ranges_printed,
+                                    const RangeMatch& rm) {
     const Modifier& m = it.mods[index];
     if (!m.match || !m.match->stat) return std::nullopt;
     const data::Stat& stat = *m.match->stat;
@@ -165,6 +183,11 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s,
     // how "0.4% of Physical Attack Damage Leeched as Mana" comes out as a filter for 0.
     f.dp = std::max(stat.dp, decimals_needed(roll.value.value_or(0)));
     const bool has_bounds = roll.min && roll.max;
+    // What the affix could have rolled, as against what the search will ask for. The same two
+    // numbers on a `Modifiers` plan today, and the reason they are two fields is that they stop
+    // being the same the moment the asking is editable.
+    f.roll_min = roll.min;
+    f.roll_max = roll.max;
     // Advanced Mod Descriptions printed a range wider than a point, so this roll is one of
     // several the affix could have had — which is what "variable" means for a unique.
     const bool variable = has_bounds && *roll.min != *roll.max;
@@ -204,14 +227,16 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s,
     const bool ranked = m.tier > 0 || m.rank > 0 || !m.qualifier.empty();
     const bool fixed = !variable && !ranked && (s == Strategy::Map || ranges_printed);
 
+    // How wide the asking is around that roll is the user's setting, not this layer's: see
+    // `seed_bounds`. All this decides is whether there is a roll to seed from at all, and what
+    // the tier gate is when the item printed one.
+    f.tiered = has_bounds;
     if (fixed) {
         // presence only
-    } else if (s == Strategy::Modifiers && has_bounds) {
-        f.min = roll.min;
-        f.max = roll.max;
-        f.tiered = true;
     } else if (roll.value) {
-        (lower_is_better ? f.max : f.min) = roll.value;
+        const Bounds b = seed_bounds(rm, *roll.value, roll.min, roll.max, f.dp, lower_is_better);
+        f.min = b.min;
+        f.max = b.max;
     }
 
     switch (s) {
@@ -287,7 +312,8 @@ Roll unique_range(const data::UniqueModFilter& uf, const Modifier& m, bool avera
 /// records often enough that the ids are the only thing telling those apart. Nothing here
 /// ever *disables* a filter — the item's own printed range outranks a record about the
 /// unique in general.
-void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p) {
+void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
+                       const RangeMatch& rm) {
     // Unidentified, or a name the bundle does not know; both already have their own note.
     if (p.name.empty()) return;
 
@@ -349,8 +375,12 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p) 
         if (r.min && r.max && printed.value &&
             (*printed.value < *r.min - 1e-6 || *printed.value > *r.max + 1e-6))
             r = Roll{};
-        f.unique_min = r.min;
-        f.unique_max = r.max;
+        // The item's own printed range outranks a record about the unique in general, so this
+        // only fills a gap the clipboard left.
+        if (!f.roll_min && !f.roll_max) {
+            f.roll_min = r.min;
+            f.roll_max = r.max;
+        }
         if (e->second.pool) {
             f.pooled = true;
             f.pool_hint = e->second.pool->hint;
@@ -367,13 +397,18 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p) 
         if (!f.min && !f.max && printed.value && r.min && r.max && *r.min != *r.max) {
             const bool lower_is_better =
                 (m.match->stat && m.match->stat->better < 0) || *printed.value < 0;
-            (lower_is_better ? f.max : f.min) = printed.value;
+            const Bounds b = seed_bounds(rm, *printed.value, r.min, r.max, f.dp, lower_is_better);
+            f.min = b.min;
+            f.max = b.max;
+            f.tiered = true; // the record stated a range, which is what the tiered modes gate on
         }
     }
 
     for (const std::string& u : um->unlisted)
-        p.notes.push_back("the modifier data states but does not enumerate this, so it is not "
-                          "searched: " + u);
+        p.notes.push_back(
+            "the modifier data states but does not enumerate this, so it is not "
+            "searched: " +
+            u);
 }
 
 /// Fold filters that share a trade id into one, summing their bounds.
@@ -392,13 +427,15 @@ void merge_same_stat(std::vector<StatFilter>& stats) {
             StatFilter& into = stats[i];
             const StatFilter& from = stats[j];
             const auto add = [](std::optional<double>& a, const std::optional<double>& b) {
-                if (a && b) *a += *b;
-                else a.reset(); // one side unbounded makes the total unbounded
+                if (a && b)
+                    *a += *b;
+                else
+                    a.reset(); // one side unbounded makes the total unbounded
             };
             add(into.min, from.min);
             add(into.max, from.max);
-            add(into.unique_min, from.unique_min);
-            add(into.unique_max, from.unique_max);
+            add(into.roll_min, from.roll_min);
+            add(into.roll_max, from.roll_max);
             into.tiered = into.tiered && from.tiered;
             into.enabled = into.enabled || from.enabled;
             if (from.pooled && !into.pooled) {
@@ -476,18 +513,53 @@ void add_map_pseudo(const Item& it, SearchPlan& p) {
 
     for (const Drop& d : kDrops)
         for (const Property& prop : it.properties)
-            if (prop.label == d.label && prop.num)
-                pseudo(d.id, d.text, *prop.num, true);
+            if (prop.label == d.label && prop.num) pseudo(d.id, d.text, *prop.num, true);
 
     // Only on a corrupted map: below eight the count is what every rare map of its rarity has,
     // and filtering on it would drop the six-mod maps that are the same item.
     if (!it.corrupted) return;
     const std::optional<int> n = map_affix_count(it);
     if (!n)
-        p.notes.emplace_back("how many affixes this map has needs Advanced Mod Descriptions, "
-                             "so the search does not ask for the count");
+        p.notes.emplace_back(
+            "how many affixes this map has needs Advanced Mod Descriptions, "
+            "so the search does not ask for the count");
     else if (*n > 0) // a corrupted white map has none, which is not something to ask for
         pseudo("pseudo.pseudo_number_of_affix_mods", "# Modifiers", *n, true);
+}
+
+/// Stop searching for a modifier the search is already asking about **by its result**.
+///
+/// A local roll is not something the item has beside its armour — it is part of the armour the
+/// item displays, and the same is true of a weapon's damage rolls and of what a flat energy
+/// shield prefix does to `es`. Filtering on both the number and the modifier behind it asks one
+/// question twice, and the second asking is the brittle half: a flat roll and a local increase
+/// reach the same armour by different routes, so naming *this* item's route rules out every
+/// other way of arriving at the number the buyer actually wants.
+///
+/// So the derived value is what is imposed and the modifier behind it is only offered — left in
+/// the list, not removed, since it can still be the thing the buyer wants. Conditional on the
+/// derived filter being enabled: with nothing asking for the armour (a unique, where the
+/// defences are offered rather than imposed) the modifier is all there is to ask about.
+///
+/// **A fractured roll is the exception and keeps its filter.** It cannot be re-rolled, it is
+/// what survives every craft the buyer will do to the item afterwards, and trade indexes it in
+/// a namespace of its own (`fractured.stat_…`, which is what `to_filter` already sends) — so
+/// unlike every other route to the same armour, *which* modifier it is is the point of buying
+/// the item at all.
+void unimpose_derived_mods(const Item& it, SearchPlan& p) {
+    const auto imposed = [&p](std::string_view key) {
+        return std::any_of(p.numerics.begin(), p.numerics.end(),
+                           [key](const NumericFilter& n) { return n.enabled && n.key == key; });
+    };
+    for (StatFilter& f : p.stats) {
+        if (!f.enabled || !f.mod_index) continue;
+        if (f.type == data::ModType::Fractured) continue;
+        for (const std::string_view k : derived_filter_keys(it, it.mods[*f.mod_index]))
+            if (imposed(k)) {
+                f.enabled = false;
+                break;
+            }
+    }
 }
 
 /// A map is priced on where it goes and what was spent on it, and on nothing else.
@@ -501,8 +573,9 @@ void plan_map(const Item& it, SearchPlan& p) {
     if (it.rarity == Rarity::Unique) {
         p.name = it.unique_entry ? it.unique_entry->name : it.name;
         if (!it.identified)
-            p.notes.emplace_back("unidentified: the clipboard does not say which unique map "
-                                 "this is");
+            p.notes.emplace_back(
+                "unidentified: the clipboard does not say which unique map "
+                "this is");
     }
     p.type = it.base_name;
     // "Map" is a type on trade *and* the prefix of every unique map's own entry, so it always
@@ -574,7 +647,7 @@ Strategy default_strategy(const Item& it) {
 }
 
 SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d,
-                      std::optional<Strategy> force) {
+                      std::optional<Strategy> force, const RangeMatch& rm) {
     SearchPlan p;
     p.strategy = force.value_or(default_strategy(it));
     p.category = std::string(gd.trade_category_for(it.item_class));
@@ -610,9 +683,8 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         case Strategy::BaseItem:
             p.type = it.base_name;
             if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
-            add_numeric(p, "ilvl", "Item Level", it.item_level ? std::optional<double>(*it.item_level)
-                                                              : std::nullopt,
-                        true);
+            add_numeric(p, "ilvl", "Item Level",
+                        it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
             break;
         case Strategy::Modifiers:
             // Deliberately not constrained to this base: a rare is bought for its mods, and
@@ -637,9 +709,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                         it.item_level ? std::optional<double>(*it.item_level) : std::nullopt,
                         false);
             break;
-        case Strategy::Map:
-            plan_map(it, p);
-            break;
+        case Strategy::Map: plan_map(it, p); break;
         default:
             // Currency and gems are priced by poe.ninja rather than by a stat query — bulk is
             // what they sell in, and a stat filter has nothing to say about a stack of orbs.
@@ -655,16 +725,16 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         // Whether this owner has Advanced Mod Descriptions on, which is what makes a modifier
         // printing no range evidence that it does not roll one. Asked of the whole item because
         // that is what the setting is a property of; see `to_filter`'s bound rule.
-        const bool ranges_printed = std::any_of(it.mods.begin(), it.mods.end(), [](const Modifier& m) {
-            return m.match && !m.match->roll_bounds.empty();
-        });
+        const bool ranges_printed =
+            std::any_of(it.mods.begin(), it.mods.end(),
+                        [](const Modifier& m) { return m.match && !m.match->roll_bounds.empty(); });
         for (size_t i = 0; i < it.mods.size(); ++i) {
             // A map's affixes are not filters and are not notes either: they are left out on
             // purpose, in a place where the reader can see them (the item beside the panel),
             // and "unrecognised modifier: Players have 25% less Accuracy Rating" would charge
             // the check with failing at something it deliberately did not attempt.
             if (p.strategy == Strategy::Map && !map_searched_mod(it.mods[i])) continue;
-            if (std::optional<StatFilter> f = to_filter(it, i, p.strategy, ranges_printed)) {
+            if (std::optional<StatFilter> f = to_filter(it, i, p.strategy, ranges_printed, rm)) {
                 p.stats.push_back(std::move(*f));
                 continue;
             }
@@ -682,7 +752,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                 p.notes.push_back("unrecognised modifier: " + one_line(m));
         }
         // Before the merge, while every filter still points at the modifier it came from.
-        if (p.strategy == Strategy::Unique) apply_unique_mods(gd, it, p);
+        if (p.strategy == Strategy::Unique) apply_unique_mods(gd, it, p, rm);
         if (p.strategy == Strategy::Map) add_map_pseudo(it, p);
         merge_same_stat(p.stats);
     }
@@ -697,6 +767,8 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         const bool impose = p.strategy != Strategy::Unique;
         add_defences(p, it, d, impose);
         add_weapon(p, it, d, impose);
+        // Last, because it is a question about the numerics that were just added.
+        unimpose_derived_mods(it, p);
     }
     // A gem is nothing but its own effect, so saying this about one is noise.
     if (!it.inherent_lines.empty() && it.rarity != Rarity::Gem)

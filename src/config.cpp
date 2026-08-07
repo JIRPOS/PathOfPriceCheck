@@ -1,7 +1,9 @@
 #include "config.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <string>
 
 #include <nlohmann/json.hpp>
 
@@ -50,6 +52,16 @@ Config Config::load() {
         c.listing_status = s;
     if (const int n = j.value("result_count", c.result_count); trade::valid_result_count(n))
         c.result_count = n;
+    if (j.contains("range_match")) {
+        const auto& r = j["range_match"];
+        item::RangeMatch& rm = c.range_match;
+        rm.min_mode = item::bound_mode_from_id(r.value("min_mode", std::string()), rm.min_mode);
+        rm.max_mode = item::bound_mode_from_id(r.value("max_mode", std::string()), rm.max_mode);
+        // Clamped rather than taken: this file is hand-editable, and a negative percentage is
+        // an interval whose ends have swapped, i.e. a filter nothing can ever match.
+        rm.min_pct = std::clamp(r.value("min_pct", rm.min_pct), 0.0, 100.0);
+        rm.max_pct = std::clamp(r.value("max_pct", rm.max_pct), 0.0, 100.0);
+    }
     c.panel_width = j.value("panel_width", c.panel_width);
     c.stash_edge = j.value("stash_edge", c.stash_edge);
     c.inventory_edge = j.value("inventory_edge", c.inventory_edge);
@@ -70,6 +82,10 @@ bool Config::save() const {
     j["auto_search"] = auto_search;
     j["listing_status"] = listing_status;
     j["result_count"] = result_count;
+    j["range_match"]["min_mode"] = std::string(item::bound_mode_id(range_match.min_mode));
+    j["range_match"]["max_mode"] = std::string(item::bound_mode_id(range_match.max_mode));
+    j["range_match"]["min_pct"] = range_match.min_pct;
+    j["range_match"]["max_pct"] = range_match.max_pct;
     j["panel_width"] = panel_width;
     j["stash_edge"] = stash_edge;
     j["inventory_edge"] = inventory_edge;
