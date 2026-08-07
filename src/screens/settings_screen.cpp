@@ -177,6 +177,32 @@ void data_row(App& app) {
     }
 }
 
+/// One side of the range-matching setting: the mode, and the percentage the two `Within` modes
+/// read. The percentage box is disabled rather than hidden — the panel is sized to hold every
+/// section without scrolling, and a row that changes height with its own value would break that
+/// for whichever mode happened to be picked.
+void bound_row(const char* label, item::BoundMode& mode, double& pct) {
+    constexpr float kPctW = 96.0f;
+    const float avail = ImGui::GetContentRegionAvail().x - kLabelW;
+    ImGui::PushID(label);
+    if (ImGui::BeginCombo(row(label, avail - kPctW - ImGui::GetStyle().ItemSpacing.x),
+                          std::string(item::bound_mode_label(mode)).c_str())) {
+        for (const item::BoundModeOption& o : item::kBoundModes) {
+            const bool sel = o.mode == mode;
+            if (ImGui::Selectable(std::string(o.label).c_str(), sel)) mode = o.mode;
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!item::uses_pct(mode));
+    ImGui::SetNextItemWidth(kPctW);
+    float v = static_cast<float>(pct);
+    if (ImGui::DragFloat("##pct", &v, 0.25f, 0.0f, 100.0f, "%.4g%%")) pct = v;
+    ImGui::EndDisabled();
+    ImGui::PopID();
+}
+
 /// Discards characters that can never appear in "Name#1234". Rejecting a *keystroke* that
 /// could never be part of a valid value is safe; rejecting a whole-string state is not —
 /// you cannot reach "Foo#1" without passing through the invalid "Foo" and "Foo#".
@@ -252,6 +278,18 @@ void draw_settings_screen(App& app) {
         ImGui::TextDisabled("Every price check spends a trade API request.");
     else
         ImGui::TextDisabled("Off: the panel searches when you press Search.");
+
+    section(app, "Filter ranges");
+    ImGui::TextDisabled("How wide each modifier's filter opens around the roll in hand.");
+    bound_row("Minimum", c.range_match.min_mode, c.range_match.min_pct);
+    bound_row("Maximum", c.range_match.max_mode, c.range_match.max_pct);
+    row_gutter();
+    // Said once, under both rows: the two options that need explaining are the ones whose names
+    // cannot carry it, and "tiered" is the whole reason the default asks for a window at all.
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("Unbound leaves that side open. Tiered never asks past what the "
+                        "modifier's own tier can roll.");
+    ImGui::PopTextWrapPos();
 
     section(app, "Hotkeys");
     hotkey_row(app, "Price check", Action::PriceCheck, c.price_check);

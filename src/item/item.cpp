@@ -105,6 +105,8 @@ bool Item::is_map_fragment() const {
     return item_class == "Map Fragments" || item_class == "Misc Map Items";
 }
 
+bool Item::is_map() const { return item_class == "Maps"; }
+
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }
@@ -116,6 +118,17 @@ bool Item::is_gear() const {
     if (is_map_fragment()) return false;
     return rarity == Rarity::Normal || rarity == Rarity::Magic || rarity == Rarity::Rare ||
            rarity == Rarity::Unique;
+}
+
+std::string Item::gem_name() const {
+    if (rarity != Rarity::Gem) return {};
+    // The printed name, which for a Vaal gem is the base skill and for a transfigured one is
+    // the alternate skill's own name. Both markets state a Vaal gem by its Vaal skill, and a
+    // transfigured Vaal gem as the pair — "Vaal Blight (Blight of Atrophy)" is verbatim what
+    // trade's `data/items` and poe.ninja's gem overview both call it.
+    const std::string& printed = name.empty() ? base_type : name;
+    if (vaal_name.empty()) return printed;
+    return transfigured ? vaal_name + " (" + printed + ")" : vaal_name;
 }
 
 std::vector<const Modifier*> Item::mods_of(data::ModType t) const {

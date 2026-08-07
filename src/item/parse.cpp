@@ -11,9 +11,9 @@ namespace {
 constexpr std::string_view kSeparator = "--------";
 
 /// Lines that are a flag on their own. Influence lines are handled separately.
-constexpr std::array<std::string_view, 8> kFlagLines{
-    "Corrupted", "Unidentified", "Mirrored", "Split",
-    "Synthesised Item", "Fractured Item", "Veiled", "Unmodifiable"};
+constexpr std::array<std::string_view, 9> kFlagLines{
+    "Corrupted", "Unidentified", "Mirrored", "Split", "Synthesised Item",
+    "Fractured Item", "Veiled", "Unmodifiable", "Transfigured"};
 
 std::string_view trim(std::string_view s) {
     while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r'))
@@ -279,6 +279,24 @@ void parse_header(const Section& sec, Item& it) {
     // the base's name and would fail every lookup.
     if (it.rarity == Rarity::Normal && it.base_type.starts_with("Superior "))
         it.base_type.erase(0, 9);
+    // A map prints its tier on the base line — "Map (Tier 16)", and on a magic one after the
+    // affixes, "Map of Impedance (Tier 16)". It is the thing the map is searched on and it is
+    // not part of the base's name, which is a bare "Map" in every bundle and on trade.
+    if (const size_t open = it.base_type.rfind(" (Tier ");
+        open != std::string::npos && it.base_type.back() == ')') {
+        const std::string_view inner(it.base_type.data() + open + 7,
+                                     it.base_type.size() - open - 8);
+        if (!inner.empty() && std::all_of(inner.begin(), inner.end(), [](char c) {
+                return std::isdigit(static_cast<unsigned char>(c)) != 0;
+            })) {
+            it.map_tier = first_int(inner);
+            it.base_type.erase(open);
+        }
+    }
+    // Blight is printed as part of the base line and nowhere else — there is no flag line and
+    // no property saying so, only "Blighted Map" where an ordinary map says "Map".
+    it.blighted = it.base_type == "Blighted Map";
+    it.blight_ravaged = it.base_type == "Blight-ravaged Map";
     it.base_name = it.base_type;
 }
 
@@ -351,6 +369,11 @@ void take_typed_property(const Property& p, Item& it) {
         it.block = first_int(v);
     } else if (p.label == "Item Level") {
         it.item_level = first_int(v);
+    } else if (p.label == "Level" && it.rarity == Rarity::Gem) {
+        // The gem's own level. The clipboard prints "Level:" twice — this one, in the property
+        // block under the tag line, and the character level under `Requirements:`, which is a
+        // different number and goes to `Item::req`.
+        it.gem_level = first_int(v);
     }
 }
 
@@ -398,6 +421,7 @@ void parse_flags(const Section& sec, Item& it) {
         else if (line == "Fractured Item") it.fractured_item = true;
         else if (line == "Veiled") it.veiled = true;
         else if (line == "Unmodifiable") it.unmodifiable = true;
+        else if (line == "Transfigured") it.transfigured = true;
         else if (const std::optional<Influence> i = influence_from_line(line))
             it.influences.push_back(*i);
     }
@@ -435,10 +459,14 @@ bool is_prose_section(const Section& sec) {
 /// The usage note the game prints under the flavour text: "Right click to drink…", "Place into
 /// an item socket…". It is prose in the same position as flavour text, so its wording is the
 /// only thing that tells them apart.
+///
+/// "Modifiable only with Chaos Orbs, Vaal Orbs, Delirium Orbs and Chisels" is here for the same
+/// reason: a Nightmare map prints it in a section of its own under the usage note, where the
+/// prose rules would otherwise read it as an unmatchable modifier.
 bool is_help_section(const Section& sec) {
-    static constexpr std::array<std::string_view, 5> kNeedles{
+    static constexpr std::array<std::string_view, 6> kNeedles{
         "Right click", "Shift click", "Place into an item socket", "Map Device",
-        "Can be used in a personal Map Device"};
+        "Can be used in a personal Map Device", "Modifiable only with"};
     return std::any_of(sec.begin(), sec.end(), [](const std::string& line) {
         return std::any_of(kNeedles.begin(), kNeedles.end(), [&](std::string_view n) {
             return line.find(n) != std::string::npos;
@@ -582,6 +610,12 @@ std::optional<Item> parse_item(std::string_view clipboard) {
             // Consumes 40 of 60 Charges on use / Onslaught" read as modifiers instead.
             parse_properties(sec, it);
             props_seen = true;
+        } else if (it.rarity == Rarity::Gem && it.vaal_name.empty() && sec.size() == 1 &&
+                   first.starts_with("Vaal ")) {
+            // A Vaal gem is two skills in one, and the game heads the second half with its own
+            // name in a section of its own. The header printed the *base* skill, so this line
+            // is the only thing saying that this is a Vaal Blight and not a Blight.
+            it.vaal_name = first;
         } else if (is_help_section(sec) && is_prose_section(sec)) {
             it.help_text.insert(it.help_text.end(), sec.begin(), sec.end());
         } else if (is_prose_section(sec) && !looks_like_mods(sec) &&

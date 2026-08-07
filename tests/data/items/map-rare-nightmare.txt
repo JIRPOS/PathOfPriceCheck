@@ -1,0 +1,31 @@
+Item Class: Maps
+Rarity: Rare
+Void Resolve
+Nightmare Map
+--------
+Item Quantity: +96% (augmented)
+Item Rarity: +114% (augmented)
+Monster Pack Size: +48% (augmented)
+--------
+Item Level: 85
+--------
+Monster Level: 83
+--------
+{ Prefix Modifier "Hungering" (Tier: 1) }
+Area contains Drowning Orbs
+{ Prefix Modifier "Oppressive" }
+Monsters have +60% chance to Suppress Spell Damage
+(40% of Damage from Suppressed Hits and Ailments they inflict is prevented)
+{ Prefix Modifier "Prismatic" (Tier: 1) }
+Monsters gain 184(180-200)% of their Physical Damage as Extra Damage of a random Element
+{ Suffix Modifier "of Splinters" (Tier: 1) }
+25% chance for Rare Monsters to Fracture on death
+{ Suffix Modifier "of Exposure" — Elemental, Resistance }
+Players have -12(-12--9)% to all maximum Resistances
+{ Suffix Modifier "of Elemental Weakness" — Caster, Curse }
+Players are Cursed with Elemental Weakness
+(Elemental Weakness is a Hex which inficts -15% to all Elemental Resistances. It lasts 8 seconds)
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 
+--------
+Modifiable only with Chaos Orbs, Vaal Orbs, Delirium Orbs and Chisels

@@ -347,6 +347,56 @@ TEST_CASE("a gem's properties, description and granted stats") {
     CHECK(it.help_text.size() == 1);
 }
 
+TEST_CASE("a gem's level is the property, never the requirement under it") {
+    // The clipboard prints "Level:" twice and the two are different numbers on every gem past
+    // the first: the gem's own level in the property block, the character level to socket it
+    // under `Requirements:`. Pricing on the wrong one prices a different gem.
+    const Item it = parse("items", "gem-support-hypothermia.txt");
+
+    CHECK(it.gem_level == 16);
+    CHECK(it.req.level == 62);
+    CHECK(it.req.dex == 99);
+    CHECK(it.gem_name() == "Hypothermia Support");
+    CHECK_FALSE(it.transfigured);
+    CHECK(it.mods.empty());
+}
+
+TEST_CASE("a Vaal gem is named by its Vaal skill, which the name line does not print") {
+    // Two skills in one gem: the header says "Blight" and the second half says "Vaal Blight",
+    // and it is the second that both markets file it under.
+    const Item it = parse("items", "gem-vaal-blight.txt");
+
+    CHECK(it.base_type == "Blight");
+    CHECK(it.vaal_name == "Vaal Blight");
+    CHECK(it.gem_name() == "Vaal Blight");
+    CHECK(it.gem_level == 1);
+    CHECK(it.corrupted);
+    CHECK(it.mods.empty());
+    // Everything the Vaal half prints is the skill describing itself, exactly as the first
+    // half's is — never a modifier.
+    CHECK(it.description.size() == 1);
+    CHECK_FALSE(it.inherent_lines.empty());
+}
+
+TEST_CASE("a transfigured gem is flagged, not left as an unrecognised line") {
+    const Item it = parse("items", "gem-transfigured-raise-zombie.txt");
+
+    CHECK(it.transfigured);
+    CHECK(it.gem_name() == "Raise Zombie of Falling");
+    CHECK(it.gem_level == 1);
+    CHECK(it.vaal_name.empty());
+    CHECK(it.mods.empty());
+}
+
+TEST_CASE("a gem's quality is a property like any other") {
+    const Item it = parse("items", "gem-tornado-shot.txt");
+
+    CHECK(it.gem_level == 1);
+    CHECK(it.quality == 7);
+    CHECK(it.gem_name() == "Tornado Shot");
+    CHECK(it.type_line == "Attack, Projectile, Bow");
+}
+
 TEST_CASE("a map fragment describes itself in prose and has no modifiers at all") {
     // It prints "Rarity: Normal", which is the only rarity the game has for one — and every
     // rule that tells a rare's mods from its prose then fires on lines that are neither. A
@@ -386,4 +436,71 @@ TEST_CASE("a map fragment describes itself in prose and has no modifiers at all"
         CHECK(it.description.size() == 1);
         CHECK(it.flavour_text.size() == 2);
     }
+}
+
+TEST_CASE("a map's tier comes off the base line, which is otherwise the same on every one") {
+    // Every ordinary map shares one base type now, so "Map (Tier 16)" is the whole of what
+    // tells one from another — and the parenthetical is not part of a name any lookup knows.
+    SUBCASE("a rare, whose base line is the bare type") {
+        const Item it = parse("items", "map-rare-t16-corrupted.txt");
+        CHECK(it.item_class == "Maps");
+        CHECK(it.is_map());
+        CHECK(it.name == "Graven Secrets");
+        CHECK(it.base_type == "Map");
+        CHECK(it.map_tier == 16);
+        CHECK(it.corrupted);
+        CHECK(it.item_level == 83);
+        // Four prefixes and four suffixes, which is what corruption buys and what the search
+        // asks for as a total.
+        CHECK(it.mods.size() == 9);
+        CHECK(it.mods_of(ModType::Implicit).size() == 1);
+    }
+    SUBCASE("a magic, whose affixes sit between the base and the tier") {
+        const Item it = parse("items", "map-magic-t16.txt");
+        CHECK(it.base_type == "Map of Impedance");
+        CHECK(it.map_tier == 16);
+    }
+    SUBCASE("a unique") {
+        const Item it = parse("items", "map-unique-olmecs.txt");
+        CHECK(it.name == "Olmec's Sanctum");
+        CHECK(it.base_type == "Map");
+        CHECK(it.map_tier == 16);
+        CHECK(it.flavour_text.size() == 4);
+    }
+    SUBCASE("a map that names its own area instead has no tier at all") {
+        const Item it = parse("items", "map-rare-guardian.txt");
+        CHECK(it.base_type == "Shaper Guardian Map");
+        CHECK_FALSE(it.map_tier.has_value());
+    }
+    SUBCASE("one info line over two implicit lines is one modifier here") {
+        // The Elder's influence and which of his generals holds the map are printed under a
+        // single `{ Implicit Modifier }`. They are two stats to search on, but only the matcher
+        // can say so — the parser groups by the info line and `resolve` splits what it grouped.
+        const Item it = parse("items", "map-rare-t16-elder.txt");
+        REQUIRE(it.mods_of(ModType::Implicit).size() == 1);
+        CHECK(it.mods.front().lines ==
+              std::vector<std::string>{"Area is influenced by The Elder",
+                                       "Map is occupied by The Enslaver"});
+    }
+    SUBCASE("the drop bonuses a chisel adds are properties, not modifiers") {
+        const Item it = parse("items", "map-rare-more-drops.txt");
+        const auto value = [&it](std::string_view label) {
+            for (const Property& p : it.properties)
+                if (p.label == label) return p.num;
+            return std::optional<double>();
+        };
+        CHECK(value("More Maps") == 70);
+        CHECK(value("More Scarabs") == 53);
+        CHECK(value("Item Quantity") == 110);
+        CHECK(value("Monster Pack Size") == 42);
+    }
+}
+
+TEST_CASE("\"Modifiable only with…\" is a note about the map, not a modifier of it") {
+    // It is prose in a section of its own under the usage note, exactly where a mod block can
+    // also sit — and read as one it came back as an unmatchable modifier on every Nightmare map.
+    const Item it = parse("items", "map-rare-nightmare.txt");
+    CHECK(it.help_text.size() == 2);
+    for (const Modifier& m : it.mods)
+        CHECK(m.lines.front().find("Modifiable only with") == std::string::npos);
 }

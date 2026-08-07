@@ -332,6 +332,30 @@ TEST_CASE("variants nothing in the clipboard tells apart are reported, never gue
     CHECK(!r.url.empty());
 }
 
+TEST_CASE("a gem is looked up under the name the market states it by") {
+    item::SearchPlan plan;
+    plan.strategy = item::Strategy::Gem;
+
+    // A Vaal gem heads its tooltip with the base skill, and poe.ninja prices both — so falling
+    // back to the printed name would not miss this gem's price, it would find a real line for
+    // a different one. One name and no other.
+    const ninja::Query vaal =
+        ninja::query_for(parse_capture("items/gem-vaal-blight.txt"), plan, "Allflame");
+    CHECK(vaal.names == std::vector<std::string>{"Vaal Blight"});
+    CHECK(vaal.gem_level == 1);
+    CHECK(vaal.corrupted);
+
+    // The level is the gem's own, never the character level printed under `Requirements:`.
+    const ninja::Query support =
+        ninja::query_for(parse_capture("items/gem-support-hypothermia.txt"), plan, "Allflame");
+    CHECK(support.names == std::vector<std::string>{"Hypothermia Support"});
+    CHECK(support.gem_level == 16);
+
+    const ninja::Query transfigured = ninja::query_for(
+        parse_capture("items/gem-transfigured-raise-zombie.txt"), plan, "Allflame");
+    CHECK(transfigured.names == std::vector<std::string>{"Raise Zombie of Falling"});
+}
+
 TEST_CASE("a gem is priced at the nearest tier poe.ninja publishes") {
     const ninja::Overview currency = load("currency.json", ninja::Feed::Exchange, "Currency");
     const ninja::Overview gems = load("skill-gem.json", ninja::Feed::StashItem, "SkillGem");

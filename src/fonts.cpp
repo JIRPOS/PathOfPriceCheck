@@ -22,6 +22,28 @@ constexpr const char* kBold = "Fontin-Bold.ttf";
 constexpr const char* kItalic = "Fontin-Italic.ttf";
 constexpr const char* kSmallCaps = "Fontin-SmallCaps.ttf";
 
+/// `≤` and `≥`, which Fontin cannot draw and does not admit to.
+///
+/// Its cmap maps both codepoints to a real glyph id and its `glyf` holds **zero bytes** for
+/// either, so the text lays out at the right advance width and paints nothing — not even the
+/// missing-glyph box that would have made it obvious. **A cmap entry is not evidence that a font
+/// can draw something**; the glyph's own length is, and checking only the cmap is how these
+/// shipped as if they worked.
+///
+/// So they are excluded from every Fontin source and borrowed from a system face, which is what
+/// keeps the digits beside them in Fontin. `GlyphExcludeRanges` is what makes that possible at
+/// all: a merged source only ever serves a codepoint no earlier source claims, and Fontin claims
+/// these. `×` (U+00D7) is the same argument and is not here only because nothing draws one — it
+/// is absent from Fontin's cmap outright, so adding it to this range is all it would take.
+constexpr ImWchar kBorrowedGlyphs[]{0x2264, 0x2265, 0};
+
+/// The complement, for the borrowed source: everything *except* the two. ImGui 1.92 loads
+/// glyphs on demand and ignores `GlyphRanges` while doing it, so an exclude list is the only way
+/// to say "this source is here for two characters" — and without it the borrowed face would also
+/// serve every script Fontin lacks, quietly replacing the boxes `fonts.unicode` exists to draw
+/// properly.
+constexpr ImWchar kOnlyBorrowed[]{1, 0x2263, 0x2266, IM_UNICODE_CODEPOINT_MAX, 0};
+
 bool exists(const std::string& path) { return SDL_GetPathInfo(path.c_str(), nullptr); }
 
 std::string with_slash(std::string d) {
@@ -40,16 +62,16 @@ std::string find_font_dir() {
     return {};
 }
 
-/// AddFontFromFileTTF asserts on a missing file, so probe first and degrade to the
-/// face we already have rather than taking down a debug build over a partial dir.
-ImFont* add_file_face(const std::string& dir, const char* file, float size_px, ImFont* fallback) {
-    std::string path = dir + file;
+/// AddFontFromFileTTF asserts on a missing file, so probe first and return nothing rather than
+/// taking down a debug build over a partial dir; the caller substitutes Regular.
+ImFont* add_file_face(const std::string& dir, const char* file, float size_px,
+                      const ImFontConfig& cfg) {
+    const std::string path = dir + file;
     if (!exists(path)) {
         SDL_Log("missing %s, substituting Regular", file);
-        return fallback;
+        return nullptr;
     }
-    ImFont* f = ImGui::GetIO().Fonts->AddFontFromFileTTF(path.c_str(), size_px);
-    return f ? f : fallback;
+    return ImGui::GetIO().Fonts->AddFontFromFileTTF(path.c_str(), size_px, &cfg);
 }
 
 /// The system faces that together cover the scripts PoE account names show up in, most
@@ -102,31 +124,88 @@ std::vector<std::string> system_faces() {
     return out;
 }
 
-/// One ImFont merging every face `system_faces()` found, or null when it found none.
+/// Faces to borrow `≤` and `≥` from, most likely first — every one that exists is merged, and
+/// one that turns out not to carry them after all is simply passed over when the glyph is asked
+/// for. Deliberately **not** `system_faces()`: covering the Latin scripts says nothing about the
+/// mathematical operators, and Noto Sans — the usual first hit there — does not have either of
+/// these, having split them into a Noto Sans Math nobody installs by default.
+std::vector<std::string> math_faces() {
+    std::vector<std::string> out;
+#ifdef _WIN32
+    const char* root = SDL_getenv("SystemRoot");
+    const std::string dir = std::string(root ? root : "C:\\Windows") + "\\Fonts\\";
+    for (const char* f : {"segoeui.ttf", "arial.ttf", "seguisym.ttf"})
+#else
+    for (const char* f : {"/usr/share/fonts/TTF/DejaVuSans.ttf",
+                          "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                          "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+                          "/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf",
+                          "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                          "/usr/share/fonts/noto/NotoSansMath-Regular.ttf",
+                          "/usr/share/fonts/truetype/noto/NotoSansMath-Regular.ttf",
+                          "/usr/share/fonts/gnu-free/FreeSans.ttf"})
+#endif
+    {
+#ifdef _WIN32
+        const std::string p = dir + f;
+#else
+        const std::string p = f;
+#endif
+        if (exists(p)) out.push_back(p);
+        if (out.size() == 2) break; // one spare, in case the first has the codepoint but no glyph
+    }
+    return out;
+}
+
+/// Mapped font files, kept for the life of the atlas.
 ///
 /// The files are **mapped, not read**: ImGui 1.92 rasterizes glyphs on demand and keeps the
 /// font bytes for the life of the atlas, so a collection nothing on screen needs costs
 /// address space rather than resident memory. That is what makes merging a 19MB CJK face
 /// affordable in an overlay whose whole point is being small.
-ImFont* load_unicode_face(float size_px) {
+std::vector<data::MappedFile>& font_maps() {
     static std::vector<data::MappedFile> maps; // must outlive the atlas; it reads them lazily
+    return maps;
+}
+
+/// Where a mapped font's bytes are. Taken by value on purpose: `font_maps()` is a vector and
+/// grows, so a `MappedFile*` into it dies at the next map — while the *address it mapped* does
+/// not, because moving the object moves a pointer and not the pages.
+struct FontBytes {
+    const uint8_t* data = nullptr;
+    size_t size = 0;
+    explicit operator bool() const { return data != nullptr; }
+};
+
+/// Map a font file and keep it for the life of the atlas, or nothing if it cannot be read.
+FontBytes map_font(const std::string& path) {
+    data::MappedFile m;
+    if (!m.open(path)) return {};
+    font_maps().push_back(std::move(m));
+    return {font_maps().back().data(), font_maps().back().size()};
+}
+
+/// Add a mapped font as a source: its own face, or — with `merge` — folded into whichever face
+/// was added last. `exclude` is the codepoints this source must not answer for.
+ImFont* add_mapped_face(FontBytes b, float size_px, bool merge,
+                        const ImWchar* exclude = nullptr) {
+    ImFontConfig cfg;
+    cfg.FontDataOwnedByAtlas = false; // font_maps() is the storage
+    cfg.MergeMode = merge;
+    cfg.GlyphExcludeRanges = exclude;
+    return ImGui::GetIO().Fonts->AddFontFromMemoryTTF(const_cast<uint8_t*>(b.data),
+                                                      static_cast<int>(b.size), size_px, &cfg);
+}
+
+ImFont* load_unicode_face(const std::vector<std::string>& faces, float size_px) {
     ImFont* font = nullptr;
-    for (const std::string& p : system_faces()) {
-        data::MappedFile m;
-        if (!m.open(p)) continue;
-        maps.push_back(std::move(m));
-        ImFontConfig cfg;
-        cfg.FontDataOwnedByAtlas = false; // `maps` is the storage
-        cfg.MergeMode = font != nullptr;
-        ImFont* got = ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
-            const_cast<uint8_t*>(maps.back().data()), static_cast<int>(maps.back().size()),
-            size_px, &cfg);
-        if (!got) {
-            maps.pop_back();
-            continue;
+    for (const std::string& p : faces) {
+        const FontBytes b = map_font(p);
+        if (!b) continue;
+        if (ImFont* got = add_mapped_face(b, size_px, font != nullptr)) {
+            SDL_Log("names render in %s", p.c_str());
+            if (!font) font = got;
         }
-        SDL_Log("names render in %s", p.c_str());
-        if (!font) font = got;
     }
     return font;
 }
@@ -137,25 +216,54 @@ Fonts load_fonts(float size_px) {
     ImGuiIO& io = ImGui::GetIO();
     ImGui::GetStyle().FontSizeBase = size_px;
 
+    // Mapped up front: the same bytes are merged over every Fontin face, and ImGui keeps them
+    // rather than copying, so one mapping serves all four.
+    std::vector<FontBytes> borrow;
+    for (const std::string& p : math_faces())
+        if (const FontBytes b = map_font(p)) borrow.push_back(b);
+
+    ImFontConfig cfg;
+    cfg.GlyphExcludeRanges = kBorrowedGlyphs;
+    // Merged straight after the face it belongs to: MergeMode folds a source into whichever face
+    // was added last, so this cannot be hoisted out of the middle of the list.
+    const auto borrowed = [&](ImFont* face) {
+        if (face)
+            for (const FontBytes b : borrow) add_mapped_face(b, size_px, true, kOnlyBorrowed);
+        return face;
+    };
+
     Fonts f;
     if (std::string dir = find_font_dir(); !dir.empty()) {
-        f.regular = io.Fonts->AddFontFromFileTTF((dir + kRegular).c_str(), size_px);
-        f.bold = add_file_face(dir, kBold, size_px, f.regular);
-        f.italic = add_file_face(dir, kItalic, size_px, f.regular);
-        f.small_caps = add_file_face(dir, kSmallCaps, size_px, f.regular);
+        f.regular = borrowed(io.Fonts->AddFontFromFileTTF((dir + kRegular).c_str(), size_px, &cfg));
+        f.bold = borrowed(add_file_face(dir, kBold, size_px, cfg));
+        f.italic = borrowed(add_file_face(dir, kItalic, size_px, cfg));
+        f.small_caps = borrowed(add_file_face(dir, kSmallCaps, size_px, cfg));
+        if (!f.bold) f.bold = f.regular;
+        if (!f.italic) f.italic = f.regular;
+        if (!f.small_caps) f.small_caps = f.regular;
     } else {
         // Fontin ships SmallCaps as its own family rather than an OpenType `smcp`
         // feature — load-bearing, since ImGui does no shaping or feature substitution.
         auto add = [&](const char* data) {
-            return io.Fonts->AddFontFromMemoryCompressedBase85TTF(data, size_px);
+            return borrowed(io.Fonts->AddFontFromMemoryCompressedBase85TTF(data, size_px, &cfg));
         };
         f.regular = add(fontin_regular_compressed_data_base85);
         f.bold = add(fontin_bold_compressed_data_base85);
         f.italic = add(fontin_italic_compressed_data_base85);
         f.small_caps = add(fontin_small_caps_compressed_data_base85);
     }
+    // Asked rather than assumed: a face existing is not a face carrying these two, and the one
+    // Noto ships as its Latin base carries neither. `FindGlyphNoFallback` bakes on demand and
+    // answers null only when no source at all served the codepoint, which is exactly the
+    // question — the excluded Fontin glyph cannot answer it and a `?` would not be visible here.
+    ImFontBaked* baked = f.regular ? f.regular->GetFontBaked(size_px) : nullptr;
+    f.has_comparison_glyphs = baked && baked->FindGlyphNoFallback(0x2264) != nullptr &&
+                              baked->FindGlyphNoFallback(0x2265) != nullptr;
+    if (!f.has_comparison_glyphs)
+        SDL_Log("no system face carries \xe2\x89\xa4 or \xe2\x89\xa5; spelling them out instead");
+
     // Last, so a merge cannot latch onto one of the Fontin faces by accident.
-    f.unicode = load_unicode_face(size_px);
+    f.unicode = load_unicode_face(system_faces(), size_px);
     if (!f.unicode) {
         SDL_Log("no system face with non-Latin coverage; names may render as boxes");
         f.unicode = f.regular;

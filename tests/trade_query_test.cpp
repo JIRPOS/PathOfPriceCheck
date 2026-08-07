@@ -130,6 +130,7 @@ TEST_CASE("an unbounded filter stays unbounded on the side it never had") {
 TEST_CASE("a unique is searched by name, with the base as its type") {
     SearchPlan p;
     p.strategy = Strategy::Unique;
+    p.rarity = "unique"; // the plan's own statement of which market this is
     p.name = "Tabula Rasa";
     p.type = "Simple Robe";
     p.category = "armour.chest";
@@ -137,6 +138,140 @@ TEST_CASE("a unique is searched by name, with the base as its type") {
     CHECK(q["name"] == "Tabula Rasa");
     CHECK(q["type"] == "Simple Robe");
     CHECK(q["filters"]["type_filters"]["filters"]["rarity"]["option"] == "unique");
+}
+
+TEST_CASE("a map's filters go in map_filters, and its tier is exact") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.category = "map";
+    p.type = "Map";
+    p.discriminator = "map";
+    ppc::item::NumericFilter tier{"map_tier", "Map Tier", 16, 16, true, 0, {}};
+    ppc::item::NumericFilter iiq{"map_iiq", "Item Quantity", 104, std::nullopt, true, 0, {}};
+    ppc::item::NumericFilter iir{"map_iir", "Item Rarity", 63, std::nullopt, false, 0, {}};
+    p.numerics = {tier, iiq, iir};
+    const json q = query_of(p);
+    const json& f = q["filters"]["map_filters"]["filters"];
+    // Exact, not a floor: a tier-16 map is a different area from a tier-14 one, not a better it.
+    CHECK(f["map_tier"]["min"] == 16);
+    CHECK(f["map_tier"]["max"] == 16);
+    CHECK(f["map_iiq"]["min"] == 104);
+    CHECK_FALSE(f.contains("map_iir")); // unticked, so never sent
+    // "Map" is the base of every tiered map *and* the prefix of every unique map's entry, so
+    // the discriminator has to ride on the type here rather than only on a name.
+    CHECK(q["type"]["option"] == "Map");
+    CHECK(q["type"]["discriminator"] == "map");
+}
+
+TEST_CASE("a unique map is searched as a unique, though it is planned as a map") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.rarity = "unique";
+    p.category = "map";
+    p.name = "Olmec's Sanctum";
+    p.type = "Map";
+    p.discriminator = "map";
+    const json q = query_of(p);
+    CHECK(q["filters"]["type_filters"]["filters"]["rarity"]["option"] == "unique");
+    CHECK(q["name"]["option"] == "Olmec's Sanctum");
+    CHECK(q["name"]["discriminator"] == "map");
+    CHECK(q["type"]["discriminator"] == "map");
+}
+
+TEST_CASE("a gem's level and quality are misc filters, and both are exact") {
+    SearchPlan p;
+    p.strategy = Strategy::Gem;
+    p.category = "gem.activegem";
+    p.type = "Raise Zombie";
+    p.discriminator = "alt_y"; // a transfigured gem: trade knows it by the skill it alters
+    p.corrupted = false;
+    p.numerics = {{"gem_level", "Gem Level", 20, 20, true, 0, {}},
+                  {"quality", "Quality", 20, 20, true, 0, {}}};
+    const json q = query_of(p);
+
+    CHECK(q["type"]["option"] == "Raise Zombie");
+    CHECK(q["type"]["discriminator"] == "alt_y");
+    const json& f = q["filters"]["misc_filters"]["filters"];
+    // Both exact: a level 21 gem is not a better level 20 one, and the corruption flag below
+    // is what says which of the two markets is being asked.
+    CHECK(f["gem_level"]["min"] == 20);
+    CHECK(f["gem_level"]["max"] == 20);
+    CHECK(f["quality"]["min"] == 20);
+    CHECK(f["quality"]["max"] == 20);
+    CHECK(f["corrupted"]["option"] == "false");
+    CHECK(q["stats"][0]["filters"].empty()); // a gem has nothing to filter on
+}
+
+TEST_CASE("blight and a Valdo map's payout are map options, not type terms") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.category = "map";
+    p.type = "Map";
+    p.discriminator = "map";
+    p.blighted = true;
+    const json f = query_of(p)["filters"]["map_filters"]["filters"];
+    // A type of "Blighted Map" is accepted by the site and matches nothing at all, so the
+    // type stays the base every map shares and the flag says which kind it is.
+    CHECK(f["map_blighted"]["option"] == "true");
+    CHECK_FALSE(f.contains("map_uberblighted"));
+
+    // Never asked for in the negative: the two are mutually exclusive, so a blighted map's
+    // own search already excludes the ravaged ones.
+    p.blighted = false;
+    p.blight_ravaged = true;
+    const json g = query_of(p)["filters"]["map_filters"]["filters"];
+    CHECK(g["map_uberblighted"]["option"] == "true");
+    CHECK_FALSE(g.contains("map_blighted"));
+
+    // The reward is an option over the unique list — the "Foil " the game prints in front of
+    // it is the plan's to strip, and this layer sends the name it was given.
+    p.blight_ravaged = false;
+    p.map_reward = "Hrimsorrow";
+    CHECK(query_of(p)["filters"]["map_filters"]["filters"]["map_completion_reward"]["option"] ==
+          "Hrimsorrow");
+}
+
+TEST_CASE("a modifier the item does not have is asked for as a second, negated group") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.category = "map";
+    ppc::item::StatFilter present;
+    present.id = "explicit.stat_1";
+    present.enabled = true;
+    ppc::item::StatFilter absent;
+    absent.id = "explicit.stat_1095765106";
+    absent.enabled = true;
+    absent.negated = true;
+    p.stats = {present, absent};
+
+    const json stats = query_of(p)["stats"];
+    // Two groups, not one: the site spells an absence as a group of type "not", and a Valdo
+    // map that does not void the character who dies in it is bought for exactly that.
+    REQUIRE(stats.size() == 2);
+    CHECK(stats[0]["type"] == "and");
+    REQUIRE(stats[0]["filters"].size() == 1);
+    CHECK(stats[0]["filters"][0]["id"] == "explicit.stat_1");
+    CHECK(stats[1]["type"] == "not");
+    REQUIRE(stats[1]["filters"].size() == 1);
+    CHECK(stats[1]["filters"][0]["id"] == "explicit.stat_1095765106");
+    // No bounds ride along: there is no roll to compare, only presence.
+    CHECK_FALSE(stats[1]["filters"][0].contains("value"));
+
+    // And with nothing absent there is no second group at all.
+    p.stats = {present};
+    CHECK(query_of(p)["stats"].size() == 1);
+}
+
+TEST_CASE("a gem the plan could not name is not searched at all") {
+    // Every other strategy has modifiers or a category to fall back on. A gem has neither, so
+    // the search would be every gem in the game at this level and its cheapest listing would
+    // read as this gem's price.
+    SearchPlan p;
+    p.strategy = Strategy::Gem;
+    p.category = "gem.activegem";
+    CHECK_FALSE(searchable(p));
+    p.type = "Empower Support";
+    CHECK(searchable(p));
 }
 
 TEST_CASE("a discriminator rides on whichever term was ambiguous") {
@@ -163,10 +298,14 @@ TEST_CASE("numeric filters land in the group the API files them under") {
     add("ilvl", 84, true);
     add("es", 300, true);
     add("pdps", 400, true);
+    // Where the base's roll sits in its range is an armour filter on the site, not a weapon
+    // one, and not a number the item's own defence carries.
+    add("base_defence_percentile", 78, true);
     add("quality", 23, false); // untouched by the user, so not sent
     const json filters = query_of(p)["filters"];
     CHECK(filters["misc_filters"]["filters"]["ilvl"]["min"] == 84);
     CHECK(filters["armour_filters"]["filters"]["es"]["min"] == 300);
+    CHECK(filters["armour_filters"]["filters"]["base_defence_percentile"]["min"] == 78);
     CHECK(filters["weapon_filters"]["filters"]["pdps"]["min"] == 400);
     CHECK_FALSE(filters["misc_filters"]["filters"].contains("quality"));
 }

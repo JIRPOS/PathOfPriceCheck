@@ -34,6 +34,13 @@ STATS = [
     "#% increased Physical Damage",
     "#% increased Attack Speed",
     "#% reduced Action Speed",
+    # Added elemental damage feeds `edps` and not `pdps`, which is the other half of the rule
+    # that a modifier already inside a searched number is not searched again by name. Global
+    # critical strike multiplier is the control: it reads like a weapon number and is in none
+    # of them, because trade's `crit` is the weapon's own chance.
+    "Adds # to # Fire Damage",
+    "Adds # to # Lightning Damage",
+    "#% to Global Critical Strike Multiplier",
     # Ralakesh's Impatience, whose pool of three charge modifiers is the case per-unique
     # modifier data exists for: each rolls 1..1, so no printed range can reveal it.
     "#% to Chaos Resistance",
@@ -56,6 +63,24 @@ STATS = [
     # what the per-unique data has to say next to the enchant it says nothing about.
     "#% Chance to Block Attack Damage during Effect",
     "#% Chance to Block Spell Damage during Effect",
+    # A map's implicit — the one thing about a map that a currency cannot re-roll, and the only
+    # kind of modifier a `Strategy::Map` plan searches on.
+    "Area is influenced by The Shaper",
+    # A two-line implicit, which is one stat and therefore one filter — the map's affixes are
+    # printed in exactly the same shape and must still come out as none.
+    "Map contains Baran's Citadel\n"
+    "Item Quantity increases amount of Rewards Baran drops by #% of its value",
+    # And a map affix, which that plan must leave out without calling it unrecognised.
+    "Monsters have #% chance to Hinder on Hit with Spells",
+    # A blighted map's implicit, both halves of it — the plan searches every implicit a map
+    # has, so leaving one out of the fixture would show up as an unrecognised modifier.
+    "Area is infested with Fungal Growths\n"
+    "Map's Item Quantity Modifiers also affect Blight Chest count at #% value\n"
+    "Can be Anointed up to # times",
+    "Natural inhabitants of this area have been removed",
+    # The one modifier a Valdo map is searched on, and the only one anything is searched on in
+    # **both** directions: absent, it becomes a `not` group rather than being left open.
+    "Players who Die in area are sent to the Void",
 ]
 
 ITEMS = [
@@ -74,6 +99,32 @@ ITEMS = [
     "ITEM::Silver Flask",
     "ITEM::Granite Flask",
     "UNIQUE::Rumi's Concoction",
+    # The three shapes a map's identity comes in: the one base every tiered map shares (which
+    # is why the tier is the whole of what tells them apart), a map that names its own area
+    # instead, and a unique map, whose record carries the same "map" discriminator the base does.
+    "ITEM::Map",
+    "ITEM::Shaper Guardian Map",
+    "UNIQUE::Olmec's Sanctum",
+    # A Valdo map and the unique one of them pays out. The reward is searched as the unique's
+    # own name, so the record is what turns the printed "Foil Hrimsorrow" into a term the trade
+    # site will accept — and a blighted map has no record of its own at all, which is why it
+    # resolves against "ITEM::Map" above.
+    "ITEM::Valdo Map",
+    "UNIQUE::Hrimsorrow",
+    # A second card, because the capture that proves a card resolves at all is a real one.
+    "DIVINATION_CARD::The Blazing Fire",
+    # An essence, for the other half of that: both are traded in bulk on the in-game exchange,
+    # which states every item by the `metadataId` only a resolved base carries.
+    "ITEM::Weeping Essence of Hatred",
+    # The three shapes a gem's name comes in. An ordinary one is what the clipboard prints; a
+    # Vaal gem is filed under a name the clipboard prints only halfway down the tooltip; and a
+    # transfigured one is filed under the skill it alters, with a discriminator, so its record
+    # is the one whose name is neither the type sent nor anything a bundle without the display
+    # name could produce.
+    "GEM::Empower Support",
+    "GEM::Tornado Shot",
+    "GEM::Vaal Blight",
+    "GEM::Raise Zombie of Falling",
 ]
 
 UNIQUE_MODS = [
@@ -83,7 +134,7 @@ UNIQUE_MODS = [
 ]
 
 ITEM_CLASSES = ["Rings", "Boots", "Body Armours", "Stackable Currency", "Divination Cards",
-                "Jewels", "Utility Flasks"]
+                "Jewels", "Utility Flasks", "Maps", "Skill Gems", "Support Gems"]
 
 LANG = "en"
 
@@ -165,12 +216,21 @@ def main() -> int:
 
     # Not the source's manifest: the fixture is not a release, and nothing may mistake it for
     # one. The attribution is real, though — it is what the app is tested for crediting.
+    src_manifest = json.loads((src / "manifest.json").read_bytes())
+    source = {"unique_mods_attribution": "poewiki.net, CC BY-NC 3.0"}
+    # Carried through rather than invented: it is what `GameData::has_exchange_flags()` reads,
+    # and it is the *only* thing that tells a bundle predating the currency-exchange flags from
+    # one where the flag is genuinely absent because the item does not trade there. A fixture
+    # sliced from a bundle that has the dataset must say so, or the flags copied verbatim onto
+    # its item records would read as "unknown" and never be tested at all.
+    if items_exchange := src_manifest.get("source", {}).get("exchange_items", 0):
+        source["exchange_items"] = items_exchange
     manifest = {
         "schema_version": 1,
         "data_version": "fixture",
-        "game_patch": json.loads((src / "manifest.json").read_bytes()).get("game_patch", ""),
+        "game_patch": src_manifest.get("game_patch", ""),
         "languages": [LANG],
-        "source": {"unique_mods_attribution": "poewiki.net, CC BY-NC 3.0"},
+        "source": source,
         "files": [],
     }
     (out / "manifest.json").write_bytes(json.dumps(manifest, indent=2).encode() + b"\n")

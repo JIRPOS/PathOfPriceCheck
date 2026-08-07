@@ -134,6 +134,7 @@ add_library(ppc_core STATIC
   src/item/resolve.cpp
   src/item/derive.cpp
   src/item/plan.cpp
+  src/item/range_match.cpp
   src/ninja/ninja.cpp
   src/ninja/cache.cpp
   src/exchange/exchange.cpp

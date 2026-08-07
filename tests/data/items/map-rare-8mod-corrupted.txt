@@ -1,0 +1,34 @@
+Item Class: Maps
+Rarity: Rare
+Cruel Control
+Map (Tier 16)
+--------
+Item Quantity: +107% (augmented)
+Item Rarity: +64% (augmented)
+Monster Pack Size: +41% (augmented)
+--------
+Item Level: 85
+--------
+Monster Level: 83
+--------
+{ Prefix Modifier "Impervious" (Tier: 1) — Physical, Chaos, Attack, Ailment }
+Monsters have a 50% chance to avoid Poison, Impale, and Bleeding
+{ Prefix Modifier "Savage" (Tier: 1) — Damage }
+23(22-25)% increased Monster Damage
+{ Prefix Modifier "Buffered" (Tier: 1) }
+Monsters gain 47(40-49)% of Maximum Life as Extra Maximum Energy Shield
+{ Prefix Modifier "Freezing" (Tier: 1) — Damage, Physical, Elemental, Cold }
+Monsters deal 93(90-110)% extra Physical Damage as Cold
+{ Suffix Modifier "of Imprecision" (Tier: 1) }
+Players have 25% less Accuracy Rating
+{ Suffix Modifier "of Impotence" (Tier: 1) }
+Players have 25% less Area of Effect
+{ Suffix Modifier "of Balance" (Tier: 1) — Damage, Elemental }
+Players cannot inflict Exposure
+{ Suffix Modifier "of Elemental Weakness" (Tier: 1) — Caster, Curse }
+Players are Cursed with Elemental Weakness
+(Elemental Weakness is a Hex which inficts -15% to all Elemental Resistances. It lasts 8 seconds)
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 
+--------
+Corrupted

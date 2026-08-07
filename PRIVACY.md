@@ -20,7 +20,7 @@ Exhaustively — this is every outbound request the binary can make.
 | `www.pathofexile.com/api/trade/data/static` | before the first search; cached a week | nothing but the request |
 | `www.pathofexile.com/api/trade/search/<league>` | when you press **Search** (or on open, if you turned on `auto_search`) | the search query: trade stat identifiers and numeric bounds derived from the item under your cursor, plus the league and the listing-status filter |
 | `www.pathofexile.com/api/trade/fetch/...` | after a search, and on **load more** | the result hashes the search returned |
-| `web.poecdn.com` | when a currency symbol is first needed; cached on disk forever after | nothing but the request |
+| `web.poecdn.com` | when an item's symbol is first needed — a currency, or anything the in-game exchange trades; cached on disk forever after | nothing but the request |
 | `web.poecdn.com/api/currency-exchange/<hour>` | when an item is priced and the newest published hour is not already on disk; **one download covers every item and every league** | nothing but the request |
 | `poe.ninja/poe1/api/economy/...` | when a reference price is needed and the 30-minute cache has expired; **once per category**, not per price check | nothing but the request and the league name |
 | `poe.ninja/favicons/favicon-32x32.png` | once, for the reference row's source mark | nothing but the request |
@@ -74,13 +74,13 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 
 | path | what |
 |---|---|
-| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count |
+| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges |
 | `<config>/cookies.txt` | the cookie jar above |
 | `<cache>/data/<version>/` | the downloaded game-data bundle, plus a `current` pointer |
 | `<cache>/leagues.json`, `<cache>/trade-static.json` | cached trade static data |
 | `<cache>/ninja/` | cached poe.ninja overviews, pruned after a week unread |
 | `<cache>/exchange/` | cached currency-exchange digests, newest two hours kept |
-| `<cache>/icons/` | downloaded currency symbols, keyed by URL hash |
+| `<cache>/icons/` | downloaded item and currency symbols, keyed by URL hash |
 | `<cache>/trade-ratelimit.json` | the rate limiter's state, so a restart cannot walk out of a restriction |
 | `<cache>/logs/` | the debug log, **only if you turned it on** — see below |
 

@@ -89,8 +89,38 @@ std::vector<std::string_view> split_words(std::string_view s) {
 std::string find_known_name(const data::GameData& gd, std::string_view printed,
                             data::Namespace ns, std::string_view item_class);
 
+/// The bundle's record for this gem, or null.
+///
+/// Keyed on `Item::gem_name()`, which is the name both markets state a gem by rather than the
+/// one the clipboard prints. Two records can answer to it — a transfigured gem is stored under
+/// the skill it alters on bundles published before the display name was emitted, and three
+/// "Vaal Blight" records then sit under that one key — so the discriminator decides: a
+/// transfigured gem is exactly the one that has one. Getting it wrong searches somebody else's
+/// gem, which is why nothing here falls back to "whichever came first".
+const data::BaseType* resolve_gem(const data::GameData& gd, const Item& it) {
+    const std::string name = it.gem_name();
+    if (name.empty()) return nullptr;
+    for (const data::BaseType* g : gd.find_bases(data::Namespace::Gem, name))
+        if (it.transfigured == !g->trade_disc.empty()) return g;
+    return nullptr;
+}
+
 /// Resolve `it.base` / `it.base_name`, and for a unique the record naming it.
 void resolve_base(const data::GameData& gd, Item& it) {
+    if (it.rarity == Rarity::Gem) {
+        it.base = resolve_gem(gd, it);
+        return;
+    }
+
+    // A card is a base type in a namespace of its own, and resolving it is what gives the
+    // check its `metadata_id` — which is the only key the in-game currency exchange states an
+    // item by, and cards are traded there in bulk exactly as currency is.
+    if (it.rarity == Rarity::DivinationCard) {
+        for (const data::BaseType* c : gd.find_bases(data::Namespace::DivinationCard, it.base_name))
+            it.base = c;
+        return;
+    }
+
     if (it.rarity == Rarity::Unique && !it.name.empty()) {
         for (const data::BaseType* u : gd.find_bases(data::Namespace::Unique, it.name)) {
             it.unique_entry = u;
@@ -111,6 +141,13 @@ void resolve_base(const data::GameData& gd, Item& it) {
         const std::string stripped = strip_magic_affixes(gd, it.base_type, it.item_class);
         if (!stripped.empty()) it.base_name = stripped;
     }
+
+    // Trade files a blighted map under the *ordinary* map base and says which it is with a
+    // filter (`map_blighted` / `map_uberblighted`), not with a type: "Blighted Map" is a term
+    // the site accepts and matches nothing at all, and no bundle carries a base under that
+    // name either. Measured — a tier-12 search sent as "Blighted Map" returned 0 listings
+    // against 1398 for the Map base plus the filter.
+    if (it.blighted || it.blight_ravaged) it.base_name = "Map";
 
     for (const data::BaseType* b : gd.find_bases(data::Namespace::Item, it.base_name)) {
         // Same-named bases (the three Two-Stone Rings) are told apart by their defences,
@@ -210,6 +247,10 @@ std::string find_known_name(const data::GameData& gd, std::string_view printed,
 std::string strip_magic_affixes(const data::GameData& gd, std::string_view printed,
                                 std::string_view item_class) {
     return find_known_name(gd, printed, data::Namespace::Item, item_class);
+}
+
+std::string find_unique_in(const data::GameData& gd, std::string_view printed) {
+    return find_known_name(gd, printed, data::Namespace::Unique, {});
 }
 
 void resolve_item(const data::GameData& gd, Item& it) {

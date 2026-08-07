@@ -125,6 +125,22 @@ struct Item {
 
     std::vector<Property> properties; ///< every property line, in printed order
     std::optional<int> item_level, quality;
+    /// The tier the base line printed, "Map (Tier 16)". Absent on a map that names its own
+    /// area instead ("Shaper Guardian Map"), and on everything that is not a map.
+    std::optional<int> map_tier;
+    /// Blight, which the base line is the only statement of: "Blighted Map (Tier 12)" and
+    /// "Blight-ravaged Map (Tier 16)". The two are mutually exclusive — a search asking for
+    /// both comes back empty — and neither is a base the trade site knows; see `resolve_base`.
+    bool blighted = false, blight_ravaged = false;
+    /// The gem's own level, off the property block — **not** the "Level:" under
+    /// `Requirements:`, which is the character level needed to socket it and is a different
+    /// number on every gem past the first.
+    std::optional<int> gem_level;
+    /// The Vaal skill a gem also grants, as the game heads that half of the tooltip: "Vaal
+    /// Blight". The clipboard's *name* line still says "Blight", so this is the only thing
+    /// saying which of the two gems is in hand — see `gem_name()`.
+    std::string vaal_name;
+    bool transfigured = false; ///< an alternate version of a skill: "Raise Zombie of Falling"
     std::string quality_kind; ///< catalyst quality's parenthetical, e.g. "Critical Modifiers"
     Requirements req;
     std::string sockets;      ///< as printed: "R-G-B"
@@ -159,7 +175,18 @@ struct Item {
     /// "Map Fragments" or "Misc Map Items". Printed as Normal rarity but currency-like: no
     /// modifiers, no base to compare, bought and sold as a stack.
     bool is_map_fragment() const;
+    /// A map proper — the "Maps" item class. Not a fragment, which is a different class and a
+    /// different market entirely.
+    bool is_map() const;
     bool has_defences() const;
+    /// What this gem is called on both markets, which is not always what the clipboard printed.
+    ///
+    /// A Vaal gem heads its tooltip with the *base* skill — a Vaal Blight prints "Blight" —
+    /// and both the trade site and poe.ninja file it under "Vaal Blight", so pricing the
+    /// printed name prices a different, far cheaper gem. A transfigured Vaal gem is stated as
+    /// the pair, "Vaal Blight (Blight of Atrophy)", which is the two names the clipboard
+    /// prints put together in the site's own form. Empty for anything that is not a gem.
+    std::string gem_name() const;
     /// True for the rarities whose mods are rolled from a pool, i.e. tier-matchable. False for
     /// a map fragment, whose Normal rarity says nothing about it.
     bool is_gear() const;

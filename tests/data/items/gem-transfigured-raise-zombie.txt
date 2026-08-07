@@ -1,0 +1,24 @@
+Item Class: Skill Gems
+Rarity: Gem
+Raise Zombie of Falling
+--------
+Spell, Minion
+Level: 1
+Cost: 6 Mana
+Cast Time: 0.75 sec
+--------
+Requirements:
+Level: 1
+--------
+Raises necromantic energies into the sky above a targeted location, where they coalesce into a zombie minion. The minion then attacks by falling to the ground, causing an impact that deals damage in an area. The zombie cannot survive the impact.
+--------
+Does not require a corpse
+
+Additional Effects From Quality:
+Minions have 0(0-15)% chance to deal Double Damage
+--------
+Experience: 1/70
+--------
+Place into an item socket to gain this skill. Right click to remove from a socket.
+--------
+Transfigured

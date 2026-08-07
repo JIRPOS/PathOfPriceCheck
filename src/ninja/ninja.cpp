@@ -18,8 +18,8 @@ namespace {
 /// kebab-case of the category name, verified against the live pages rather than derived — the
 /// two do not always agree, and a wrong slug is a link to a 404.
 ///
-/// Deliberately not the whole list: what is missing is what nothing here can reach. Maps are
-/// priced by tier and a map never gets this far (`Strategy::Unsupported`), and the rest —
+/// Deliberately not the whole list: what is missing is what nothing here can reach. A map is
+/// priced by a trade search on its tier and never gets this far (`Strategy::Map`), and the rest —
 /// incubators, beasts, memories, temples — has no strategy behind it either.
 constexpr Category kCategories[] = {
     {Feed::Exchange, "Currency", "currency"},
@@ -598,12 +598,20 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
     q.links = max_links(it.sockets);
     q.base_type = it.base_name.empty() ? it.base_type : it.base_name;
 
-    // The printed name first: poe.ninja prices "Foulborn Headhunter" as its own line, and it
-    // is not a Headhunter. Currency and gems print their name on the base line instead.
-    for (const std::string* n : std::initializer_list<const std::string*>{
-             &it.name, &plan.name, &q.base_type, &it.base_type})
-        if (!n->empty() && std::find(q.names.begin(), q.names.end(), *n) == q.names.end())
-            q.names.push_back(*n);
+    // A gem is looked up under one name and no other. `gem_name()` is what poe.ninja lists it
+    // as, which for a Vaal gem is not what the clipboard printed — a Vaal Blight prints
+    // "Blight" — and poe.ninja prices both, so falling back to the printed name would not miss
+    // the price, it would find a real line for a different gem at a tenth of the value.
+    if (const std::string gem = it.gem_name(); !gem.empty()) {
+        q.names.push_back(gem);
+    } else {
+        // The printed name first: poe.ninja prices "Foulborn Headhunter" as its own line, and
+        // it is not a Headhunter. Currency prints its name on the base line instead.
+        for (const std::string* n : std::initializer_list<const std::string*>{
+                 &it.name, &plan.name, &q.base_type, &it.base_type})
+            if (!n->empty() && std::find(q.names.begin(), q.names.end(), *n) == q.names.end())
+                q.names.push_back(*n);
+    }
 
     for (const item::Modifier& m : it.mods)
         for (const std::string& line : m.lines) q.mods.push_back(line);
@@ -623,8 +631,7 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
             q.stack = static_cast<int>(*p.num);
 
     if (plan.strategy == item::Strategy::Gem) {
-        for (const item::Property& p : it.properties)
-            if (p.label == "Level" && p.num) q.gem_level = static_cast<int>(*p.num);
+        q.gem_level = it.gem_level.value_or(0);
         q.gem_quality = it.quality.value_or(0);
     }
     return q;

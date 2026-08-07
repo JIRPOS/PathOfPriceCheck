@@ -4,11 +4,12 @@ A native, lightweight **Path of Exile price-check overlay** — C++20 and Dear I
 Electron, no bundled browser, no wrapper runtime.
 
 Hover an item in game, press the hotkey. The tool copies it, parses it, prices it against the
-official trade API and poe.ninja, and draws the result over the game in the game's own typeface.
+official trade API, poe.ninja and GGG's own in-game currency exchange, and draws the result over
+the game in the game's own typeface.
 
-> **Early development.** Version 0.1. It works and it is used daily, but interfaces, settings and
-> the panel layout all still move. Issues are very welcome; pull requests are not being accepted
-> yet — see [CONTRIBUTING.md](CONTRIBUTING.md).
+> **Early development.** It works and it is used daily, but interfaces, settings and the panel
+> layout all still move. Issues are very welcome; pull requests are not being accepted yet — see
+> [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## What it does
 
@@ -17,13 +18,24 @@ official trade API and poe.ninja, and draws the result over the game in the game
 - **Reads the item properly.** Rarity, implicits, explicits, fractured, crafted, enchants,
   corruption, influences, quality — and the numbers the game leaves implicit, like quality-20
   DPS and where a base's defences fall in their own roll range.
-- **Searches for what actually matters.** A rare is searched on its modifiers, bounded by the tier
-  each one rolled. A unique is searched on the rolls that *vary* — including the ones that vary
-  without printing a range, which needs a per-unique modifier dataset to know about. A white,
-  magic or rare item can be priced as its base type with item level and influences.
+- **Searches for what actually matters, and it is different for every kind of item.** A rare is
+  searched on its modifiers, bounded by the tier each one rolled. A unique is searched on the rolls
+  that *vary* — including the ones that vary without printing a range, which needs a per-unique
+  modifier dataset to know about. A white, magic or rare item can be priced as its base type with
+  item level and influences. A **map** is searched on none of its affixes, because a Chaos Orb
+  re-rolls them all: it goes on tier, quantity, pack size, the drop bonuses a chisel added and
+  whether dying in it voids the character. A **gem** goes on its name, level and quality and no
+  modifier at all.
 - **A reference price from poe.ninja** for the things a stat query cannot answer: uniques, gems,
   currency, and base types. Variants are resolved from the modifiers the copy in your hand actually
   rolled, and where two candidates cannot be told apart the row says so instead of guessing.
+- **The in-game currency exchange, from GGG's own hourly digests.** A stack of currency, a scarab,
+  an essence or a divination card is not sold through listings at all, so the trade site has
+  nothing to say about any of them — the search below the panel would not be empty, it would be
+  the wrong question. For those the panel shows what the market actually cleared at: the
+  volume-weighted average, the band around it, and the volume on both sides. Items that trade
+  there get no Search button, and one that had no trade in the last hour says so rather than
+  showing you nothing.
 - **Listings you can read.** Account, listing age and price, with the seller's own item drawn
   beside the list when you hover a row — through the same renderer as the item in your hand, so the
   comparison is like-for-like.
@@ -38,11 +50,37 @@ official trade API and poe.ninja, and draws the result over the game in the game
 | **Windows** | 10 or later. Single `.exe`, no runtime, no DLLs. |
 | **Linux** | An **X11 session**. Wayland is not supported — it blocks global hotkeys and click-through overlays without portals this project does not yet use. |
 | **The game** | Native client, or Wine/Proton. |
+| **Game language** | **English only.** The whole tool works by matching the wordings the client prints, so a client set to any other language is not read at all. See below. |
+
+### Only an English client, for now
+
+Everything here starts from the text the game writes to your clipboard, and every modifier is
+matched against the wording the client printed. Those wordings are language-specific, so a
+non-English client produces item text this tool cannot parse — it will not mis-price an item, it
+simply will not recognise one.
+
+This is a **stretch goal, not a design limit.** The seam is already there and unused: every data
+file is language-prefixed (`en-items.ndjson`, `en-stats.ndjson`), the bundle loader takes the
+language as a parameter, and the manifest declares which languages a release carries. What is
+missing is the work behind it — GGG ships localised stat-description files that the data builder
+does not currently fetch, so no other language is built or published, and there is no setting to
+pick one. Until that is done, the honest answer is "English clients only".
 
 ## Install
 
-Grab the latest [release](https://github.com/JIRPOS/PathOfPriceCheck/releases): a `.zip` for win64,
-a `.tar.gz` for linux-x64. There is no installer — unpack it and run it.
+Grab the latest [release](https://github.com/JIRPOS/PathOfPriceCheck/releases). There is no
+installer — unpack it and run it.
+
+| | |
+|---|---|
+| **Windows** | `.zip` — one `.exe`, no DLLs beside it |
+| **Linux** | `.AppImage` — bundles libcurl and OpenSSL, so it does not care which ones your distribution ships |
+| **Linux** | `.tar.gz` — the bare binary, for anyone who would rather use their own libraries |
+
+Both Linux builds are compiled against glibc 2.35 (Ubuntu 22.04, Debian 12) and neither can bundle
+glibc itself, so an older distribution than that needs a build from source. If the AppImage refuses
+to start with a FUSE error, your distribution no longer installs `libfuse2`: run it as
+`./PathOfPriceCheck-*.AppImage --appimage-extract-and-run`, or install that package.
 
 On first launch it downloads the game-data bundle (~4 MB) from
 [PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data). Nothing is baked into the

@@ -36,6 +36,10 @@ double number(const json& j, const std::string& key) {
 /// Fill the item's side of one market. `low`/`high` are ordered here rather than taken as
 /// named: the payload's "lowest ratio" is the lowest value of *item over against*, which is
 /// the item's **dearest** price, and reading the two names as a price band gets it backwards.
+///
+/// Both volumes are kept, not just the item's: the two of them divided are the hour's
+/// volume-weighted average price, which is the one number in the payload that says where in
+/// the band the market actually sat.
 void fill(Rate& out, const json& market, const std::string& item, const std::string& against) {
     const auto lo = market.find("lowest_ratio");
     const auto hi = market.find("highest_ratio");
@@ -45,7 +49,10 @@ void fill(Rate& out, const json& market, const std::string& item, const std::str
     out.low = std::min(a, b);
     out.high = std::max(a, b);
     const auto vol = market.find("volume_traded");
-    if (vol != market.end() && vol->is_object()) out.volume = number(*vol, item);
+    if (vol != market.end() && vol->is_object()) {
+        out.volume = number(*vol, item);
+        out.volume_against = number(*vol, against);
+    }
 }
 
 } // namespace
@@ -59,13 +66,24 @@ std::string url(int64_t hour) { return std::string(kApiBase) + "/" + std::to_str
 
 std::string cache_name(int64_t hour) { return std::to_string(hour) + ".json"; }
 
+double Rate::average() const {
+    if (volume <= 0 || volume_against <= 0) return 0;
+    return volume_against / volume;
+}
+
 Reading read(const Rate& r) {
     Reading out;
     if (!r.known()) return out;
-    out.inverted = r.high < 1;
+    const double avg = r.average();
+    // Which of the two is worth more decides the direction, and the average is what says so —
+    // it is the number the line leads with, and a band that straddles one (0.5 – 2 chaos an
+    // ember) has no direction of its own. Without volume to average, the top of the band is
+    // the only thing left to ask.
+    out.inverted = avg > 0 ? avg < 1 : r.high < 1;
     out.low = out.inverted ? 1 / r.high : r.low;
     out.high = out.inverted ? 1 / r.low : r.high;
-    for (double* v : {&out.low, &out.high}) {
+    if (avg > 0) out.avg = out.inverted ? 1 / avg : avg;
+    for (double* v : {&out.low, &out.high, &out.avg}) {
         // Nobody quotes 2.04082 to a chaos. Same rule as `ninja::quote_in`, so the two prices
         // on screen are said to the same precision.
         const double step = *v < 10 ? 100.0 : (*v < 100 ? 10.0 : 1.0);

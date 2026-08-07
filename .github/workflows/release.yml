@@ -1,36 +1,94 @@
 name: Release
 
+# Manual only. A push to master is not a release; a release is a decision.
 on:
-  push:
-    branches: [master]
-  workflow_dispatch: {} # dispatched by the Version bump workflow after it edits VERSION
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump, e.g. +0.1 or +1.0. Empty = build number only.'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency: release
 
 jobs:
-  version:
+  prepare:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      base: ${{ steps.v.outputs.base }}
+      branch: ${{ steps.v.outputs.branch }}
+      bumped: ${{ steps.v.outputs.bumped }}
     steps:
       - uses: actions/checkout@v4
       - id: v
-        run: echo "version=$(cat VERSION).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+        name: Compute version
+        env:
+          BUMP: ${{ inputs.bump }} # via env, never interpolated into the script
+        run: |
+          set -euo pipefail
+          IFS=. read -r MAJOR MINOR < VERSION
+          bumped=false
+          if [ -n "$BUMP" ]; then
+            if ! printf '%s' "$BUMP" | grep -Eq '^\+?[0-9]+\.[0-9]+$'; then
+              echo "::error::bump must look like +0.1 or +1.0 (got '$BUMP')"
+              exit 1
+            fi
+            IFS=. read -r DMAJOR DMINOR <<< "${BUMP#+}"
+            if [ "$DMAJOR" -gt 0 ]; then
+              # A major bump restarts the minor rather than carrying it: +1.0 off 0.7 is 1.0.
+              MAJOR=$((MAJOR + DMAJOR)); MINOR="$DMINOR"
+            else
+              MINOR=$((MINOR + DMINOR))
+            fi
+            printf '%s.%s\n' "$MAJOR" "$MINOR" > VERSION
+            bumped=true
+          fi
+          ver="${MAJOR}.${MINOR}.${{ github.run_number }}"
+          {
+            echo "version=${ver}"
+            echo "base=${MAJOR}.${MINOR}"
+            echo "branch=release/v${ver}"
+            echo "bumped=${bumped}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing v${ver} (bumped: ${bumped})"
+      - name: Push release branch
+        env:
+          BRANCH: ${{ steps.v.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # Nothing to commit when only the build number moved; the branch is then just a tag target.
+          if [ "${{ steps.v.outputs.bumped }}" = "true" ]; then
+            git commit -am "chore: version ${{ steps.v.outputs.base }}"
+          fi
+          git push origin "$BRANCH"
 
   build:
-    needs: version
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # The oldest image GitHub still offers, because the binary's glibc floor is whatever it
+          # was built against: 2.35 here, against 2.39 on ubuntu-latest, which will not start on
+          # Debian 12 or Ubuntu 22.04. The AppImage bundles libcurl and OpenSSL but never glibc.
+          - os: ubuntu-22.04
             name: linux-x64
           - os: windows-latest
             name: win64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.branch }}
       - name: Install Linux deps
         if: runner.os == 'Linux'
         run: |
@@ -49,7 +107,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          ver="${{ needs.version.outputs.version }}"
+          ver="${{ needs.prepare.outputs.version }}"
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp build/Release/PathOfPriceCheck.exe dist/
             (cd dist && 7z a "PathOfPriceCheck-${ver}-${{ matrix.name }}.zip" PathOfPriceCheck.exe)
@@ -57,6 +115,26 @@ jobs:
             cp build/PathOfPriceCheck dist/
             (cd dist && tar czf "PathOfPriceCheck-${ver}-${{ matrix.name }}.tar.gz" PathOfPriceCheck)
           fi
+      # SDL3 is static but libcurl, OpenSSL and libstdc++ are the system's, so the bare binary
+      # assumes a distribution close to this runner. The AppImage carries them; libX11 and libGL
+      # stay the host's, as they must.
+      - name: Package AppImage
+        if: runner.os == 'Linux'
+        env:
+          OUTPUT: PathOfPriceCheck-${{ needs.prepare.outputs.version }}-linux-x64.AppImage
+          APPIMAGE_EXTRACT_AND_RUN: 1 # the runners have no FUSE, so every AppImage here unpacks itself
+        run: |
+          set -euo pipefail
+          base=https://github.com/linuxdeploy
+          curl -fsSLO $base/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fsSLO $base/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy*.AppImage
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir \
+            -e build/PathOfPriceCheck \
+            -d assets/popc.desktop \
+            -i assets/popc_icon.png \
+            --output appimage
+          mv "$OUTPUT" dist/
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
@@ -64,7 +142,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [version, build]
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -76,5 +154,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          ver="${{ needs.version.outputs.version }}"
-          gh release create "v${ver}" artifacts/* --title "v${ver}" --generate-notes
+          ver="${{ needs.prepare.outputs.version }}"
+          gh release create "v${ver}" artifacts/* --title "v${ver}" --generate-notes \
+            --target "${{ needs.prepare.outputs.branch }}"
+
+  # Land the version bump on master, or clean up a branch nothing will ever merge.
+  finalize:
+    needs: [prepare, release]
+    if: always() && needs.prepare.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open version PR
+        if: needs.release.result == 'success' && needs.prepare.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh pr create --base master --head "${{ needs.prepare.outputs.branch }}" \
+            --title "chore: version ${{ needs.prepare.outputs.base }}" \
+            --body "Released as [v${{ needs.prepare.outputs.version }}](${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ needs.prepare.outputs.version }})."
+      - name: Delete release branch
+        if: needs.release.result != 'success' || needs.prepare.outputs.bumped != 'true'
+        run: git push origin --delete "${{ needs.prepare.outputs.branch }}"

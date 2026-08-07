@@ -32,6 +32,12 @@ struct Manifest {
     /// than hardcoded here, and written through on install: it describes the data, and an
     /// attribution that only lives in the publisher's repo is not an attribution.
     std::string unique_mods_attribution;
+    /// How many items the data build found trading on the in-game currency exchange, and so
+    /// whether the `exchange` flag on a base record means anything at all. Written through on
+    /// install for the same reason the attribution is: 0 is "this bundle predates the dataset",
+    /// which is not the same answer as "this item does not trade there" — see
+    /// `GameData::has_exchange_flags()`.
+    int exchange_items = 0;
     std::vector<ManifestFile> files;
 
     const ManifestFile* find(std::string_view name) const;

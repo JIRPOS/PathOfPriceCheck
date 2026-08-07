@@ -52,6 +52,12 @@ public:
     /// price should not be the one thing that needs a trade request to render.
     std::string currency_icon(const std::string& id) const;
     std::string currency_name(const std::string& id) const;
+    /// A symbol found by **display name**, across every overview held rather than only the
+    /// currency market. The other half of the same fallback: an item the currency-exchange
+    /// feed prices has no trade id to be looked up by, and the trade static data is not
+    /// fetched at all until the user runs their first search — but the overview this item's
+    /// own reference price came out of was, and it carries the picture.
+    std::string icon_for_name(const std::string& name) const;
 
 private:
     void start(); ///< resolve `query_` against memory, download what it is missing

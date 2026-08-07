@@ -129,9 +129,11 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         const json j = json::parse(mf, nullptr, false);
         if (!j.is_discarded()) {
             gd->data_version_ = j.value("data_version", std::string());
-            if (const auto s = j.find("source"); s != j.end() && s->is_object())
+            if (const auto s = j.find("source"); s != j.end() && s->is_object()) {
                 gd->unique_mods_attribution_ =
                     s->value("unique_mods_attribution", std::string());
+                gd->exchange_items_ = s->value("exchange_items", 0);
+            }
         }
     }
     return gd;
@@ -199,7 +201,9 @@ const BaseType* GameData::base_at(uint32_t offset) const {
     b->ns = namespace_from_string(j.value("namespace", std::string("ITEM")))
                 .value_or(Namespace::Item);
     b->trade_disc = j.value("tradeDisc", std::string());
+    b->trade_name = j.value("tradeName", std::string());
     b->metadata_id = j.value("metadataId", std::string());
+    b->exchange = j.value("exchange", false);
     b->w = j.value("w", 0);
     b->h = j.value("h", 0);
     b->drop_level = j.value("dropLevel", 0);

@@ -8,10 +8,14 @@ The overlay, Settings, the league list, the **static game-data layer**, the **it
 (parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) and the
 **trade search** (query builder, two-step client, shared rate limiter, results in the panel) are
 built and tested, including the **per-unique modifier data** that decides which of a unique's
-modifiers are worth searching on. **poe.ninja reference pricing** — uniques, gems, currency and
+modifiers are worth searching on, the **map search**, which asks for none of the things a
+rolled item's search does, and the **gem search**, which asks for three things and no
+modifier at all. **poe.ninja reference pricing** — uniques, gems, currency and
 base types, the going rates a stat query cannot give — is built too, and so is the **in-game
 currency exchange feed** (GGG's own hourly digests of the market currency and fragments actually
-trade on, which is why those items have no trade search at all).
+trade on, which is why those items have no trade search at all) — together with the bundle's
+record of **which items trade there at all**, which is what tells an item nobody traded this hour
+from one that is not sold there.
 
 Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
@@ -217,7 +221,10 @@ drops any action fired while PoE is not the foreground window — otherwise they
 browser. The lone exception is the Settings hotkey while Settings is open: that panel holds the
 keyboard focus itself, so the game *can't* be foreground, and the hotkey has to be able to close it.
 The idle status marker follows the same rule and unmaps whenever the game isn't in front, so it
-never floats over other applications. In the other direction we never force focus *onto the game*:
+never floats over other applications — with **our own overlay counting as the game being in front**,
+because from the user's side it is: closing a panel that had taken the focus leaves it on our
+now-empty window for as long as the compositor takes to hand it back, and the marker used to blink
+out for exactly that gap. Focusing anything else takes the focus off us too, so the rule still holds. In the other direction we never force focus *onto the game*:
 the copy path used to call `focus_game_window()` on a window it had just confirmed was foreground,
 and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
 the game on close **only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
@@ -252,7 +259,10 @@ against. It is only as wide as the game actually leaves free (capped at the pane
 the window still swallows mouse input everywhere it covers.
 
 **The item being priced is drawn at the top of that gutter, not at the top of the panel**
-(`draw_item_card`), and the panel therefore begins at the filters. Every screen is wider than it is
+(`draw_item_card`), and the panel therefore begins at the filters — *unless there are no filters*,
+which is the case for every item the trade site cannot be asked about (currency, a card,
+anything the in-game exchange trades). There the whole search half of the panel is gone, so
+the item moves back into the column it left and the panel is the item and its reference prices. Every screen is wider than it is
 tall, so the panel's column runs out of *height* long before the window runs out of width — at 1080p
 and below the item, the filters and the listings were all competing for the same few hundred pixels.
 A hovered listing's item stacks underneath it, which is also the comparison the hover is for. Three
@@ -278,6 +288,13 @@ driven by a PC client. Two invariants: the dropdown is never empty (fallback →
 the configured league is never lost — it is the combo preview and is appended as a selectable when
 a fetch does not contain it, which is exactly what happens on league-launch day. No request is made
 unless Settings is opened. `poe_window_title` is config-file-only, deliberately not in the UI.
+**Filter ranges** is two rows of the same shape (`bound_row`), one per side of the interval every
+modifier's filter opens to — see `item/range_match`. The percentage box beside each is *disabled*
+rather than hidden for the two modes that do not read it: the dialog is sized to hold every section
+without scrolling, and a row whose height depends on its own value breaks that for whichever mode
+happens to be picked. The size is `kSettingsW × kSettingsH` **capped at the game's height**, since a
+dialog taller than the screen scrolls whatever that constant says; measure the content against the
+window before adding a section rather than guessing at the new number.
 
 Five SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
 data-updater state, trade result, poe.ninja result, currency-exchange result. Async results are **not** routed through `Action` — `handle_action()` gates on
@@ -340,7 +357,31 @@ embedded, because a CJK collection is ~19MB — several times the whole executab
 for everyone whose results are Latin. The files are **mapped, not read** (`data::MappedFile`, with
 `FontDataOwnedByAtlas = false`): ImGui 1.92 rasterizes on demand and keeps the bytes for the life of
 the atlas, so a face nothing on screen needs costs address space rather than resident memory. The
-mappings are a function-local static and must outlive the atlas.
+mappings are a function-local static and must outlive the atlas — and a pointer *into* that vector
+does not, because it grows; what survives a reallocation is the address the file was mapped at, so
+`FontBytes` copies that out at map time.
+
+**Fontin's `≤` and `≥` are empty outlines, and its cmap does not say so.** Both codepoints map to a
+real glyph id whose `glyf` entry is **zero bytes**, so text laid out with them advances the right
+width and paints nothing — not even the missing-glyph box that would have made it obvious, which is
+how they shipped looking verified. **A cmap entry is not evidence that a font can draw something;
+the glyph's own length is.** So `kBorrowedGlyphs` excludes the two from every Fontin source and they
+are merged in from a system face, which is what keeps the digits beside them in Fontin.
+`ImFontConfig::GlyphExcludeRanges` is what makes that possible at all — a merged source only ever
+serves a codepoint no earlier source claims, and Fontin claims these. Three consequences:
+the borrowed source carries `kOnlyBorrowed`, the *complement* of those two codepoints, because
+ImGui 1.92 loads glyphs on demand and **ignores `GlyphRanges` while doing it** — without the
+exclusion the borrowed face would also serve every script Fontin lacks, quietly replacing the boxes
+`fonts.unicode` exists to draw properly;
+`math_faces()` is its own list and not `system_faces()`, since covering the Latin scripts says
+nothing about the mathematical operators (Noto Sans, the usual first hit there, has neither, having
+split them into a Noto Sans Math nobody installs by default);
+and the result is **asked rather than assumed** — `FindGlyphNoFallback` after loading, which bakes
+on demand and answers null only when no source served the codepoint. That answer is
+`Fonts::has_comparison_glyphs`, and the price-check panel spells the two out as `>=` and `<=` when
+it is false, because a floor of 46 that loses its `≥` reads as an exact match, which is a different
+search. `×` (U+00D7) is the same argument and is left alone only because nothing draws one — it is
+absent from Fontin's cmap outright, so adding it to `kBorrowedGlyphs` is all it would take.
 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
 so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
@@ -370,6 +411,10 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   apart from "nothing here has one". The wiki attribution it is licensed on rides in the manifest's
   `source.unique_mods_attribution` and is written through by `install`, because an attribution that
   stays behind in the publisher's repo is not an attribution — Settings renders it.
+  **`source.exchange_items` rides the same path** and is read back as `has_exchange_flags()` — the
+  bundle-level signal saying whether `BaseType::exchange` means anything, because unlike a whole
+  missing file an absent boolean cannot tell "no data" from "no". `install` writes it only when
+  non-zero, since a 0 would claim the opposite of what it means. See the currency-exchange section.
 - **`data/stat_normalize`** turns `+42 to maximum Life` into `# to maximum Life` and its fallbacks.
   **`NORMALIZATION.md` in the data repo is normative** and this must reproduce it exactly — a
   divergence does not crash, it silently mismatches a mod and returns a confident wrong price.
@@ -431,6 +476,15 @@ bundle, and only the third and fourth encode pricing judgement.
   - Influence lines sometimes arrive glued to the end of the last mod block instead of in a section
     of their own; trailing flag lines are peeled off before the block is parsed as mods.
   - A **gem** has no rolled mods: its stat lines are `inherent_lines`, its skill text `description`.
+    Three things are pulled out because they are the whole of what a gem is priced on.
+    `gem_level` is the `Level:` in the **property block** — the clipboard prints that label twice
+    and the one under `Requirements:` is the character level to socket it, a different number on
+    every gem past the first. `transfigured` is a flag line like `Corrupted`. And `vaal_name` is
+    the lone-line section heading the second half of a **Vaal gem**, which is two skills in one
+    item: the *name* line prints the base skill ("Blight") and only that heading says this is a
+    Vaal Blight. `Item::gem_name()` puts the two back together into the one name both markets
+    file the gem under — the Vaal skill, or for a transfigured Vaal gem the pair the trade site
+    and poe.ninja both write as "Vaal Blight (Blight of Atrophy)".
 - **`item/resolve`** — needs the bundle. Two jobs the matcher cannot do alone:
   - **Local vs global.** The bundle keeps a second record for local stats, marked by a **`" (Local)"`
     suffix on the matcher string**; "20% increased Attack Speed" is the weapon's own speed on a
@@ -444,6 +498,20 @@ bundle, and only the third and fourth encode pricing judgement.
     jewel's enchantment). Without info lines the same walk merges hybrid lines instead, driven by
     `StatMatch::lines_consumed`. Every part keeps the affix's name/tier/tags; `continuation` marks
     the ones that must not print the info line again.
+  - **The gem's own record** (`resolve_gem`, `Namespace::Gem`), looked up on `Item::gem_name()`.
+    What it is there for is `BaseType::trade_name`: **trade files a transfigured gem under the
+    skill it alters**, so "Raise Zombie of Falling" is the type `Raise Zombie` with the `alt_y`
+    discriminator, and a search naming what the clipboard printed matches *nothing* while the
+    bare type matches the unaltered gem — a real, far cheaper item. The discriminator is also
+    what tells two records under one key apart, which is the shape a bundle published before
+    the display names existed has: three "Vaal Blight" rows, only one of them the plain gem. A
+    transfigured gem is exactly the one with a discriminator, so nothing falls back to
+    "whichever came first".
+  - **A card's own record** (`Namespace::DivinationCard`). Nothing about a card is *searched* — it
+    is `Strategy::Currency` and the in-game exchange is the whole answer — but that answer is
+    keyed on `BaseType::metadata_id`, which only a resolved base carries, so a card that fell
+    through this had no base, no metadata id and therefore no price at all. An essence needed
+    nothing: it is an ordinary `Namespace::Item` base and already resolved.
 - **`item/derive`** — the numbers the game leaves implicit. **Quality scales the base's own inherent
   value and nothing else**: not the flat local rolls added to it, though the local *increases* then
   apply to both. One rule for a weapon's physical damage and for armour / evasion / energy shield /
@@ -465,11 +533,41 @@ bundle, and only the third and fourth encode pricing judgement.
   shield hybrid whose two percentiles disagree is showing rounding, not two rolls. A defence with no
   published range makes the two sums incomparable, so there is no percentile at all. There is no
   weapon percentile: the bundle publishes defence ranges for armour bases but no damage ranges for
-  weapon bases.
+  weapon bases. It is a **filter and not a remark** — `armour_filters.base_defence_percentile` on
+  the trade site — and it is **floored, never rounded**, because the filter is a minimum and a
+  78.6th-percentile item asked for at 79 does not match itself. Ticked only on a `BaseItem` plan,
+  where the base's roll is what is being bought; on a modifier search the defence totals already
+  carry it, and asking the same question twice only drops the listings that answer it once.
+- **`item/range_match`** — how wide a filter opens around the roll. It is the one input here that
+  is a **setting rather than a fact about the item**, which is why it arrives from outside as a
+  `RangeMatch` and `Config` is the only thing that owns one. Each side of the interval is
+  `Unbound` (fill nothing), `Exact` (the roll), `Within` (a percentage of it) or `WithinTiered`
+  (the same, gated by what the modifier's own tier can roll), and the default is **tier-gated 5%
+  on both**: what a buyer wants is a copy that rolled about what theirs did, and a bound outside
+  the affix's own tier can only drop the listings that answer the question exactly. Four things
+  that are easy to get wrong.
+  The window is **rounded outwards at the filter's own last digit** — floor the lower bound, ceil
+  the upper — so rounding never asks for a roll the item in hand does not have, and any non-zero
+  percentage moves the bound by at least one digit (5% of 20 is exactly 1, 5% of 1 is a twentieth,
+  and both still move by one).
+  The slack comes off the **magnitude**, so a negative roll widens outwards like a positive one:
+  -11 opens to -12..-10 rather than to that pair read backwards.
+  **`lower_is_better` swaps which mode governs which side**, because "Minimum" means the bound
+  that says *at least this good* and on a modifier the game prints negative that is the upper one.
+  It is invisible while the two modes agree — a symmetric window is symmetric either way round —
+  which is why the tests state that case with one side `Unbound`.
+  And the tier gate **never crosses the roll**: a legacy roll sits outside the range its modifier
+  publishes today, and gating to that would ask for a copy of the item that is not this one.
+  `WithinTiered` falls back to `Within` where no tier is known at all.
+  It seeds **stat filters on every strategy** — the old split, where a `Modifiers` plan took the
+  whole tier range and everything else took "no worse than this", is gone; both are now points on
+  the same dial. It deliberately does *not* touch the numeric filters: those are thresholds on a
+  total ("at least this much armour"), and a maximum on one rules out the strictly better items a
+  buyer would still take.
 - **`item/plan`** — `SearchPlan`: strategy, category/name/type, corruption, influences, stat filters
   and numeric filters, plus **`notes` for everything deliberately left out**. Strategy decides what
-  matters: `Modifiers` (magic/rare) enables every mod and bounds it by the tier it rolled when
-  Advanced Mod Descriptions gave a range, and names no base — **except on a flask**, whose base is
+  matters: `Modifiers` (magic/rare) enables every mod and seeds its bounds off the roll it made
+  (how wide is `item/range_match`, above), and names no base — **except on a flask**, whose base is
   half of what its mods are worth (the same suffix is a sought-after roll on a Quicksilver Flask
   and nothing on a Ruby one, and trade files every flask under one category, so the `type` is the
   only place to say which). Only ever off a **resolved** base: an unstripped magic name
@@ -482,15 +580,42 @@ bundle, and only the third and fourth encode pricing judgement.
   which not every copy of that unique carries — and anything the player *crafted onto this copy*
   (`added_to_copy`: enchant, crafted, fractured, scourge, veiled, crucible). An enchant costs
   currency and is most of what an enchanted copy sells for, so leaving it out prices a different
-  item. A `Maps` item class is `Unsupported`: a map is not
-  priced on its mods, and pricing one as a rare would search for gear carrying map mods. A **map
+  item. A `Maps` item class is `Map` at every rarity it prints — see below. A **map
   fragment** (scarab, ember, splinter, invitation) is `Currency` whatever its rarity line says —
   see the poe.ninja section.
-  An unbounded filter asks for "no worse than this", and **worse is not always smaller**: a mod
-  the game prints negative is better the more negative it is (an eldritch implicit applying `-11%`
-  to Cold Resistance — its magnitude comes from the currency tier, so the clipboard prints no range
-  to bound it with), and so is a stat the bundle marks `better: -1`. Both get the roll as a
-  **maximum**. The sign is what carries the direction for the rest, because the canonical wording
+  **A number that is not a roll is not a bound.** A fixed modifier says the same thing on every
+  copy of itself, and asking the trade site to compare its number asks it to compare a value it
+  does not index the stat on — which matches *nothing*, so the price check comes back empty and
+  reads as an item nobody wants. Measured, not inferred: a map's Baran implicit ("Item Quantity
+  increases amount of Rewards Baran drops by 20% of its value") returned **0 listings with
+  `min: 20` against 1705 without it**, and "Area is influenced by The Elder" — whose number is
+  not in the clipboard at all, but the constant `StatMatcher::value` substitutes for the
+  influence — **0 against 10000**. The filter stays and only its number goes, so the search asks
+  for the modifier being present, which is the only thing a fixed modifier can be asked about.
+  What says a number is fixed is that the game printed **no range beside it**, and that is only
+  evidence on an item that printed ranges *somewhere* — with Advanced Mod Descriptions off
+  nothing carries one, and reading their absence as "fixed" would strip the floor off every real
+  roll and search a rare for "has a life modifier". Hence `ranges_printed`, asked of the whole
+  item, because the setting is a property of the owner rather than of the modifier. A **map**
+  needs no such evidence and is exempt: no number one of its implicits or enchants carries is
+  ever a roll.
+  **A tier or a rank is itself a range**, printed or not, and outranks all of the above: a
+  different tier is a different number, so "no worse than what this one gave" is a real question
+  even where the tier holds a single value. It is also the only way an **eldritch implicit** can
+  say its number moves — its magnitude comes from the tier of the currency that put it there, so
+  the clipboard has no range to print and states the rank instead
+  (`{ Eater of Worlds Implicit Modifier (Lesser) }` → `Modifier::qualifier`).
+  **Where the bundle knows a range the clipboard does not print, the bundle wins**:
+  `apply_unique_mods` restores the bound the moment the per-unique data says the modifier rolls,
+  because a range is a range whichever source stated it. The one thing that does *not* work in
+  reverse is a record calling a modifier fixed — the item's own printed range outranks a record
+  about the unique in general.
+  A filter with one side left open asks for "no worse than this", and **worse is not always
+  smaller**: a mod the game prints negative is better the more negative it is (an eldritch implicit
+  applying `-11%` to Cold Resistance — its magnitude comes from the currency tier, so the clipboard
+  prints no range to bound it with), and so is a stat the bundle marks `better: -1`. Both put the
+  open side at the top, which is what `seed_bounds` swapping the two modes does. The sign is what
+  carries the direction for the rest, because the canonical wording
   already does — "#% reduced Mana Cost" is stored as a negative increase. It reads wrong only for a
   negative roll of a stat that also rolls positive, i.e. a resistance penalty, which is a drawback
   on a unique rather than something a buyer searches for.
@@ -499,6 +624,36 @@ bundle, and only the third and fourth encode pricing judgement.
   added-damage mod is indexed as **the average of its two numbers** while every other multi-number
   wording is indexed on its **first** ("15% chance to Unnerve … for 4 seconds" is searched on 15,
   not on 9.5) — hence `StatMatch::roll_bounds` being per roll.
+  The **weapon numerics** are the three DPS totals, plus attacks per second and critical strike
+  chance — and those last two are ticked **only where the game printed the property augmented**,
+  i.e. where a modifier on this copy raised it above the base's own. Every weapon has both numbers
+  and on most of them they are the base's, so asking for one rules out nothing but the same weapon
+  in somebody else's stash. The augmented marker is the whole of the evidence: the bundle publishes
+  no base crit chance or attack speed to compare against.
+  **A modifier already inside a searched number is not searched again by name**
+  (`unimpose_derived_mods`, off `derived_filter_keys` in `item/derive`). A local roll is not
+  something the item has beside its armour — it *is* part of the armour the item displays — so a
+  query carrying both the number and the modifier behind it asks one question twice, and the
+  second asking is the brittle half: a flat roll and a local increase reach the same armour by
+  different routes, and naming this item's route rules out every other way of arriving at the
+  number the buyer wants. So the derived value is imposed and the modifier is only offered —
+  *left* in the list, not removed. It is conditional on the derived filter actually being
+  enabled: on a unique, where the defences and DPS are offered rather than imposed, the modifier
+  is all there is to ask about.
+  **A fractured roll is the exception and keeps its filter.** It cannot be re-rolled and it is
+  what survives every craft the buyer will do afterwards, so *which* modifier reached the number
+  is the point of the item rather than an over-constraint on it — and trade indexes it in a
+  namespace of its own (`fractured.stat_…`, which `to_filter` already sends off `Modifier::type`,
+  alongside the item-level `misc_filters.fractured_item`), so it is a different question from the
+  same wording rolled ordinarily. A crafted roll gets no such exemption: a bench craft is
+  something any buyer can add.
+  **Locality is the whole of it** and is decided in `item/derive` rather than in the data, from
+  the same wordings and the same guards `sum_locals` uses — "20% increased Attack Speed" is the
+  weapon's own only on a weapon, and "#% increased Energy Shield" the item's own only where the
+  item displays energy shield. Attack speed feeds `aps` *and* all three DPS numbers; added
+  elemental damage feeds `edps` and `dps` but not `pdps`; "#% increased Elemental Damage" feeds
+  none of them, because it never touches what the weapon displays. The base percentile is the one
+  derived number a local roll is **not** inside: it is recovered by taking those rolls back out.
 - **`item/plan`'s per-unique join** (`apply_unique_mods`) is what makes a unique searchable at all.
   A unique's modifier can be variable **without printing a range**: Ralakesh's Impatience rolls one of
   three charge mods, each `1..1`, and the clipboard prints that exactly like the four every copy has.
@@ -519,6 +674,95 @@ bundle, and only the third and fourth encode pricing judgement.
   filter list. `UniqueMods::unlisted` — a pool stated in prose but never
   enumerated — becomes a note, so the app says what it is leaving out.
   [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
+- **`item/plan`'s map strategy** (`plan_map`, `add_map_pseudo`) is `Strategy::Map`, and it is the
+  one strategy that searches on **none** of an item's affixes. A map's prefixes and suffixes are
+  re-rollable with a single Chaos Orb; the buyer is choosing how dangerous a map they want, not
+  which affix it has, and a query naming them would find the one copy in the league that rolled
+  that set. So they are not filters and **not notes either** — they are left out on purpose, in
+  front of the reader (the item card beside the panel), and "unrecognised modifier: Players have
+  25% less Accuracy Rating" would charge the check with failing at something it never attempted.
+  What is searched instead:
+  - **Which area it is.** Every ordinary map now shares the one base type, printed as
+    `Map (Tier 16)`, so the tier is the whole of what tells two apart; `parse_header` takes it off
+    into `Item::map_tier` because no lookup knows the parenthetical, and `draw_name_plate` puts it
+    back on screen. The filter is `map_filters.map_tier` with **min == max**: a tier-16 map is a
+    different area from a tier-14 one, not a better one. A map that names its own area instead
+    (`Shaper Guardian Map`, `Nightmare Map`) prints no tier and is matched by that name alone.
+    A **unique** map is its name plus that tier; its own modifiers are on every copy. The
+    `map` **discriminator** the bundle's `Map` record carries is load-bearing here rather than a
+    tie-break: a query sending the type as a bare `"Map"` is accepted and matches nothing, which
+    reads as an empty market rather than as a search that could not be built — so a bundle
+    without that record gets a note instead.
+  - **What the map does for you.** `map_iiq` and `map_packsize` on by default, `map_iir` off —
+    rarity is a preference, and imposing it drops the cheaper copies of the same map. All three
+    come off the game's own property lines.
+  - **The four drop bonuses a Maven's chisel adds** — `More Maps`, `More Scarabs`, `More Currency`,
+    `More Divination Cards` — which the game also prints as *properties* and which trade has no
+    `map_filters` entry for. They are `pseudo.*` stats (`pseudo_map_more_map_drops` and its three
+    siblings, which is all of them in `/api/trade/data/stats`), enabled when present.
+  - **How many affixes it has, as a total**, and **only on a corrupted map**: six is what every
+    rare map has, and eight is what only corruption allows and most of what such a map is worth.
+    `pseudo.pseudo_number_of_affix_mods`. The side of the pool is printed only by Advanced Mod
+    Descriptions, so with that off there is no count to give and the plan says so rather than
+    counting zero. Continuation lines are counted out — one affix can print two.
+  - **The implicit and any enchant**, on by default, and **on presence rather than on their
+    numbers** — see the bound rule above, which a map is exempt from needing evidence for. The
+    implicit is the one modifier a currency cannot re-roll, and it is what names the boss, the
+    influence or the memory.
+  - **Blight, which is a filter and never a type.** The base line is the only place the clipboard
+    says so — `Blighted Map (Tier 12)`, `Blight-ravaged Map (Tier 16)`, no flag line and no
+    property — so `parse_header` sets `Item::blighted` / `blight_ravaged` off it and
+    `resolve_base` then points the base at the ordinary `Map` every other one shares. Sending
+    `"Blighted Map"` as the `type` is *accepted* by the site and matches nothing at all
+    (measured: 0 listings against 1449 for the Map base plus `map_filters.map_blighted` at tier
+    12), and no bundle carries a base under that name either. The two flags are mutually
+    exclusive, so neither is ever asked for in the negative: a blighted map's own search already
+    excludes the ravaged ones.
+
+  **A Valdo map is the one map that is none of the above** (`plan_map`'s `reward` branch). It is
+  bought for the unique it pays out, its quantity and pack size come from unique modifiers rather
+  than from an affix roll, and so those are *offered* rather than imposed — they say nothing about
+  which Valdo map a buyer wants. What is searched is `map_filters.map_completion_reward`, an option
+  over the **unique list**: the game prints the payout as `Reward: Foil Hrimsorrow`, where the foil
+  is the reward's own variant, and sending that whole string answers
+  `{"code":2,"message":"Unknown reward output provided"}` — which fails the entire search rather
+  than widening it. So `find_unique_in` takes the longest run of those words that names a unique
+  the bundle knows, and a reward it cannot name becomes a note instead of a guess. The `Reward`
+  property is also the marker: no other map prints one.
+
+  The other half is **the only thing anything here is searched on in both directions**. Whether
+  dying in the map sends the character to the Void is what a buyer picks on, and a map that voids
+  is a different item from one that does not — so the copy in hand decides which question is asked:
+  present, and the search asks for it; absent, and it asks for the *absence*. Leaving it open
+  prices the two together. That is `StatFilter::negated`, which `build_query` sends as a second
+  stat group of type `not` beside the `and` one, carrying an id and no bounds. Measured on the same
+  reward: 133 listings that void against 101 that do not.
+
+  Two things this needed elsewhere. `StatFilter::mod_index` is an `optional` now, because a pseudo
+  total has no single modifier behind it; anything walking back to `Item::mods` has to check.
+  And **`SearchPlan::rarity` carries the trade `rarity` option**, because a unique map is planned
+  as a map — reading the option back off the strategy, as `build_query` used to, searched it
+  among the rares. It defaults to `nonunique`, since an empty one is a search across both markets
+  at once and nothing here ever means that.
+- **`item/plan`'s gem strategy** (`plan_gem`) is the shortest search here and the only one whose
+  filters are *all* numeric: the name, `misc_filters.gem_level`, `misc_filters.quality`, and the
+  corruption every strategy already matches exactly. Everything a gem prints is what the skill
+  does and is identical on every copy of it, so there is nothing to turn into a stat filter and
+  nothing to leave a note about either.
+  **Level and quality are exact — `min == max`, the same reasoning as a map's tier.** A level 21
+  gem is not a better level 20 one, it is what the gem sells as; a floor would put 21/23
+  corrupted gems into the results for a 20/20 and price a different item. Quality is filtered at
+  zero as readily as at twenty, because an unquality gem is a different thing from a 20% one and
+  no filter at all prices it as whichever quality is cheapest. Corruption is the hard split
+  underneath both: it is what allows level 21 and quality 23 to exist.
+  The name is the **record's**, never the printed one — see `item/resolve` above and
+  `Item::gem_name()` — and a gem the bundle cannot name gets **no search at all**, only a note.
+  That is `trade::searchable` returning false on an empty `type` for this strategy alone: every
+  other strategy still has modifiers or a category to fall back on, while a gem falls back to
+  every gem in the game at this level, whose cheapest listing would read as this gem's price.
+  poe.ninja still prices it, so the check is not empty. In practice this only happens on a
+  bundle older than `data-20260807.23`, the release that keys gems on their printed names, and
+  then only for transfigured gems.
 
 ### The trade layer (built)
 
@@ -529,7 +773,8 @@ bundle, and only the third and fourth encode pricing judgement.
   the interval end for end as well as in sign: 77..90 as the game prints it is -90..-77 as the site
   indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
   contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
-  (`misc_filters`, `armour_filters`, `weapon_filters`) and rejects one filed in the wrong place.
+  (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`) and rejects one filed in the
+  wrong place.
   Whether the search names a `type` is the **plan's** call and this layer sends whatever it was
   given: a `Modifiers` plan leaves it empty (a rare is bought for its mods, and the category
   already says where those can live) **except on a flask**, where it names the base.
@@ -657,8 +902,12 @@ no API call and always matches the filters as they are ticked *now* — the id o
 would open whatever was ticked when it ran. When there is nothing to search the button says **why**
 rather than only that: a stack of currency is bought in bulk on the in-game currency exchange and
 has nothing a stat query could ask for, so its poe.ninja row is the whole answer and a bare
-"Nothing to search" reads as a failure. An item the exchange feed actually has a market for goes
-one further and gets **no buttons at all** — see the currency-exchange section below.
+"Nothing to search" reads as a failure. Where there is no search *at all* — `trade::searchable`
+is false, or the exchange feed has a market for it — the buttons, the filters, the strategy picker
+and the plan's notes all go together: every one of them is about a query nobody can run, and a note
+saying a modifier could not be matched charges a price check with failing at something it never
+attempted. What replaces them is the item itself (above) and one line saying where the answer is
+instead — see the currency-exchange section below.
 
 Rendering lives in `screens/item_view.cpp` (the game's palette: rarity-coloured name plate, grey
 property labels, blue mods, light blue crafted/enchant, tan fractured, magenta scourge, red
@@ -674,12 +923,46 @@ tooltip ("(Onslaught grants 20% increased Attack, Cast, and Movement Speed)"). N
 lost: `Modifier::info_text()` carries the tier's range with it (`(Tier: 2 [77-90])`), a continuation
 line repeats its affix because that is where the reader gets *its* range, and every derived number
 is a small grey line under the property block it summarises — the DPS totals under the last damage
-line, the base percentile under the last defence line. A filter row leads with where its modifier
-came from and what it asks for: `P2 [77-90]` is a tier-2 prefix, `S1` a suffix, `R` crafted, one code
-per modifier `merge_same_stat` folded in (`StatFilter::merged`). The code is **coloured by which
-half of the pool it came from** — red prefix, blue suffix, as the trade site does it — which is also
-what says whether a crafted `R` is a prefix or a suffix, since its letter no longer can. The
-item and its plan live on `App`, alongside **the bundle snapshot they were resolved against** —
+line, the base percentile under the last defence line.
+
+**The filter list is a four-column table** (`draw_filters`), so that every row's numbers sit under
+the previous row's: the toggle, the wording, where the modifier came from, and what the search asks
+for. The **wording is second, straight after the tick**, because it is the only column every row
+has something to put in — a pseudo total has no affix behind it and a roll on an item with Advanced
+Mod Descriptions off has no code, and a gap between the tick and the text reads as a missing
+checkbox. It takes the stretch column; everything else fits its content.
+
+Column three glues the code to the modifier's own range — `P2[77-90]` is a tier-2 prefix, `S1` a
+suffix, `R` crafted, `Impl` an implicit, `Frac` a fractured affix — with one code per modifier
+`merge_same_stat` folded in (`StatFilter::merged`), joined as `P3+P1` and then dropping the range to
+a line below, since it is the pair's total and belongs to neither code alone. An eldritch implicit's
+rank (`Modifier::qualifier`) goes on its own line for the same reason a compound's range does: the
+column is as wide as its widest row, and `Impl Lesser` on one line sets that width for every
+modifier in the list. **The colour is the side of the pool and the letters are what put the modifier
+there** — red prefix, blue suffix, as the trade site does it — so the two never compete for the same
+four characters: a fractured prefix is a red `Frac`, and what a buyer needs to know about it first
+is that it is fractured.
+
+Column four is **what the search asks for**, and it is last rather than beside the code because it
+is the one thing here that becomes editable: `46-48` between two bounds, `≥46` for a floor, `≤50`
+for a ceiling (**borrowed** glyphs — Fontin's own are blank outlines, see Fonts above — spelled out
+as `>=` and `<=` where there was nothing to borrow from), **nothing at all** for a
+filter that only asks the modifier to be present, and **`absent`** for one asking that it not be
+there (`StatFilter::negated` — a Valdo map that does not void). That last one belongs in this
+column and nowhere else: the row is otherwise identical to one asking *for* the modifier, and a
+tick beside a wording the item does not have reads backwards. It is `StatFilter::min`/`max`, while the origin
+column is `roll_min`/`roll_max` — what the modifier *can* roll against what the search asks of it,
+which is why they are two fields: the range-match setting is exactly the distance between them, so
+`[77-90]` beside `81-90` is the 5% window doing its job. The numeric filters share the table, so a defence
+and a modifier line their numbers up in the same column. Row pitch is squashed (`CellPadding`,
+`ItemSpacing`) and the checkbox is drawn at zero `FramePadding`, i.e. a square the height of a line
+of text: at the default it is taller than the wording beside it and sets the pitch for the whole
+list. Rows are told apart by **alternating background** (`ImGuiTableFlags_RowBg`) and not by
+separators: a modifier can wrap onto three lines and its origin onto two, so what the reader needs
+is to see where one row ends — and a rule between every pair would spend a line of height per
+filter to say it.
+
+The item and its plan live on `App`, alongside **the bundle snapshot they were resolved against** —
 `item_data_` is held separately from `data_` because the updater swaps that from its own thread and
 the item holds raw pointers into it.
 
@@ -688,9 +971,17 @@ which is the only way to iterate on it without the game running. Captures live i
 `tests/data/examples/` — each `item_N.txt` is a real clipboard capture paired with `item_N.jpeg`, a
 screenshot of the same tooltip, which is what the rendering is checked against. `tests/data/items/`
 holds the captures with no screenshot beside them — two transcribed from one (the rapier and the
-Elder bow), the map fragments and invitation, and `currency-chaos-stack.txt`, which is **written
-rather than captured**: it is a 6000/20 stack, the case a currency stash tab makes ordinary and
-nothing else covers. Prefer a real capture for anything new.
+Elder bow), the map fragments and invitation, the eleven `map-*.txt` maps (every shape one comes in:
+tiered rare, corrupted eight-mod, chiselled for extra drops, magic, white, unique, the two that
+name their own area instead of printing a tier, a blighted one — whose base line is the only
+statement of that — and a Valdo one, which is searched on none of the things any of the others
+are), the five `gem-*.txt` gems (a Vaal gem, whose second half is the only thing naming it; a
+transfigured one; two supports, one of them with a socket requirement far above its own level; and
+one with quality), `card-blazing-fire.txt` and `currency-essence.txt` (the two shapes of thing the
+in-game exchange trades in bulk that are neither an orb nor a fragment), and
+`currency-chaos-stack.txt`, which is **written rather than captured**: it is a 6000/20 stack, the
+case a currency stash tab makes ordinary and nothing else covers. Prefer a real capture for
+anything new.
 
 **Pin numbers to those captures, not to another tool's output.** The Q20 DPS formula was chosen
 because it reproduced a number read off a screenshot of a reference tool, which turned out to be
@@ -701,7 +992,11 @@ of the concrete case instead; the maintainer can reproduce one in-game.
 `LC_NUMERIC` reads that as `1`, and every DPS number downstream was wrong. Parsing uses
 `std::from_chars` (locale-independent by definition) and `App::run` forces `LC_NUMERIC=C` for
 formatting — *after* the tray and window exist, since SDL's X11 backend (XIM) and the tray's GTK both
-call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt.
+call `setlocale(LC_ALL, "")` during init and would undo an earlier attempt. **`LC_TIME` goes the
+other way**, set from the environment in the same place: a date is written for the reader, not for
+the game, so it is written the way their machine writes one. It has to be explicit rather than
+inherited because nothing calls `setlocale` at all on Windows — a GUI-subsystem binary gets neither
+XIM nor GTK — and the C locale's date is the invariant-looking format this avoids.
 
 ### The poe.ninja reference price (built)
 
@@ -805,11 +1100,20 @@ to leave out. A map is the only strategy with no row at all.
   a count far past it is normal rather than a parse error. `Reference::stack_price` is quoted on
   its own rather than scaled from the unit price, because the two cross the divine line at
   different times: one chaos is one chaos and six thousand of them is 29.8 divine. Left at one for
-  an `Ambiguous` price, where a span times a count would be four numbers.
+  an `Ambiguous` price, where a span times a count would be four numbers. It is drawn on **a line of
+  its own** under the unit price, which names its currency whether or not that is the unit's: the two
+  do not fit the panel's width side by side, and `x6000 = 29.8 x` with the unit only on the row above
+  is worse than either.
 - **A gem is priced at the nearest tier poe.ninja publishes**, which is rarely the one in hand — it
   lists 1, 20, 20/20, 21/20 corrupted and nothing between. The best of those the gem has already
   reached is a floor on what it is worth, labelled with poe.ninja's own name for it so it is clear
   it is not this gem. Corruption filters first: it is a hard split, not a preference.
+  It is looked up under **one** name and no other — `Item::gem_name()`, the same string the
+  trade type is resolved from. poe.ninja spells a gem exactly as trade's `data/items` does,
+  including "Vaal Blight (Blight of Atrophy)", so there is nothing to fall back *to*: it prices
+  both "Blight" and "Vaal Blight", and a Vaal Blight — whose name line says "Blight" — reading
+  the printed name would not miss a price, it would find a real line for a different gem at a
+  tenth of the value.
 - **A league poe.ninja has no economy for answers 200 with an empty payload**, not a 404 — so an
   SSF league parses fine and matches nothing, and that is reported as "tracks no economy for X"
   rather than as a broken response. The website's league slug is **not** the league id: "Hardcore
@@ -866,20 +1170,76 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
   because the counts move on both sides; `min`/`max` is what covers both. A market that saw no
   trade is published with zeros, and dividing by that would put a nonsense price on screen rather
   than none.
-- **The band is stated in whichever direction keeps the numbers above one** (`exchange::read`),
-  because that is the direction players say it in: three embers to a chaos, never a third of a
-  chaos each. It falls out that a Chaos Orb in hand reads `199 – 204 per Divine Orb` — the same
-  rate the poe.ninja row states for both orbs, from GGG's own book and an hour old rather than
-  half an hour.
+- **The volume-weighted average is the headline, and the band is the detail under it.**
+  `volume_traded` is published for *both* sides of a market, and the two divided
+  (`Rate::average`) are the mean ratio every trade in the hour cleared at — not the midpoint of
+  a band whose ends one trade can set. Each market is drawn as a summary line and a small table
+  beneath it: volume on both sides, then the lowest and the highest the hour saw. **Stock is
+  deliberately not shown** — what is standing in the book says how long a sale would take, not
+  what the item is worth. Zero volume on either side is no average at all (not a price of zero),
+  and then the band itself is the summary.
+- **A market is quoted against whichever of the two is worth more**, so one side is always a
+  single unit: `4 x Winged Scarab = 1 x Chaos Orb` is how the trade is said in game and
+  "0.25 chaos each" is not. The **average** is what decides the direction (`exchange::read`),
+  because a band can straddle one — 0.5 – 2 chaos an ember — and then has no direction of its
+  own; the top of the band stands in when there is no volume to average. It falls out that a
+  Chaos Orb in hand reads `208 x Chaos Orb = 1 x Divine Orb` — the same rate the poe.ninja row
+  states for both orbs, from GGG's own book and an hour old rather than half an hour.
+- **Every item in the feed is drawn with its own glyph, not just the two denominators.** The
+  feed keys on metadata paths and neither symbol source has ever heard of one, so the join is
+  the **display name**: `TradeService::image_for_name` over every group of
+  `/api/trade/data/static` that carries an image, falling back to
+  `NinjaService::icon_for_name` across the overviews already held — the same two sources in the
+  same order as every other symbol, and for the same reason (the trade static data is not
+  fetched at all until the user's first search). The summary line draws the item's glyph
+  **without** its name: it is the one row that has to fit both sides, "Cartography Scarab of
+  Corruption" twice does not, and the full name is in every row under it.
+- **The hour is stated in the user's own clock and date format** — the digest is addressed by a
+  UTC hour, and a reader deciding whether a price is stale should have to do neither timezone
+  nor date-order arithmetic. `strftime("%x %H:%M")` on `localtime`, so `App::run` sets
+  `LC_TIME` from the environment (the opposite call to the `LC_NUMERIC` one beside it, and
+  needed because a GUI-subsystem Windows binary has nothing else calling `setlocale`), and the
+  line is drawn in `fonts.unicode` since a locale's date can be Cyrillic or CJK.
 - **Only markets against Chaos or Divine are kept.** A scarab-for-essence market is a real market
   and no use to somebody asking what a scarab is worth.
-- **A market only appears in an hour it traded in.** Measured on a live hour: 840 of the ~940
-  Allflame items that trade at all, and 115 of ~200 scarab varieties. An item with no market this
-  hour draws no exchange row at all — poe.ninja still prices it — rather than claiming a rate it
-  does not have.
-- **An item that appears in the feed gets no Search and no Open in browser.** It has no listings
-  for either to find, and a button that can only ever come back empty reads as the item being
-  unsellable rather than as the wrong market having been asked.
+- **A market only appears in an hour it traded in, and the hour cannot say why.** Measured on a
+  live hour: 840 of the ~940 Allflame items that trade at all, and 115 of ~200 scarab varieties.
+  So silence in the digest is two different facts wearing one face — *this does not trade here*
+  and *nobody traded one this hour* — and for a thin item (a Weeping Essence of Greed) the second
+  is the normal case. Reading it as the first left such an item with no exchange row, no trade
+  search worth running and no poe.ninja price either: an empty panel, which reads as a check that
+  gave up.
+- **So which items trade there at all is a fact about the item, and it comes from the bundle.**
+  `data::BaseType::exchange` is set by the data build, which crawls every hourly digest since
+  Settlers launch and keeps the union of the metadata ids any market has ever named — 17.8k hours,
+  ~1,000 ids, one boolean on a record that already carries `metadata_id`. The digest still
+  supplies the *price*; this supplies the standing answer underneath it.
+  **A bundle published before the flag must not read as "does not trade,"** which an absent
+  boolean cannot say on its own — so the signal is bundle-level: `source.exchange_items` in the
+  manifest, written through by `install` beside the attribution, and read back as
+  `GameData::has_exchange_flags()`. Same distinction `has_unique_mods()` draws, drawn differently
+  because that dataset is a whole file whose absence is the signal and this one is a field on
+  records the bundle already had.
+- **The exchange section has three states**, and the middle one is why the flag exists: a market
+  this hour draws the table; no market but the item is flagged draws one line saying so; and not
+  flagged, or a bundle that cannot say, draws nothing at all. Claiming either way from a bundle
+  with no exchange data would be a guess.
+  That middle line is **"no trades this hour" only when the hour was actually read** — a digest
+  whose fetch failed says nothing about what traded in it, so that case says so instead. The
+  distinction is invisible otherwise: a flagged item gets no trade search either way, so stating
+  the market was quiet on the strength of our own failed request would leave the user no way to
+  tell an idle market from a broken download.
+- **An item that trades on the exchange gets no Search, no Open in browser and no filter list.**
+  It has no listings for either button to find, and a button that can only ever come back empty
+  reads as the item being unsellable rather than as the wrong market having been asked. The
+  filters go with them (see the panel layout above): they exist to shape a query nobody can run
+  here, and their notes about unmatched modifiers charge the check with a failure it never
+  attempted. One line says where the answer is instead.
+  **That is keyed off the flag, not off the hour** — `App::trades_on_exchange()`. Keying it off a
+  market in the last published hour gave a Weeping Essence of Greed a Search button on every hour
+  nobody happened to trade one in, and the message alone would not have fixed that. It takes two
+  sources, strongest evidence first: a market this hour *proves* the item trades there whatever
+  the bundle says, which is also what keeps this working on a bundle older than the flag.
 - **`ExchangeService`** is the fourth of the `LeagueService` family and the smallest, because the
   feed is: one digest in memory at a time, a lookup is a string compare, and the second check of
   the hour is free whatever the item. It is asked about **every** item, not only the ones planned
@@ -888,6 +1248,14 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
 
 ### Still to build
 
+- **Any client language but English.** Every modifier is matched against the wording the client
+  printed, and those are language-specific, so a non-English client produces text nothing here
+  parses — it does not mis-price, it fails to recognise an item at all. The seam exists and is
+  unused: assets are language-prefixed, `GameData::open` takes the language, and `manifest.json`
+  declares a `languages` list. What is missing is upstream — the data build fetches only the
+  English `stat_descriptions.txt` files and emits one language — plus a setting to pick one.
+  Nothing in the schema has to change. **Say so in the README rather than letting it be
+  discovered**, which is why it is a Requirements row there.
 - **Telling apart the variants a modifier wording cannot.** `narrow_by_mods` resolves a unique
   whose variants differ in *wording*; the ones that differ only in a **number poe.ninja publishes
   for some variants and not others** stay a span. Mageblood is the case: the item prints "Leftmost
@@ -920,9 +1288,11 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
   and the build now reports `wordings_ambiguous_in_a_namespace` so a regression is visible.
   **Do not "fix" the app side by picking a record.** Two ids behind one wording is a filter on the
   wrong stat half the time, and a confident wrong price is the failure mode this whole layer avoids.
-- **Pseudo mods** — trade's `pseudo.*` totals (total resistances, total life) are not built; mods are
-  matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance` and the
-  rest), so this is a plan-layer job, not a data one.
+- **Pseudo mods on gear** — trade's `pseudo.*` totals (total resistances, total life) are not built;
+  mods are matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance`
+  and the rest), so this is a plan-layer job, not a data one. A map's pseudo stats *are* built (see
+  `item/plan`'s map strategy) and are the shape to copy: the ids are literals in the plan layer,
+  because trade publishes them and no bundle record is involved.
 - **A data-repo bug, not an app one: `dp` is missing on stats whose trade wording matched no game
   description.** `emit/stats.py` takes `dp` from the description's variant modifiers, so a stat that
   fell back to trade's own wording gets none — `#% of Physical Attack Damage Leeched as Mana` is one,
@@ -952,6 +1322,17 @@ The site's map categories are **finer than the item class can be**: `data/filter
 has to, because the clipboard's item class cannot tell a scarab from an invitation. It costs
 nothing today (none of them are searched), but a real trade search for invitations needs the split,
 and that is a data-repo job or an app-side keyword table like `ninja::map_item_type`.
+
+The **gem** categories are finer too — `gem.activegem`, `gem.supportgem` and `gem.supportgemplus`
+against the two classes the clipboard prints — and here it demonstrably does not matter, so do not
+add a table for it: an Awakened support gem, which is `gem.supportgemplus` on the site and
+`gem.supportgem` in the bundle, returns the same 57 matches under either and under the bare `gem`.
+A gem is pinned by its `type`, and the category only ever narrows what that already decided.
+The **filters** the gem search needs are all in `misc_filters`: `gem_level`, `quality`, and the
+booleans `gem_transfigured` / `gem_vaal` / `gem_imbued`. The two flags are not used and could not
+stand in for the discriminator anyway — measured, `type: "Raise Zombie"` with
+`gem_transfigured: true` is **0 matches against 365** for the same type with `alt_y`, because a
+bare gem type matches only the unaltered skill. There is no `gem_alternate_quality` any more.
 
 ### The in-game currency exchange (public, no OAuth)
 
@@ -1052,6 +1433,22 @@ not covered offline — it is verified against an installed bundle by hand. Addi
 one weapon base) to `STATS`/`ITEMS` in the slicer would close that gap. `tests/data/examples/` and
 `tests/data/items/` hold clipboard captures for the parser; those are plain text and need no byte
 discipline.
+
+The slice's four `GEM::` records need a bundle from `data-20260807.23` or later, which is the
+release that keys gems on the name the game prints. The transfigured one
+(`Raise Zombie of Falling`) is the whole point of that field and is the record to check after
+any re-slice: it is the only one carrying `tradeName`, and on an older bundle it does not exist
+under that name at all.
+
+Two records in it are there for their **`metadataId`** rather than for anything a search does with
+them — `DIVINATION_CARD::The Blazing Fire` and `ITEM::Weeping Essence of Hatred` — because that
+field is the only key the in-game exchange states an item by, and it only reaches the app through a
+resolved base. They carry the **`exchange`** flag for the same reason, and the slicer copies
+`source.exchange_items` out of the source bundle's manifest so the fixture can say the flags are
+there to be read: without it `has_exchange_flags()` is false, the flags copied onto the records
+read as "unknown", and nothing about them is tested at all. `UNIQUE::Hrimsorrow` is there for the opposite reason: it is what turns a Valdo
+map's printed `Foil Hrimsorrow` into a name the trade site accepts. A **blighted** map needs no
+record at all, which is itself the point — it resolves against `ITEM::Map` like every other one.
 
 `tests/data/exchange/digest.json` is a slice of one real hourly digest, and every market in it is
 there to be dropped or kept for a stated reason: the chaos/divine pair (the rate, read from both

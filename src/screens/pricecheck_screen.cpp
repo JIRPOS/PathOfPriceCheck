@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <ctime>
 #include <memory>
-#include <span>
 #include <string>
 #include <vector>
 
@@ -34,28 +33,32 @@ std::string format_number(double v, int dp) {
     return buf;
 }
 
-/// "80 to 89", "at least 42", or nothing at all for a mod with no roll to filter on.
-std::string bounds_text(const std::optional<double>& min, const std::optional<double>& max,
-                        int dp) {
+/// What the search asks for, in the column it shares with every other filter's answer to the
+/// same question: two bounds as `46-48`, a floor as `≥46`, a ceiling as `≤50`, a point as a
+/// bare number, and nothing at all for a filter that asks only that the modifier be present.
+///
+/// The real glyphs are **borrowed from a system face** — Fontin's own are empty outlines, so
+/// they used to paint nothing at all (see `kBorrowedGlyphs`). `glyphs` is false only where the
+/// OS shipped nothing to borrow from, and then they are spelled out: a floor whose `≥` went
+/// missing reads as an exact match, which is a different search.
+std::string filter_text(const std::optional<double>& min, const std::optional<double>& max, int dp,
+                        bool glyphs) {
     if (min && max) {
         if (*min == *max) return format_number(*min, dp);
-        return format_number(*min, dp) + " to " + format_number(*max, dp);
+        return format_number(*min, dp) + "-" + format_number(*max, dp);
     }
-    if (min) return format_number(*min, dp) + "+";
-    // Not "up to": the filter asks for -11 and everything past it, and "up to -11" reads to
-    // half the world as the range between zero and -11.
-    if (max) return format_number(*max, dp) + " or lower";
+    if (min) return (glyphs ? "\xe2\x89\xa5" : ">=") + format_number(*min, dp);
+    if (max) return (glyphs ? "\xe2\x89\xa4" : "<=") + format_number(*max, dp);
     return {};
 }
 
-/// The same, in the compact form the stat rows use: "[77-90]" for a bounded search, "42+" for
-/// a search that only has a floor.
-std::string range_text(const std::optional<double>& min, const std::optional<double>& max,
-                       int dp) {
-    if (min && max && *min != *max)
-        return "[" + format_number(*min, dp) + "-" + format_number(*max, dp) + "]";
-    if (min && max) return "[" + format_number(*min, dp) + "]";
-    return bounds_text(min, max, dp);
+/// What the modifier *can* roll, beside where it came from: "[77-90]". Empty unless both ends
+/// are known, since half a range says nothing the filter column does not already say.
+std::string bracket_text(const std::optional<double>& min, const std::optional<double>& max,
+                         int dp) {
+    if (!min || !max) return {};
+    if (*min == *max) return "[" + format_number(*min, dp) + "]";
+    return "[" + format_number(*min, dp) + "-" + format_number(*max, dp) + "]";
 }
 
 /// The trade site's own colours for the two halves of the mod pool, which is where the user
@@ -69,30 +72,91 @@ struct Code {
     ImVec4 colour = kBounds;
 };
 
+/// The short name for a modifier that is not a rolled affix — the ones the game prints in
+/// their own colour rather than in the explicit blue. `data::trade_prefix` is the long form
+/// and does not fit a column four characters wide.
+std::string_view type_code(data::ModType t) {
+    switch (t) {
+        case data::ModType::Implicit: return "Impl";
+        case data::ModType::Enchant: return "Ench";
+        case data::ModType::Fractured: return "Frac";
+        case data::ModType::Veiled: return "Veil";
+        case data::ModType::Scourge: return "Scrg";
+        case data::ModType::Crucible: return "Cruc";
+        default: return {};
+    }
+}
+
 /// Where a modifier came from, as short as it goes: "P2" is a tier-2 prefix, "S1" a tier-1
-/// suffix, "R" a crafted one. Empty without Advanced Mod Descriptions, which is the only thing
-/// that says which side of the pool a roll is from. A crafted mod is still a prefix or a
-/// suffix, so the colour says which even though the letter no longer does.
+/// suffix, "R" a crafted one, "Impl" an implicit, "Frac2" a tier-2 fractured affix. Empty for
+/// an ordinary roll on an item whose owner has Advanced Mod Descriptions off, which is the only
+/// thing that says which side of the pool a roll came from.
+///
+/// **The colour is the side of the pool and the letters are what put the modifier there**, so
+/// the two never compete for the same four characters: a fractured prefix is a red "Frac", and
+/// what a buyer needs to know about it first is that it is fractured.
 Code affix_code(const item::Modifier& m) {
     Code c;
+    if (m.affix == item::Affix::Prefix) c.colour = kPrefix;
+    else if (m.affix == item::Affix::Suffix) c.colour = kSuffix;
     if (m.type == data::ModType::Crafted) c.text = "R";
+    else if (const std::string_view t = type_code(m.type); !t.empty()) c.text = t;
     else if (m.affix == item::Affix::Prefix) c.text = "P";
     else if (m.affix == item::Affix::Suffix) c.text = "S";
     else return {};
-    if (m.affix == item::Affix::Prefix) c.colour = kPrefix;
-    else if (m.affix == item::Affix::Suffix) c.colour = kSuffix;
     if (const int n = m.tier ? m.tier : m.rank) c.text += std::to_string(n);
     return c;
 }
 
-/// One code per modifier folded into the filter — two life rolls are searched as their total
-/// but are still two affixes, and the user is picking which to keep.
-std::vector<Code> affix_codes(const item::Item& it, const item::StatFilter& f) {
-    std::vector<Code> out;
-    if (Code c = affix_code(it.mods[f.mod_index]); !c.text.empty()) out.push_back(std::move(c));
+/// The origin column: where the filter's modifiers came from and what they can roll. One code
+/// per modifier `merge_same_stat` folded in — two life rolls are searched as their total but
+/// are still two affixes, and the user is picking which to keep.
+struct Origin {
+    std::vector<Code> codes;
+    /// An eldritch implicit's rank, "Lesser" / "Grand" / …, which is the only way that kind of
+    /// modifier states its magnitude: it comes from the tier of the currency that applied it,
+    /// so the clipboard has no range to print instead.
+    std::string qualifier;
+    std::string range; ///< "[77-90]", what the modifier can roll
+};
+
+Origin origin_of(const item::Item& it, const item::StatFilter& f) {
+    Origin o;
+    o.range = bracket_text(f.roll_min, f.roll_max, f.dp);
+    // A pseudo total has no modifier behind it to have come from a side of the pool.
+    if (!f.mod_index) return o;
+    const item::Modifier& m = it.mods[*f.mod_index];
+    o.qualifier = m.qualifier;
+    if (Code c = affix_code(m); !c.text.empty()) o.codes.push_back(std::move(c));
     for (const size_t i : f.merged)
-        if (Code c = affix_code(it.mods[i]); !c.text.empty()) out.push_back(std::move(c));
-    return out;
+        if (Code c = affix_code(it.mods[i]); !c.text.empty()) o.codes.push_back(std::move(c));
+    return o;
+}
+
+/// The origin column. The code and the range are glued together — `P2[77-90]` — because they
+/// are one fact about one affix. A filter two affixes were folded into writes them as `P3+P1`
+/// and drops the range to a line of its own, since it is then the pair's total and belongs to
+/// neither code on its own.
+void draw_origin(const Origin& o) {
+    bool anything = false;
+    for (size_t i = 0; i < o.codes.size(); ++i) {
+        if (i) {
+            ImGui::SameLine(0.0f, 0.0f);
+            ImGui::TextDisabled("+");
+            ImGui::SameLine(0.0f, 0.0f);
+        }
+        ImGui::TextColored(o.codes[i].colour, "%s", o.codes[i].text.c_str());
+        anything = true;
+    }
+    // The rank goes below the code rather than beside it: the column is as wide as its widest
+    // row, and "Impl Lesser" on one line would set that width for every modifier in the list.
+    if (!o.qualifier.empty()) {
+        ImGui::TextDisabled("%s", o.qualifier.c_str());
+        anything = true;
+    }
+    if (o.range.empty()) return;
+    if (anything && o.codes.size() <= 1) ImGui::SameLine(0.0f, 0.0f);
+    ImGui::TextColored(kBounds, "%s", o.range.c_str());
 }
 
 void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan) {
@@ -100,7 +164,10 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     ImGui::SameLine();
     // A rolled item can be worth more as a base than as the sum of its mods — a fractured
     // mod, a good influence, a high item level — and only the user knows which they meant.
-    if (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare) {
+    // Not a map: neither reading is what a map is bought for, and its own strategy covers
+    // every rarity it prints.
+    if (!it.is_map() &&
+        (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare)) {
         for (const item::Strategy s : {item::Strategy::Modifiers, item::Strategy::BaseItem}) {
             const bool on = plan.strategy == s;
             if (ImGui::RadioButton(std::string(item::to_string(s)).c_str(), on) && !on)
@@ -119,58 +186,84 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     if (!target.empty()) ImGui::TextColored(kDim, "%s", target.c_str());
 }
 
-/// One filter row: a toggle, where the modifier came from, what it asks for, and the wording.
-/// The codes and bounds go first because they are the part being compared; the wording wraps
-/// under them.
-void draw_filter_row(int id, bool& enabled, std::span<const Code> codes, const std::string& bounds,
-                     const std::string& text, const std::string& note) {
+/// One filter row, across the table's four columns: the toggle, the wording, where the modifier
+/// came from and what it can roll, and what the search asks for.
+///
+/// The wording comes **second**, straight after the tick, because it is the only column every
+/// row has something to put in: a pseudo total has no affix behind it and a roll on an item with
+/// Advanced Mod Descriptions off has no code, and a gap between the tick and the text reads as a
+/// missing checkbox rather than as a modifier with nothing to say about where it came from.
+void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& text,
+                     const std::string& note, const std::string& asks) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
     ImGui::PushID(id);
+    // A box the height of a line of text rather than of a framed widget. This is a list of
+    // modifiers with a tick beside each, and at the default frame padding the tick is taller
+    // than the wording it belongs to and sets the row pitch for the whole list.
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
     ImGui::Checkbox("", &enabled);
+    ImGui::PopStyleVar();
     ImGui::PopID();
-    ImGui::SameLine();
-    const float indent = ImGui::GetCursorPosX();
-    for (const Code& c : codes) {
-        ImGui::TextColored(c.colour, "%s", c.text.c_str());
-        ImGui::SameLine();
-    }
-    if (!bounds.empty()) {
-        ImGui::TextColored(kBounds, "%s", bounds.c_str());
-        ImGui::SameLine();
-    }
+
+    ImGui::TableSetColumnIndex(1);
     ImGui::PushTextWrapPos(0.0f);
     ImGui::TextUnformatted(text.c_str());
-    if (!note.empty()) {
-        ImGui::SetCursorPosX(indent);
-        ImGui::TextColored(kDim, "%s", note.c_str());
-    }
+    if (!note.empty()) ImGui::TextColored(kDim, "%s", note.c_str());
     ImGui::PopTextWrapPos();
+
+    ImGui::TableSetColumnIndex(2);
+    draw_origin(o);
+
+    ImGui::TableSetColumnIndex(3);
+    if (!asks.empty()) ImGui::TextColored(kBounds, "%s", asks.c_str());
 }
 
-void draw_filters(const item::Item& it, item::SearchPlan& plan) {
-    for (size_t i = 0; i < plan.numerics.size(); ++i) {
-        item::NumericFilter& f = plan.numerics[i];
-        draw_filter_row(static_cast<int>(i), f.enabled, {}, bounds_text(f.min, f.max, f.dp),
-                        f.label, f.note);
-    }
-    for (size_t i = 0; i < plan.stats.size(); ++i) {
-        item::StatFilter& f = plan.stats[i];
-        const std::vector<Code> codes = affix_codes(it, f);
-        std::string bounds = range_text(f.min, f.max, f.dp);
-        // What the unique itself can roll, which the clipboard only prints with Advanced Mod
-        // Descriptions on. A point range says nothing a reader cannot see.
-        if (f.unique_min && f.unique_max && *f.unique_min != *f.unique_max)
-            bounds += " of " + range_text(f.unique_min, f.unique_max, f.dp);
-        std::string note;
-        if (f.type != data::ModType::Explicit) note = data::trade_prefix(f.type);
-        // Why this one is ticked on a unique whose other modifiers are not: the item picked
-        // it out of a pool, so it is what separates this copy from every other.
-        if (f.pooled) {
-            if (!note.empty()) note += " \xe2\x80\x94 ";
-            note += f.pool_hint.empty() ? "one of several possible modifiers" : f.pool_hint;
+/// The filter list, as a table so that every row's numbers sit under the previous row's. What
+/// the search asks for is the **last** column and not part of the origin beside the code: it is
+/// the one thing here that the user will be editing.
+///
+/// The wording takes the stretch column and everything else fits its content, so the two number
+/// columns are as narrow as the widest row needs and the modifier gets the rest.
+void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
+    const ImGuiStyle& style = ImGui::GetStyle();
+    // Tight rows: a filter list is read down the column, and the default spacing puts half a
+    // line of nothing between one modifier and the next.
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(style.CellPadding.x, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(style.ItemSpacing.x, 1.0f));
+    // Banded rather than ruled off: a modifier can wrap onto three lines and its origin onto
+    // two, so what a reader needs is to see where one row ends, and a separator between every
+    // pair of them would cost a line of height per filter to say it.
+    constexpr ImGuiTableFlags kFlags = ImGuiTableFlags_SizingFixedFit |
+                                       ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_RowBg;
+    if (ImGui::BeginTable("filters", 4, kFlags)) {
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
+
+        for (size_t i = 0; i < plan.numerics.size(); ++i) {
+            item::NumericFilter& f = plan.numerics[i];
+            draw_filter_row(static_cast<int>(i), f.enabled, {}, f.label, f.note,
+                            filter_text(f.min, f.max, f.dp, glyphs));
         }
-        draw_filter_row(static_cast<int>(1000 + i), f.enabled, codes, bounds,
-                        strip_roll_ranges(f.text), note);
+        for (size_t i = 0; i < plan.stats.size(); ++i) {
+            item::StatFilter& f = plan.stats[i];
+            // Why this one is ticked on a unique whose other modifiers are not: the item picked
+            // it out of a pool, so it is what separates this copy from every other.
+            std::string note;
+            if (f.pooled)
+                note = f.pool_hint.empty() ? "one of several possible modifiers" : f.pool_hint;
+            // "absent" goes in the column that says what the search asks for, because that is
+            // the whole difference: the row is otherwise identical to one asking for the
+            // modifier, and a tick beside a wording the item does not have reads backwards.
+            draw_filter_row(static_cast<int>(1000 + i), f.enabled, origin_of(it, f),
+                            strip_roll_ranges(f.text), note,
+                            f.negated ? "absent" : filter_text(f.min, f.max, f.dp, glyphs));
+        }
+        ImGui::EndTable();
     }
+    ImGui::PopStyleVar(2);
 }
 
 constexpr ImVec4 kUp(0.40f, 0.78f, 0.42f, 1.0f);
@@ -205,31 +298,54 @@ void draw_spark(const ninja::Spark& s, float w, float h) {
                                             ImDrawFlags_None, 1.5f);
 }
 
-/// The symbol and full name of a trade currency id, drawn inline. The symbol comes from the
-/// trade static data where that has been fetched and from poe.ninja's own payload where it has
-/// not — a reference price should not be the one thing that needs a trade request to render.
-void draw_currency(App& app, const std::string& id) {
-    const NinjaService& n = app.ninja();
-    std::string icon = app.trade().currency_image(id);
-    if (icon.empty()) icon = n.currency_icon(id);
+/// A symbol and the name beside it, drawn inline after whatever came before. The picture is
+/// allowed not to have arrived — `IconCache::texture` answers "not yet" and the row closes up
+/// around it when it lands — which is why the thing is always *named* as well as pictured.
+void draw_symbol(App& app, const std::string& icon, const std::string& name) {
     if (const uint64_t tex = app.icons().texture(icon)) {
         const float h = ImGui::GetTextLineHeight();
         ImGui::SameLine(0.0f, 3.0f);
         ImGui::Image(tex, ImVec2(h, h));
     }
+    if (name.empty()) return; // the glyph is the whole of it; see `draw_side`
     ImGui::SameLine(0.0f, 3.0f);
+    ImGui::TextUnformatted(name.c_str());
+}
+
+/// The symbol and full name of a trade currency id. The symbol comes from the trade static
+/// data where that has been fetched and from poe.ninja's own payload where it has not — a
+/// reference price should not be the one thing that needs a trade request to render.
+void draw_currency(App& app, const std::string& id) {
+    const NinjaService& n = app.ninja();
+    std::string icon = app.trade().currency_image(id);
+    if (icon.empty()) icon = n.currency_icon(id);
     std::string name = app.trade().currency_name(id);
     if (name == id) name = n.currency_name(id);
-    ImGui::TextUnformatted(name.c_str());
+    draw_symbol(app, icon, name);
+}
+
+/// The symbol for something the exchange trades that is **not** one of the two denominators —
+/// a scarab, an ember, an essence. It has no trade currency id to be found by: the feed states
+/// it as a `Metadata/Items/...` path and nothing else on either source is keyed that way. Its
+/// display name is the join, and both sources are asked in the same order as everywhere else.
+/// Empty is a fine answer; the name alone still reads.
+std::string icon_for_item(App& app, const std::string& name) {
+    std::string icon = app.trade().image_for_name(name);
+    if (icon.empty()) icon = app.ninja().icon_for_name(name);
+    return icon;
 }
 
 /// A poe.ninja price in the trade site's own form, so the two prices on screen read alike:
 /// `5 x [icon] Divine Orb`. `per` turns it from a price into a rate — `201 x [icon] Chaos Orb
 /// per [icon] Divine Orb`, which is the only thing the two orbs the market is denominated in
-/// can be checked for. A stack adds what all of it is worth: the unit price is what says
-/// whether a pile is worth moving, the total is what it sells for, and neither substitutes
-/// for the other. The stack's currency is named only when it is not the unit's already —
-/// six thousand chaos is said in divine even though one chaos is not.
+/// can be checked for.
+///
+/// A stack adds what all of it is worth, **on a line of its own**: the unit price is what says
+/// whether a pile is worth moving and the total is what it sells for, neither substitutes for
+/// the other, and the two of them together do not fit the width the panel has. The second line
+/// names its currency whether or not it is the first's — six thousand chaos is a number said
+/// in divine, and a line that reads `6000 x = 29.8 x` with the unit only on the row above is
+/// the one thing worse than wrapping.
 void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
     std::string amount = trade::price_text(r.price.amount);
     if (ambiguous) amount += " \xe2\x80\x93 " + trade::price_text(r.high.amount);
@@ -241,11 +357,15 @@ void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
         draw_currency(app, r.per);
     }
     if (r.stack <= 1) return;
-    ImGui::SameLine(0.0f, 6.0f);
+    if (r.per.empty()) {
+        ImGui::SameLine(0.0f, 4.0f);
+        ImGui::TextDisabled("each");
+    }
     // "x" and not "×": Fontin has no multiplication sign and draws it as a box.
-    ImGui::TextDisabled("\xe2\x80\x94 x%d = %s", r.stack,
-                        trade::price_text(r.stack_price.amount).c_str());
-    if (r.stack_price.currency != r.price.currency) draw_currency(app, r.stack_price.currency);
+    ImGui::TextDisabled("x%d =", r.stack);
+    ImGui::SameLine(0.0f, 6.0f);
+    ImGui::TextUnformatted((trade::price_text(r.stack_price.amount) + " x").c_str());
+    draw_currency(app, r.stack_price.currency);
 }
 
 /// What poe.ninja says the item goes for — the going rate for a unique, a gem or a stack of
@@ -256,7 +376,9 @@ void draw_ninja_price(App& app, const ninja::Reference& r, bool ambiguous) {
 /// Three columns, no header: the source, the price, and the week behind it. The whole row is
 /// one click-through to the item's own page, which is where the variants, the history and the
 /// listings actually are — everything this row has to leave out.
-void draw_reference_price(App& app) {
+///
+/// False when it drew nothing at all, so the caller knows there is no section to rule off.
+bool draw_reference_price(App& app) {
     switch (app.plan().strategy) {
     case item::Strategy::Unique:
     case item::Strategy::Currency:
@@ -265,14 +387,14 @@ void draw_reference_price(App& app) {
     case item::Strategy::Modifiers:
         break;
     default:
-        return; // a map: poe.ninja prices nothing about it that this row could show
+        return false; // a map: poe.ninja prices nothing about it that this row could show
     }
     const NinjaService& n = app.ninja();
     const ninja::Reference& r = n.reference();
 
     if (n.state() == NinjaState::Loading) {
         ImGui::TextDisabled("poe.ninja\xe2\x80\xa6");
-        return;
+        return true;
     }
     if (r.state == ninja::Reference::State::None) {
         // Never silent: an empty slot where a price belongs reads as a price of nothing. Wrapped
@@ -283,12 +405,12 @@ void draw_reference_price(App& app) {
                             : !r.note.empty()   ? r.note.c_str()
                                                 : "no reference price");
         ImGui::PopTextWrapPos();
-        return;
+        return true;
     }
 
     const bool ambiguous = r.state == ninja::Reference::State::Ambiguous;
     constexpr ImGuiTableFlags kFlags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
-    if (!ImGui::BeginTable("reference", 3, kFlags)) return;
+    if (!ImGui::BeginTable("reference", 3, kFlags)) return false;
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
@@ -349,6 +471,7 @@ void draw_reference_price(App& app) {
         ImGui::EndTooltip();
     }
     ImGui::EndTable();
+    return true;
 }
 
 /// Volumes on this market run to eight figures, and the reader wants the order of magnitude
@@ -362,68 +485,187 @@ std::string volume_text(double n) {
     return buf;
 }
 
-/// One market as a line: `35 – 50 x [icon] Chaos Orb each`, or turned round when that keeps the
-/// numbers above one — `2 – 2.2 per [icon] Chaos Orb`, which is how the pile is actually
-/// quoted in game. The band is the hour's cheapest and dearest ratio and not an average: the
-/// exchange is an order book, and an hour of one has two ends.
-void draw_exchange_rate(App& app, const exchange::Rate& r, const char* against) {
-    if (!r.known()) return;
-    const exchange::Reading v = exchange::read(r);
-    std::string amount = trade::price_text(v.low);
-    if (v.high != v.low) amount += " \xe2\x80\x93 " + trade::price_text(v.high);
+/// What to call the item on its own side of a market. The exchange trades base types —
+/// currency, cards, scarabs, fragments — so the base line is the whole name, and the resolved
+/// one wherever the bundle gave us it.
+std::string exchange_item_name(const item::Item& it) {
+    if (!it.base_name.empty()) return it.base_name;
+    if (!it.base_type.empty()) return it.base_type;
+    return it.name;
+}
 
-    ImGui::TextUnformatted(v.inverted ? amount.c_str() : (amount + " x").c_str());
-    if (v.inverted) {
-        ImGui::SameLine(0.0f, 4.0f);
-        ImGui::TextDisabled("per");
+/// One side of a market: what to call it and what to draw beside it. `currency` is set only
+/// for the two denominators — those are named and pictured from their trade id like every
+/// other price on screen — and everything else carries its own name and whatever symbol
+/// `icon_for_item` could find for it.
+struct MarketSide {
+    const char* currency = nullptr;
+    std::string name;
+    std::string icon;
+};
+
+/// One side of a market as a value, `12 x [icon] Chaos Orb`. `times` is what tells a price
+/// from a count of things: `19k Chaos Orb` traded, at `8.9 x Chaos Orb` each.
+///
+/// `named` is dropped on the summary line, which is the one place a market has to fit *both*
+/// sides on a row: an item named there as well as pictured runs off the panel, and the glyph
+/// is the thing players recognise an item by anyway. Never dropped when there is no glyph to
+/// stand in for the name, and never for a currency, whose names are two words.
+void draw_side(App& app, const std::string& amount, const MarketSide& side, bool times = true,
+               bool named = true) {
+    ImGui::TextUnformatted(times ? (amount + " x").c_str() : amount.c_str());
+    if (side.currency) draw_currency(app, side.currency);
+    else draw_symbol(app, side.icon, named || side.icon.empty() ? side.name : std::string());
+}
+
+/// One detail row of the market table: a label and a value in one of the two units.
+void draw_exchange_row(App& app, const char* label, const std::string& amount,
+                       const MarketSide& side, bool times = true) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    if (label) ImGui::TextDisabled("%s", label);
+    ImGui::TableSetColumnIndex(1);
+    draw_side(app, amount, side, times);
+}
+
+/// One market: what the hour cleared at, and the hour behind it.
+///
+/// The heading is the **volume-weighted average** — the two sides' traded volumes divided,
+/// which is where in the band the market actually sat rather than the midpoint of two extremes
+/// a single trade can set. It is stated against whichever of the two is worth more, so one
+/// side is always a single unit: `4 x Winged Scarab = 1 x Chaos Orb` is how the trade is said
+/// in game, and "0.25 chaos each" is not.
+///
+/// Underneath it, the hour it is an average of: volume on both sides and the two ends of the
+/// band, in the same direction as the heading. **Stock is deliberately absent** — what is
+/// standing in the book says how long a sale would take, not what the item is worth.
+void draw_exchange_market(App& app, const MarketSide& item, const exchange::Rate& r,
+                          const char* against) {
+    if (!r.known()) return;
+    const MarketSide other{against, {}, {}};
+    const exchange::Reading v = exchange::read(r);
+    // Which side is quoted as one unit, and therefore which unit every number below is in.
+    const MarketSide& unit = v.inverted ? item : other;
+
+    // No volume on one of the sides is no average, and then the band itself is the summary:
+    // there is nothing else in the payload that says where the hour sat.
+    std::string amount = trade::price_text(v.avg > 0 ? v.avg : v.low);
+    if (v.avg <= 0 && v.high != v.low) amount += " \xe2\x80\x93 " + trade::price_text(v.high);
+
+    ImGui::BeginGroup();
+    draw_side(app, amount, unit, /*times=*/true, /*named=*/false);
+    ImGui::SameLine(0.0f, 6.0f);
+    ImGui::TextDisabled("=");
+    ImGui::SameLine(0.0f, 6.0f);
+    draw_side(app, "1", v.inverted ? other : item, /*times=*/true, /*named=*/false);
+    ImGui::EndGroup();
+    if (v.avg > 0 && ImGui::IsItemHovered())
+        ImGui::SetTooltip("The hour's average, weighted by what actually traded");
+
+    constexpr ImGuiTableFlags kFlags =
+        ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings;
+    ImGui::Indent(8.0f);
+    if (ImGui::BeginTable("market", 2, kFlags)) {
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 58.0f);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
+        // Both sides of the volume, because either one alone is half a sentence: a thousand
+        // scarabs and four chaos is a different market from a thousand scarabs and four divine.
+        if (r.volume > 0)
+            draw_exchange_row(app, "Volume", volume_text(r.volume), item, false);
+        if (r.volume_against > 0)
+            draw_exchange_row(app, r.volume > 0 ? nullptr : "Volume",
+                              volume_text(r.volume_against), other, false);
+        draw_exchange_row(app, "Lowest", trade::price_text(v.low), unit);
+        draw_exchange_row(app, "Highest", trade::price_text(v.high), unit);
+        ImGui::EndTable();
     }
-    draw_currency(app, against);
-    if (!v.inverted) {
-        ImGui::SameLine(0.0f, 4.0f);
-        ImGui::TextDisabled("each");
-    }
-    if (r.volume > 0) {
-        ImGui::SameLine(0.0f, 6.0f);
-        ImGui::TextDisabled("\xe2\x80\x94 %s traded", volume_text(r.volume).c_str());
-    }
+    ImGui::Unindent(8.0f);
 }
 
 /// What the **in-game currency exchange** did with this item in the last published hour.
 ///
-/// Drawn only when the item actually appears in that feed, which is the whole of the marker
-/// the row is: currency, cards, scarabs and fragments trade there and nothing else does. It is
-/// also why these items have no search below — an exchange market is not a listing, so the
-/// trade site has nothing to say about them, and offering a search for one is offering the
-/// wrong question rather than an empty answer.
-void draw_exchange_price(App& app) {
+/// Three states, and the middle one is the reason the bundle carries a flag at all:
+///
+/// - **A market this hour** — the table below, which is the price.
+/// - **No market this hour, but the item trades there.** The feed is hourly and a thin item
+///   (a Weeping Essence of Greed) goes hours without a trade, so silence is the normal case
+///   rather than an answer. Drawing nothing here left the panel empty — poe.ninja has no price
+///   for such an item either — and an empty panel reads as a check that failed. Saying so is
+///   the answer: it tells the user where the item is sold and that nobody sold one recently,
+///   which is itself worth knowing.
+/// - **Not traded there, or a bundle that cannot say** — no section at all. Claiming either
+///   way from a bundle with no exchange data would be a guess.
+///
+/// False when nothing was drawn, so the caller knows not to rule off an empty section.
+bool draw_exchange_price(App& app, const item::Item& it) {
     const ExchangeService& x = app.currency_exchange();
     if (x.state() == ExchangeState::Loading) {
         ImGui::TextDisabled("Currency exchange\xe2\x80\xa6");
-        return;
+        return true;
     }
     const exchange::Listing* l = x.listing();
-    if (!l) return; // not traded there, or no data: nothing to claim either way
+    if (!l) {
+        if (!app.trades_on_exchange()) return false;
+        ImGui::TextDisabled("Currency exchange");
+        ImGui::Indent(8.0f);
+        // Matched to the poe.ninja row's voice: what the source has to say, not what the app
+        // failed to do. "No trades in the past hour" is a fact about the market; "no price"
+        // would read as a fact about the check.
+        //
+        // But it is only a fact if the hour was actually read. A digest we failed to fetch says
+        // nothing about what traded in it, and stating the market was quiet on the strength of
+        // our own failed request is the one thing worse than saying nothing — the item still
+        // gets no trade search either way, so the user would have no way to tell.
+        ImGui::PushTextWrapPos(0.0f);
+        if (x.state() == ExchangeState::Error)
+            ImGui::TextColored(kWarn, "Traded here, but this hour's prices could not be fetched.");
+        else
+            ImGui::TextDisabled("Traded here, but no trades in the past hour.");
+        ImGui::PopTextWrapPos();
+        ImGui::Unindent(8.0f);
+        return true;
+    }
 
     ImGui::TextDisabled("Currency exchange");
     ImGui::Indent(8.0f);
-    draw_exchange_rate(app, l->chaos, "chaos");
-    draw_exchange_rate(app, l->divine, "divine");
+    // The two orbs everything is denominated in are also the two commonest things to check, and
+    // each is priced against the other — so those go through the same id-keyed path as any
+    // price on screen, and everything else is found by name.
+    MarketSide item;
+    if (l->metadata_id == exchange::kChaosId) item.currency = "chaos";
+    else if (l->metadata_id == exchange::kDivineId) item.currency = "divine";
+    else {
+        item.name = exchange_item_name(it);
+        item.icon = icon_for_item(app, item.name);
+    }
+    draw_exchange_market(app, item, l->chaos, "chaos");
+    draw_exchange_market(app, item, l->divine, "divine");
     // The hour is not a detail. An exchange price is always at least an hour old — the feed
     // publishes nothing about the hour in progress — and saying so is what keeps a stale
     // number from reading as a live one.
+    //
+    // In the **user's own clock and their own date format**: the digest is addressed by a UTC
+    // hour, but a reader deciding whether a price is stale should have to do neither timezone
+    // nor date-order arithmetic to read it. `%x` is whatever `LC_TIME` says a short date is
+    // (`App::run` sets that from the environment, unlike `LC_NUMERIC`); the time is spelled
+    // out rather than left to `%X`, which adds a seconds field that is always zero here. Drawn
+    // in the system face — a locale's date can be Cyrillic or CJK, of which Fontin has none.
     if (const int64_t h = x.hour(); h > 0) {
         const std::time_t t = static_cast<std::time_t>(h + 3600);
-        std::tm utc{};
+        std::tm local{};
 #ifdef _WIN32
-        gmtime_s(&utc, &t);
+        localtime_s(&local, &t);
 #else
-        gmtime_r(&t, &utc);
+        localtime_r(&t, &local);
 #endif
-        char when[16];
-        std::snprintf(when, sizeof when, "%02d:%02d UTC", utc.tm_hour, utc.tm_min);
-        ImGui::TextDisabled("in the hour to %s", when);
+        char when[64];
+        if (std::strftime(when, sizeof when, "%x %H:%M", &local) == 0) when[0] = '\0';
+        ImGui::PushFont(app.fonts().unicode, 0.0f);
+        ImGui::TextDisabled("valid as of %s", when);
+        ImGui::PopFont();
     }
     ImGui::Unindent(8.0f);
+    return true;
 }
 
 /// The Search / Open in browser pair, plus whatever the last search had to say. Both act on
@@ -457,6 +699,22 @@ void draw_search_controls(App& app) {
         ImGui::TextDisabled("%d match%s in %s", t.results().total,
                             t.results().total == 1 ? "" : "es", t.league().c_str());
     }
+}
+
+/// Why there is **no** search, for the items that get none at all. The filters, the buttons and
+/// the listings are all gone for these, and an item sitting alone under two price rows with no
+/// word about it reads as a check that gave up rather than as one that has already finished.
+void draw_no_search_note(App& app) {
+    ImGui::PushTextWrapPos(0.0f);
+    if (app.trades_on_exchange()) {
+        ImGui::TextDisabled("Traded on the in-game currency exchange, not through listings.");
+    } else if (app.plan().strategy == item::Strategy::Currency) {
+        ImGui::TextDisabled("Priced by poe.ninja, not by a trade search.");
+    } else {
+        for (const std::string& n : app.plan().notes)
+            ImGui::TextColored(kWarn, "\xe2\x80\xa2 %s", n.c_str());
+    }
+    ImGui::PopTextWrapPos();
 }
 
 /// A price in the trade site's own form: `5× [icon] Divine Orb`. The symbol is downloaded in
@@ -669,11 +927,17 @@ void draw_debug_footer(App& app) {
 void draw_pricecheck_screen(App& app) {
     ImGuiIO& io = ImGui::GetIO();
     const item::Item* it = app.item();
+    // A search the trade site cannot be asked in the first place — currency, a card, anything
+    // the in-game exchange trades — takes the whole filter half of the panel with
+    // it: there is no query for the filters to shape and no listings for a note about an
+    // unmatched modifier to have cost anybody. What is left is the item and its reference
+    // prices, so the item moves back out of the gutter and into the column the filters had.
+    const bool searchable = trade::searchable(app.plan()) && !app.trades_on_exchange();
     // The item itself lives in the gutter beside the panel, so the panel's own column is filters,
     // price and listings — the things that need the height. Drawn before the panel purely for
     // reading order; the two windows never overlap. 0 back means there was no gutter to draw it
     // in and the panel has to.
-    const float gutter_top = it ? draw_item_card(app, *it) : 0.0f;
+    const float gutter_top = it && searchable ? draw_item_card(app, *it) : 0.0f;
     // The card is opaque UI of ours over the game, not the transient tooltip the gutter used to
     // hold: a click on it must not read as a click away from the panel.
     app.set_card_height(gutter_top);
@@ -719,8 +983,8 @@ void draw_pricecheck_screen(App& app) {
     if (!it) {
         ImGui::TextDisabled("Nothing to show.");
     } else {
-        // Only when the game window left no room for a gutter: then the item is still the first
-        // thing in the panel, as it was before it had anywhere else to go.
+        // In the panel whenever it is not in the gutter: either the game window left no room
+        // for one, or there are no filters for it to be making room for.
         if (gutter_top == 0.0f) {
             draw_item_tooltip(*it, app.derived(), app.fonts());
             ImGui::Dummy(ImVec2(0, 8));
@@ -731,28 +995,39 @@ void draw_pricecheck_screen(App& app) {
         if (!gd) {
             ImGui::TextDisabled("No pricing data yet, so nothing has been matched.");
         } else {
-            draw_strategy_picker(app, *it, plan);
-            ImGui::Dummy(ImVec2(0, 4));
-            draw_filters(*it, plan);
-            // A dropped filter has to be visible: silently searching without it reads as a
-            // successful price check on an item that is not this one.
-            ImGui::PushTextWrapPos(0.0f);
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(kWarn));
-            for (const std::string& n : plan.notes)
-                ImGui::TextUnformatted(("\xe2\x80\xa2 " + n).c_str());
-            ImGui::PopStyleColor();
-            ImGui::PopTextWrapPos();
-            ImGui::Dummy(ImVec2(0, 6));
-            ImGui::Separator();
-            draw_reference_price(app);
-            draw_exchange_price(app);
+            // Every one of these is about a search: which one to run, what to ask it for, and
+            // what had to be left out of the asking. None of it means anything for an item
+            // nobody can search, and printing it there says a price check failed at something
+            // it never attempted.
+            if (searchable) {
+                draw_strategy_picker(app, *it, plan);
+                ImGui::Dummy(ImVec2(0, 4));
+                draw_filters(*it, plan, app.fonts().has_comparison_glyphs);
+                // A dropped filter has to be visible: silently searching without it reads as a
+                // successful price check on an item that is not this one.
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(kWarn));
+                for (const std::string& n : plan.notes)
+                    ImGui::TextUnformatted(("\xe2\x80\xa2 " + n).c_str());
+                ImGui::PopStyleColor();
+                ImGui::PopTextWrapPos();
+                ImGui::Dummy(ImVec2(0, 6));
+                ImGui::Separator();
+            }
+            // Each priced section is ruled off from the next, and only when it drew: two
+            // separators with nothing between them is what an unconditional one gives on the
+            // items that have one source of price and not the other.
+            if (draw_reference_price(app)) ImGui::Separator();
+            if (draw_exchange_price(app, *it)) ImGui::Separator();
             // An item that trades on the in-game exchange gets no Search and no Open in
             // browser: it has no listings for either to find, and a button that can only ever
             // come back empty reads as the item being unsellable rather than as the wrong
             // market having been asked.
-            if (!app.currency_exchange().listing()) {
+            if (searchable) {
                 draw_search_controls(app);
                 draw_results(app, gutter_top);
+            } else {
+                draw_no_search_note(app);
             }
         }
     }

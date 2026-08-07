@@ -1,0 +1,27 @@
+Item Class: Support Gems
+Rarity: Gem
+Hypothermia Support
+--------
+Cold, Support
+Level: 16
+Cost & Reservation Multiplier: 130%
+--------
+Requirements:
+Level: 62
+Dex: 99 (unmet)
+--------
+Supports any skill that deals damage.
+--------
+Supported Skills have +20% chance to Freeze Enemies which are Chilled
+(Freeze lowers Enemy Action Speed to zero, preventing them from acting. Duration is based on the Cold Damage of the Hit)
+Supported Skills deal 27% more Cold Damage Over Time
+Supported Skills deal 27% more Damage with Hits and Ailments against Chilled Enemies
+(Ailments that deal Damage are Bleeding, Ignited, and Poisoned)
+
+Additional Effects From Quality:
+Supported Skills have +0(0-20)% chance to Freeze Enemies which are Chilled
+(Freeze lowers Enemy Action Speed to zero, preventing them from acting. Duration is based on the Cold Damage of the Hit)
+--------
+Experience: 1,521,173/15,058,455
+--------
+This is a Support Gem. It does not grant a bonus to your character, but to skills in sockets connected to it. Place into an item socket connected to a socket containing the Skill Gem you wish to augment. Right click to remove from a socket.

@@ -1,0 +1,17 @@
+Item Class: Maps
+Rarity: Magic
+Map of Impedance (Tier 16)
+--------
+Item Quantity: +10% (augmented)
+Item Rarity: +6% (augmented)
+Monster Pack Size: +4% (augmented)
+--------
+Item Level: 84
+--------
+Monster Level: 83
+--------
+{ Suffix Modifier "of Impedance" (Tier: 1) }
+Monsters Hinder on Hit with Spells
+(Hinder reduces movement speed by 30% for 4 seconds)
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 

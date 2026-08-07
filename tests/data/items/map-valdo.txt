@@ -1,0 +1,44 @@
+Item Class: Maps
+Rarity: Rare
+Maelström Bearings
+Valdo Map
+--------
+Map Area: Atoll
+Reward: Foil Hrimsorrow
+Item Quantity: +112% (augmented)
+Item Rarity: +16% (augmented)
+Monster Pack Size: +14% (augmented)
+--------
+Chance for dropped Maps to convert to:
+Shaper Map: 5% (augmented)
+Elder Map: 5% (augmented)
+Conqueror Map: 17% (augmented)
+Unique Map: 5% (augmented)
+Scarab: 27% (augmented)
+--------
+Item Level: 100
+--------
+Monster Level: 84
+--------
+{ Unique Modifier }
+Monsters Kill things with 20% or lower Life on Hit
+{ Unique Modifier }
+Maximum number of Players in Area is one
+{ Unique Modifier }
+Monsters can only be Damaged while within 2 metres of a Player
+Players' modifiers to Light Radius also apply to this range
+{ Unique Modifier }
+When Hit, Players gain a random Movement Speed
+modifier from 50% less to 50% more, until Hit again
+{ Unique Modifier }
+Players who Die in area are sent to the Void
+(Characters sent to Void Leagues are no longer playable, and cannot be restored for any reason)
+{ Unique Modifier }
+All Strongboxes in Area must be opened to claim Reward
+Area contains 10 additional guarded Exquisite Vaal Vessels
+--------
+Travel to this Map by using it in a personal Map Device. Maps can only be used once. Defeat 90% of all monsters in this Map, including all Rare and Unique enemies to obtain the Reward. The area created is not affected by your Atlas Passive Tree, and cannot be augmented via the Map Device.
+--------
+Unmodifiable
+--------
+Foil (Celestial Pearl)

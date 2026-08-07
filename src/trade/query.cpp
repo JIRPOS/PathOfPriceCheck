@@ -20,10 +20,14 @@ namespace {
 /// under a group and rejects one filed in the wrong place, so this table is the contract
 /// between `item/plan` and the wire format.
 std::string_view group_for(std::string_view key) {
-    if (key == "ilvl" || key == "quality") return "misc_filters";
-    if (key == "ar" || key == "ev" || key == "es" || key == "ward") return "armour_filters";
+    if (key == "ilvl" || key == "quality" || key == "gem_level") return "misc_filters";
+    if (key == "ar" || key == "ev" || key == "es" || key == "ward" ||
+        key == "base_defence_percentile")
+        return "armour_filters";
     if (key == "dps" || key == "pdps" || key == "edps" || key == "aps" || key == "crit")
         return "weapon_filters";
+    if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize")
+        return "map_filters";
     return {};
 }
 
@@ -66,7 +70,12 @@ bool searchable(const item::SearchPlan& p) {
     switch (p.strategy) {
         case item::Strategy::BaseItem:
         case item::Strategy::Modifiers:
-        case item::Strategy::Unique: return true;
+        case item::Strategy::Unique:
+        case item::Strategy::Map: return true;
+        // A gem is bought by name and has no modifiers to fall back on, so a plan that could
+        // not name it has nothing left to ask: the search would be every gem in the game at
+        // this level, and its cheapest listing would read as this gem's price.
+        case item::Strategy::Gem: return !p.type.empty();
         default: return false;
     }
 }
@@ -110,9 +119,16 @@ std::string_view status_label(std::string_view id) {
 }
 
 std::string build_query(const item::SearchPlan& p, std::string_view status) {
-    json stats = json::array();
+    // Two groups, because a filter can ask for a modifier's **absence** as readily as for its
+    // presence: the site spells that as a second stat group of type "not", and a Valdo map
+    // that does not void the character who dies in it is bought for exactly that.
+    json stats = json::array(), absent = json::array();
     for (const item::StatFilter& f : p.stats) {
         if (!f.enabled) continue;
+        if (f.negated) {
+            absent.push_back(json{{"id", f.id}, {"disabled", false}});
+            continue;
+        }
         std::optional<double> min = f.min, max = f.max;
         // The site indexes this stat with the opposite sign to the one the game prints, so
         // the interval flips end for end as well as in sign — a floor becomes a ceiling.
@@ -128,10 +144,10 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
 
     json type_filters = json::object();
     if (!p.category.empty()) type_filters["category"] = json{{"option", p.category}};
-    // A unique and a rare are different markets even for the same base, and the strategy is
-    // exactly the statement of which one is being priced.
-    type_filters["rarity"] =
-        json{{"option", p.strategy == item::Strategy::Unique ? "unique" : "nonunique"}};
+    // A unique and a rare are different markets even for the same base, and which of the two is
+    // being priced is the plan's own statement — a unique map is planned as a map, so reading
+    // it back off the strategy would search it among the rare ones.
+    if (!p.rarity.empty()) type_filters["rarity"] = json{{"option", p.rarity}};
 
     json misc = json::object();
     if (p.corrupted) misc["corrupted"] = option(*p.corrupted);
@@ -141,21 +157,32 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     for (const item::Influence i : p.influences)
         if (const std::string_view k = influence_key(i); !k.empty()) misc[std::string(k)] = option(true);
 
-    json armour = json::object(), weapon = json::object();
+    json armour = json::object(), weapon = json::object(), map = json::object();
     for (const item::NumericFilter& f : p.numerics) {
         if (!f.enabled) continue;
         const std::string_view g = group_for(f.key);
         if (g.empty()) continue;
         json v = bounds(f.min, f.max);
         if (v.empty()) continue;
-        (g == "misc_filters" ? misc : g == "armour_filters" ? armour : weapon)[f.key] = std::move(v);
+        (g == "misc_filters"     ? misc
+         : g == "armour_filters" ? armour
+         : g == "map_filters"    ? map
+                                 : weapon)[f.key] = std::move(v);
     }
+    // Blight and a Valdo map's payout are `map_filters` options rather than intervals, so they
+    // ride on the plan itself the way corruption does. `map_completion_reward` takes the
+    // unique's own name and errors the whole search on one it does not know, which is why the
+    // plan only ever fills it in from a name the bundle confirmed.
+    if (p.blighted) map["map_blighted"] = option(true);
+    if (p.blight_ravaged) map["map_uberblighted"] = option(true);
+    if (!p.map_reward.empty()) map["map_completion_reward"] = json{{"option", p.map_reward}};
 
     json filters = json::object();
     filters["type_filters"] = json{{"filters", std::move(type_filters)}};
     if (!misc.empty()) filters["misc_filters"] = json{{"filters", std::move(misc)}};
     if (!armour.empty()) filters["armour_filters"] = json{{"filters", std::move(armour)}};
     if (!weapon.empty()) filters["weapon_filters"] = json{{"filters", std::move(weapon)}};
+    if (!map.empty()) filters["map_filters"] = json{{"filters", std::move(map)}};
 
     json q = json::object();
     q["status"] = json{{"option", valid_status(status) ? status : kDefaultStatus}};
@@ -163,11 +190,15 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     // none, because it is bought for its modifiers and the category already says where those
     // can live, while a rare *flask* names one, because the base is half of what the same
     // modifiers are worth. See item/plan.
-    if (p.strategy == item::Strategy::Unique && !p.name.empty())
-        q["name"] = term(p.name, p.discriminator);
+    if (!p.name.empty()) q["name"] = term(p.name, p.discriminator);
+    // A unique's discriminator belongs to its name, which is what the site disambiguates —
+    // except on a map, where the type "Map" carries the same one and needs it too.
     if (!p.type.empty())
-        q["type"] = term(p.type, p.strategy == item::Strategy::Unique ? std::string() : p.discriminator);
+        q["type"] = term(p.type, p.strategy == item::Strategy::Unique ? std::string()
+                                                                      : p.discriminator);
     q["stats"] = json::array({json{{"type", "and"}, {"filters", std::move(stats)}}});
+    if (!absent.empty())
+        q["stats"].push_back(json{{"type", "not"}, {"filters", std::move(absent)}});
     q["filters"] = std::move(filters);
 
     return json{{"query", std::move(q)}, {"sort", json{{"price", "asc"}}}}.dump();

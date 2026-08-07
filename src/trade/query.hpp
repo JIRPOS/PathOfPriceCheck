@@ -9,8 +9,8 @@
 
 namespace ppc::trade {
 
-/// False for a plan nothing can be searched from — an unsupported class, or a strategy
-/// (currency, gems) that is priced in bulk rather than by a stat query.
+/// False for a plan nothing can be searched from — an unsupported class, a strategy priced in
+/// bulk rather than through listings (currency), or a gem the plan could not name.
 bool searchable(const item::SearchPlan& p);
 
 /// The search query as the trade API's JSON. `StatFilter::inverted` is applied here and

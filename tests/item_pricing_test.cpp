@@ -46,6 +46,29 @@ const StatFilter* filter_for(const SearchPlan& p, std::string_view id) {
     return nullptr;
 }
 
+const StatFilter* filter_saying(const SearchPlan& p, std::string_view text) {
+    for (const StatFilter& f : p.stats)
+        if (f.text.find(text) != std::string::npos) return &f;
+    return nullptr;
+}
+
+// These point into the plan's own vector, so a plan passed as a temporary leaves every caller
+// holding freed memory the moment the full expression ends. glibc hands the bytes back
+// unchanged and the checks pass; MSVC's debug heap poisons them and they do not. Deleted
+// rather than commented, so the next one is a compile error instead of a Windows-only failure.
+const StatFilter* filter_for(SearchPlan&&, std::string_view) = delete;
+const StatFilter* filter_saying(SearchPlan&&, std::string_view) = delete;
+
+/// "At least what it rolled and nothing else", for the cases that are about **which side** a
+/// bound lands on rather than how wide it opens. A window is symmetric, so the direction rule
+/// `seed_bounds` applies to a stat that is better the lower it goes only shows with one side
+/// open — which is also what these cases asserted before the width was a setting.
+constexpr RangeMatch kFloorOnly{BoundMode::Exact, BoundMode::Unbound};
+
+/// Wide enough that the tier gate is always what decides both bounds, which is how a case
+/// about the tier's own range states itself now that the window around the roll is a setting.
+constexpr RangeMatch kWholeTier{BoundMode::WithinTiered, BoundMode::WithinTiered, 100, 100};
+
 const NumericFilter* numeric_for(const SearchPlan& p, std::string_view key) {
     for (const NumericFilter& f : p.numerics)
         if (f.key == key) return &f;
@@ -87,19 +110,81 @@ TEST_CASE("a rare's modifiers become enabled stat filters") {
     const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
     REQUIRE(life != nullptr);
     CHECK(life->enabled);
-    CHECK(life->min == doctest::Approx(42));
-    // Without Advanced Mod Descriptions there is no tier to bound the search with.
+    // The default asking is the tier-gated 5% window, and without Advanced Mod Descriptions
+    // there is no tier to gate it: 42 opens to 39-45, floored down and ceiled up so a small
+    // percentage of a small roll still moves it by a whole point.
+    CHECK(life->min == doctest::Approx(39));
+    CHECK(life->max == doctest::Approx(45));
     CHECK_FALSE(life->tiered);
-    CHECK_FALSE(life->max.has_value());
 
     REQUIRE(filter_for(p, "explicit.stat_3372524247") != nullptr);
-    CHECK(filter_for(p, "explicit.stat_3372524247")->min == doctest::Approx(25));
+    CHECK(filter_for(p, "explicit.stat_3372524247")->min == doctest::Approx(23));
 
     // The energy shield mod is not in this slice of the bundle: it has to be reported, not
     // dropped — a silently missing filter reads as a successful price check on a worse item.
     CHECK(p.stats.size() == 2);
     CHECK(p.notes.size() == 1);
     CHECK(p.notes.front().starts_with("unrecognised modifier: 120% increased Energy Shield"));
+}
+
+TEST_CASE("how wide a filter opens around the roll is the user's setting") {
+    SUBCASE("unbound fills nothing, exact fills the roll") {
+        Bounds b = seed_bounds({BoundMode::Unbound, BoundMode::Unbound}, 86, 77, 90, 0, false);
+        CHECK_FALSE(b.min.has_value());
+        CHECK_FALSE(b.max.has_value());
+
+        b = seed_bounds({BoundMode::Exact, BoundMode::Exact}, 86, 77, 90, 0, false);
+        CHECK(b.min == doctest::Approx(86));
+        CHECK(b.max == doctest::Approx(86));
+    }
+
+    SUBCASE("a window is rounded outwards, so a small percentage still moves a small roll") {
+        const RangeMatch rm{BoundMode::Within, BoundMode::Within};
+        Bounds b = seed_bounds(rm, 86, std::nullopt, std::nullopt, 0, false);
+        CHECK(b.min == doctest::Approx(81)); // 81.7 floored
+        CHECK(b.max == doctest::Approx(91)); // 90.3 ceiled
+
+        // 5% of 20 is exactly 1, and of 1 is a fifth of nothing. Both still move a whole point,
+        // which is the only movement the filter can express.
+        b = seed_bounds(rm, 20, std::nullopt, std::nullopt, 0, false);
+        CHECK(b.min == doctest::Approx(19));
+        CHECK(b.max == doctest::Approx(21));
+        b = seed_bounds(rm, 1, std::nullopt, std::nullopt, 0, false);
+        CHECK(b.min == doctest::Approx(0));
+        CHECK(b.max == doctest::Approx(2));
+
+        // …and "a whole point" is the filter's own last digit, not the integer 1.
+        b = seed_bounds(rm, 1.79, std::nullopt, std::nullopt, 2, false);
+        CHECK(b.min == doctest::Approx(1.70));
+        CHECK(b.max == doctest::Approx(1.88));
+    }
+
+    SUBCASE("only the tiered modes are gated, and the gate never crosses the roll") {
+        Bounds b = seed_bounds({BoundMode::Within, BoundMode::Within}, 86, 77, 90, 0, false);
+        CHECK(b.min == doctest::Approx(81));
+        CHECK(b.max == doctest::Approx(91)); // past the tier, because nothing said not to
+
+        b = seed_bounds({BoundMode::WithinTiered, BoundMode::WithinTiered}, 86, 77, 90, 0, false);
+        CHECK(b.min == doctest::Approx(81));
+        CHECK(b.max == doctest::Approx(90));
+
+        // A legacy roll sits outside the range its modifier publishes today. Gating to that
+        // would ask for a copy of the item that is not the one in hand.
+        b = seed_bounds({BoundMode::WithinTiered, BoundMode::WithinTiered, 100, 100}, 60, 20, 40, 0,
+                        false);
+        CHECK(b.min == doctest::Approx(20));
+        CHECK(b.max == doctest::Approx(60));
+    }
+
+    SUBCASE("the minimum is the bound that says at least this good, whichever side that is") {
+        Bounds b = seed_bounds(kFloorOnly, 47, std::nullopt, std::nullopt, 0, false);
+        CHECK(b.min == doctest::Approx(47));
+        CHECK_FALSE(b.max.has_value());
+
+        b = seed_bounds(kFloorOnly, -11, std::nullopt, std::nullopt, 0, true);
+        CHECK_FALSE(b.min.has_value());
+        CHECK(b.max == doctest::Approx(-11));
+    }
 }
 
 TEST_CASE("quality and local increases decide the searched defence") {
@@ -148,6 +233,136 @@ TEST_CASE("weapon DPS matches what the game shows") {
     CHECK(d.search_dps == d.dps_q20);
 }
 
+TEST_CASE("attack speed and crit chance are searched only where a modifier raised them") {
+    auto gd = fixture();
+    // This rapier prints "Attacks per Second: 1.79 (augmented)" and "Critical Strike Chance:
+    // 5.00%" plain — a modifier moved the one and not the other, and that augmented marker is
+    // the only thing in the clipboard that says a property beats the base's own number. Asking
+    // for a base's crit chance rules out nothing but the same weapon in another stash.
+    const Item it = resolved(*gd, capture("rare-rapier.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    const NumericFilter* aps = numeric_for(p, "aps");
+    REQUIRE(aps != nullptr);
+    CHECK(aps->enabled);
+    CHECK(aps->min == doctest::Approx(1.79));
+
+    const NumericFilter* crit = numeric_for(p, "crit");
+    REQUIRE(crit != nullptr);
+    CHECK_FALSE(crit->enabled);
+
+    // The three DPS numbers are what a weapon is bought on, and they are imposed.
+    for (const char* k : {"dps", "pdps", "edps"}) {
+        REQUIRE_MESSAGE(numeric_for(p, k) != nullptr, k);
+        CHECK_MESSAGE(numeric_for(p, k)->enabled, k);
+    }
+}
+
+TEST_CASE("a modifier already inside a searched number is not searched again by name") {
+    auto gd = fixture();
+    // Every damage roll on this rapier is inside the DPS totals the search imposes, and its
+    // attack speed roll is inside all three. Asking for both the number and the modifier that
+    // produced it rules out every other way of reaching the same DPS — which is the whole
+    // reason a buyer searches on DPS.
+    const Item it = resolved(*gd, capture("rare-rapier.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    for (const char* m : {"increased Physical Damage", "Adds 23 to 42 Fire Damage",
+                          "Adds 3 to 50 Lightning Damage", "increased Attack Speed"}) {
+        REQUIRE_MESSAGE(filter_saying(p, m) != nullptr, m);
+        CHECK_MESSAGE(!filter_saying(p, m)->enabled, m);
+    }
+    // Global critical strike *multiplier* reads like a weapon number and is inside none of
+    // them — trade's `crit` is the weapon's own chance — so both rolls of it stay enabled.
+    int mult = 0;
+    for (const StatFilter& f : p.stats)
+        if (f.text.find("Global Critical Strike Multiplier") != std::string::npos) {
+            CHECK(f.enabled);
+            ++mult;
+        }
+    CHECK(mult == 2);
+}
+
+TEST_CASE("a fractured roll keeps its filter even where the number it feeds is searched") {
+    auto gd = fixture();
+    // Fracturing is what survives every craft the buyer will do afterwards, so which modifier
+    // reached the DPS is the point of the item rather than an over-constraint on it. The
+    // filter is sent in trade's own fractured namespace, which is what makes it a different
+    // question from the same wording rolled ordinarily.
+    const Item it = resolved(*gd, R"(Item Class: Thrusting One Hand Swords
+Rarity: Rare
+Sorrow Saw
+Wyrmbone Rapier
+--------
+One Handed Sword
+Physical Damage: 25-98 (augmented)
+Critical Strike Chance: 5.00%
+Attacks per Second: 1.79 (augmented)
+--------
+Item Level: 67
+--------
+128% increased Physical Damage (fractured)
+15% increased Attack Speed
+--------
+Fractured Item
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    const StatFilter* phys = filter_saying(p, "increased Physical Damage");
+    REQUIRE(phys != nullptr);
+    CHECK(phys->type == ppc::data::ModType::Fractured);
+    CHECK(phys->id.starts_with("fractured."));
+    CHECK(phys->enabled);
+    CHECK(p.fractured); // and the item-level `misc_filters` flag goes with it
+
+    // The ordinary roll beside it is still unimposed: nothing about it is fixed to this copy.
+    REQUIRE(filter_saying(p, "increased Attack Speed") != nullptr);
+    CHECK_FALSE(filter_saying(p, "increased Attack Speed")->enabled);
+}
+
+TEST_CASE("nothing is unimposed where the derived number is not being asked for") {
+    auto gd = fixture();
+    // A unique's damage follows from which unique it is, so the DPS filters are offered rather
+    // than imposed — and then the modifier behind the number is the only question there is.
+    const Item it = resolved(*gd, capture("rare-rapier.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d, Strategy::Unique);
+
+    REQUIRE(numeric_for(p, "pdps") != nullptr);
+    CHECK_FALSE(numeric_for(p, "pdps")->enabled);
+    // Not enabled either, but for the reason `Strategy::Unique` already had: it is a fixed
+    // roll on a named item. What matters is that the pass above did not touch it.
+    REQUIRE(filter_saying(p, "increased Physical Damage") != nullptr);
+}
+
+TEST_CASE("the base's own roll is a filter of its own, not a remark under the defence") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, kRareChest);
+    const Derived d = derive(gd.get(), it);
+
+    // 50.3rd percentile, floored: the filter is a minimum, and an item asked for at 51 does
+    // not match itself.
+    const SearchPlan mods = build_plan(*gd, it, d);
+    const NumericFilter* pct = numeric_for(mods, "base_defence_percentile");
+    REQUIRE(pct != nullptr);
+    CHECK(pct->min == doctest::Approx(50));
+    CHECK_FALSE(pct->max.has_value());
+    // Off on a modifier search: the energy shield filter above already carries the same roll,
+    // and asking twice only drops the listings that answer once.
+    CHECK_FALSE(pct->enabled);
+    // And the defence no longer says it in prose.
+    REQUIRE(numeric_for(mods, "es") != nullptr);
+    CHECK(numeric_for(mods, "es")->note.find("base roll") == std::string::npos);
+
+    // On a base-item search the roll *is* what is being bought.
+    const SearchPlan base = build_plan(*gd, it, d, Strategy::BaseItem);
+    REQUIRE(numeric_for(base, "base_defence_percentile") != nullptr);
+    CHECK(numeric_for(base, "base_defence_percentile")->enabled);
+}
+
 TEST_CASE("Advanced Mod Descriptions bound a mod search by its tier") {
     auto gd = fixture();
     const Item it = resolved(*gd, R"(Item Class: Body Armours
@@ -163,13 +378,22 @@ Item Level: 84
 +89(80-89) to maximum Life
 )");
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
 
-    const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
+    // A window wider than the tier is gated by it on both sides — the affix cannot roll past
+    // its own range, so asking for that only drops the copies that answer the question.
+    const SearchPlan whole = build_plan(*gd, it, d, std::nullopt, kWholeTier);
+    const StatFilter* life = filter_for(whole, "explicit.stat_3299347043");
     REQUIRE(life != nullptr);
     CHECK(life->tiered);
     CHECK(life->min == doctest::Approx(80));
     CHECK(life->max == doctest::Approx(89));
+
+    // And the default 5% window only meets that gate at the top: 89 is what the tier gives.
+    const SearchPlan dflt_plan = build_plan(*gd, it, d);
+    const StatFilter* dflt = filter_for(dflt_plan, "explicit.stat_3299347043");
+    REQUIRE(dflt != nullptr);
+    CHECK(dflt->min == doctest::Approx(84));
+    CHECK(dflt->max == doctest::Approx(89));
 }
 
 TEST_CASE("a modifier that is better the lower it goes is bounded from above") {
@@ -193,17 +417,28 @@ Inflict Cold Exposure on Hit, applying -11% to Cold Resistance
 +47(46-48)% to Cold Resistance
 )");
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
+    // Asked for as a floor and nothing else, which is the only shape the direction shows in:
+    // the "Minimum" setting is the bound that says *at least this good*, and on a modifier the
+    // game prints negative that is the upper one.
+    const SearchPlan p = build_plan(*gd, it, d, std::nullopt, kFloorOnly);
 
     const StatFilter* exposure = filter_for(p, "implicit.stat_3005701891");
     REQUIRE(exposure != nullptr);
     CHECK_FALSE(exposure->min.has_value());
     CHECK(exposure->max == doctest::Approx(-11));
-    // A resistance is the ordinary direction, and its tier still bounds it on both sides.
+    // A resistance is the ordinary direction, so the same setting fills the other side.
     const StatFilter* cold = filter_for(p, "explicit.stat_4220027924");
     REQUIRE(cold != nullptr);
-    CHECK(cold->min == doctest::Approx(46));
-    CHECK(cold->max == doctest::Approx(48));
+    CHECK(cold->min == doctest::Approx(47));
+    CHECK_FALSE(cold->max.has_value());
+
+    // Both sides open onto a window and the direction stops showing: -11 widens outwards to
+    // -12..-10 rather than inwards, which is what taking the slack off the magnitude buys.
+    const SearchPlan both_plan = build_plan(*gd, it, d);
+    const StatFilter* both = filter_for(both_plan, "implicit.stat_3005701891");
+    REQUIRE(both != nullptr);
+    CHECK(both->min == doctest::Approx(-12));
+    CHECK(both->max == doctest::Approx(-10));
 }
 
 TEST_CASE("an added-damage mod is searched on its average, tier bounds included") {
@@ -221,7 +456,7 @@ Item Level: 84
 Adds 5(4-6) to 12(10-14) Physical Damage
 )");
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
+    const SearchPlan p = build_plan(*gd, it, d, std::nullopt, kWholeTier);
 
     REQUIRE(p.stats.size() == 1);
     const StatFilter& f = p.stats.front();
@@ -279,7 +514,7 @@ Item Level: 84
 +89(80-89) to maximum Life
 )");
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
+    const SearchPlan p = build_plan(*gd, it, d, std::nullopt, kWholeTier);
 
     // Trade indexes the item's total life, so two filters would each be compared against 117
     // and the weaker one would decide the search on its own.
@@ -313,7 +548,7 @@ Item Level: 84
     CHECK(it.mods.front().roll_incr == doctest::Approx(20));
 
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
+    const SearchPlan p = build_plan(*gd, it, d, std::nullopt, kWholeTier);
     const StatFilter* res = filter_for(p, "explicit.stat_3372524247");
     REQUIRE(res != nullptr);
     CHECK(res->min == doctest::Approx(18));
@@ -338,7 +573,7 @@ Item Level: 84
 Elder Item
 )");
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
+    const SearchPlan p = build_plan(*gd, it, d, std::nullopt, kFloorOnly);
 
     CHECK(p.strategy == Strategy::BaseItem);
     CHECK(p.category == "accessory.ring");
@@ -406,7 +641,7 @@ Fractured Item
     const StatFilter* life = filter_for(p, "fractured.stat_3299347043");
     REQUIRE(life != nullptr);
     CHECK(life->enabled);
-    CHECK(life->min == doctest::Approx(42));
+    CHECK(life->min == doctest::Approx(39));
     CHECK_FALSE(filter_for(p, "explicit.stat_3372524247")->enabled);
 }
 
@@ -425,7 +660,7 @@ Item Level: 60
 +25(20-30)% to Fire Resistance
 )");
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
+    const SearchPlan p = build_plan(*gd, it, d, std::nullopt, kFloorOnly);
 
     CHECK(p.strategy == Strategy::Unique);
     CHECK(p.name == "Abberath's Hooves");
@@ -489,9 +724,10 @@ Count as having maximum number of Frenzy Charges
     REQUIRE(cold != nullptr);
     CHECK_FALSE(cold->pooled);
     CHECK(cold->enabled);
-    CHECK(cold->min == doctest::Approx(20));
-    CHECK(cold->unique_min == doctest::Approx(15));
-    CHECK(cold->unique_max == doctest::Approx(25));
+    CHECK(cold->min == doctest::Approx(19));
+    CHECK(cold->max == doctest::Approx(21));
+    CHECK(cold->roll_min == doctest::Approx(15));
+    CHECK(cold->roll_max == doctest::Approx(25));
 
     // Fixed on the item and fixed in its roll: nothing to search for.
     const StatFilter* blood = filter_for(p, "explicit.stat_1658498488");
@@ -524,9 +760,11 @@ TEST_CASE("an enchant on a unique is searched, not reported as missing from its 
     const StatFilter* block = filter_for(p, "explicit.stat_2519106214");
     REQUIRE(block != nullptr);
     CHECK(block->enabled);
-    CHECK(block->min == doctest::Approx(12));
-    CHECK(block->unique_min == doctest::Approx(8));
-    CHECK(block->unique_max == doctest::Approx(12));
+    // 12 is the top of what the record says this rolls, so the window is gated there.
+    CHECK(block->min == doctest::Approx(11));
+    CHECK(block->max == doctest::Approx(12));
+    CHECK(block->roll_min == doctest::Approx(8));
+    CHECK(block->roll_max == doctest::Approx(12));
     REQUIRE(filter_for(p, "explicit.stat_215754572") != nullptr);
     CHECK(filter_for(p, "explicit.stat_215754572")->enabled);
 
@@ -554,8 +792,8 @@ Item Level: 70
 
     const StatFilter* cold = filter_for(p, "explicit.stat_4220027924");
     REQUIRE(cold != nullptr);
-    CHECK_FALSE(cold->unique_min.has_value());
-    CHECK_FALSE(cold->unique_max.has_value());
+    CHECK_FALSE(cold->roll_min.has_value());
+    CHECK_FALSE(cold->roll_max.has_value());
     CHECK_FALSE(cold->enabled);
 }
 
@@ -653,7 +891,7 @@ TEST_CASE("a magic flask searches its affixes and says nothing else") {
     auto gd = fixture();
     const Item it = resolved(*gd, capture("item_12.txt", "examples"));
     const Derived d = derive(gd.get(), it);
-    const SearchPlan p = build_plan(*gd, it, d);
+    const SearchPlan p = build_plan(*gd, it, d, std::nullopt, kWholeTier);
 
     CHECK(p.strategy == Strategy::Modifiers);
     CHECK(p.category == "flask");
@@ -749,4 +987,413 @@ TEST_CASE("a map item is a bulk good or an item, and the item level is what says
     CHECK(default_strategy(rare) == Strategy::Modifiers);
     rare.item_level.reset();
     CHECK(default_strategy(rare) == Strategy::Currency);
+}
+
+TEST_CASE("what the in-game exchange trades in bulk has to resolve to a base to be found") {
+    auto gd = fixture();
+    // The exchange states every item by its metadata path and carries no names at all, so the
+    // *only* way an item is looked up there is through the base record `resolve_base` found.
+    // An essence already went down the ordinary path; a divination card is a namespace of its
+    // own and used to fall through it, so a card had no base, no metadata id and no price.
+    for (const char* f : {"currency-essence.txt", "card-blazing-fire.txt"}) {
+        const Item it = resolved(*gd, capture(f));
+        REQUIRE_MESSAGE(it.base != nullptr, f);
+        CHECK_MESSAGE(!it.base->metadata_id.empty(), f);
+    }
+
+    const Item card = resolved(*gd, capture("card-blazing-fire.txt"));
+    CHECK(card.rarity == Rarity::DivinationCard);
+    CHECK(card.base->metadata_id == "Metadata/Items/DivinationCards/DivinationCardTheBlazingFire");
+    // Still not something a stat query can ask about: the exchange is the whole answer.
+    const SearchPlan p = build_plan(*gd, card, derive(gd.get(), card));
+    CHECK(p.strategy == Strategy::Currency);
+    CHECK(p.category == "card");
+}
+
+TEST_CASE("the bundle says which items trade on the exchange, whatever the hour did") {
+    auto gd = fixture();
+    // The hourly feed can only say whether one traded in the last hour, and for a thin item
+    // (a Weeping Essence of Greed) an hour with no trade is the normal case rather than an
+    // answer. This flag is the standing fact underneath it, and it is what the panel keys the
+    // "traded here, no trades in the past hour" line and the absence of a search off.
+    REQUIRE(gd->has_exchange_flags());
+    for (const char* f : {"currency-essence.txt", "card-blazing-fire.txt"}) {
+        const Item it = resolved(*gd, capture(f));
+        REQUIRE_MESSAGE(it.base != nullptr, f);
+        CHECK_MESSAGE(it.base->exchange, f);
+    }
+    // And a rolled item is not sold there at all, so the flag is a discriminator rather than
+    // something every record happens to carry.
+    const Item boots = resolved(*gd, capture("item_1.txt", "examples"));
+    REQUIRE(boots.base != nullptr);
+    CHECK_FALSE(boots.base->exchange);
+}
+
+TEST_CASE("a map is priced on where it goes and what was spent on it, never on its affixes") {
+    auto gd = fixture();
+
+    SUBCASE("a corrupted tier-16 rare") {
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.category == "map");
+        CHECK(p.rarity == "nonunique");
+        // Every ordinary map shares one base, so the type says almost nothing and the tier
+        // says the rest. Exact on both ends: a tier-16 map is a different area, not a better one.
+        CHECK(p.type == "Map");
+        CHECK(p.discriminator == "map");
+        const NumericFilter* tier = numeric_for(p, "map_tier");
+        REQUIRE(tier != nullptr);
+        CHECK(tier->enabled);
+        CHECK(tier->min == 16);
+        CHECK(tier->max == 16);
+
+        // Quantity and pack size are what the map is run for; rarity is a preference, and
+        // imposing it would drop the cheaper copies of the same map.
+        REQUIRE(numeric_for(p, "map_iiq") != nullptr);
+        CHECK(numeric_for(p, "map_iiq")->enabled);
+        CHECK(numeric_for(p, "map_iiq")->min == 104);
+        REQUIRE(numeric_for(p, "map_packsize") != nullptr);
+        CHECK(numeric_for(p, "map_packsize")->enabled);
+        REQUIRE(numeric_for(p, "map_iir") != nullptr);
+        CHECK_FALSE(numeric_for(p, "map_iir")->enabled);
+
+        // Four prefixes and four suffixes: eight, which only corruption allows and which is
+        // most of what this map is worth. Trade indexes it as a total, not as the affixes.
+        const StatFilter* count = filter_for(p, "pseudo.pseudo_number_of_affix_mods");
+        REQUIRE(count != nullptr);
+        CHECK(count->enabled);
+        CHECK(count->min == 8);
+        CHECK_FALSE(count->mod_index.has_value());
+
+        // Not one of those eight is a filter, and not one is a note either: they are left out
+        // deliberately, and "unrecognised modifier" would charge the check with failing at it.
+        for (const StatFilter& f : p.stats)
+            CHECK(f.type != ppc::data::ModType::Explicit);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a map with no implicit is its tier and its affix count, and nothing else") {
+        const Item it = resolved(*gd, capture("map-rare-8mod-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        REQUIRE(p.stats.size() == 1);
+        CHECK(p.stats[0].id == "pseudo.pseudo_number_of_affix_mods");
+        CHECK(p.stats[0].min == 8);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a fixed number is not a bound, only the modifier's presence is") {
+        // The number in "…drops by 20% of its value" says 20 on every Baran map, and the one
+        // behind "Area is influenced by The Elder" is not in the clipboard at all — it is the
+        // constant the matcher substitutes for the influence. Neither is what trade indexes
+        // the stat on: asking for them returned 0 listings against 1705 and 10000.
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* baran = filter_for(p, "implicit.stat_2563183002|1");
+        REQUIRE(baran != nullptr);
+        CHECK(baran->enabled); // the filter stays; only its number goes
+        CHECK_FALSE(baran->min.has_value());
+        CHECK_FALSE(baran->max.has_value());
+    }
+
+    SUBCASE("an uncorrupted map is not searched on its affix count") {
+        // Six is what every rare map has, so filtering on it would drop the identical ones.
+        const Item it = resolved(*gd, capture("map-rare-guardian.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(filter_for(p, "pseudo.pseudo_number_of_affix_mods") == nullptr);
+        // No tier printed, so the base's own name is the whole of what says which area it is.
+        CHECK(p.type == "Shaper Guardian Map");
+        CHECK(numeric_for(p, "map_tier") == nullptr);
+        // The implicit is the one modifier a currency cannot re-roll, so it is searched on.
+        const StatFilter* shaper = filter_for(p, "implicit.stat_1792283443|1");
+        REQUIRE(shaper != nullptr);
+        CHECK(shaper->enabled);
+    }
+
+    SUBCASE("the drop bonuses a chisel adds are pseudo stats, not properties trade knows") {
+        const Item it = resolved(*gd, capture("map-rare-more-drops.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        for (const auto& [id, value] : {std::pair{"pseudo.pseudo_map_more_map_drops", 70.0},
+                                        std::pair{"pseudo.pseudo_map_more_scarab_drops", 53.0}}) {
+            const StatFilter* f = filter_for(p, id);
+            REQUIRE_MESSAGE(f != nullptr, id);
+            CHECK(f->enabled);
+            CHECK(f->min == value);
+            CHECK_FALSE(f->mod_index.has_value());
+        }
+        // The two the map does not have are not asked for at all.
+        CHECK(filter_for(p, "pseudo.pseudo_map_more_currency_drops") == nullptr);
+        CHECK(filter_for(p, "pseudo.pseudo_map_more_card_drops") == nullptr);
+    }
+
+    SUBCASE("a unique map is its name and its tier") {
+        const Item it = resolved(*gd, capture("map-unique-olmecs.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.rarity == "unique");
+        CHECK(p.name == "Olmec's Sanctum");
+        CHECK(p.type == "Map");
+        CHECK(p.discriminator == "map");
+        REQUIRE(numeric_for(p, "map_tier") != nullptr);
+        CHECK(numeric_for(p, "map_tier")->min == 16);
+        // Its own modifiers are the same on every copy; the name already says them.
+        CHECK(p.stats.empty());
+    }
+
+    SUBCASE("a white map is its tier and nothing else") {
+        const Item it = resolved(*gd, capture("map-normal-t4.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.stats.empty());
+        REQUIRE(numeric_for(p, "map_tier") != nullptr);
+        CHECK(numeric_for(p, "map_tier")->min == 4);
+        CHECK(numeric_for(p, "map_iiq") == nullptr);
+    }
+
+    SUBCASE("without Advanced Mod Descriptions there is no affix count to give") {
+        Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        for (Modifier& m : it.mods) m.affix = Affix::Unknown;
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(filter_for(p, "pseudo.pseudo_number_of_affix_mods") == nullptr);
+        CHECK(p.notes.size() == 1); // said, rather than silently counted as zero
+    }
+}
+
+TEST_CASE("blight is a filter on the ordinary map base, not a type of its own") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, capture("map-blighted.txt"));
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+    // The clipboard's "Blighted Map" is not a base in any bundle and not a type the trade site
+    // matches anything under — measured, 0 listings against 1398 for the Map base plus the
+    // flag. So the base resolves to the one every map shares and the flag says which it is.
+    CHECK(it.blighted);
+    CHECK_FALSE(it.blight_ravaged);
+    CHECK(it.base_type == "Blighted Map"); // what was printed, which is what the panel draws
+    CHECK(it.base_name == "Map");
+    CHECK(p.type == "Map");
+    CHECK(p.discriminator == "map");
+    CHECK(p.blighted);
+    CHECK_FALSE(p.blight_ravaged);
+
+    REQUIRE(numeric_for(p, "map_tier") != nullptr);
+    CHECK(numeric_for(p, "map_tier")->min == 12);
+    CHECK(numeric_for(p, "map_tier")->max == 12);
+    // Its implicit is searched like any map's, and neither half of it goes unrecognised.
+    CHECK(p.stats.size() == 2);
+    CHECK(p.notes.empty());
+}
+
+TEST_CASE("a Valdo map is bought for its reward and for whether dying in it voids you") {
+    auto gd = fixture();
+    const std::string text = capture("map-valdo.txt");
+
+    SUBCASE("the reward is the unique's own name, not the foil the game prints") {
+        const Item it = resolved(*gd, text);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Map);
+        CHECK(p.type == "Valdo Map");
+        // "Foil Hrimsorrow" is rejected by the site outright — the option is over the unique
+        // list, and an unknown one fails the whole search rather than widening it.
+        CHECK(p.map_reward == "Hrimsorrow");
+
+        // This copy voids, so the search asks for that modifier and for nothing else.
+        REQUIRE(p.stats.size() == 1);
+        CHECK(p.stats[0].id == "explicit.stat_1095765106");
+        CHECK(p.stats[0].enabled);
+        CHECK_FALSE(p.stats[0].negated);
+        CHECK(p.stats[0].mod_index.has_value());
+
+        // The quantity and pack size come from unique modifiers rather than from a roll, so
+        // they say nothing about which Valdo map a buyer wants: offered, never imposed.
+        REQUIRE(numeric_for(p, "map_iiq") != nullptr);
+        CHECK_FALSE(numeric_for(p, "map_iiq")->enabled);
+        CHECK_FALSE(numeric_for(p, "map_packsize")->enabled);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a map that does not void asks for the absence, not for nothing") {
+        // Leaving it open would price the two kinds together, and they are different items.
+        static constexpr std::string_view kVoidBlock =
+            "{ Unique Modifier }\n"
+            "Players who Die in area are sent to the Void\n"
+            "(Characters sent to Void Leagues are no longer playable, and cannot be restored "
+            "for any reason)\n";
+        std::string safe = text;
+        const size_t at = safe.find(kVoidBlock);
+        REQUIRE(at != std::string::npos);
+        safe.erase(at, kVoidBlock.size());
+
+        const Item it = resolved(*gd, safe);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        REQUIRE(p.stats.size() == 1);
+        CHECK(p.stats[0].id == "explicit.stat_1095765106");
+        CHECK(p.stats[0].enabled);
+        CHECK(p.stats[0].negated);
+        CHECK_FALSE(p.stats[0].mod_index.has_value());
+    }
+
+    SUBCASE("a reward the bundle cannot name is said, never guessed at") {
+        static constexpr std::string_view kReward = "Reward: Foil Hrimsorrow";
+        std::string unknown = text;
+        const size_t at = unknown.find(kReward);
+        REQUIRE(at != std::string::npos);
+        unknown.replace(at, kReward.size(), "Reward: Foil Nothingsorrow");
+
+        const Item it = resolved(*gd, unknown);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.map_reward.empty());
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes[0].find("Foil Nothingsorrow") != std::string::npos);
+    }
+}
+
+TEST_CASE("a number with no roll range behind it is not a bound") {
+    auto gd = fixture();
+
+    SUBCASE("with Advanced Mod Descriptions on, no range means the modifier does not roll") {
+        // The suffix prints its range and the enchant does not, on the same item — so the
+        // absence on the enchant is the game saying that one is the same on every copy.
+        const Item it = resolved(*gd, R"(Item Class: Utility Flasks
+Rarity: Magic
+Granite Flask of the Sky
+--------
+Lasts 4.50 Seconds
+Consumes 30 of 60 Charges on use
+--------
+Item Level: 84
+--------
+{ Enchant Modifier }
+Used when Charges reach full
+--------
+{ Suffix Modifier "of the Sky" (Tier: 1) — Elemental, Cold, Resistance }
++47(46-48)% to Cold Resistance
+)");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), std::nullopt, kWholeTier);
+        const StatFilter* enchant = filter_for(p, "enchant.stat_3287581721");
+        REQUIRE(enchant != nullptr);
+        CHECK(enchant->enabled);
+        CHECK_FALSE(enchant->min.has_value());
+        const StatFilter* cold = filter_for(p, "explicit.stat_4220027924");
+        REQUIRE(cold != nullptr);
+        CHECK(cold->min == doctest::Approx(46));
+        CHECK(cold->max == doctest::Approx(48));
+    }
+
+    SUBCASE("a tier is itself a range, printed or not") {
+        // A different tier is a different number, so "no worse than what this one gave" is a
+        // real question even where the tier holds one value. Same for a rank, and for the
+        // qualifier an eldritch implicit prints in place of a range it has no way to state.
+        const Item it = resolved(*gd, R"(Item Class: Body Armours
+Rarity: Rare
+Doom Shroud
+Vaal Regalia
+--------
+Energy Shield: 200
+--------
+Item Level: 84
+--------
+{ Prefix Modifier "Urchin's" (Tier: 3) — Life }
++42 to maximum Life
+{ Suffix Modifier "of the Sky" (Tier: 1) — Elemental, Cold, Resistance }
++47(46-48)% to Cold Resistance
+)");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), std::nullopt, kFloorOnly);
+        const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
+        REQUIRE(life != nullptr);
+        CHECK(life->min == doctest::Approx(42));
+    }
+
+    SUBCASE("with them off, no range means nothing and every roll keeps its floor") {
+        // Nothing on the item prints a range, so their absence is evidence of the setting
+        // rather than of a fixed modifier — and stripping the bounds here would search a rare
+        // for "has a life modifier".
+        const Item it = resolved(*gd, kRareChest);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), std::nullopt, kFloorOnly);
+        const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
+        REQUIRE(life != nullptr);
+        CHECK(life->min == doctest::Approx(42));
+        CHECK_FALSE(life->tiered);
+    }
+}
+
+TEST_CASE("a gem is searched as its name, its level and its quality, and nothing else") {
+    auto gd = fixture();
+
+    SUBCASE("an ordinary support gem") {
+        const Item it = resolved(*gd, capture("gem-support-empower.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Gem);
+        CHECK(p.category == "gem.supportgem");
+        CHECK(p.rarity == "nonunique");
+        CHECK(p.type == "Empower Support");
+        CHECK(p.discriminator.empty());
+        CHECK(p.corrupted == false);
+
+        // Exact on both ends, the same reasoning as a map's tier: a level 3 Empower is not a
+        // better level 2 one, it is what the gem sells as. A floor would show its price here.
+        const NumericFilter* level = numeric_for(p, "gem_level");
+        REQUIRE(level != nullptr);
+        CHECK(level->enabled);
+        CHECK(level->min == 2);
+        CHECK(level->max == 2);
+        // At zero as readily as at twenty: an unquality gem is a different thing from a 20%
+        // one, and no filter at all would price it as whichever quality is cheapest.
+        const NumericFilter* quality = numeric_for(p, "quality");
+        REQUIRE(quality != nullptr);
+        CHECK(quality->enabled);
+        CHECK(quality->min == 0);
+        CHECK(quality->max == 0);
+
+        // What the skill does is on every copy of it. There is nothing here to filter on and
+        // nothing to warn about either.
+        CHECK(p.stats.empty());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("quality is the gem's own, and the level is not the requirement under it") {
+        const Item it = resolved(*gd, capture("gem-tornado-shot.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.category == "gem.activegem");
+        REQUIRE(numeric_for(p, "gem_level") != nullptr);
+        CHECK(numeric_for(p, "gem_level")->min == 1); // not the level 28 to socket it
+        REQUIRE(numeric_for(p, "quality") != nullptr);
+        CHECK(numeric_for(p, "quality")->min == 7);
+    }
+
+    SUBCASE("a Vaal gem is searched as its Vaal skill, which its name line never prints") {
+        const Item it = resolved(*gd, capture("gem-vaal-blight.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.type == "Vaal Blight"); // the header said "Blight", which is another gem
+        CHECK(p.discriminator.empty());
+        CHECK(p.corrupted == true);     // what lets it reach level 21 and 23% quality at all
+        CHECK(numeric_for(p, "gem_level")->min == 1);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a transfigured gem is searched under the skill it alters, plus a discriminator") {
+        const Item it = resolved(*gd, capture("gem-transfigured-raise-zombie.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        // The name the clipboard prints is not a type trade answers to: "Raise Zombie of
+        // Falling" is `Raise Zombie` with `alt_y`, and the plain type matches only the
+        // unaltered gem — a different, far cheaper item rather than an empty market.
+        CHECK(p.type == "Raise Zombie");
+        CHECK(p.discriminator == "alt_y");
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a gem the bundle cannot name is not searched for something else") {
+        Item it = resolved(*gd, capture("gem-support-empower.txt"));
+        it.base = nullptr; // a bundle published before the gem existed
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.type.empty());
+        CHECK(p.numerics.empty());
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes.front().find("Empower Support") != std::string::npos);
+    }
 }

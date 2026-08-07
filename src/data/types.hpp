@@ -52,11 +52,27 @@ struct BaseType {
     Namespace ns = Namespace::Item;
     std::string category;    ///< craftable.category, e.g. "Rings"
     std::string trade_disc;  ///< discriminator when name/type alone is ambiguous
+    /// The trade `type` term, where it is not the display name. Only gems have one: trade
+    /// files a transfigured gem under the skill it alters — "Raise Zombie of Falling" is
+    /// `Raise Zombie` with the `alt_y` discriminator — and a search naming what the clipboard
+    /// printed matches nothing. Empty everywhere else, and on every bundle published before
+    /// the field existed, so nothing may depend on it being there.
+    std::string trade_name;
     /// The game's own `Metadata/Items/...` path for this base, and the only key GGG's
     /// currency-exchange feed states an item by — that feed publishes no names at all. Empty
     /// on a unique, on anything the build could not match to game data, and on every bundle
     /// published before the field existed, which is why nothing may depend on it being there.
     std::string metadata_id;
+    /// True when this item has **ever** appeared in a currency-exchange market. A fact about
+    /// the item, unlike the hourly digest `exchange/` reads, which can only say whether one
+    /// traded in the last hour — and for a thin item (a Weeping Essence of Greed) no trades in
+    /// a given hour is the normal case. Without this the app cannot tell "not traded on the
+    /// exchange" from "nobody traded one this hour", and since poe.ninja prices neither, the
+    /// check comes back saying nothing at all.
+    ///
+    /// False both for an item that does not trade there and on a bundle published before the
+    /// flag existed, so it is only an answer once `GameData::has_exchange_flags()` is true.
+    bool exchange = false;
     int w = 0, h = 0;
     int drop_level = 0;
     bool corrupted = false;

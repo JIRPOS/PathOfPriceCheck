@@ -1,0 +1,22 @@
+Item Class: Support Gems
+Rarity: Gem
+Empower Support
+--------
+Exceptional, Support
+Level: 2
+Cost & Reservation Multiplier: 130%
+--------
+Requirements:
+Level: 10
+Str: 21
+--------
+Supports any skill gem. Once this gem reaches level 2 or above, will raise the level of supported gems. Cannot support skills that don't come from gems.
+--------
++1 to Level of Supported Skill Gems
+
+Additional Effects From Quality:
+This Gem gains 0(0-100)% increased Experience
+--------
+Experience: 274,394,412/1,439,190,228
+--------
+This is a Support Gem. It does not grant a bonus to your character, but to skills in sockets connected to it. Place into an item socket connected to a socket containing the Skill Gem you wish to augment. Right click to remove from a socket.

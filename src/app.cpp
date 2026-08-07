@@ -68,8 +68,9 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
 
 // Settings is a free-floating dialog, centered over the game; only price-check docks. Sized to
 // hold every section without scrolling — the panel is a form, and a form that scrolls hides the
-// Save button under whatever the user was just reading.
-constexpr int kSettingsW = 640, kSettingsH = 860;
+// Save button under whatever the user was just reading. Capped at the game's own height, since
+// a dialog taller than the screen scrolls whatever this says.
+constexpr int kSettingsW = 640, kSettingsH = 980;
 
 // The idle status: two short lines over the middle of the mana globe. Wide enough for a long
 // data version at the size below, and no wider — the window is what swallows mouse input, and
@@ -183,6 +184,11 @@ int App::run() {
     // both SDL's X11 backend (XIM) and the tray's GTK call setlocale(LC_ALL, "") during init
     // and undo an earlier attempt. Parsing never consults the locale (from_chars).
     std::setlocale(LC_NUMERIC, "C");
+    // Dates are the opposite case: a timestamp is for the reader, not for the game, so it is
+    // written the way their machine writes one. Explicit rather than inherited, because
+    // nothing calls setlocale on Windows — a GUI-subsystem binary gets neither SDL's XIM nor
+    // GTK — and a C-locale date is exactly the invariant-looking format this avoids.
+    std::setlocale(LC_TIME, "");
 
     net::init();
     leagues_.init(league_event_);
@@ -471,7 +477,18 @@ void App::accept_clipboard(std::string text) {
 }
 
 bool App::can_search() const {
-    return item_ && item_data_ && trade::searchable(plan_);
+    return item_ && item_data_ && trade::searchable(plan_) && !trades_on_exchange();
+}
+
+bool App::trades_on_exchange() const {
+    // Two sources, strongest evidence first. A market in the hour we fetched *proves* the item
+    // trades there, whatever the bundle says — which is also what keeps this working on a
+    // bundle published before the flag existed.
+    if (currency_exchange_.listing()) return true;
+    // Otherwise the bundle answers, and only where it has an answer to give: on an older bundle
+    // `has_exchange_flags()` is false and a missing flag means "unknown", not "no".
+    return item_ && item_->base && item_data_ && item_data_->has_exchange_flags() &&
+           item_->base->exchange;
 }
 
 void App::start_search() {
@@ -540,7 +557,8 @@ void App::rebuild_plan() {
     if (item_data_) {
         item::resolve_item(*item_data_, *item_);
         derived_ = item::derive(item_data_.get(), *item_);
-        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
+                                 config_.range_match);
         price_reference();
     } else {
         // No bundle yet: the item still parses and renders, it just cannot be priced.
@@ -552,7 +570,8 @@ void App::rebuild_plan() {
 void App::set_strategy(item::Strategy s) {
     strategy_override_ = s;
     if (item_ && item_data_) {
-        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_);
+        plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
+                                 config_.range_match);
         // The strategy is what decides whether poe.ninja prices this at all — a rare read as
         // a base item has no reference price, and switching back has to bring it back.
         price_reference();
@@ -674,7 +693,13 @@ void App::update_overlay_placement() {
     // business floating over other applications. Keep polling either way. An open panel is
     // exempt: Settings holds the focus itself, so the game is never foreground while it's up,
     // and price-check dismisses on its own terms.
-    if (!g.present || (!g.focused && screen_ == Screen::Hidden)) {
+    //
+    // **Our own window counts as the game being in front**, because from the user's side it
+    // is: closing a panel that had taken the focus (a click on it, or the clipboard handover
+    // nudge) leaves the focus on our now-empty overlay for as long as the compositor takes to
+    // hand it back, and the marker used to blink out for exactly that gap. It is not a hole in
+    // the rule above — focusing anything else takes the focus off us too, and the marker goes.
+    if (!g.present || (!g.focused && !overlay_.has_focus() && screen_ == Screen::Hidden)) {
         if (overlay_.visible() && screen_ == Screen::Hidden) overlay_.set_visible(false);
         if (!g.present) { // forget geometry so it re-places when the game comes back
             game_present_ = false;
@@ -720,9 +745,9 @@ void App::place_overlay() {
     }
 
     if (screen_ == Screen::Settings) {
-        SDL_SetWindowSize(overlay_.window(), kSettingsW, kSettingsH);
-        SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2,
-                              gy + (gh - kSettingsH) / 2);
+        const int sh = std::min(kSettingsH, gh);
+        SDL_SetWindowSize(overlay_.window(), kSettingsW, sh);
+        SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2, gy + (gh - sh) / 2);
         layout_ = PanelLayout{0, kSettingsW, 0, 0};
         return;
     }

@@ -75,6 +75,12 @@ public:
     std::string currency_image(const std::string& id) const;
     /// "Divine Orb", or the raw id when the static data does not know it.
     std::string currency_name(const std::string& id) const;
+    /// The same symbol found by **display name** rather than by trade id, which is the only
+    /// handle some things come with: the currency-exchange feed states every item as a
+    /// `Metadata/Items/...` path and the trade static data has never heard of one, but both
+    /// of them and the game agree on what the thing is called. Every group of the static data
+    /// that carries images is in here, so a scarab or a fragment resolves as readily as an orb.
+    std::string image_for_name(const std::string& name) const;
 
 private:
     void adopt_currencies(std::vector<trade::CurrencyEntry> entries, bool persist);
@@ -89,6 +95,9 @@ private:
     uint64_t gen_ = 0;
 
     std::unordered_map<std::string, trade::CurrencyEntry> currencies_;
+    /// Display name to image path, built alongside the above. First entry wins: two groups
+    /// listing one name are listing the same item.
+    std::unordered_map<std::string, std::string> by_name_;
     int64_t currencies_at_ = 0; ///< when the static data was fetched; 0 means never
 };
 
