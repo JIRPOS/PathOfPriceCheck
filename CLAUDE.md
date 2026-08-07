@@ -8,8 +8,9 @@ The overlay, Settings, the league list, the **static game-data layer**, the **it
 (parse → resolve → price-relevant numbers → search plan, plus the game-styled tooltip) and the
 **trade search** (query builder, two-step client, shared rate limiter, results in the panel) are
 built and tested, including the **per-unique modifier data** that decides which of a unique's
-modifiers are worth searching on and the **map search**, which asks for none of the things a
-rolled item's search does. **poe.ninja reference pricing** — uniques, gems, currency and
+modifiers are worth searching on, the **map search**, which asks for none of the things a
+rolled item's search does, and the **gem search**, which asks for three things and no
+modifier at all. **poe.ninja reference pricing** — uniques, gems, currency and
 base types, the going rates a stat query cannot give — is built too, and so is the **in-game
 currency exchange feed** (GGG's own hourly digests of the market currency and fragments actually
 trade on, which is why those items have no trade search at all).
@@ -257,7 +258,7 @@ the window still swallows mouse input everywhere it covers.
 
 **The item being priced is drawn at the top of that gutter, not at the top of the panel**
 (`draw_item_card`), and the panel therefore begins at the filters — *unless there are no filters*,
-which is the case for every item the trade site cannot be asked about (currency, a card, a gem,
+which is the case for every item the trade site cannot be asked about (currency, a card,
 anything the in-game exchange trades). There the whole search half of the panel is gone, so
 the item moves back into the column it left and the panel is the item and its reference prices. Every screen is wider than it is
 tall, so the panel's column runs out of *height* long before the window runs out of width — at 1080p
@@ -469,6 +470,15 @@ bundle, and only the third and fourth encode pricing judgement.
   - Influence lines sometimes arrive glued to the end of the last mod block instead of in a section
     of their own; trailing flag lines are peeled off before the block is parsed as mods.
   - A **gem** has no rolled mods: its stat lines are `inherent_lines`, its skill text `description`.
+    Three things are pulled out because they are the whole of what a gem is priced on.
+    `gem_level` is the `Level:` in the **property block** — the clipboard prints that label twice
+    and the one under `Requirements:` is the character level to socket it, a different number on
+    every gem past the first. `transfigured` is a flag line like `Corrupted`. And `vaal_name` is
+    the lone-line section heading the second half of a **Vaal gem**, which is two skills in one
+    item: the *name* line prints the base skill ("Blight") and only that heading says this is a
+    Vaal Blight. `Item::gem_name()` puts the two back together into the one name both markets
+    file the gem under — the Vaal skill, or for a transfigured Vaal gem the pair the trade site
+    and poe.ninja both write as "Vaal Blight (Blight of Atrophy)".
 - **`item/resolve`** — needs the bundle. Two jobs the matcher cannot do alone:
   - **Local vs global.** The bundle keeps a second record for local stats, marked by a **`" (Local)"`
     suffix on the matcher string**; "20% increased Attack Speed" is the weapon's own speed on a
@@ -482,6 +492,15 @@ bundle, and only the third and fourth encode pricing judgement.
     jewel's enchantment). Without info lines the same walk merges hybrid lines instead, driven by
     `StatMatch::lines_consumed`. Every part keeps the affix's name/tier/tags; `continuation` marks
     the ones that must not print the info line again.
+  - **The gem's own record** (`resolve_gem`, `Namespace::Gem`), looked up on `Item::gem_name()`.
+    What it is there for is `BaseType::trade_name`: **trade files a transfigured gem under the
+    skill it alters**, so "Raise Zombie of Falling" is the type `Raise Zombie` with the `alt_y`
+    discriminator, and a search naming what the clipboard printed matches *nothing* while the
+    bare type matches the unaltered gem — a real, far cheaper item. The discriminator is also
+    what tells two records under one key apart, which is the shape a bundle published before
+    the display names existed has: three "Vaal Blight" rows, only one of them the plain gem. A
+    transfigured gem is exactly the one with a discriminator, so nothing falls back to
+    "whichever came first".
 - **`item/derive`** — the numbers the game leaves implicit. **Quality scales the base's own inherent
   value and nothing else**: not the flat local rolls added to it, though the local *increases* then
   apply to both. One rule for a weapon's physical damage and for armour / evasion / energy shield /
@@ -686,6 +705,25 @@ bundle, and only the third and fourth encode pricing judgement.
   as a map — reading the option back off the strategy, as `build_query` used to, searched it
   among the rares. It defaults to `nonunique`, since an empty one is a search across both markets
   at once and nothing here ever means that.
+- **`item/plan`'s gem strategy** (`plan_gem`) is the shortest search here and the only one whose
+  filters are *all* numeric: the name, `misc_filters.gem_level`, `misc_filters.quality`, and the
+  corruption every strategy already matches exactly. Everything a gem prints is what the skill
+  does and is identical on every copy of it, so there is nothing to turn into a stat filter and
+  nothing to leave a note about either.
+  **Level and quality are exact — `min == max`, the same reasoning as a map's tier.** A level 21
+  gem is not a better level 20 one, it is what the gem sells as; a floor would put 21/23
+  corrupted gems into the results for a 20/20 and price a different item. Quality is filtered at
+  zero as readily as at twenty, because an unquality gem is a different thing from a 20% one and
+  no filter at all prices it as whichever quality is cheapest. Corruption is the hard split
+  underneath both: it is what allows level 21 and quality 23 to exist.
+  The name is the **record's**, never the printed one — see `item/resolve` above and
+  `Item::gem_name()` — and a gem the bundle cannot name gets **no search at all**, only a note.
+  That is `trade::searchable` returning false on an empty `type` for this strategy alone: every
+  other strategy still has modifiers or a category to fall back on, while a gem falls back to
+  every gem in the game at this level, whose cheapest listing would read as this gem's price.
+  poe.ninja still prices it, so the check is not empty. In practice this only happens on a
+  bundle older than `data-20260807.23`, the release that keys gems on their printed names, and
+  then only for transfigured gems.
 
 ### The trade layer (built)
 
@@ -893,9 +931,12 @@ screenshot of the same tooltip, which is what the rendering is checked against. 
 holds the captures with no screenshot beside them — two transcribed from one (the rapier and the
 Elder bow), the map fragments and invitation, the nine `map-*.txt` maps (every shape one comes in:
 tiered rare, corrupted eight-mod, chiselled for extra drops, magic, white, unique, and the two that
-name their own area instead of printing a tier), and `currency-chaos-stack.txt`, which is **written
-rather than captured**: it is a 6000/20 stack, the case a currency stash tab makes ordinary and
-nothing else covers. Prefer a real capture for anything new.
+name their own area instead of printing a tier), the five `gem-*.txt` gems (a Vaal gem, whose
+second half is the only thing naming it; a transfigured one; two supports, one of them with a
+socket requirement far above its own level; and one with quality), and
+`currency-chaos-stack.txt`, which is **written rather than captured**: it is a 6000/20 stack, the
+case a currency stash tab makes ordinary and nothing else covers. Prefer a real capture for
+anything new.
 
 **Pin numbers to those captures, not to another tool's output.** The Q20 DPS formula was chosen
 because it reproduced a number read off a screenshot of a reference tool, which turned out to be
@@ -1022,6 +1063,12 @@ to leave out. A map is the only strategy with no row at all.
   lists 1, 20, 20/20, 21/20 corrupted and nothing between. The best of those the gem has already
   reached is a floor on what it is worth, labelled with poe.ninja's own name for it so it is clear
   it is not this gem. Corruption filters first: it is a hard split, not a preference.
+  It is looked up under **one** name and no other — `Item::gem_name()`, the same string the
+  trade type is resolved from. poe.ninja spells a gem exactly as trade's `data/items` does,
+  including "Vaal Blight (Blight of Atrophy)", so there is nothing to fall back *to*: it prices
+  both "Blight" and "Vaal Blight", and a Vaal Blight — whose name line says "Blight" — reading
+  the printed name would not miss a price, it would find a real line for a different gem at a
+  tenth of the value.
 - **A league poe.ninja has no economy for answers 200 with an empty payload**, not a 404 — so an
   SSF league parses fine and matches nothing, and that is reported as "tracks no economy for X"
   rather than as a broken response. The website's league slug is **not** the league id: "Hardcore
@@ -1195,6 +1242,17 @@ has to, because the clipboard's item class cannot tell a scarab from an invitati
 nothing today (none of them are searched), but a real trade search for invitations needs the split,
 and that is a data-repo job or an app-side keyword table like `ninja::map_item_type`.
 
+The **gem** categories are finer too — `gem.activegem`, `gem.supportgem` and `gem.supportgemplus`
+against the two classes the clipboard prints — and here it demonstrably does not matter, so do not
+add a table for it: an Awakened support gem, which is `gem.supportgemplus` on the site and
+`gem.supportgem` in the bundle, returns the same 57 matches under either and under the bare `gem`.
+A gem is pinned by its `type`, and the category only ever narrows what that already decided.
+The **filters** the gem search needs are all in `misc_filters`: `gem_level`, `quality`, and the
+booleans `gem_transfigured` / `gem_vaal` / `gem_imbued`. The two flags are not used and could not
+stand in for the discriminator anyway — measured, `type: "Raise Zombie"` with
+`gem_transfigured: true` is **0 matches against 365** for the same type with `alt_y`, because a
+bare gem type matches only the unaltered skill. There is no `gem_alternate_quality` any more.
+
 ### The in-game currency exchange (public, no OAuth)
 
 `GET https://web.poecdn.com/api/currency-exchange[/<realm>][/<id>]`, documented at
@@ -1294,6 +1352,12 @@ not covered offline — it is verified against an installed bundle by hand. Addi
 one weapon base) to `STATS`/`ITEMS` in the slicer would close that gap. `tests/data/examples/` and
 `tests/data/items/` hold clipboard captures for the parser; those are plain text and need no byte
 discipline.
+
+The slice's four `GEM::` records need a bundle from `data-20260807.23` or later, which is the
+release that keys gems on the name the game prints. The transfigured one
+(`Raise Zombie of Falling`) is the whole point of that field and is the record to check after
+any re-slice: it is the only one carrying `tradeName`, and on an older bundle it does not exist
+under that name at all.
 
 `tests/data/exchange/digest.json` is a slice of one real hourly digest, and every market in it is
 there to be dropped or kept for a stated reason: the chaos/divine pair (the rate, read from both

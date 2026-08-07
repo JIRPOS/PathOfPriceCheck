@@ -19,8 +19,8 @@ enum class Strategy : uint8_t {
     BaseItem,    ///< the base type itself: influences, item level, fractured mods, implicits
     Modifiers,   ///< a rolled item: every modifier, bounded by the tier it rolled
     Unique,      ///< the named item, with its variable rolls
-    Currency,    ///< priced in bulk, not searched  (not implemented yet)
-    Gem,         ///< level / quality / alternate quality  (not implemented yet)
+    Currency,    ///< priced in bulk on poe.ninja and the in-game exchange, never searched
+    Gem,         ///< the skill's name, its level and its quality — never what the skill does
     Map,         ///< tier or area, the drop bonuses, implicits and enchants — never the affixes
     Unsupported
 };

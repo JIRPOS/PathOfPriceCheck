@@ -680,8 +680,7 @@ void draw_no_search_note(App& app) {
     ImGui::PushTextWrapPos(0.0f);
     if (app.currency_exchange().listing()) {
         ImGui::TextDisabled("Traded on the in-game currency exchange, not through listings.");
-    } else if (const item::Strategy s = app.plan().strategy;
-               s == item::Strategy::Currency || s == item::Strategy::Gem) {
+    } else if (app.plan().strategy == item::Strategy::Currency) {
         ImGui::TextDisabled("Priced by poe.ninja, not by a trade search.");
     } else {
         for (const std::string& n : app.plan().notes)
@@ -900,8 +899,8 @@ void draw_debug_footer(App& app) {
 void draw_pricecheck_screen(App& app) {
     ImGuiIO& io = ImGui::GetIO();
     const item::Item* it = app.item();
-    // A search the trade site cannot be asked in the first place — currency, a card, a gem, a
-    // map, anything the in-game exchange trades — takes the whole filter half of the panel with
+    // A search the trade site cannot be asked in the first place — currency, a card, anything
+    // the in-game exchange trades — takes the whole filter half of the panel with
     // it: there is no query for the filters to shape and no listings for a note about an
     // unmatched modifier to have cost anybody. What is left is the item and its reference
     // prices, so the item moves back out of the gutter and into the column the filters had.

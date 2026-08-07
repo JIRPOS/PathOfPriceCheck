@@ -96,6 +96,15 @@ ITEMS = [
     "ITEM::Map",
     "ITEM::Shaper Guardian Map",
     "UNIQUE::Olmec's Sanctum",
+    # The three shapes a gem's name comes in. An ordinary one is what the clipboard prints; a
+    # Vaal gem is filed under a name the clipboard prints only halfway down the tooltip; and a
+    # transfigured one is filed under the skill it alters, with a discriminator, so its record
+    # is the one whose name is neither the type sent nor anything a bundle without the display
+    # name could produce.
+    "GEM::Empower Support",
+    "GEM::Tornado Shot",
+    "GEM::Vaal Blight",
+    "GEM::Raise Zombie of Falling",
 ]
 
 UNIQUE_MODS = [
@@ -105,7 +114,7 @@ UNIQUE_MODS = [
 ]
 
 ITEM_CLASSES = ["Rings", "Boots", "Body Armours", "Stackable Currency", "Divination Cards",
-                "Jewels", "Utility Flasks", "Maps"]
+                "Jewels", "Utility Flasks", "Maps", "Skill Gems", "Support Gems"]
 
 LANG = "en"
 

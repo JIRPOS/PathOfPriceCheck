@@ -156,10 +156,14 @@ void draw_name_plate(const Item& it, const Fonts& fonts) {
     ImGui::PushFont(fonts.small_caps, base * 1.15f);
     if (!it.name.empty()) draw_line(it.name, colour);
     // The tier is parsed off the base line, because no lookup knows "Map (Tier 16)" — but it
-    // is also the only thing on the plate that says which map this is, so it is put back.
-    draw_line(it.map_tier ? it.base_type + " (Tier " + std::to_string(*it.map_tier) + ")"
-                          : it.base_type,
-              colour);
+    // is also the only thing on the plate that says which map this is, so it is put back. A
+    // Vaal gem is the same argument the other way round: the game heads it with the base skill
+    // ("Blight"), and the Vaal name it prints halfway down is what says which of the two gems
+    // this is and what both markets price it as.
+    std::string plate = it.base_type;
+    if (it.map_tier) plate += " (Tier " + std::to_string(*it.map_tier) + ")";
+    else if (const std::string gem = it.gem_name(); !gem.empty()) plate = gem;
+    draw_line(plate, colour);
     ImGui::PopFont();
     ImGui::Dummy(ImVec2(0, 2));
 }
@@ -387,8 +391,9 @@ void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& font
         draw_line("Unidentified", kColCorrupted);
     }
     if (it.corrupted || it.mirrored || it.split || !it.influences.empty() || it.synthesised ||
-        it.fractured_item) {
+        it.fractured_item || it.transfigured) {
         draw_rule();
+        if (it.transfigured) draw_line("Transfigured", kColGem);
         if (it.synthesised) draw_line("Synthesised Item", kColMod);
         if (it.fractured_item) draw_line("Fractured Item", kColFractured);
         for (const item::Influence i : it.influences)

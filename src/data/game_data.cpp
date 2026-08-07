@@ -199,6 +199,7 @@ const BaseType* GameData::base_at(uint32_t offset) const {
     b->ns = namespace_from_string(j.value("namespace", std::string("ITEM")))
                 .value_or(Namespace::Item);
     b->trade_disc = j.value("tradeDisc", std::string());
+    b->trade_name = j.value("tradeName", std::string());
     b->metadata_id = j.value("metadataId", std::string());
     b->w = j.value("w", 0);
     b->h = j.value("h", 0);

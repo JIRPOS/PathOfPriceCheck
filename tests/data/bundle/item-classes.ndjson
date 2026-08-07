@@ -6,3 +6,5 @@
 {"id":"Jewel","itemClass":"Jewels","tradeCategory":"jewel.base"}
 {"id":"UtilityFlask","itemClass":"Utility Flasks","tradeCategory":"flask"}
 {"id":"MapKey","itemClass":"Maps","tradeCategory":"map"}
+{"id":"Active Skill Gem","itemClass":"Skill Gems","tradeCategory":"gem.activegem"}
+{"id":"Support Skill Gem","itemClass":"Support Gems","tradeCategory":"gem.supportgem"}

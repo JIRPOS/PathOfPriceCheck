@@ -116,8 +116,8 @@ public:
     /// How far down the gutter the item card reached this frame — opaque UI of ours over the
     /// game, so `poll_click_away` has to spare it. 0 when it was drawn in the panel instead.
     void set_card_height(float h) { card_h_ = h; }
-    /// False while there is nothing to search — no bundle, or a strategy with no stat query
-    /// behind it (currency, gems, maps).
+    /// False while there is nothing to search — no bundle, a strategy with no query behind it
+    /// (currency), or a gem the bundle could not name.
     bool can_search() const;
 
     /// Copy-path diagnostic log (util/debug_log). Toggling it takes effect immediately —

@@ -20,7 +20,7 @@ namespace {
 /// under a group and rejects one filed in the wrong place, so this table is the contract
 /// between `item/plan` and the wire format.
 std::string_view group_for(std::string_view key) {
-    if (key == "ilvl" || key == "quality") return "misc_filters";
+    if (key == "ilvl" || key == "quality" || key == "gem_level") return "misc_filters";
     if (key == "ar" || key == "ev" || key == "es" || key == "ward" ||
         key == "base_defence_percentile")
         return "armour_filters";
@@ -72,6 +72,10 @@ bool searchable(const item::SearchPlan& p) {
         case item::Strategy::Modifiers:
         case item::Strategy::Unique:
         case item::Strategy::Map: return true;
+        // A gem is bought by name and has no modifiers to fall back on, so a plan that could
+        // not name it has nothing left to ask: the search would be every gem in the game at
+        // this level, and its cheapest listing would read as this gem's price.
+        case item::Strategy::Gem: return !p.type.empty();
         default: return false;
     }
 }

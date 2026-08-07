@@ -120,6 +120,17 @@ bool Item::is_gear() const {
            rarity == Rarity::Unique;
 }
 
+std::string Item::gem_name() const {
+    if (rarity != Rarity::Gem) return {};
+    // The printed name, which for a Vaal gem is the base skill and for a transfigured one is
+    // the alternate skill's own name. Both markets state a Vaal gem by its Vaal skill, and a
+    // transfigured Vaal gem as the pair — "Vaal Blight (Blight of Atrophy)" is verbatim what
+    // trade's `data/items` and poe.ninja's gem overview both call it.
+    const std::string& printed = name.empty() ? base_type : name;
+    if (vaal_name.empty()) return printed;
+    return transfigured ? vaal_name + " (" + printed + ")" : vaal_name;
+}
+
 std::vector<const Modifier*> Item::mods_of(data::ModType t) const {
     std::vector<const Modifier*> out;
     for (const Modifier& m : mods)

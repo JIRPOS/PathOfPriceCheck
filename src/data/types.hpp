@@ -52,6 +52,12 @@ struct BaseType {
     Namespace ns = Namespace::Item;
     std::string category;    ///< craftable.category, e.g. "Rings"
     std::string trade_disc;  ///< discriminator when name/type alone is ambiguous
+    /// The trade `type` term, where it is not the display name. Only gems have one: trade
+    /// files a transfigured gem under the skill it alters — "Raise Zombie of Falling" is
+    /// `Raise Zombie` with the `alt_y` discriminator — and a search naming what the clipboard
+    /// printed matches nothing. Empty everywhere else, and on every bundle published before
+    /// the field existed, so nothing may depend on it being there.
+    std::string trade_name;
     /// The game's own `Metadata/Items/...` path for this base, and the only key GGG's
     /// currency-exchange feed states an item by — that feed publishes no names at all. Empty
     /// on a unique, on anything the build could not match to game data, and on every bundle

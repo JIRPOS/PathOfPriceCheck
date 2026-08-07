@@ -562,6 +562,45 @@ void unimpose_derived_mods(const Item& it, SearchPlan& p) {
     }
 }
 
+/// A gem is a name, a level and a quality — and deliberately nothing else.
+///
+/// The lines a gem prints are what the skill does, identical on every copy, so there is nothing
+/// to filter on and the name plus those two numbers are the whole search. Both numbers are
+/// matched **exactly**, the same reasoning as a map's tier: a level 21 gem is not a better
+/// level 20 one, it is what the gem sells as, and the same goes for the quality bracket. A
+/// floor would put 21/23 corrupted gems in the results for a 20/20 and price the wrong item.
+/// Corruption is already matched exactly for every strategy, and on a gem it is the hard split
+/// between the two markets: it is what allows level 21 and quality 23 at all.
+///
+/// The name is the record's, never the printed one. A Vaal gem prints the base skill and a
+/// transfigured gem prints a name trade does not file it under — see `Item::gem_name` and
+/// `BaseType::trade_name` — and a `type` term trade does not know matches nothing, which reads
+/// as a gem nobody is selling rather than as a search that could not be built. So an unresolved
+/// gem gets no search at all and says why; poe.ninja still prices it.
+void plan_gem(const Item& it, SearchPlan& p) {
+    if (!it.base) {
+        const std::string name = "\"" + it.gem_name() + "\" is not in this data bundle";
+        p.notes.push_back(it.transfigured
+                              ? name + ": trade files a transfigured gem under the skill it "
+                                       "alters, and only a data build carrying its printed "
+                                       "name can say which one this is"
+                              : name);
+        return;
+    }
+    p.type = it.base->trade_name.empty() ? it.base->name : it.base->trade_name;
+    p.discriminator = it.base->trade_disc;
+
+    const auto exact = [&p](const char* key, const char* label, std::optional<int> v) {
+        if (!v) return;
+        add_numeric(p, key, label, static_cast<double>(*v), true, 0, {},
+                    static_cast<double>(*v));
+    };
+    exact("gem_level", "Gem Level", it.gem_level);
+    // Always, and at zero as readily as at twenty: an unquality gem is a different thing from a
+    // 20% one, and leaving the filter off would price it as whatever the cheapest quality is.
+    exact("quality", "Quality", it.quality.value_or(0));
+}
+
 /// A map is priced on where it goes and what was spent on it, and on nothing else.
 ///
 /// Which area it is comes from the tier where the base line prints one ("Map (Tier 16)" — every
@@ -710,11 +749,12 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                         false);
             break;
         case Strategy::Map: plan_map(it, p); break;
+        case Strategy::Gem: plan_gem(it, p); break;
         default:
-            // Currency and gems are priced by poe.ninja rather than by a stat query — bulk is
-            // what they sell in, and a stat filter has nothing to say about a stack of orbs.
-            // So this is not a gap to warn about, it is where the search stops and the
-            // reference price is the answer. Only a class nothing prices is worth a note.
+            // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
+            // query — bulk is what it sells in, and a stat filter has nothing to say about a
+            // stack of orbs. So this is not a gap to warn about, it is where the search stops
+            // and the reference price is the answer. Only a class nothing prices is worth a note.
             if (p.strategy == Strategy::Unsupported)
                 p.notes.push_back("pricing an item of class \"" + it.item_class +
                                   "\" is not implemented yet");

@@ -1,0 +1,50 @@
+Item Class: Skill Gems
+Rarity: Gem
+Blight
+--------
+Spell, Chaos, AoE, Duration, Vaal, Nova, Channelling
+Level: 1
+Cost: 2 Mana
+Cast Time: 0.30 sec
+--------
+Requirements:
+Level: 1
+--------
+Apply a debuff to enemies in front of you which deals chaos damage over time. Enemies who aren't already debuffed by Blight are also hindered for a shorter secondary duration, slowing their movement. Continued channelling adds layers of damage to the debuff, each with their own duration.
+--------
+Deals 5.9 Base Chaos Damage per second
+Base duration is 2.00 seconds
+Base secondary duration is 1.00 seconds
+Modifiers to Spell Damage apply to this Skill's Damage Over Time effect
+80% reduced Movement Speed
+Debuff can have up to 20 layers of Damage
+
+Additional Effects From Quality:
++0.00(0.00-0.80) seconds to Base duration
+--------
+Vaal Blight
+--------
+Souls Per Use: 25
+Can Store 2 Uses
+Soul Gain Prevention: 6 sec
+Cast Time: 0.50 sec
+--------
+Apply a powerful debuff to enemies around you which deals chaos damage over time. Then applies two additional layers in a larger area, growing greatly in size each time. Enemies are also substantially hindered for a shorter secondary duration, slowing their movement.
+--------
+Deals 6.5 Base Chaos Damage per second
+Base duration is 6.00 seconds
+Base secondary duration is 3.00 seconds
+Modifiers to Spell Damage apply to this Skill's Damage Over Time effect
+Modifiers to Skill Effect Duration also apply to this Skill's Soul Gain Prevention
+80% reduced Movement Speed
+Debuff can have up to 20 layers of Damage
+Hindered Enemies take 30% increased Chaos Damage
+
+Additional Effects From Quality:
++0.00(0.00-0.80) seconds to Base duration
+--------
+Experience: 1/70
+--------
+Place into an item socket to gain this skill. Right click to remove from a socket.
+--------
+Corrupted

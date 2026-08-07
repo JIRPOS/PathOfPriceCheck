@@ -1179,3 +1179,83 @@ Item Level: 84
         CHECK_FALSE(life->tiered);
     }
 }
+
+TEST_CASE("a gem is searched as its name, its level and its quality, and nothing else") {
+    auto gd = fixture();
+
+    SUBCASE("an ordinary support gem") {
+        const Item it = resolved(*gd, capture("gem-support-empower.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Gem);
+        CHECK(p.category == "gem.supportgem");
+        CHECK(p.rarity == "nonunique");
+        CHECK(p.type == "Empower Support");
+        CHECK(p.discriminator.empty());
+        CHECK(p.corrupted == false);
+
+        // Exact on both ends, the same reasoning as a map's tier: a level 3 Empower is not a
+        // better level 2 one, it is what the gem sells as. A floor would show its price here.
+        const NumericFilter* level = numeric_for(p, "gem_level");
+        REQUIRE(level != nullptr);
+        CHECK(level->enabled);
+        CHECK(level->min == 2);
+        CHECK(level->max == 2);
+        // At zero as readily as at twenty: an unquality gem is a different thing from a 20%
+        // one, and no filter at all would price it as whichever quality is cheapest.
+        const NumericFilter* quality = numeric_for(p, "quality");
+        REQUIRE(quality != nullptr);
+        CHECK(quality->enabled);
+        CHECK(quality->min == 0);
+        CHECK(quality->max == 0);
+
+        // What the skill does is on every copy of it. There is nothing here to filter on and
+        // nothing to warn about either.
+        CHECK(p.stats.empty());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("quality is the gem's own, and the level is not the requirement under it") {
+        const Item it = resolved(*gd, capture("gem-tornado-shot.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.category == "gem.activegem");
+        REQUIRE(numeric_for(p, "gem_level") != nullptr);
+        CHECK(numeric_for(p, "gem_level")->min == 1); // not the level 28 to socket it
+        REQUIRE(numeric_for(p, "quality") != nullptr);
+        CHECK(numeric_for(p, "quality")->min == 7);
+    }
+
+    SUBCASE("a Vaal gem is searched as its Vaal skill, which its name line never prints") {
+        const Item it = resolved(*gd, capture("gem-vaal-blight.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.type == "Vaal Blight"); // the header said "Blight", which is another gem
+        CHECK(p.discriminator.empty());
+        CHECK(p.corrupted == true);     // what lets it reach level 21 and 23% quality at all
+        CHECK(numeric_for(p, "gem_level")->min == 1);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a transfigured gem is searched under the skill it alters, plus a discriminator") {
+        const Item it = resolved(*gd, capture("gem-transfigured-raise-zombie.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        // The name the clipboard prints is not a type trade answers to: "Raise Zombie of
+        // Falling" is `Raise Zombie` with `alt_y`, and the plain type matches only the
+        // unaltered gem — a different, far cheaper item rather than an empty market.
+        CHECK(p.type == "Raise Zombie");
+        CHECK(p.discriminator == "alt_y");
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a gem the bundle cannot name is not searched for something else") {
+        Item it = resolved(*gd, capture("gem-support-empower.txt"));
+        it.base = nullptr; // a bundle published before the gem existed
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.type.empty());
+        CHECK(p.numerics.empty());
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes.front().find("Empower Support") != std::string::npos);
+    }
+}

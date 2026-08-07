@@ -347,6 +347,56 @@ TEST_CASE("a gem's properties, description and granted stats") {
     CHECK(it.help_text.size() == 1);
 }
 
+TEST_CASE("a gem's level is the property, never the requirement under it") {
+    // The clipboard prints "Level:" twice and the two are different numbers on every gem past
+    // the first: the gem's own level in the property block, the character level to socket it
+    // under `Requirements:`. Pricing on the wrong one prices a different gem.
+    const Item it = parse("items", "gem-support-hypothermia.txt");
+
+    CHECK(it.gem_level == 16);
+    CHECK(it.req.level == 62);
+    CHECK(it.req.dex == 99);
+    CHECK(it.gem_name() == "Hypothermia Support");
+    CHECK_FALSE(it.transfigured);
+    CHECK(it.mods.empty());
+}
+
+TEST_CASE("a Vaal gem is named by its Vaal skill, which the name line does not print") {
+    // Two skills in one gem: the header says "Blight" and the second half says "Vaal Blight",
+    // and it is the second that both markets file it under.
+    const Item it = parse("items", "gem-vaal-blight.txt");
+
+    CHECK(it.base_type == "Blight");
+    CHECK(it.vaal_name == "Vaal Blight");
+    CHECK(it.gem_name() == "Vaal Blight");
+    CHECK(it.gem_level == 1);
+    CHECK(it.corrupted);
+    CHECK(it.mods.empty());
+    // Everything the Vaal half prints is the skill describing itself, exactly as the first
+    // half's is — never a modifier.
+    CHECK(it.description.size() == 1);
+    CHECK_FALSE(it.inherent_lines.empty());
+}
+
+TEST_CASE("a transfigured gem is flagged, not left as an unrecognised line") {
+    const Item it = parse("items", "gem-transfigured-raise-zombie.txt");
+
+    CHECK(it.transfigured);
+    CHECK(it.gem_name() == "Raise Zombie of Falling");
+    CHECK(it.gem_level == 1);
+    CHECK(it.vaal_name.empty());
+    CHECK(it.mods.empty());
+}
+
+TEST_CASE("a gem's quality is a property like any other") {
+    const Item it = parse("items", "gem-tornado-shot.txt");
+
+    CHECK(it.gem_level == 1);
+    CHECK(it.quality == 7);
+    CHECK(it.gem_name() == "Tornado Shot");
+    CHECK(it.type_line == "Attack, Projectile, Bow");
+}
+
 TEST_CASE("a map fragment describes itself in prose and has no modifiers at all") {
     // It prints "Rarity: Normal", which is the only rarity the game has for one — and every
     // rule that tells a rare's mods from its prose then fires on lines that are neither. A

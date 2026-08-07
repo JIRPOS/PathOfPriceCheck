@@ -1,0 +1,25 @@
+Item Class: Skill Gems
+Rarity: Gem
+Tornado Shot
+--------
+Attack, Projectile, Bow
+Level: 1
+Cost: 9 Mana
+Attack Speed: 80% of base
+Attack Damage: 100% of base
+Quality: +7% (augmented)
+--------
+Requirements:
+Level: 28
+Dex: 67 (unmet)
+--------
+Fires a piercing shot that travels until it reaches the targeted location. It will then fire projectiles out in all directions from that point, which will travel for a short time before disappearing.
+--------
+Fires 3 secondary Projectiles
+
+Additional Effects From Quality:
+14(0-40)% increased Projectile Speed
+--------
+Experience: 1/199,345
+--------
+Place into an item socket to gain this skill. Right click to remove from a socket.

@@ -178,6 +178,42 @@ TEST_CASE("a unique map is searched as a unique, though it is planned as a map")
     CHECK(q["type"]["discriminator"] == "map");
 }
 
+TEST_CASE("a gem's level and quality are misc filters, and both are exact") {
+    SearchPlan p;
+    p.strategy = Strategy::Gem;
+    p.category = "gem.activegem";
+    p.type = "Raise Zombie";
+    p.discriminator = "alt_y"; // a transfigured gem: trade knows it by the skill it alters
+    p.corrupted = false;
+    p.numerics = {{"gem_level", "Gem Level", 20, 20, true, 0, {}},
+                  {"quality", "Quality", 20, 20, true, 0, {}}};
+    const json q = query_of(p);
+
+    CHECK(q["type"]["option"] == "Raise Zombie");
+    CHECK(q["type"]["discriminator"] == "alt_y");
+    const json& f = q["filters"]["misc_filters"]["filters"];
+    // Both exact: a level 21 gem is not a better level 20 one, and the corruption flag below
+    // is what says which of the two markets is being asked.
+    CHECK(f["gem_level"]["min"] == 20);
+    CHECK(f["gem_level"]["max"] == 20);
+    CHECK(f["quality"]["min"] == 20);
+    CHECK(f["quality"]["max"] == 20);
+    CHECK(f["corrupted"]["option"] == "false");
+    CHECK(q["stats"][0]["filters"].empty()); // a gem has nothing to filter on
+}
+
+TEST_CASE("a gem the plan could not name is not searched at all") {
+    // Every other strategy has modifiers or a category to fall back on. A gem has neither, so
+    // the search would be every gem in the game at this level and its cheapest listing would
+    // read as this gem's price.
+    SearchPlan p;
+    p.strategy = Strategy::Gem;
+    p.category = "gem.activegem";
+    CHECK_FALSE(searchable(p));
+    p.type = "Empower Support";
+    CHECK(searchable(p));
+}
+
 TEST_CASE("a discriminator rides on whichever term was ambiguous") {
     SearchPlan p;
     p.strategy = Strategy::BaseItem;

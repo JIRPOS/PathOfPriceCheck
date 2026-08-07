@@ -11,9 +11,9 @@ namespace {
 constexpr std::string_view kSeparator = "--------";
 
 /// Lines that are a flag on their own. Influence lines are handled separately.
-constexpr std::array<std::string_view, 8> kFlagLines{
-    "Corrupted", "Unidentified", "Mirrored", "Split",
-    "Synthesised Item", "Fractured Item", "Veiled", "Unmodifiable"};
+constexpr std::array<std::string_view, 9> kFlagLines{
+    "Corrupted", "Unidentified", "Mirrored", "Split", "Synthesised Item",
+    "Fractured Item", "Veiled", "Unmodifiable", "Transfigured"};
 
 std::string_view trim(std::string_view s) {
     while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r'))
@@ -365,6 +365,11 @@ void take_typed_property(const Property& p, Item& it) {
         it.block = first_int(v);
     } else if (p.label == "Item Level") {
         it.item_level = first_int(v);
+    } else if (p.label == "Level" && it.rarity == Rarity::Gem) {
+        // The gem's own level. The clipboard prints "Level:" twice — this one, in the property
+        // block under the tag line, and the character level under `Requirements:`, which is a
+        // different number and goes to `Item::req`.
+        it.gem_level = first_int(v);
     }
 }
 
@@ -412,6 +417,7 @@ void parse_flags(const Section& sec, Item& it) {
         else if (line == "Fractured Item") it.fractured_item = true;
         else if (line == "Veiled") it.veiled = true;
         else if (line == "Unmodifiable") it.unmodifiable = true;
+        else if (line == "Transfigured") it.transfigured = true;
         else if (const std::optional<Influence> i = influence_from_line(line))
             it.influences.push_back(*i);
     }
@@ -600,6 +606,12 @@ std::optional<Item> parse_item(std::string_view clipboard) {
             // Consumes 40 of 60 Charges on use / Onslaught" read as modifiers instead.
             parse_properties(sec, it);
             props_seen = true;
+        } else if (it.rarity == Rarity::Gem && it.vaal_name.empty() && sec.size() == 1 &&
+                   first.starts_with("Vaal ")) {
+            // A Vaal gem is two skills in one, and the game heads the second half with its own
+            // name in a section of its own. The header printed the *base* skill, so this line
+            // is the only thing saying that this is a Vaal Blight and not a Blight.
+            it.vaal_name = first;
         } else if (is_help_section(sec) && is_prose_section(sec)) {
             it.help_text.insert(it.help_text.end(), sec.begin(), sec.end());
         } else if (is_prose_section(sec) && !looks_like_mods(sec) &&
