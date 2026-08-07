@@ -3,12 +3,37 @@ name: CI
 on:
   pull_request:
     branches: [master]
-    # A release PR carries nothing but the bumped VERSION, and the release it was cut for
-    # already built both targets from that very commit.
-    paths-ignore: [VERSION]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
+  # A release PR carries nothing but the bumped VERSION, and the release it was cut for already
+  # built both targets from that very commit. Deciding it here rather than with `paths-ignore`
+  # is what keeps `ci-ok` reporting: a required check that never runs blocks the PR forever.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.f.outputs.code }}
+    steps:
+      - id: f
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          files=$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')
+          if [ "$files" = "VERSION" ]; then
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "Version-only PR; skipping the build."
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -34,3 +59,24 @@ jobs:
         run: cmake --build build --config Debug
       - name: Test
         run: ctest --test-dir build -C Debug --output-on-failure
+
+  # The one check master requires. It runs on every PR whatever the matrix did, because a
+  # required check that is skipped never reports and leaves the PR unmergeable.
+  ci-ok:
+    needs: [changes, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate
+        run: |
+          set -euo pipefail
+          changes='${{ needs.changes.result }}'
+          test='${{ needs.test.result }}'
+          # Skipped is a pass: it is what a version-only PR looks like. Failure and cancellation
+          # are not, and neither is a `changes` job that could not decide.
+          if [ "$changes" = "success" ] && { [ "$test" = "success" ] || [ "$test" = "skipped" ]; }; then
+            echo "ok (changes: $changes, test: $test)"
+          else
+            echo "::error::changes: $changes, test: $test"
+            exit 1
+          fi
