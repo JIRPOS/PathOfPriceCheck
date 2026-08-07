@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -852,11 +853,13 @@ Corrupted Blood cannot be inflicted on you
           "4 random Charm modifiers");
 }
 
-TEST_CASE("an unidentified unique says so instead of searching for the wrong thing") {
+TEST_CASE("an unidentified unique on a base with one unique is that unique") {
     auto gd = fixture();
+    // Riveted Boots roll into Ralakesh's Impatience and nothing else, so the name is not a
+    // guess: reading it off the base is the only thing the clipboard leaves to be worked out.
     const Item it = resolved(*gd, R"(Item Class: Boots
 Rarity: Unique
-Goathide Boots
+Riveted Boots
 --------
 Evasion Rating: 30
 --------
@@ -868,10 +871,90 @@ Unidentified
     const SearchPlan p = build_plan(*gd, it, d);
 
     CHECK_FALSE(it.identified);
+    CHECK_FALSE(it.needs_unique_choice());
+    REQUIRE(it.unique_candidates.size() == 1);
+    REQUIRE(it.unique_entry != nullptr);
+    CHECK(p.name == "Ralakesh's Impatience");
+    CHECK(p.type == "Riveted Boots");
+    CHECK(p.rarity == "unique");
+    // The flag the item states about itself is asked for, and offered as a row: an unidentified
+    // copy is a different product from the identified ones beside it.
+    CHECK(flag_of(p, "identified") == std::optional<bool>(false));
+    REQUIRE(p.option("identified") != nullptr);
+    CHECK(p.option("identified")->shown);
+    // The item level is the one number an unidentified copy carries, and it bounds what the
+    // item can still turn out to have rolled — a floor, ticked.
+    REQUIRE(numeric_for(p, "ilvl") != nullptr);
+    CHECK(numeric_for(p, "ilvl")->enabled);
+    CHECK(numeric_for(p, "ilvl")->min == doctest::Approx(84));
+    CHECK_FALSE(numeric_for(p, "ilvl")->max.has_value());
+    // Said out loud: nothing on the item printed this name.
+    CHECK(std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("only unique that drops") != std::string::npos;
+    }));
+}
+
+TEST_CASE("an unidentified unique on a base with several is a question, not a search") {
+    auto gd = fixture();
+    // Goathide Gloves roll into both Hrimsorrow and Hrimburn, which share nothing but the base.
+    const Item it = resolved(*gd, capture("unique-unidentified-gloves.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(it.unique_candidates.size() == 2);
+    CHECK(it.needs_unique_choice());
+    CHECK(it.unique_entry == nullptr);
+    // No name to ask for, and the plan says which question is unanswered rather than searching
+    // the base among every unique that drops on it.
     CHECK(p.name.empty());
-    CHECK(p.type == "Goathide Boots");
-    REQUIRE(p.notes.size() == 1);
-    CHECK(p.notes.front().starts_with("unidentified"));
+    CHECK(p.type == "Goathide Gloves");
+    CHECK(std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("2 uniques drop on") != std::string::npos;
+    }));
+
+    SUBCASE("choosing one searches for it, still unidentified") {
+        Item chosen = it;
+        choose_unique(chosen, chosen.unique_candidates[1]);
+        const SearchPlan cp = build_plan(*gd, chosen, d);
+        CHECK_FALSE(chosen.needs_unique_choice());
+        CHECK(cp.name == chosen.unique_candidates[1]->name);
+        CHECK(flag_of(cp, "identified") == std::optional<bool>(false));
+        CHECK(numeric_for(cp, "ilvl")->min == doctest::Approx(84));
+    }
+
+    SUBCASE("nothing outside the candidates can be chosen") {
+        Item chosen = it;
+        // A record from the previous item, or from a bundle the updater has swapped out.
+        choose_unique(chosen, gd->find_bases(ppc::data::Namespace::Unique, "Hrimsorrow").front());
+        CHECK(chosen.unique_entry != nullptr); // that one *is* a candidate
+        choose_unique(chosen, gd->find_bases(ppc::data::Namespace::Unique,
+                                             "Ralakesh's Impatience").front());
+        CHECK(chosen.unique_entry->name == "Hrimsorrow"); // refused, and the choice stands
+        choose_unique(chosen, nullptr);
+        CHECK(chosen.unique_entry == nullptr);
+    }
+}
+
+TEST_CASE("an identified unique is not read off its base") {
+    auto gd = fixture();
+    // The candidate list is only ever about the gap an unidentified item leaves: an identified
+    // one names itself, and offering it a choice between the base's uniques would be a way to
+    // search for the wrong one.
+    const Item it = resolved(*gd, R"(Item Class: Gloves
+Rarity: Unique
+Hrimsorrow
+Goathide Gloves
+--------
+Item Level: 84
+)");
+    CHECK(it.unique_candidates.empty());
+    CHECK_FALSE(it.needs_unique_choice());
+    REQUIRE(it.unique_entry != nullptr);
+    CHECK(it.unique_entry->name == "Hrimsorrow");
+    // And no item-level filter: which copy of an identified unique this is has nothing to do
+    // with what it dropped at.
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(numeric_for(p, "ilvl") == nullptr);
 }
 
 TEST_CASE("a magic item's base is found under its affixes") {

@@ -468,6 +468,7 @@ void App::nudge_clipboard_handover(uint64_t elapsed) {
 void App::accept_clipboard(std::string text) {
     clipboard_ = std::move(text);
     strategy_override_.reset(); // a choice belongs to the item it was made for
+    unique_choice_.clear();     // as does which unique an unidentified one turned out to be
     trade_.clear();             // and so do the listings: they priced the previous item
     listing_items_.clear();
     rebuild_plan();
@@ -477,6 +478,10 @@ void App::accept_clipboard(std::string text) {
 }
 
 bool App::can_search() const {
+    // An unidentified unique nobody has named yet is not a search that would come back wrong,
+    // it is a search for a different item: a Prismatic Jewel's fifty uniques share nothing but
+    // the base, and the cheapest of them would read as this one's price.
+    if (item_ && item_->needs_unique_choice()) return false;
     return item_ && item_data_ && trade::searchable(plan_) && !trades_on_exchange();
 }
 
@@ -556,6 +561,12 @@ void App::rebuild_plan() {
                item_->base_type.c_str(), item_->mods.size());
     if (item_data_) {
         item::resolve_item(*item_data_, *item_);
+        // A choice the user already made survives a re-resolve — a bundle update mid-check is
+        // no reason to ask them again — but it is re-matched by name against the candidates the
+        // *new* bundle offers, since the records it was made from are gone.
+        if (!unique_choice_.empty())
+            for (const data::BaseType* u : item_->unique_candidates)
+                if (u->name == unique_choice_) item::choose_unique(*item_, u);
         derived_ = item::derive(item_data_.get(), *item_);
         plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
                                  config_.range_match);
@@ -576,6 +587,22 @@ void App::set_strategy(item::Strategy s) {
         // a base item has no reference price, and switching back has to bring it back.
         price_reference();
     }
+    need_redraw_ = true;
+}
+
+void App::set_unique(const data::BaseType* u) {
+    if (!item_ || !item_data_) return;
+    item::choose_unique(*item_, u);
+    unique_choice_ = item_->unique_entry ? item_->unique_entry->name : std::string();
+    debug::log("[item]   unidentified unique read as '%s'", unique_choice_.c_str());
+    // The listings priced whatever was searched before the choice, which was either nothing or
+    // a different unique.
+    trade_.clear();
+    listing_items_.clear();
+    plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
+                             config_.range_match);
+    // The name is what poe.ninja prices a unique by, so this is the first ask that can find one.
+    price_reference();
     need_redraw_ = true;
 }
 

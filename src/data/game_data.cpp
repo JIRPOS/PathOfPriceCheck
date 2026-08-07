@@ -101,6 +101,11 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         !gd->items_name_index_.attach(gd->items_name_idx_.data(), gd->items_name_idx_.size()))
         return fail("malformed index (not a whole number of rows)");
 
+    // Also optional, and on an older bundle an unidentified unique simply stays unidentified:
+    // the index is the only thing that can turn a base line into the uniques that drop on it.
+    if (gd->items_base_idx_.open(dir / (p + "items-base.index.bin")))
+        gd->items_base_index_.attach(gd->items_base_idx_.data(), gd->items_base_idx_.size());
+
     // Optional, and missing on every bundle published before the dataset existed: a unique
     // then falls back to what a printed range can prove, which is what the app did before.
     // Both files or neither — an index without its ndjson resolves to offsets into nothing.
@@ -315,6 +320,23 @@ std::vector<const BaseType*> GameData::find_bases(Namespace ns,
     for (uint32_t off : offsets) {
         const BaseType* b = base_at(off);
         if (b && b->ns == ns && b->name == name) out.push_back(b);
+    }
+    return out;
+}
+
+std::vector<const BaseType*> GameData::find_uniques_on_base(std::string_view base) const {
+    // Keyed under the *unique* namespace, because the records it addresses are uniques: it is
+    // "the uniques of this base", not "this base".
+    std::string key(to_string(Namespace::Unique));
+    key += "::";
+    key += base;
+
+    std::vector<uint32_t> offsets;
+    items_base_index_.lookup(key, offsets);
+    std::vector<const BaseType*> out;
+    for (uint32_t off : offsets) {
+        const BaseType* b = base_at(off);
+        if (b && b->ns == Namespace::Unique && b->unique_base == base) out.push_back(b);
     }
     return out;
 }

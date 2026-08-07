@@ -114,6 +114,26 @@ TEST_CASE("uniques record the base they roll on") {
     CHECK(u.front()->unique_base == "Goathide Boots");
 }
 
+TEST_CASE("a base answers with the uniques that drop on it") {
+    auto gd = fixture();
+    CHECK(gd->has_unique_bases());
+    // The lookup an unidentified unique is read with: it prints its base and nothing else.
+    const auto gloves = gd->find_uniques_on_base("Goathide Gloves");
+    REQUIRE(gloves.size() == 2);
+    CHECK(gloves[0]->name == "Hrimsorrow");
+    CHECK(gloves[1]->name == "Hrimburn");
+    for (const BaseType* u : gloves) CHECK(u->ns == Namespace::Unique);
+
+    // One is the ordinary case and is what lets the app take the answer itself.
+    const auto boots = gd->find_uniques_on_base("Riveted Boots");
+    REQUIRE(boots.size() == 1);
+    CHECK(boots.front()->name == "Ralakesh's Impatience");
+
+    // A base nothing drops on, and the base's own record, which lives under a different key.
+    CHECK(gd->find_uniques_on_base("Two-Toned Boots").empty());
+    CHECK(gd->find_uniques_on_base("Hrimsorrow").empty());
+}
+
 TEST_CASE("the namespace is part of the key") {
     auto gd = fixture();
     // A unique name must not resolve as a plain base.

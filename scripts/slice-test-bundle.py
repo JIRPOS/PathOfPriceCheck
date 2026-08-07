@@ -115,6 +115,12 @@ ITEMS = [
     # resolves against "ITEM::Map" above.
     "ITEM::Valdo Map",
     "UNIQUE::Hrimsorrow",
+    # The two shapes an **unidentified** unique comes in, which states nothing but its base:
+    # Riveted Boots above roll into one unique and the app can take it, while Goathide Gloves
+    # roll into two and only the player can say which. Both are looked up through
+    # `en-items-base.index.bin`, so the pair is also what covers that index at all.
+    "ITEM::Goathide Gloves",
+    "UNIQUE::Hrimburn",
     # A second card, because the capture that proves a card resolves at all is a real one.
     "DIVINATION_CARD::The Blazing Fire",
     # An essence, for the other half of that: both are traded in bulk on the in-game exchange,
@@ -142,8 +148,9 @@ UNIQUE_MODS = [
     "Rumi's Concoction",
 ]
 
-ITEM_CLASSES = ["Rings", "Boots", "Body Armours", "Stackable Currency", "Divination Cards",
-                "Jewels", "Utility Flasks", "Maps", "Skill Gems", "Support Gems", "Chart"]
+ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
+                "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
+                "Support Gems", "Chart"]
 
 LANG = "en"
 

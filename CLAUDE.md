@@ -434,6 +434,9 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   apart from "nothing here has one". The wiki attribution it is licensed on rides in the manifest's
   `source.unique_mods_attribution` and is written through by `install`, because an attribution that
   stays behind in the publisher's repo is not an attribution — Settings renders it.
+  `en-items-base.index.bin` — base → the uniques that drop on it, which is all an
+  **unidentified** unique states — is optional in the same way, and `has_unique_bases()` is what
+  tells a base nothing drops on from a bundle that cannot be asked.
   **`source.exchange_items` rides the same path** and is read back as `has_exchange_flags()` — the
   bundle-level signal saying whether `BaseType::exchange` means anything, because unlike a whole
   missing file an absent boolean cannot tell "no data" from "no". `install` writes it only when
@@ -535,6 +538,16 @@ bundle, and only the third and fourth encode pricing judgement.
     keyed on `BaseType::metadata_id`, which only a resolved base carries, so a card that fell
     through this had no base, no metadata id and therefore no price at all. An essence needed
     nothing: it is an ordinary `Namespace::Item` base and already resolved.
+  - **Which uniques an unidentified one could be** (`Item::unique_candidates`, off
+    `find_uniques_on_base`). An unidentified unique prints **one** name line and it is the
+    base's, so the base is the whole of what the item says about itself and the bundle's
+    base → uniques index is the only thing that turns it back into a name. **One candidate is
+    not a guess** — that base rolls into exactly that unique — so it is taken, and everything
+    downstream plans, prices and searches as if the item had named itself. Several is a
+    question only the player looking at the art can answer (`Item::needs_unique_choice`,
+    settled by `choose_unique`, which refuses anything outside the candidate list so a pointer
+    from the previous item or from a swapped-out bundle can never be what gets searched).
+    None is two different facts and `GameData::has_unique_bases()` is what separates them.
 - **`item/derive`** — the numbers the game leaves implicit. **Quality scales the base's own inherent
   value and nothing else**: not the flat local rolls added to it, though the local *increases* then
   apply to both. One rule for a weapon's physical damage and for armour / evasion / energy shield /
@@ -733,6 +746,20 @@ bundle, and only the third and fourth encode pricing judgement.
   filter list. `UniqueMods::unlisted` — a pool stated in prose but never
   enumerated — becomes a note, so the app says what it is leaving out.
   [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
+- **`item/plan`'s unidentified unique** (`plan_unidentified`) searches the name `item/resolve`
+  worked out from the base, plus the **item level** — a floor, ticked, because it is the one
+  number an unidentified copy carries and it bounds what the item can still turn out to have
+  rolled. The `Unidentified` flag itself needs nothing new: `add_item_flags` already asks the
+  item to be what it is, and an unidentified one is exactly the case that flag has a row for.
+  Everything else about the item is behind the identification, so there is nothing else to
+  carry. Where the base rolls into **several** uniques and the user has not picked one yet,
+  there is no name and therefore no search — `App::can_search()` is false, the panel asks
+  instead (below) — and the plan states which question is open rather than running a search
+  for "some unique of this base", whose cheapest listing would read as this item's price.
+  Two notes ride along: the name the app took for itself when a base had a single unique, since
+  nothing on the item printed it, and that a reference price is what *identified* copies sell
+  for — poe.ninja does not split a unique by that, and an unidentified one is the gamble on the
+  rolls rather than the rolls.
 - **`item/plan`'s map strategy** (`plan_map`, `add_map_pseudo`) is `Strategy::Map`, and it is the
   one strategy that searches on **none** of an item's affixes. A map's prefixes and suffixes are
   re-rollable with a single Chaos Orb; the buyer is choosing how dangerous a map they want, not
@@ -1022,6 +1049,23 @@ line repeats its affix because that is where the reader gets *its* range, and ev
 is a small grey line under the property block it summarises — the DPS totals under the last damage
 line, the base percentile under the last defence line.
 
+**An unidentified unique is asked about rather than guessed at** (`draw_unique_choice`), above the
+filters, because until it is answered they are filters on nothing. Its candidates come from the
+bundle (`item/resolve`) and their **artwork from the poe.ninja overview this item class is priced
+from** — that payload's `icon` is a `web.poecdn.com` URL, and `IconCache` already turns a URL into
+a texture — joined by display name through the same `image_for_name` → `icon_for_name` pair every
+other symbol on the panel uses. **The art is not guaranteed**: an overview lists what is being sold
+this league, which is 1193 of the bundle's 1526 uniques and much worse on jewels, so nothing is
+ever left to the picture — a candidate with no art puts its name in the space the art would have
+taken. The aspect is the **base's inventory footprint** (`BaseType::w`/`h`), since squashing a 2×3
+body armour into a square is what makes two candidates hard to tell apart at 46 pixels.
+Two shapes, and the list's own height picks between them: **one per row with the name** while that
+fits half of what is left of the panel, and past it a **grid of artwork alone** with the name on
+hover, because fifty rows would push the prices and the item itself off the panel entirely. Each is
+a `Selectable` with the picture drawn on top of it — the poe.ninja row's shape, and `AllowOverlap`
+is what lets the two overlap — and the strategy picker grows a **change** button beside the name so
+a choice, including the one the app took for itself, can be taken back.
+
 **The filter list is a four-column table** (`draw_filters`), so that every row's numbers sit under
 the previous row's: the toggle, the wording, where the modifier came from, and what the search asks
 for. The **wording is second, straight after the tick**, because it is the only column every row
@@ -1079,7 +1123,11 @@ transfigured one; two supports, one of them with a socket requirement far above 
 one with quality), `card-blazing-fire.txt` and `currency-essence.txt` (the two shapes of thing the
 in-game exchange trades in bulk that are neither an orb nor a fragment), and
 `currency-chaos-stack.txt`, which is **written rather than captured**: it is a 6000/20 stack, the
-case a currency stash tab makes ordinary and nothing else covers. The three `chart-*`/
+case a currency stash tab makes ordinary and nothing else covers. The two
+`unique-unidentified-*.txt` are written for the same reason and want replacing with real
+captures — they are the two answers a base gives, a Goathide Gloves that could be either of two
+uniques and a Cobalt Jewel that could be any of fifty-four, which is what puts the picker into its
+grid. The three `chart-*`/
 `listing-chart-*` files are every shape a chart comes in — one with Advanced Mod Descriptions on,
 one without and carrying the sulphur property, and one unidentified, which prints no name line at
 all. Three more cover the
@@ -1379,11 +1427,10 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
   `tradeId` the filter to send and `range` the bounds to seed. That needs a `StatFilter` not tied to a
   `mod_index` and a way to pick one in the UI. Filters the record carries **without** a `tradeId` (428
   ambiguous wordings, 695 with no id at all) belong in that list too: display them, never search them.
-- **Unidentified uniques** — the clipboard says only the base, and several uniques can share one
-  (an unidentified Watcher's Eye is worth several divines more at high item level). The user has to
-  pick from the base's uniques, ideally showing their art; the plan reports the gap as a note today.
-  The bundle now carries **`en-items-base.index.bin`**, base → the uniques that drop on it, which is
-  the lookup this needs; the candidates' mods come from `en-unique-mods.ndjson`.
+- **An unidentified unique's own modifiers.** Which unique it is, is built (above); what a copy
+  of it *could* roll is the same gap as offering the pool modifiers, one item further along —
+  the candidates' mods are in `en-unique-mods.ndjson` and nothing reads them for an
+  unidentified item, so the search is the name, the base and the item level.
 - **Ambiguous wordings** — two stat records can share a wording and both be searchable.
   `GameData::find_stat` refuses to guess, and the plan says "ambiguous wording, not searched" rather
   than picking whichever came first in the file. As of the `20260805.11` bundle this is **4 wordings**
@@ -1565,6 +1612,11 @@ there to be read: without it `has_exchange_flags()` is false, the flags copied o
 read as "unknown", and nothing about them is tested at all. `UNIQUE::Hrimsorrow` is there for the opposite reason: it is what turns a Valdo
 map's printed `Foil Hrimsorrow` into a name the trade site accepts. A **blighted** map needs no
 record at all, which is itself the point — it resolves against `ITEM::Map` like every other one.
+
+`UNIQUE::Hrimburn` is there to make `ITEM::Goathide Gloves` a base with **two** uniques on it,
+which is the whole of what covers an unidentified unique: the gloves are the case only the user
+can settle and the Riveted Boots above are the one the app takes for itself. The pair is also what
+covers `en-items-base.index.bin` at all, since nothing else in the fixture reads it.
 
 `tests/data/exchange/digest.json` is a slice of one real hourly digest, and every market in it is
 there to be dropped or kept for a stated reason: the chaos/divine pair (the rate, read from both

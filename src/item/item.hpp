@@ -167,6 +167,15 @@ struct Item {
     /// `resolve_item()` — that snapshot must outlive the item.
     const data::BaseType* base = nullptr;         ///< the base type's record
     const data::BaseType* unique_entry = nullptr; ///< the unique's own record, uniques only
+    /// Every unique that drops on this base, on an **unidentified** one — which prints no name
+    /// line at all, so the base is the whole of what it says about itself. Empty for every
+    /// other item, and for a bundle with no base index to ask.
+    ///
+    /// One candidate is the answer and `resolve_item` takes it: the item can only be that
+    /// unique. Several is a question only the user can settle (a Prismatic Jewel is fifty
+    /// different items), and until they do, `unique_entry` stays null and the search has no
+    /// name to ask for.
+    std::vector<const data::BaseType*> unique_candidates;
 
     bool is_weapon() const;   ///< has weapon properties (attacks per second)
     /// Any of the five flask classes ("Life Flasks" … "Critical Utility Flasks").
@@ -183,6 +192,10 @@ struct Item {
     /// it in the same `map_filters` group, which is titled "Map/Chart Filters" for that reason.
     bool is_chart() const;
     bool has_defences() const;
+    /// True while the item is an unidentified unique that could be several different items and
+    /// nobody has said which. There is nothing to search until that is answered — the name is
+    /// the whole of what a unique is bought for — so the panel asks instead of guessing.
+    bool needs_unique_choice() const;
     /// What this gem is called on both markets, which is not always what the clipboard printed.
     ///
     /// A Vaal gem heads its tooltip with the *base* skill — a Vaal Blight prints "Blight" —

@@ -46,6 +46,17 @@ public:
     /// unique colliding with a base name. The caller disambiguates on the returned fields.
     std::vector<const BaseType*> find_bases(Namespace ns, std::string_view name) const;
 
+    /// Every unique that drops on `base`, in file order — which is all an **unidentified**
+    /// unique states about itself: the clipboard prints the base line and no name at all.
+    ///
+    /// Empty is two different answers and the caller has to keep them apart: a base nothing
+    /// drops on, and a bundle published before this index existed (`has_unique_bases()`).
+    std::vector<const BaseType*> find_uniques_on_base(std::string_view base) const;
+
+    /// False for a bundle carrying no base → uniques index, where an unidentified unique
+    /// cannot be identified at all rather than being one nothing drops on.
+    bool has_unique_bases() const { return items_base_index_.valid(); }
+
     /// What this unique can roll, or null. `name` is the same string `find_bases` is keyed
     /// on, so it is the name the clipboard already gave us.
     ///
@@ -91,8 +102,10 @@ private:
     std::string_view line_at(const MappedFile& f, uint32_t offset) const;
 
     MappedFile stats_nd_, items_nd_, unique_mods_nd_;
-    MappedFile stats_matcher_idx_, stats_ref_idx_, items_name_idx_, unique_mods_name_idx_;
-    HashIndex stats_matcher_index_, stats_ref_index_, items_name_index_, unique_mods_name_index_;
+    MappedFile stats_matcher_idx_, stats_ref_idx_, items_name_idx_, items_base_idx_,
+        unique_mods_name_idx_;
+    HashIndex stats_matcher_index_, stats_ref_index_, items_name_index_, items_base_index_,
+        unique_mods_name_index_;
 
     // Parsed on demand. mutable because lookups are logically const.
     mutable std::unordered_map<uint32_t, std::unique_ptr<Stat>> stat_cache_;

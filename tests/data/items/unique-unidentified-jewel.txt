@@ -1,0 +1,9 @@
+Item Class: Jewels
+Rarity: Unique
+Cobalt Jewel
+--------
+Item Level: 84
+--------
+Unidentified
+--------
+Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.

@@ -121,6 +121,15 @@ void resolve_base(const data::GameData& gd, Item& it) {
         return;
     }
 
+    // An unidentified unique prints one name line and it is the base's, so the base is all it
+    // says about itself. The bundle knows which uniques drop on it, and one candidate is not a
+    // guess — that base rolls into exactly this item. Several is a question the user answers
+    // (`choose_unique`); until then the item has no name and the search has none to ask for.
+    if (it.rarity == Rarity::Unique && it.name.empty() && !it.identified) {
+        it.unique_candidates = gd.find_uniques_on_base(it.base_type);
+        if (it.unique_candidates.size() == 1) it.unique_entry = it.unique_candidates.front();
+    }
+
     if (it.rarity == Rarity::Unique && !it.name.empty()) {
         for (const data::BaseType* u : gd.find_bases(data::Namespace::Unique, it.name)) {
             it.unique_entry = u;
@@ -247,6 +256,15 @@ std::string find_known_name(const data::GameData& gd, std::string_view printed,
 std::string strip_magic_affixes(const data::GameData& gd, std::string_view printed,
                                 std::string_view item_class) {
     return find_known_name(gd, printed, data::Namespace::Item, item_class);
+}
+
+void choose_unique(Item& it, const data::BaseType* chosen) {
+    if (!chosen) {
+        it.unique_entry = nullptr;
+        return;
+    }
+    for (const data::BaseType* u : it.unique_candidates)
+        if (u == chosen) it.unique_entry = u;
 }
 
 std::string find_unique_in(const data::GameData& gd, std::string_view printed) {

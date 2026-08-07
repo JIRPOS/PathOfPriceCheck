@@ -184,6 +184,13 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     if (!plan.type.empty()) target += (target.empty() ? "" : ", ") + plan.type;
     if (!plan.category.empty()) target += (target.empty() ? "" : " — ") + plan.category;
     if (!target.empty()) ImGui::TextColored(kDim, "%s", target.c_str());
+    // The name in that line is the one thing about an unidentified unique nobody read off the
+    // item, so there has to be a way back to the choice — including out of the one this took
+    // for itself when the base had a single unique and it turns out to be a bundle behind.
+    if (it.unique_entry && it.unique_candidates.size() > 1) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("change")) app.set_unique(nullptr);
+    }
 }
 
 /// One filter row, across the table's four columns: the toggle, the wording, where the modifier
@@ -341,6 +348,118 @@ std::string icon_for_item(App& app, const std::string& name) {
     std::string icon = app.trade().image_for_name(name);
     if (icon.empty()) icon = app.ninja().icon_for_name(name);
     return icon;
+}
+
+/// How tall one candidate is in the list, and how big its art is in the grid. A row is a
+/// picture with the name beside it; the grid is pictures alone, so it can afford a larger one.
+constexpr float kUniqueRowArt = 34.0f;
+constexpr float kUniqueGridArt = 46.0f;
+
+/// A unique's own artwork, fitted into a `box`-sided square without being stretched.
+///
+/// The aspect comes from the **base's inventory footprint** (`BaseType::w`/`h`), which the
+/// bundle carries and which is what the game draws the art to: a body armour is 2×3, and
+/// squashing that into a square is what makes two candidates hard to tell apart at this size.
+///
+/// The picture is downloaded in the background like every other symbol on the panel, so it is
+/// allowed not to have arrived. **It can also never arrive**: the only source of unique art
+/// here is the poe.ninja overview this item class is priced from, which lists what is being
+/// sold this league and nothing else — measured at 1193 of the bundle's 1526 uniques, and worse
+/// than that on jewels, half of whose uniques are league-restricted and unpriced. So the name
+/// is never left to the picture; false says there was none, and the caller puts the name in the
+/// space the art would have taken.
+bool draw_unique_art(App& app, const data::BaseType* u, float box) {
+    const std::string url = icon_for_item(app, u->name);
+    const uint64_t tex = url.empty() ? 0 : app.icons().texture(url);
+    if (!tex) return false;
+    const float w = u->w > 0 ? static_cast<float>(u->w) : 1.0f;
+    const float h = u->h > 0 ? static_cast<float>(u->h) : 1.0f;
+    const float scale = box / std::max(w, h);
+    ImGui::Image(tex, ImVec2(w * scale, h * scale));
+    return true;
+}
+
+/// Which unique an **unidentified** one is: the one thing its clipboard text cannot say, and
+/// the whole of what a unique is bought for. The bundle knows which uniques drop on the base,
+/// and where that is more than one — a Prismatic Jewel is fifty different items — only the
+/// player looking at the art in their stash can tell, so this asks them rather than guessing.
+///
+/// **Two shapes, and the list's own height picks which.** One per row, art and name, is what a
+/// reader scans; but fifty of those would push the prices and the item itself off the panel, so
+/// past half the panel's height it becomes a grid of artwork alone — which is how the item is
+/// recognised in the stash anyway — with the name on hover.
+///
+/// The row is a `Selectable` with the art drawn on top of it, the same shape the poe.ninja row
+/// uses: the whole strip is one target, and `AllowOverlap` is what lets the picture sit over it.
+void draw_unique_choice(App& app, const item::Item& it) {
+    const std::vector<const data::BaseType*>& us = it.unique_candidates;
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextColored(kWarn, "Unidentified \xe2\x80\x94 which unique is it?");
+    ImGui::PopTextWrapPos();
+
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float row_h = kUniqueRowArt + style.ItemSpacing.y;
+    // Measured against what is left of the panel here rather than against the whole of it: the
+    // half this may take is half of the room the prices and the listings have to share.
+    if (static_cast<float>(us.size()) * row_h <= ImGui::GetContentRegionAvail().y * 0.5f) {
+        for (size_t i = 0; i < us.size(); ++i) {
+            ImGui::PushID(static_cast<int>(i));
+            const ImVec2 at = ImGui::GetCursorPos();
+            if (ImGui::Selectable("##pick", false, ImGuiSelectableFlags_AllowOverlap,
+                                  ImVec2(0, kUniqueRowArt)))
+                app.set_unique(us[i]);
+            ImGui::SetCursorPos(at);
+            if (draw_unique_art(app, us[i], kUniqueRowArt)) ImGui::SameLine(0.0f, 6.0f);
+            // Centred against the art rather than sat on its top edge, which is where a line of
+            // text lands in a row twice its height.
+            ImGui::SetCursorPosY(at.y + (kUniqueRowArt - ImGui::GetTextLineHeight()) * 0.5f);
+            ImGui::TextUnformatted(us[i]->name.c_str());
+            // The cursor was moved back over the row to draw on top of it, so the row has to
+            // close itself: the art is shorter than the strip and the next one would start
+            // inside this one.
+            ImGui::SetCursorPos(at);
+            ImGui::Dummy(ImVec2(0, kUniqueRowArt));
+            ImGui::PopID();
+        }
+        return;
+    }
+
+    // A grid, wrapped by hand: ImGui has no flow layout, and the count here runs to fifty.
+    const float step = kUniqueGridArt + style.ItemSpacing.x;
+    const auto per_row = std::max(
+        1, static_cast<int>((ImGui::GetContentRegionAvail().x + style.ItemSpacing.x) / step));
+    for (size_t i = 0; i < us.size(); ++i) {
+        if (i % static_cast<size_t>(per_row) != 0) ImGui::SameLine();
+        ImGui::PushID(static_cast<int>(i));
+        const ImVec2 at = ImGui::GetCursorPos();
+        if (ImGui::Selectable("##pick", false, ImGuiSelectableFlags_AllowOverlap,
+                              ImVec2(kUniqueGridArt, kUniqueGridArt)))
+            app.set_unique(us[i]);
+        // Taken here and not after the art: the picture on top of the row claims the hover for
+        // itself, and the tooltip belongs to the thing that is clickable.
+        const bool hovered = ImGui::IsItemHovered();
+        ImGui::SetCursorPos(at);
+        if (!draw_unique_art(app, us[i], kUniqueGridArt)) {
+            // No art for this one, and an empty square is a cell nobody can tell from the next
+            // empty square. The name goes in the box instead — wrapped to it, and **clipped**
+            // to it, since a name three lines long would otherwise be drawn straight over the
+            // row underneath. The tooltip is what the rest of it is read from.
+            const ImVec2 tl = ImGui::GetCursorScreenPos();
+            ImGui::PushClipRect(tl, ImVec2(tl.x + kUniqueGridArt, tl.y + kUniqueGridArt), true);
+            ImGui::PushTextWrapPos(at.x + kUniqueGridArt);
+            ImGui::TextDisabled("%s", us[i]->name.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::PopClipRect();
+        }
+        // Every cell ends the same size whatever it managed to draw, or a row of 2×1 art sets
+        // a different pitch from the row of 2×3 art under it.
+        ImGui::SetCursorPos(at);
+        ImGui::Dummy(ImVec2(kUniqueGridArt, kUniqueGridArt));
+        // The name is a tooltip rather than a caption: at this size there is room for the
+        // picture or for the words, and the picture is what the item is recognised by.
+        if (hovered) ImGui::SetTooltip("%s", us[i]->name.c_str());
+        ImGui::PopID();
+    }
 }
 
 /// A poe.ninja price in the trade site's own form, so the two prices on screen read alike:
@@ -697,8 +816,11 @@ void draw_search_controls(App& app) {
         // Where the answer is, not just that there is no search: currency, cards, scarabs and
         // fragments have nothing a stat query could ask for — they are bought in bulk on the
         // in-game exchange — so the poe.ninja row above is the whole price check, and a bare
-        // "Nothing to search" over it reads as a failure.
-        ImGui::TextDisabled("%s", app.plan().strategy == item::Strategy::Currency
+        // "Nothing to search" over it reads as a failure. An unidentified unique is the same
+        // argument: the search is one question away, not missing.
+        const item::Item* it = app.item();
+        ImGui::TextDisabled("%s", it && it->needs_unique_choice() ? "Pick which unique it is"
+                                  : app.plan().strategy == item::Strategy::Currency
                                       ? "Priced by poe.ninja, not by a trade search"
                                       : "Nothing to search");
     } else if (t.state() == TradeState::Ok) {
@@ -1010,6 +1132,12 @@ void draw_pricecheck_screen(App& app) {
             if (searchable) {
                 draw_strategy_picker(app, *it, plan);
                 ImGui::Dummy(ImVec2(0, 4));
+                // Above the filters, because until it is answered they are filters on nothing:
+                // a unique is bought for its name, and the base is all this item has said.
+                if (it->needs_unique_choice()) {
+                    draw_unique_choice(app, *it);
+                    ImGui::Dummy(ImVec2(0, 4));
+                }
                 draw_filters(*it, plan, app.fonts().has_comparison_glyphs);
                 // A dropped filter has to be visible: silently searching without it reads as a
                 // successful price check on an item that is not this one.

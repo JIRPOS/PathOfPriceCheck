@@ -897,6 +897,51 @@ void add_property_filters(const Item& it, SearchPlan& p) {
         add_numeric(p, "stored_experience", "Stored Experience", *x->num, true);
 }
 
+/// What a search for an **unidentified** unique can ask, and what it has to say about the gap.
+///
+/// The clipboard prints no name line at all, so the base is the whole of what such an item
+/// states about itself and the bundle's base → uniques index is what turns that back into a
+/// name (`resolve_item`). One candidate is not a guess and is already taken; several is a
+/// question only the user can settle, and until they do the search has no name to ask for —
+/// which is a different search, not a worse one, so it is said out loud rather than run
+/// silently as "some unique of this base".
+///
+/// **The item level is the one number an unidentified copy carries that matters**, and it is
+/// what the rolls it can still turn out to have are bounded by — so it is a floor and it is
+/// ticked, the same reading a base item's is given. Everything else about the item is behind
+/// the identification; the `Unidentified` flag itself is already on every plan (`add_flag`).
+void plan_unidentified(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    add_numeric(p, "ilvl", "Item Level",
+                it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
+
+    if (p.name.empty()) {
+        if (!gd.has_unique_bases())
+            p.notes.emplace_back("unidentified: this data bundle carries no index of which "
+                                 "uniques drop on a base, so which one this is cannot be "
+                                 "worked out — the search asks only for an unidentified "
+                                 "unique of this base");
+        else if (it.unique_candidates.empty())
+            p.notes.push_back("unidentified: no unique in this data bundle drops on \"" +
+                              it.base_name + "\", so the search asks only for an unidentified "
+                              "unique of this base");
+        else
+            p.notes.push_back("unidentified: " + std::to_string(it.unique_candidates.size()) +
+                              " uniques drop on \"" + it.base_name +
+                              "\" — pick which one this is to search for it by name");
+        return;
+    }
+    // Taken rather than chosen: worth saying, because nothing on the item says this name and
+    // the panel is otherwise showing a search for a unique the clipboard never mentioned.
+    if (it.unique_candidates.size() == 1)
+        p.notes.push_back("unidentified: \"" + p.name + "\" is the only unique that drops on \"" +
+                          it.base_name + "\", so that is what the search asks for");
+    // The trade search asks for an unidentified copy (`add_item_flags`); poe.ninja does not
+    // split a unique's price by that, and an unidentified one is a different product — the
+    // gamble on the rolls rather than the rolls.
+    p.notes.emplace_back("a reference price is what identified copies sell for; an "
+                         "unidentified one is priced on what it might roll");
+}
+
 } // namespace
 
 std::string_view to_string(Strategy s) { return kStrategies[static_cast<size_t>(s)]; }
@@ -961,10 +1006,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             p.type = it.base_name;
             if (it.unique_entry && !it.unique_entry->trade_disc.empty())
                 p.discriminator = it.unique_entry->trade_disc;
-            if (!it.identified)
-                p.notes.emplace_back(
-                    "unidentified: the clipboard does not say which unique this is — picking "
-                    "it from the base's uniques is not implemented yet");
+            if (!it.identified) plan_unidentified(gd, it, p);
             else if (!it.unique_entry)
                 p.notes.push_back("\"" + it.name + "\" is not in this data bundle");
             break;
