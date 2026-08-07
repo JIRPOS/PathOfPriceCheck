@@ -805,7 +805,7 @@ Item Level: 70
     CHECK_FALSE(cold->enabled);
 }
 
-TEST_CASE("a modifier the unique's record does not have is reported, not dropped") {
+TEST_CASE("a modifier the unique's record does not have says so on its own row") {
     auto gd = fixture();
     // Nothing says this one is fixed, so it cannot be left out of the search in silence:
     // it is either something added to this copy or a modifier the source has not caught up
@@ -823,11 +823,13 @@ Item Level: 70
     const Derived d = derive(gd.get(), it);
     const SearchPlan p = build_plan(*gd, it, d);
 
-    CHECK_FALSE(filter_for(p, "explicit.stat_3299347043")->enabled);
-    REQUIRE(p.notes.size() == 1);
-    CHECK(p.notes.front() ==
-          "not in the modifier data for \"Ralakesh's Impatience\", so not searched: "
-          "+42 to maximum Life");
+    const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
+    REQUIRE(life != nullptr);
+    CHECK_FALSE(life->enabled);
+    // On the row, not under the list: the row already names the modifier and shows its box
+    // unticked, and a note repeating that wording is the same sentence twice.
+    CHECK(life->caveat.starts_with("not in the modifier data for \"Ralakesh's Impatience\""));
+    CHECK(p.notes.empty());
 }
 
 TEST_CASE("a pool the data states but does not enumerate is named rather than implied away") {
@@ -844,13 +846,55 @@ Corrupted Blood cannot be inflicted on you
     const Derived d = derive(gd.get(), it);
     const SearchPlan p = build_plan(*gd, it, d);
 
-    REQUIRE(p.notes.size() == 2);
-    // The one modifier this copy shows is not in the record either, so both notes fire: what
-    // the item has that the data does not know, and what the data knows it cannot enumerate.
-    CHECK(p.notes[0].starts_with("not in the modifier data"));
-    CHECK(p.notes[1] ==
+    // Prose with nothing on screen behind it: no row of the filter list is about "4 random
+    // Charm modifiers", so a note is the only place the app can say it is leaving them out.
+    REQUIRE(p.notes.size() == 1);
+    CHECK(p.notes.front() ==
           "the modifier data states but does not enumerate this, so it is not searched: "
           "4 random Charm modifiers");
+    // The modifier the copy does show is the other half, and it is on its own row instead.
+    CHECK(filter_saying(p, "Corrupted Blood")->caveat.starts_with("not in the modifier data"));
+}
+
+TEST_CASE("an unlisted pool the item does print is the row, not a note under it") {
+    auto gd = fixture();
+    // Triad Grip's four conversion modifiers are unlisted in the record *and* printed on the
+    // item, so they used to be said twice each — once as "not in the modifier data" and once as
+    // "states but does not enumerate" — and twelve lines of panel went on four unticked boxes.
+    // The fixture's stand-in for that shape is Rumi's, whose enchant the record does not carry.
+    const Item it = resolved(*gd, R"(Item Class: Utility Flasks
+Rarity: Unique
+Rumi's Concoction
+Granite Flask
+--------
+Lasts 4.00 Seconds
+Consumes 30 of 60 Charges on use
+Currently has 60 Charges
++3000 to Armour
+--------
+Requirements:
+Level: 27
+--------
+Item Level: 70
+--------
+Used when Charges reach full (enchant)
+--------
+16% Chance to Block Attack Damage during Effect
+9% Chance to Block Spell Damage during Effect
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    // An enchant is `added_to_copy`: absent from a record about the unique by definition, so it
+    // gets neither a note nor a caveat — saying so reads as failing to recognise it.
+    const StatFilter* enchant = filter_saying(p, "Used when Charges reach full");
+    REQUIRE(enchant != nullptr);
+    CHECK(enchant->caveat.empty());
+    // Nothing about the modifier data is said underneath the list; the flask's own effect,
+    // which has no row anywhere, still is.
+    CHECK(std::none_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("modifier data") != std::string::npos;
+    }));
 }
 
 TEST_CASE("an unidentified unique on a base with one unique is that unique") {

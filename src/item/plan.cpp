@@ -329,6 +329,18 @@ Roll unique_range(const data::UniqueModFilter& uf, const Modifier& m, bool avera
     return r;
 }
 
+/// The filter whose modifier printed `line`, or null. The join is the game's own wording,
+/// which is what both sides have: the per-unique data's unlisted pools are stated as the lines
+/// the client prints, and so are the modifiers the parser read off the clipboard.
+StatFilter* filter_saying(SearchPlan& p, const Item& it, std::string_view line) {
+    for (StatFilter& f : p.stats) {
+        if (!f.mod_index) continue;
+        for (const std::string& l : it.mods[*f.mod_index].lines)
+            if (l == line) return &f;
+    }
+    return nullptr;
+}
+
 /// Fold the bundle's per-unique modifier data into the plan.
 ///
 /// Without it `Strategy::Unique` can only enable a roll whose printed range proves it is
@@ -384,12 +396,16 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
         if (e == by_id.end()) {
             // Either something added to this copy of the item, or a modifier the source has
             // not caught up with, or one it cannot search. Nothing says it is fixed, so it is
-            // reported rather than silently left out of the search — but only for a modifier
-            // the record is *about*. A crafted one is absent from it by definition, and saying
-            // so reads as a failure to recognise a modifier that is right there in the list.
+            // said rather than silently left out of the search — but only for a modifier the
+            // record is *about*. A crafted one is absent from it by definition, and saying so
+            // reads as a failure to recognise a modifier that is right there in the list.
+            //
+            // On the **row** and not in a note underneath: the row is already the statement —
+            // it names the modifier and its box is not ticked — and a paragraph repeating that
+            // wording costs three lines of panel to say it a second time. This is why.
             if (!f.enabled && !added_to_copy(f.type))
-                p.notes.push_back("not in the modifier data for \"" + um->name +
-                                  "\", so not searched: " + one_line(it.mods[*f.mod_index]));
+                f.caveat = "not in the modifier data for \"" + um->name +
+                           "\", so nothing can tell it from a modifier every copy has";
             continue;
         }
         const Modifier& m = it.mods[*f.mod_index];
@@ -433,11 +449,23 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
         }
     }
 
-    for (const std::string& u : um->unlisted)
+    // An unlisted pool is prose the source never turned into modifiers — "One to three random
+    // Synthesis implicit modifiers". Where it names something the item in hand actually has, it
+    // is **already a row** in the filter list and the note would be the same wording a second
+    // time: Triad Grip's four conversion modifiers are unlisted *and* printed on the item, so
+    // between this and the loop above they cost twelve lines of panel to say what four unticked
+    // boxes said. Only prose with nothing on screen behind it is worth a note of its own.
+    for (const std::string& u : um->unlisted) {
+        if (StatFilter* f = filter_saying(p, it, u)) {
+            f->caveat = "the modifier data states this but does not enumerate it, so nothing "
+                        "here knows what it can roll";
+            continue;
+        }
         p.notes.push_back(
             "the modifier data states but does not enumerate this, so it is not "
             "searched: " +
             u);
+    }
 }
 
 /// Fold filters that share a trade id into one, summing their bounds.

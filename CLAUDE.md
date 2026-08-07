@@ -743,8 +743,16 @@ bundle, and only the third and fourth encode pricing judgement.
   both are what a buyer is searching for. **Except a mod `added_to_copy` covers** — the record
   describes the unique, not what was crafted onto one, so its absence there is by definition and
   "not in the modifier data" reads as a failure to recognise a modifier that is right there in the
-  filter list. `UniqueMods::unlisted` — a pool stated in prose but never
-  enumerated — becomes a note, so the app says what it is leaving out.
+  filter list.
+  **Reported on the row and not underneath the list** (`StatFilter::caveat`, a hover tooltip):
+  the row already names the modifier and shows its box unticked, so a note is that wording a
+  second time — three lines of panel each. Triad Grip is the case that proved it: its four
+  conversion modifiers are unlisted in the record *and* printed on the item, so both note
+  families fired for each and twelve lines went on saying what four unticked boxes had said.
+  So `UniqueMods::unlisted` is a caveat on the row wherever the item actually prints that
+  modifier, and stays a **note** only for prose with nothing on screen behind it ("4 random
+  Charm modifiers") — which is the case the note exists for, since there is no other way to
+  say the app is leaving something out.
   [UNIQUE-MODS.md](UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
 - **`item/plan`'s unidentified unique** (`plan_unidentified`) searches the name `item/resolve`
   worked out from the base, plus the **item level** — a floor, ticked, because it is the one
@@ -1104,6 +1112,13 @@ list. Rows are told apart by **alternating background** (`ImGuiTableFlags_RowBg`
 separators: a modifier can wrap onto three lines and its origin onto two, so what the reader needs
 is to see where one row ends — and a rule between every pair would spend a line of height per
 filter to say it.
+
+**Why a row is not ticked is a tooltip on the wording** (`StatFilter::caveat`), never a line
+under the list. The panel is competing with the game for the same screen, a note repeats a
+wording that is one row above it, and the row already carries the whole statement: this modifier,
+not searched. What is left under the list is only what has **no row at all** — a modifier nothing
+matched, a wording two stats share, a pool the data states but never enumerates — because for
+those there is nowhere else for the app to say it is leaving something out.
 
 The item and its plan live on `App`, alongside **the bundle snapshot they were resolved against** —
 `item_data_` is held separately from `data_` because the updater swaps that from its own thread and

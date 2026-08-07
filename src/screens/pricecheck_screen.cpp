@@ -201,7 +201,8 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
 /// Advanced Mod Descriptions off has no code, and a gap between the tick and the text reads as a
 /// missing checkbox rather than as a modifier with nothing to say about where it came from.
 void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& text,
-                     const std::string& note, const std::string& asks) {
+                     const std::string& note, const std::string& asks,
+                     const std::string& caveat = {}) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     ImGui::PushID(id);
@@ -216,6 +217,10 @@ void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& 
     ImGui::TableSetColumnIndex(1);
     ImGui::PushTextWrapPos(0.0f);
     ImGui::TextUnformatted(text.c_str());
+    // Why this row is not ticked, on the row itself. A line under every such modifier is what
+    // this replaced, and it repeated a wording already on screen: four of them filled half the
+    // panel on a Triad Grip. The tick and the wording are the statement; this is the reason.
+    if (!caveat.empty() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", caveat.c_str());
     if (!note.empty()) ImGui::TextColored(kDim, "%s", note.c_str());
     ImGui::PopTextWrapPos();
 
@@ -274,7 +279,8 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
             // modifier, and a tick beside a wording the item does not have reads backwards.
             draw_filter_row(static_cast<int>(1000 + i), f.enabled, origin_of(it, f),
                             strip_roll_ranges(f.text), note,
-                            f.negated ? "absent" : filter_text(f.min, f.max, f.dp, glyphs));
+                            f.negated ? "absent" : filter_text(f.min, f.max, f.dp, glyphs),
+                            f.caveat);
         }
         ImGui::EndTable();
     }

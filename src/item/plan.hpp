@@ -67,6 +67,13 @@ struct StatFilter {
     /// never reveal — Ralakesh's Impatience rolls one of three charge modifiers, each 1..1.
     bool pooled = false;
     std::string pool_hint; ///< the source's prose for that pool, when it states one
+
+    /// Why this row is what it is, shown **on hover** rather than as a line of its own: the
+    /// per-unique data does not cover this modifier, or covers it only as prose it never
+    /// enumerates. It used to be a note under the filter list, and a note repeats a wording
+    /// that is already on screen one row above — Triad Grip's four conversion modifiers cost
+    /// twelve lines of panel saying what four unticked boxes had already said.
+    std::string caveat;
 };
 
 /// A numeric trade filter: `key` is the name in the trade query's filter groups.
