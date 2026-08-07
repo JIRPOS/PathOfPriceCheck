@@ -1,0 +1,16 @@
+Item Class: Chart
+Rarity: Rare
+Coral Reef Chart
+--------
+Seafloor Ridges
+Area Level: 83
+--------
+Item Level: 83
+--------
+Voyage Modifier will be revealed once Charted (implicit)
+--------
+Chart Shape: End
+--------
+Unidentified
+--------
+Take this item to Valerie aboard the Sovereign to Chart this area.

@@ -178,6 +178,10 @@ struct Item {
     /// A map proper — the "Maps" item class. Not a fragment, which is a different class and a
     /// different market entirely.
     bool is_map() const;
+    /// A Deepwater chart, which is a map under another name: an area with rolled danger and
+    /// rolled rewards, priced on where it goes rather than on which affixes it got. Trade puts
+    /// it in the same `map_filters` group, which is titled "Map/Chart Filters" for that reason.
+    bool is_chart() const;
     bool has_defences() const;
     /// What this gem is called on both markets, which is not always what the clipboard printed.
     ///

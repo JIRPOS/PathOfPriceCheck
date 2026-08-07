@@ -20,15 +20,25 @@ namespace {
 /// under a group and rejects one filed in the wrong place, so this table is the contract
 /// between `item/plan` and the wire format.
 std::string_view group_for(std::string_view key) {
-    if (key == "ilvl" || key == "quality" || key == "gem_level") return "misc_filters";
+    if (key == "ilvl" || key == "quality" || key == "gem_level" || key == "memory_level" ||
+        key == "intangibility" || key == "stored_experience")
+        return "misc_filters";
     if (key == "ar" || key == "ev" || key == "es" || key == "ward" ||
         key == "base_defence_percentile")
         return "armour_filters";
     if (key == "dps" || key == "pdps" || key == "edps" || key == "aps" || key == "crit")
         return "weapon_filters";
-    if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize")
+    if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize" ||
+        key == "area_level" || key == "chart_sulphur")
         return "map_filters";
     return {};
+}
+
+/// The same contract for an option filter. Only two groups take any: the `misc_filters`
+/// booleans about the item itself, and the `map_filters` ones about where a map or a chart goes.
+std::string_view option_group_for(std::string_view key) {
+    if (key.starts_with("map_") || key == "chart_shape") return "map_filters";
+    return "misc_filters";
 }
 
 /// The `misc_filters` boolean for an influence. Searing Exarch and Eater of Worlds have
@@ -76,6 +86,10 @@ bool searchable(const item::SearchPlan& p) {
         // not name it has nothing left to ask: the search would be every gem in the game at
         // this level, and its cheapest listing would read as this gem's price.
         case item::Strategy::Gem: return !p.type.empty();
+        // Currency is bought in bulk and has nothing a stat query could ask about — except the
+        // one kind that is not interchangeable, which the plan says so about by naming a type.
+        // See `build_plan`'s Facetor's Lens branch.
+        case item::Strategy::Currency: return !p.type.empty();
         default: return false;
     }
 }
@@ -149,15 +163,20 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     // it back off the strategy would search it among the rare ones.
     if (!p.rarity.empty()) type_filters["rarity"] = json{{"option", p.rarity}};
 
-    json misc = json::object();
-    if (p.corrupted) misc["corrupted"] = option(*p.corrupted);
-    if (p.mirrored) misc["mirrored"] = option(true);
-    if (p.synthesised) misc["synthesised_item"] = option(true);
-    if (p.fractured) misc["fractured_item"] = option(true);
+    json misc = json::object(), armour = json::object(), weapon = json::object(),
+         map = json::object();
+    // Whether an option has a row in the panel is the plan's business; all that matters here is
+    // that an unticked one is not asked for. `map_completion_reward` rides the same path and
+    // takes a unique's own name rather than a boolean, which is why the value is a string all
+    // the way through — the site errors the whole search on a reward it does not know, so the
+    // plan only ever fills one in from a name the bundle confirmed.
+    for (const item::OptionFilter& f : p.options)
+        if (f.enabled)
+            (option_group_for(f.key) == "map_filters" ? map : misc)[f.key] =
+                json{{"option", f.option}};
     for (const item::Influence i : p.influences)
         if (const std::string_view k = influence_key(i); !k.empty()) misc[std::string(k)] = option(true);
 
-    json armour = json::object(), weapon = json::object(), map = json::object();
     for (const item::NumericFilter& f : p.numerics) {
         if (!f.enabled) continue;
         const std::string_view g = group_for(f.key);
@@ -169,14 +188,6 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
          : g == "map_filters"    ? map
                                  : weapon)[f.key] = std::move(v);
     }
-    // Blight and a Valdo map's payout are `map_filters` options rather than intervals, so they
-    // ride on the plan itself the way corruption does. `map_completion_reward` takes the
-    // unique's own name and errors the whole search on one it does not know, which is why the
-    // plan only ever fills it in from a name the bundle confirmed.
-    if (p.blighted) map["map_blighted"] = option(true);
-    if (p.blight_ravaged) map["map_uberblighted"] = option(true);
-    if (!p.map_reward.empty()) map["map_completion_reward"] = json{{"option", p.map_reward}};
-
     json filters = json::object();
     filters["type_filters"] = json{{"filters", std::move(type_filters)}};
     if (!misc.empty()) filters["misc_filters"] = json{{"filters", std::move(misc)}};

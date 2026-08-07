@@ -1,0 +1,33 @@
+Item Class: Chart
+Rarity: Rare
+Aquatic Venture
+Coral Reef Chart
+--------
+Seafloor Ridges
+Area Level: 83
+Item Quantity: +80% (augmented)
+Item Rarity: +30% (augmented)
+Monster Pack Size: +16% (augmented)
+--------
+Requirements:
+Level: 66
+--------
+Item Level: 83
+--------
+{ Implicit Modifier }
+Voyage Modifier will be revealed once Charted
+--------
+Chart Shape: End
+--------
+{ Prefix Modifier "Splitting" (Tier: 2) }
+Monsters fire 2 additional Projectiles
+{ Prefix Modifier "Unwavering" (Tier: 1) — Life }
+18(10-20)% more Monster Life
+Monsters cannot be Stunned
+{ Prefix Modifier "Resistant" (Tier: 1) — Elemental, Chaos, Resistance }
++31(26-40)% Monster Chaos Resistance
++26(26-40)% Monster Elemental Resistances
+{ Suffix Modifier "of Power" (Tier: 1) }
+Monsters gain a Power Charge on Hit
+--------
+Take this item to Valerie aboard the Sovereign to Chart this area.

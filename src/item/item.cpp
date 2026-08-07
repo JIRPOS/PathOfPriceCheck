@@ -107,6 +107,8 @@ bool Item::is_map_fragment() const {
 
 bool Item::is_map() const { return item_class == "Maps"; }
 
+bool Item::is_chart() const { return item_class == "Chart"; }
+
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }

@@ -75,6 +75,13 @@ const NumericFilter* numeric_for(const SearchPlan& p, std::string_view key) {
     return nullptr;
 }
 
+/// What the search asks a `misc_filters` boolean to be, or nothing when it does not ask.
+std::optional<bool> flag_of(const SearchPlan& p, std::string_view key) {
+    const OptionFilter* f = p.option(key);
+    if (!f || !f->enabled) return std::nullopt;
+    return f->option == "true";
+}
+
 constexpr std::string_view kRareChest = R"(Item Class: Body Armours
 Rarity: Rare
 Doom Shroud
@@ -105,7 +112,7 @@ TEST_CASE("a rare's modifiers become enabled stat filters") {
     CHECK(p.category == "armour.chest");
     // A rare is bought for its mods, so the base is not part of the search.
     CHECK(p.type.empty());
-    CHECK(p.corrupted == false);
+    CHECK(flag_of(p, "corrupted") == false);
 
     const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
     REQUIRE(life != nullptr);
@@ -316,7 +323,7 @@ Fractured Item
     CHECK(phys->type == ppc::data::ModType::Fractured);
     CHECK(phys->id.starts_with("fractured."));
     CHECK(phys->enabled);
-    CHECK(p.fractured); // and the item-level `misc_filters` flag goes with it
+    CHECK(flag_of(p, "fractured_item") == true); // and the item-level `misc_filters` flag goes with it
 
     // The ordinary roll beside it is still unimposed: nothing about it is fixed to this copy.
     REQUIRE(filter_saying(p, "increased Attack Speed") != nullptr);
@@ -611,7 +618,7 @@ Fractured Item
     const SearchPlan p = build_plan(*gd, it, d, Strategy::BaseItem);
 
     CHECK(p.type == "Vaal Regalia");
-    CHECK(p.fractured);
+    CHECK(flag_of(p, "fractured_item") == true);
     REQUIRE(numeric_for(p, "ilvl") != nullptr);
     CHECK(numeric_for(p, "ilvl")->enabled);
     const StatFilter* life = filter_for(p, "explicit.stat_3299347043");
@@ -1174,8 +1181,8 @@ TEST_CASE("blight is a filter on the ordinary map base, not a type of its own") 
     CHECK(it.base_name == "Map");
     CHECK(p.type == "Map");
     CHECK(p.discriminator == "map");
-    CHECK(p.blighted);
-    CHECK_FALSE(p.blight_ravaged);
+    CHECK(flag_of(p, "map_blighted") == true);
+    CHECK(p.option("map_uberblighted") == nullptr);
 
     REQUIRE(numeric_for(p, "map_tier") != nullptr);
     CHECK(numeric_for(p, "map_tier")->min == 12);
@@ -1196,7 +1203,7 @@ TEST_CASE("a Valdo map is bought for its reward and for whether dying in it void
         CHECK(p.type == "Valdo Map");
         // "Foil Hrimsorrow" is rejected by the site outright — the option is over the unique
         // list, and an unknown one fails the whole search rather than widening it.
-        CHECK(p.map_reward == "Hrimsorrow");
+        CHECK(p.option("map_completion_reward")->option == "Hrimsorrow");
 
         // This copy voids, so the search asks for that modifier and for nothing else.
         REQUIRE(p.stats.size() == 1);
@@ -1243,7 +1250,7 @@ TEST_CASE("a Valdo map is bought for its reward and for whether dying in it void
 
         const Item it = resolved(*gd, unknown);
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
-        CHECK(p.map_reward.empty());
+        CHECK(p.option("map_completion_reward") == nullptr);
         REQUIRE(p.notes.size() == 1);
         CHECK(p.notes[0].find("Foil Nothingsorrow") != std::string::npos);
     }
@@ -1330,7 +1337,7 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
         CHECK(p.rarity == "nonunique");
         CHECK(p.type == "Empower Support");
         CHECK(p.discriminator.empty());
-        CHECK(p.corrupted == false);
+        CHECK(flag_of(p, "corrupted") == false);
 
         // Exact on both ends, the same reasoning as a map's tier: a level 3 Empower is not a
         // better level 2 one, it is what the gem sells as. A floor would show its price here.
@@ -1369,7 +1376,7 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
 
         CHECK(p.type == "Vaal Blight"); // the header said "Blight", which is another gem
         CHECK(p.discriminator.empty());
-        CHECK(p.corrupted == true);     // what lets it reach level 21 and 23% quality at all
+        CHECK(flag_of(p, "corrupted") == true); // what lets it reach level 21 and 23% quality at all
         CHECK(numeric_for(p, "gem_level")->min == 1);
         CHECK(p.notes.empty());
     }
@@ -1395,5 +1402,203 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
         CHECK(p.numerics.empty());
         REQUIRE(p.notes.size() == 1);
         CHECK(p.notes.front().find("Empower Support") != std::string::npos);
+    }
+}
+
+TEST_CASE("the misc_filters booleans ask the item to be what it is, and only say so when that "
+          "is not the ordinary answer") {
+    const std::shared_ptr<GameData> gd = fixture();
+
+    SUBCASE("an ordinary rare imposes all three without spending a row on any") {
+        const Item it = resolved(*gd, kRareChest);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        for (const char* key : {"corrupted", "mirrored", "identified"}) {
+            const OptionFilter* f = p.option(key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK(f->enabled);
+            CHECK_FALSE(f->shown);
+        }
+        CHECK(flag_of(p, "corrupted") == false);
+        CHECK(flag_of(p, "mirrored") == false);
+        // It is identified, so that is what the search asks for.
+        CHECK(flag_of(p, "identified") == true);
+    }
+
+    SUBCASE("an unidentified item asks for that, and offers the row") {
+        const Item it = resolved(*gd, R"(Item Class: Body Armours
+Rarity: Rare
+Doom Shroud
+Vaal Regalia
+--------
+Energy Shield: 200
+--------
+Item Level: 84
+--------
+Unidentified
+)");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const OptionFilter* f = p.option("identified");
+        REQUIRE(f != nullptr);
+        CHECK(f->option == "false");
+        CHECK(f->enabled);
+        CHECK(f->shown); // an unidentified copy is a different product; the buyer may widen it
+    }
+
+    SUBCASE("a mirrored item is the only one that offers the mirrored row") {
+        Item it = resolved(*gd, kRareChest);
+        it.mirrored = true;
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const OptionFilter* f = p.option("mirrored");
+        REQUIRE(f != nullptr);
+        CHECK(f->option == "true");
+        CHECK(f->enabled);
+        CHECK(f->shown);
+    }
+
+    SUBCASE("a gem is never asked to be identified") {
+        const Item it = resolved(*gd, capture("gem-support-empower.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        // Measured, not assumed: `identified: true` under `category: gem` returns 0 listings
+        // against 10000 without it, because trade indexes the flag only for what can be
+        // unidentified. A filter matching nothing reads as a gem nobody is selling.
+        CHECK(p.option("identified") == nullptr);
+        CHECK(p.option("mirrored") != nullptr); // this one is safe everywhere, and was checked
+    }
+}
+
+TEST_CASE("the three misc properties are filtered on the side that makes them better") {
+    const std::shared_ptr<GameData> gd = fixture();
+
+    SUBCASE("memory strands are a floor, ticked") {
+        const Item it = resolved(*gd, capture("memory-strands-boots.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        const NumericFilter* f = numeric_for(p, "memory_level");
+        REQUIRE(f != nullptr);
+        CHECK(f->enabled);
+        CHECK(f->min == 43);
+        CHECK_FALSE(f->max.has_value()); // more of them is more of what is being bought
+    }
+
+    SUBCASE("intangibility is a ceiling, unticked") {
+        // Captured from a listing rather than from the game, which is why the property label
+        // carries the site's keyword-link markup — the parser is what drops it.
+        const Item it = resolved(*gd, capture("listing-intangibility-ring.txt"));
+        REQUIRE_FALSE(it.properties.empty());
+        CHECK(it.properties.front().label == "Intangibility");
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const NumericFilter* f = numeric_for(p, "intangibility");
+        REQUIRE(f != nullptr);
+        CHECK_FALSE(f->enabled); // a buyer who will not craft on it does not care
+        CHECK_FALSE(f->min.has_value());
+        CHECK(f->max == 8); // it is the penalty accrued from crafting: less is better
+    }
+
+    SUBCASE("a Facetor's Lens is the one currency item a search can tell apart") {
+        const Item it = resolved(*gd, capture("currency-facetors-lens.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Currency); // still priced by poe.ninja as well
+        CHECK(p.type == "Facetor's Lens");       // …but named, which is what makes it searchable
+        const NumericFilter* f = numeric_for(p, "stored_experience");
+        REQUIRE(f != nullptr);
+        CHECK(f->enabled);
+        CHECK(f->min == 42420246);
+        // Nothing about a lens can be unidentified, and trade does not index the flag for one.
+        CHECK(p.option("identified") == nullptr);
+    }
+
+    SUBCASE("a currency item with nothing to tell two copies apart is still not searched") {
+        const Item it = resolved(*gd, capture("currency-chaos-stack.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type.empty());
+        CHECK(numeric_for(p, "stored_experience") == nullptr);
+    }
+}
+
+TEST_CASE("a chart is a map: the area it covers, its shape, and its voyage modifier") {
+    const std::shared_ptr<GameData> gd = fixture();
+
+    SUBCASE("the area is the type, and none of the danger is searched") {
+        const Item it = resolved(*gd, capture("chart-rare-seafloor-ridges.txt"));
+        REQUIRE(it.is_chart());
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Map); // a chart shares it rather than getting one of its own
+        CHECK(p.category == "chart");
+        CHECK(p.rarity == "nonunique");
+        // Trade files a chart under the area, by its internal id and with a discriminator —
+        // "Seafloor Ridges" is not a type the site answers to.
+        CHECK(p.type == "SeafloorRidges");
+        CHECK(p.discriminator == "chart");
+
+        // Exact, the same reasoning as a map's tier: a level 83 area is a different area.
+        const NumericFilter* lvl = numeric_for(p, "area_level");
+        REQUIRE(lvl != nullptr);
+        CHECK(lvl->enabled);
+        CHECK(lvl->min == 83);
+        CHECK(lvl->max == 83);
+
+        const OptionFilter* shape = p.option("chart_shape");
+        REQUIRE(shape != nullptr);
+        // The site takes the shape's number and answers "Invalid chart shape" to its own text.
+        CHECK(shape->option == "1");
+        CHECK(shape->display == "End");
+        CHECK(shape->enabled);
+        CHECK(shape->shown);
+
+        // The promise of a voyage modifier is itself the searchable implicit.
+        const StatFilter* voyage = filter_saying(p, "Voyage Modifier");
+        REQUIRE(voyage != nullptr);
+        CHECK(voyage->enabled);
+        CHECK(voyage->type == ppc::data::ModType::Implicit);
+
+        // The affixes are the danger a buyer is choosing among, not the thing bought, so they
+        // are left out exactly as a map's are — and left out silently, in front of the reader.
+        CHECK(filter_saying(p, "Monster Life") == nullptr);
+        CHECK(p.notes.empty());
+
+        // Quantity and pack size ride the map path unchanged; rarity is offered, not imposed.
+        REQUIRE(numeric_for(p, "map_iiq") != nullptr);
+        CHECK(numeric_for(p, "map_iiq")->enabled);
+        CHECK(numeric_for(p, "map_packsize")->enabled);
+        CHECK_FALSE(numeric_for(p, "map_iir")->enabled);
+        CHECK(numeric_for(p, "map_tier") == nullptr); // a chart prints none
+    }
+
+    SUBCASE("the league's own currency is asked for like quantity, not like rarity") {
+        const Item it = resolved(*gd, capture("listing-chart-sulphur.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        const NumericFilter* s = numeric_for(p, "chart_sulphur");
+        REQUIRE(s != nullptr);
+        CHECK(s->enabled);
+        CHECK(s->min == 45);
+        CHECK_FALSE(s->max.has_value());
+    }
+
+    SUBCASE("an unidentified chart searches for that, and still for its area and shape") {
+        const Item it = resolved(*gd, capture("listing-chart-unidentified.txt"));
+        CHECK_FALSE(it.identified);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.type == "SeafloorRidges");
+        CHECK(p.option("chart_shape")->option == "1");
+        CHECK(flag_of(p, "identified") == false);
+        CHECK(p.option("identified")->shown);
+    }
+
+    SUBCASE("an area the bundle cannot name falls back to the chart's own base type") {
+        Item it = resolved(*gd, capture("chart-rare-seafloor-ridges.txt"));
+        it.type_line = "Trench Of Nowhere"; // a bundle published before the area existed
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.type == "Coral Reef Chart");
+        CHECK(p.discriminator.empty());
+        REQUIRE_FALSE(p.notes.empty());
+        CHECK(p.notes.front().find("Trench Of Nowhere") != std::string::npos);
     }
 }

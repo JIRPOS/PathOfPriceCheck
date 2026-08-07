@@ -22,7 +22,7 @@ SearchPlan rare_plan() {
     p.strategy = Strategy::Modifiers;
     p.category = "armour.helmet";
     // No `type`: the plan leaves it empty for a rare, and this layer sends what it was given.
-    p.corrupted = false;
+    p.options = {{"corrupted", "Corrupted", "false", "no"}};
     ppc::item::StatFilter f;
     f.id = "explicit.stat_3299347043";
     f.enabled = true;
@@ -184,7 +184,7 @@ TEST_CASE("a gem's level and quality are misc filters, and both are exact") {
     p.category = "gem.activegem";
     p.type = "Raise Zombie";
     p.discriminator = "alt_y"; // a transfigured gem: trade knows it by the skill it alters
-    p.corrupted = false;
+    p.options = {{"corrupted", "Corrupted", "false", "no"}};
     p.numerics = {{"gem_level", "Gem Level", 20, 20, true, 0, {}},
                   {"quality", "Quality", 20, 20, true, 0, {}}};
     const json q = query_of(p);
@@ -208,7 +208,7 @@ TEST_CASE("blight and a Valdo map's payout are map options, not type terms") {
     p.category = "map";
     p.type = "Map";
     p.discriminator = "map";
-    p.blighted = true;
+    p.options.push_back({"map_blighted", "Blighted", "true", "yes"});
     const json f = query_of(p)["filters"]["map_filters"]["filters"];
     // A type of "Blighted Map" is accepted by the site and matches nothing at all, so the
     // type stays the base every map shares and the flag says which kind it is.
@@ -217,16 +217,16 @@ TEST_CASE("blight and a Valdo map's payout are map options, not type terms") {
 
     // Never asked for in the negative: the two are mutually exclusive, so a blighted map's
     // own search already excludes the ravaged ones.
-    p.blighted = false;
-    p.blight_ravaged = true;
+    p.options.pop_back();
+    p.options.push_back({"map_uberblighted", "Blight-ravaged", "true", "yes"});
     const json g = query_of(p)["filters"]["map_filters"]["filters"];
     CHECK(g["map_uberblighted"]["option"] == "true");
     CHECK_FALSE(g.contains("map_blighted"));
 
     // The reward is an option over the unique list — the "Foil " the game prints in front of
     // it is the plan's to strip, and this layer sends the name it was given.
-    p.blight_ravaged = false;
-    p.map_reward = "Hrimsorrow";
+    p.options.pop_back();
+    p.options.push_back({"map_completion_reward", "Reward", "Hrimsorrow", "Hrimsorrow"});
     CHECK(query_of(p)["filters"]["map_filters"]["filters"]["map_completion_reward"]["option"] ==
           "Hrimsorrow");
 }
@@ -502,4 +502,55 @@ TEST_CASE("the static currency data keeps only what can be drawn") {
     CHECK(c[0].text == "Chaos Orb");
     CHECK(c[1].id == "dusk");
     CHECK(parse_static_currencies("{}").empty());
+}
+
+TEST_CASE("misc flags are sent as options, and an unticked one is not sent at all") {
+    SearchPlan p = rare_plan();
+    p.options = {{"corrupted", "Corrupted", "true", "yes", true, true},
+                 {"mirrored", "Mirrored", "false", "no"},
+                 {"identified", "Identified", "false", "no", false, true}};
+    const json misc = query_of(p)["filters"]["misc_filters"]["filters"];
+
+    CHECK(misc["corrupted"]["option"] == "true");
+    CHECK(misc["mirrored"]["option"] == "false");
+    // Whether a flag has a row is the panel's business; unticking it is what stops the asking.
+    CHECK_FALSE(misc.contains("identified"));
+}
+
+TEST_CASE("the three misc properties are filed under misc_filters, one-sided as seeded") {
+    SearchPlan p = rare_plan();
+    p.numerics = {{"memory_level", "Memory Strands", 43, std::nullopt, true, 0, {}},
+                  {"intangibility", "Intangibility", std::nullopt, 8, true, 0, {}},
+                  {"stored_experience", "Stored Experience", 42420246, std::nullopt, true, 0, {}}};
+    const json misc = query_of(p)["filters"]["misc_filters"]["filters"];
+
+    CHECK(misc["memory_level"]["min"] == 43);
+    CHECK_FALSE(misc["memory_level"].contains("max"));
+    CHECK(misc["intangibility"]["max"] == 8);
+    CHECK_FALSE(misc["intangibility"].contains("min"));
+    CHECK(misc["stored_experience"]["min"] == 42420246);
+}
+
+TEST_CASE("a chart's options and intervals go under map_filters, beside a map's") {
+    SearchPlan p;
+    p.strategy = Strategy::Map;
+    p.category = "chart";
+    p.type = "SeafloorRidges";
+    p.discriminator = "chart";
+    p.options = {{"corrupted", "Corrupted", "false", "no"},
+                 {"chart_shape", "Chart Shape", "1", "End", true, true}};
+    p.numerics = {{"area_level", "Area Level", 83, 83, true, 0, {}},
+                  {"chart_sulphur", "Dead Man's Sulphur", 45, std::nullopt, true, 0, {}}};
+    const json q = query_of(p);
+
+    CHECK(q["type"]["option"] == "SeafloorRidges");
+    CHECK(q["type"]["discriminator"] == "chart");
+    const json& map = q["filters"]["map_filters"]["filters"];
+    CHECK(map["chart_shape"]["option"] == "1");
+    CHECK(map["area_level"]["min"] == 83);
+    CHECK(map["area_level"]["max"] == 83);
+    CHECK(map["chart_sulphur"]["min"] == 45);
+    // The item's own booleans stay where they belong; only the map/chart ones move.
+    CHECK(q["filters"]["misc_filters"]["filters"]["corrupted"]["option"] == "false");
+    CHECK_FALSE(map.contains("corrupted"));
 }

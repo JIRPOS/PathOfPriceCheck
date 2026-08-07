@@ -1,0 +1,27 @@
+Item Class: Chart
+Rarity: Rare
+Marine Adventure
+Coral Reef Chart
+--------
+Seafloor Ridges
+Area Level: 83
+Item Quantity: +110% (augmented)
+Item Rarity: +38% (augmented)
+Dead Man's Sulphur: +45% (augmented)
+--------
+Requirements:
+Level: 66
+--------
+Item Level: 83
+--------
+Voyage Modifier will be revealed once Charted (implicit)
+--------
+Chart Shape: End
+--------
+Monsters have 80% chance to Avoid Elemental Ailments
+28% increased Monster Damage
++28% Monster Physical Damage Reduction
+Monsters deal 29% extra Physical Damage as Lightning
+45% increased Dead Man's Sulphur found in this Area
+--------
+Take this item to Valerie aboard the Sovereign to Chart this area.

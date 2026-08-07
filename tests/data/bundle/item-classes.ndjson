@@ -8,3 +8,4 @@
 {"id":"MapKey","itemClass":"Maps","tradeCategory":"map"}
 {"id":"Active Skill Gem","itemClass":"Skill Gems","tradeCategory":"gem.activegem"}
 {"id":"Support Skill Gem","itemClass":"Support Gems","tradeCategory":"gem.supportgem"}
+{"id":"DeepwaterChart","itemClass":"Chart","tradeCategory":"chart"}
