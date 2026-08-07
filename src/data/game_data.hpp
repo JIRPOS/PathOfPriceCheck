@@ -58,6 +58,18 @@ public:
     /// what tells "this unique has no record" apart from "nothing here has one".
     bool has_unique_mods() const { return unique_mods_name_index_.valid(); }
 
+    /// False for a bundle published before the currency-exchange flags existed, which is what
+    /// tells "this item does not trade there" apart from "nothing here says either way".
+    ///
+    /// The same distinction `has_unique_mods()` draws, but it cannot be drawn the same way:
+    /// that dataset is a whole file whose absence is the signal, while this one is a boolean on
+    /// records the bundle already had, and an absent boolean is indistinguishable from a false
+    /// one. So the signal is bundle-level — `source.exchange_items` in the manifest, written
+    /// only when the data build actually has a crawl behind it. Reading a missing flag as "does
+    /// not trade" would put every currency item back into the empty-panel case the dataset
+    /// exists to fix, on every bundle older than it.
+    bool has_exchange_flags() const { return exchange_items_ > 0; }
+
     /// "Item Class: Rings" -> the trade `category` option, e.g. "accessory.ring".
     /// Empty when the class has no trade category, which is not an error.
     std::string_view trade_category_for(std::string_view item_class) const;
@@ -91,6 +103,9 @@ private:
     std::unordered_map<std::string, ItemClass> classes_;
     std::string data_version_;
     std::string unique_mods_attribution_;
+    /// How many items the data build's crawl found trading on the currency exchange. 0 means
+    /// no dataset, never "none trade" — see `has_exchange_flags()`.
+    int exchange_items_ = 0;
 };
 
 } // namespace ppc::data

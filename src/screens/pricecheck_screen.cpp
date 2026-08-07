@@ -584,14 +584,19 @@ void draw_exchange_market(App& app, const MarketSide& item, const exchange::Rate
 
 /// What the **in-game currency exchange** did with this item in the last published hour.
 ///
-/// Drawn only when the item actually appears in that feed, which is the whole of the marker
-/// the row is: currency, cards, scarabs and fragments trade there and nothing else does. It is
-/// also why these items have no search below — an exchange market is not a listing, so the
-/// trade site has nothing to say about them, and offering a search for one is offering the
-/// wrong question rather than an empty answer.
+/// Three states, and the middle one is the reason the bundle carries a flag at all:
 ///
-/// False when the item does not trade there at all, which is the answer for most of what a
-/// price check sees — and then there is no section, so nothing to rule off either.
+/// - **A market this hour** — the table below, which is the price.
+/// - **No market this hour, but the item trades there.** The feed is hourly and a thin item
+///   (a Weeping Essence of Greed) goes hours without a trade, so silence is the normal case
+///   rather than an answer. Drawing nothing here left the panel empty — poe.ninja has no price
+///   for such an item either — and an empty panel reads as a check that failed. Saying so is
+///   the answer: it tells the user where the item is sold and that nobody sold one recently,
+///   which is itself worth knowing.
+/// - **Not traded there, or a bundle that cannot say** — no section at all. Claiming either
+///   way from a bundle with no exchange data would be a guess.
+///
+/// False when nothing was drawn, so the caller knows not to rule off an empty section.
 bool draw_exchange_price(App& app, const item::Item& it) {
     const ExchangeService& x = app.currency_exchange();
     if (x.state() == ExchangeState::Loading) {
@@ -599,7 +604,27 @@ bool draw_exchange_price(App& app, const item::Item& it) {
         return true;
     }
     const exchange::Listing* l = x.listing();
-    if (!l) return false; // not traded there, or no data: nothing to claim either way
+    if (!l) {
+        if (!app.trades_on_exchange()) return false;
+        ImGui::TextDisabled("Currency exchange");
+        ImGui::Indent(8.0f);
+        // Matched to the poe.ninja row's voice: what the source has to say, not what the app
+        // failed to do. "No trades in the past hour" is a fact about the market; "no price"
+        // would read as a fact about the check.
+        //
+        // But it is only a fact if the hour was actually read. A digest we failed to fetch says
+        // nothing about what traded in it, and stating the market was quiet on the strength of
+        // our own failed request is the one thing worse than saying nothing — the item still
+        // gets no trade search either way, so the user would have no way to tell.
+        ImGui::PushTextWrapPos(0.0f);
+        if (x.state() == ExchangeState::Error)
+            ImGui::TextColored(kWarn, "Traded here, but this hour's prices could not be fetched.");
+        else
+            ImGui::TextDisabled("Traded here, but no trades in the past hour.");
+        ImGui::PopTextWrapPos();
+        ImGui::Unindent(8.0f);
+        return true;
+    }
 
     ImGui::TextDisabled("Currency exchange");
     ImGui::Indent(8.0f);
@@ -681,7 +706,7 @@ void draw_search_controls(App& app) {
 /// word about it reads as a check that gave up rather than as one that has already finished.
 void draw_no_search_note(App& app) {
     ImGui::PushTextWrapPos(0.0f);
-    if (app.currency_exchange().listing()) {
+    if (app.trades_on_exchange()) {
         ImGui::TextDisabled("Traded on the in-game currency exchange, not through listings.");
     } else if (app.plan().strategy == item::Strategy::Currency) {
         ImGui::TextDisabled("Priced by poe.ninja, not by a trade search.");
@@ -907,7 +932,7 @@ void draw_pricecheck_screen(App& app) {
     // it: there is no query for the filters to shape and no listings for a note about an
     // unmatched modifier to have cost anybody. What is left is the item and its reference
     // prices, so the item moves back out of the gutter and into the column the filters had.
-    const bool searchable = trade::searchable(app.plan()) && !app.currency_exchange().listing();
+    const bool searchable = trade::searchable(app.plan()) && !app.trades_on_exchange();
     // The item itself lives in the gutter beside the panel, so the panel's own column is filters,
     // price and listings — the things that need the height. Drawn before the panel purely for
     // reading order; the two windows never overlap. 0 back means there was no gutter to draw it

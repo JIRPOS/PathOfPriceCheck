@@ -216,12 +216,21 @@ def main() -> int:
 
     # Not the source's manifest: the fixture is not a release, and nothing may mistake it for
     # one. The attribution is real, though — it is what the app is tested for crediting.
+    src_manifest = json.loads((src / "manifest.json").read_bytes())
+    source = {"unique_mods_attribution": "poewiki.net, CC BY-NC 3.0"}
+    # Carried through rather than invented: it is what `GameData::has_exchange_flags()` reads,
+    # and it is the *only* thing that tells a bundle predating the currency-exchange flags from
+    # one where the flag is genuinely absent because the item does not trade there. A fixture
+    # sliced from a bundle that has the dataset must say so, or the flags copied verbatim onto
+    # its item records would read as "unknown" and never be tested at all.
+    if items_exchange := src_manifest.get("source", {}).get("exchange_items", 0):
+        source["exchange_items"] = items_exchange
     manifest = {
         "schema_version": 1,
         "data_version": "fixture",
-        "game_patch": json.loads((src / "manifest.json").read_bytes()).get("game_patch", ""),
+        "game_patch": src_manifest.get("game_patch", ""),
         "languages": [LANG],
-        "source": {"unique_mods_attribution": "poewiki.net, CC BY-NC 3.0"},
+        "source": source,
         "files": [],
     }
     (out / "manifest.json").write_bytes(json.dumps(manifest, indent=2).encode() + b"\n")

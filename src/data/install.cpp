@@ -110,6 +110,10 @@ bool BundleStore::commit(const Manifest& m, std::string* err) const {
     // read back from there — not left behind in the manifest we downloaded and discarded.
     if (!m.unique_mods_attribution.empty())
         j["source"]["unique_mods_attribution"] = m.unique_mods_attribution;
+    // Written through for the same reason, and only when non-zero: its absence is exactly what
+    // says a bundle predates the currency-exchange flags, so writing a 0 would claim the
+    // opposite of what it means.
+    if (m.exchange_items > 0) j["source"]["exchange_items"] = m.exchange_items;
     if (!write_file(staging / "manifest.json", j.dump(2) + "\n"))
         return fail("cannot write manifest.json");
 

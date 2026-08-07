@@ -63,6 +63,16 @@ struct BaseType {
     /// on a unique, on anything the build could not match to game data, and on every bundle
     /// published before the field existed, which is why nothing may depend on it being there.
     std::string metadata_id;
+    /// True when this item has **ever** appeared in a currency-exchange market. A fact about
+    /// the item, unlike the hourly digest `exchange/` reads, which can only say whether one
+    /// traded in the last hour — and for a thin item (a Weeping Essence of Greed) no trades in
+    /// a given hour is the normal case. Without this the app cannot tell "not traded on the
+    /// exchange" from "nobody traded one this hour", and since poe.ninja prices neither, the
+    /// check comes back saying nothing at all.
+    ///
+    /// False both for an item that does not trade there and on a bundle published before the
+    /// flag existed, so it is only an answer once `GameData::has_exchange_flags()` is true.
+    bool exchange = false;
     int w = 0, h = 0;
     int drop_level = 0;
     bool corrupted = false;

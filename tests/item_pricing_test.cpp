@@ -1001,6 +1001,25 @@ TEST_CASE("what the in-game exchange trades in bulk has to resolve to a base to 
     CHECK(p.category == "card");
 }
 
+TEST_CASE("the bundle says which items trade on the exchange, whatever the hour did") {
+    auto gd = fixture();
+    // The hourly feed can only say whether one traded in the last hour, and for a thin item
+    // (a Weeping Essence of Greed) an hour with no trade is the normal case rather than an
+    // answer. This flag is the standing fact underneath it, and it is what the panel keys the
+    // "traded here, no trades in the past hour" line and the absence of a search off.
+    REQUIRE(gd->has_exchange_flags());
+    for (const char* f : {"currency-essence.txt", "card-blazing-fire.txt"}) {
+        const Item it = resolved(*gd, capture(f));
+        REQUIRE_MESSAGE(it.base != nullptr, f);
+        CHECK_MESSAGE(it.base->exchange, f);
+    }
+    // And a rolled item is not sold there at all, so the flag is a discriminator rather than
+    // something every record happens to carry.
+    const Item boots = resolved(*gd, capture("item_1.txt", "examples"));
+    REQUIRE(boots.base != nullptr);
+    CHECK_FALSE(boots.base->exchange);
+}
+
 TEST_CASE("a map is priced on where it goes and what was spent on it, never on its affixes") {
     auto gd = fixture();
 

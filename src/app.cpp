@@ -477,7 +477,18 @@ void App::accept_clipboard(std::string text) {
 }
 
 bool App::can_search() const {
-    return item_ && item_data_ && trade::searchable(plan_);
+    return item_ && item_data_ && trade::searchable(plan_) && !trades_on_exchange();
+}
+
+bool App::trades_on_exchange() const {
+    // Two sources, strongest evidence first. A market in the hour we fetched *proves* the item
+    // trades there, whatever the bundle says — which is also what keeps this working on a
+    // bundle published before the flag existed.
+    if (currency_exchange_.listing()) return true;
+    // Otherwise the bundle answers, and only where it has an answer to give: on an older bundle
+    // `has_exchange_flags()` is false and a missing flag means "unknown", not "no".
+    return item_ && item_->base && item_data_ && item_data_->has_exchange_flags() &&
+           item_->base->exchange;
 }
 
 void App::start_search() {

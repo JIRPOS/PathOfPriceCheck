@@ -119,6 +119,12 @@ public:
     /// False while there is nothing to search — no bundle, a strategy with no query behind it
     /// (currency), or a gem the bundle could not name.
     bool can_search() const;
+    /// Whether this item trades on the in-game currency exchange **at all**, which is what
+    /// decides that there is no trade search for it. A property of the item, so it is answered
+    /// from the bundle rather than from whichever hour the live feed happens to hold: keying it
+    /// off a market in the last hour gave a Weeping Essence of Greed a Search button that could
+    /// only ever come back empty, on every hour nobody happened to trade one in.
+    bool trades_on_exchange() const;
 
     /// Copy-path diagnostic log (util/debug_log). Toggling it takes effect immediately —
     /// waiting for Save would mean the run that reproduced the bug went unrecorded — but it

@@ -37,6 +37,13 @@ no API key, and never asks the user for account credentials.
   default. Static data (leagues, currency symbols) is cached for 24 hours and a week respectively.
 - **It fetches in the batch sizes the API specifies** — ten listing ids per `/fetch` request — and
   asks only for as many listings as the user configured.
+- **The in-game currency exchange feed is treated as its own thing.**
+  `web.poecdn.com/api/currency-exchange` is public and unauthenticated, and it is on the CDN rather
+  than the API host — so it publishes no rate-limit policy, and it is deliberately *not* sent
+  through the limiter above, which exists to serve budgets this endpoint does not state. What
+  stands in for one is that a published hour never changes and one download covers every item in
+  every league: the cost is per hour of play rather than per price check, and a digest already on
+  disk is never re-fetched.
 
 If anyone at GGG wants a change made here, [an issue](https://github.com/JIRPOS/PathOfPriceCheck/issues)
 is the route and it will be actioned. See [CONTACT.md](CONTACT.md).

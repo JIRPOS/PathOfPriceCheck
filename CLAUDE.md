@@ -13,7 +13,9 @@ rolled item's search does, and the **gem search**, which asks for three things a
 modifier at all. **poe.ninja reference pricing** — uniques, gems, currency and
 base types, the going rates a stat query cannot give — is built too, and so is the **in-game
 currency exchange feed** (GGG's own hourly digests of the market currency and fragments actually
-trade on, which is why those items have no trade search at all).
+trade on, which is why those items have no trade search at all) — together with the bundle's
+record of **which items trade there at all**, which is what tells an item nobody traded this hour
+from one that is not sold there.
 
 Keep this file in sync with reality; sections describing unbuilt layers say so explicitly.
 
@@ -409,6 +411,10 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   apart from "nothing here has one". The wiki attribution it is licensed on rides in the manifest's
   `source.unique_mods_attribution` and is written through by `install`, because an attribution that
   stays behind in the publisher's repo is not an attribution — Settings renders it.
+  **`source.exchange_items` rides the same path** and is read back as `has_exchange_flags()` — the
+  bundle-level signal saying whether `BaseType::exchange` means anything, because unlike a whole
+  missing file an absent boolean cannot tell "no data" from "no". `install` writes it only when
+  non-zero, since a 0 would claim the opposite of what it means. See the currency-exchange section.
 - **`data/stat_normalize`** turns `+42 to maximum Life` into `# to maximum Life` and its fallbacks.
   **`NORMALIZATION.md` in the data repo is normative** and this must reproduce it exactly — a
   divergence does not crash, it silently mismatches a mod and returns a confident wrong price.
@@ -1196,16 +1202,44 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
   line is drawn in `fonts.unicode` since a locale's date can be Cyrillic or CJK.
 - **Only markets against Chaos or Divine are kept.** A scarab-for-essence market is a real market
   and no use to somebody asking what a scarab is worth.
-- **A market only appears in an hour it traded in.** Measured on a live hour: 840 of the ~940
-  Allflame items that trade at all, and 115 of ~200 scarab varieties. An item with no market this
-  hour draws no exchange row at all — poe.ninja still prices it — rather than claiming a rate it
-  does not have.
-- **An item that appears in the feed gets no Search, no Open in browser and no filter list.** It
-  has no listings for either button to find, and a button that can only ever come back empty
+- **A market only appears in an hour it traded in, and the hour cannot say why.** Measured on a
+  live hour: 840 of the ~940 Allflame items that trade at all, and 115 of ~200 scarab varieties.
+  So silence in the digest is two different facts wearing one face — *this does not trade here*
+  and *nobody traded one this hour* — and for a thin item (a Weeping Essence of Greed) the second
+  is the normal case. Reading it as the first left such an item with no exchange row, no trade
+  search worth running and no poe.ninja price either: an empty panel, which reads as a check that
+  gave up.
+- **So which items trade there at all is a fact about the item, and it comes from the bundle.**
+  `data::BaseType::exchange` is set by the data build, which crawls every hourly digest since
+  Settlers launch and keeps the union of the metadata ids any market has ever named — 17.8k hours,
+  ~1,000 ids, one boolean on a record that already carries `metadata_id`. The digest still
+  supplies the *price*; this supplies the standing answer underneath it.
+  **A bundle published before the flag must not read as "does not trade,"** which an absent
+  boolean cannot say on its own — so the signal is bundle-level: `source.exchange_items` in the
+  manifest, written through by `install` beside the attribution, and read back as
+  `GameData::has_exchange_flags()`. Same distinction `has_unique_mods()` draws, drawn differently
+  because that dataset is a whole file whose absence is the signal and this one is a field on
+  records the bundle already had.
+- **The exchange section has three states**, and the middle one is why the flag exists: a market
+  this hour draws the table; no market but the item is flagged draws one line saying so; and not
+  flagged, or a bundle that cannot say, draws nothing at all. Claiming either way from a bundle
+  with no exchange data would be a guess.
+  That middle line is **"no trades this hour" only when the hour was actually read** — a digest
+  whose fetch failed says nothing about what traded in it, so that case says so instead. The
+  distinction is invisible otherwise: a flagged item gets no trade search either way, so stating
+  the market was quiet on the strength of our own failed request would leave the user no way to
+  tell an idle market from a broken download.
+- **An item that trades on the exchange gets no Search, no Open in browser and no filter list.**
+  It has no listings for either button to find, and a button that can only ever come back empty
   reads as the item being unsellable rather than as the wrong market having been asked. The
   filters go with them (see the panel layout above): they exist to shape a query nobody can run
   here, and their notes about unmatched modifiers charge the check with a failure it never
   attempted. One line says where the answer is instead.
+  **That is keyed off the flag, not off the hour** — `App::trades_on_exchange()`. Keying it off a
+  market in the last published hour gave a Weeping Essence of Greed a Search button on every hour
+  nobody happened to trade one in, and the message alone would not have fixed that. It takes two
+  sources, strongest evidence first: a market this hour *proves* the item trades there whatever
+  the bundle says, which is also what keeps this working on a bundle older than the flag.
 - **`ExchangeService`** is the fourth of the `LeagueService` family and the smallest, because the
   feed is: one digest in memory at a time, a lookup is a string compare, and the second check of
   the hour is free whatever the item. It is asked about **every** item, not only the ones planned
@@ -1214,6 +1248,14 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
 
 ### Still to build
 
+- **Any client language but English.** Every modifier is matched against the wording the client
+  printed, and those are language-specific, so a non-English client produces text nothing here
+  parses — it does not mis-price, it fails to recognise an item at all. The seam exists and is
+  unused: assets are language-prefixed, `GameData::open` takes the language, and `manifest.json`
+  declares a `languages` list. What is missing is upstream — the data build fetches only the
+  English `stat_descriptions.txt` files and emits one language — plus a setting to pick one.
+  Nothing in the schema has to change. **Say so in the README rather than letting it be
+  discovered**, which is why it is a Requirements row there.
 - **Telling apart the variants a modifier wording cannot.** `narrow_by_mods` resolves a unique
   whose variants differ in *wording*; the ones that differ only in a **number poe.ninja publishes
   for some variants and not others** stay a span. Mageblood is the case: the item prints "Leftmost
@@ -1401,7 +1443,10 @@ under that name at all.
 Two records in it are there for their **`metadataId`** rather than for anything a search does with
 them — `DIVINATION_CARD::The Blazing Fire` and `ITEM::Weeping Essence of Hatred` — because that
 field is the only key the in-game exchange states an item by, and it only reaches the app through a
-resolved base. `UNIQUE::Hrimsorrow` is there for the opposite reason: it is what turns a Valdo
+resolved base. They carry the **`exchange`** flag for the same reason, and the slicer copies
+`source.exchange_items` out of the source bundle's manifest so the fixture can say the flags are
+there to be read: without it `has_exchange_flags()` is false, the flags copied onto the records
+read as "unknown", and nothing about them is tested at all. `UNIQUE::Hrimsorrow` is there for the opposite reason: it is what turns a Valdo
 map's printed `Foil Hrimsorrow` into a name the trade site accepts. A **blighted** map needs no
 record at all, which is itself the point — it resolves against `ITEM::Map` like every other one.
 
