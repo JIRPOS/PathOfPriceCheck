@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
     branches: [master]
+    # A release PR carries nothing but the bumped VERSION, and the release it was cut for
+    # already built both targets from that very commit.
+    paths-ignore: [VERSION]
 
 jobs:
   test:
