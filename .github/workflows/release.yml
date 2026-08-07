@@ -77,7 +77,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # The oldest image GitHub still offers, because the binary's glibc floor is whatever it
+          # was built against: 2.35 here, against 2.39 on ubuntu-latest, which will not start on
+          # Debian 12 or Ubuntu 22.04. The AppImage bundles libcurl and OpenSSL but never glibc.
+          - os: ubuntu-22.04
             name: linux-x64
           - os: windows-latest
             name: win64
@@ -112,6 +115,26 @@ jobs:
             cp build/PathOfPriceCheck dist/
             (cd dist && tar czf "PathOfPriceCheck-${ver}-${{ matrix.name }}.tar.gz" PathOfPriceCheck)
           fi
+      # SDL3 is static but libcurl, OpenSSL and libstdc++ are the system's, so the bare binary
+      # assumes a distribution close to this runner. The AppImage carries them; libX11 and libGL
+      # stay the host's, as they must.
+      - name: Package AppImage
+        if: runner.os == 'Linux'
+        env:
+          OUTPUT: PathOfPriceCheck-${{ needs.prepare.outputs.version }}-linux-x64.AppImage
+          APPIMAGE_EXTRACT_AND_RUN: 1 # the runners have no FUSE, so every AppImage here unpacks itself
+        run: |
+          set -euo pipefail
+          base=https://github.com/linuxdeploy
+          curl -fsSLO $base/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fsSLO $base/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy*.AppImage
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir \
+            -e build/PathOfPriceCheck \
+            -d assets/popc.desktop \
+            -i assets/popc_icon.png \
+            --output appimage
+          mv "$OUTPUT" dist/
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}

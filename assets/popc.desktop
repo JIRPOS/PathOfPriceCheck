@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Path of Price Check
+GenericName=Price-check overlay
+Comment=Price-check the Path of Exile item under your cursor
+# Must match the basename of the icon linuxdeploy is given (assets/popc_icon.png).
+Icon=popc_icon
+Exec=PathOfPriceCheck
+Categories=Game;
+Keywords=Path of Exile;trade;price;overlay;
+Terminal=false
+StartupNotify=false
+StartupWMClass=PathOfPriceCheck

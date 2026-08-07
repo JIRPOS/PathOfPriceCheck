@@ -68,8 +68,19 @@ pick one. Until that is done, the honest answer is "English clients only".
 
 ## Install
 
-Grab the latest [release](https://github.com/JIRPOS/PathOfPriceCheck/releases): a `.zip` for win64,
-a `.tar.gz` for linux-x64. There is no installer — unpack it and run it.
+Grab the latest [release](https://github.com/JIRPOS/PathOfPriceCheck/releases). There is no
+installer — unpack it and run it.
+
+| | |
+|---|---|
+| **Windows** | `.zip` — one `.exe`, no DLLs beside it |
+| **Linux** | `.AppImage` — bundles libcurl and OpenSSL, so it does not care which ones your distribution ships |
+| **Linux** | `.tar.gz` — the bare binary, for anyone who would rather use their own libraries |
+
+Both Linux builds are compiled against glibc 2.35 (Ubuntu 22.04, Debian 12) and neither can bundle
+glibc itself, so an older distribution than that needs a build from source. If the AppImage refuses
+to start with a FUSE error, your distribution no longer installs `libfuse2`: run it as
+`./PathOfPriceCheck-*.AppImage --appimage-extract-and-run`, or install that package.
 
 On first launch it downloads the game-data bundle (~4 MB) from
 [PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data). Nothing is baked into the
