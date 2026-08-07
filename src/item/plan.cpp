@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <unordered_map>
+#include <utility>
 
 #include "data/stat_normalize.hpp"
 #include "item/resolve.hpp"

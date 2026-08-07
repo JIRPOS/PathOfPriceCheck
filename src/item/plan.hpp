@@ -98,8 +98,6 @@ struct OptionFilter {
     std::string display; ///< what the panel shows: "yes"/"no", "End"
     bool enabled = true;
     bool shown = false; ///< offered as a row the user can untick, rather than imposed silently
-
-    bool asks(bool v) const { return enabled && option == (v ? "true" : "false"); }
 };
 
 /// Everything a search for this item would ask for. Purely declarative — building the trade
