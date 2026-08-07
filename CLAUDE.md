@@ -144,9 +144,14 @@ modifiers, so "LShift" registers as "Shift".
   REMOVED: <…>
   ```
 
-  One sentence per line is enough for nearly everything. Where a line needs its *reason* — a
-  measurement, a rejected alternative, a rule that reads backwards without it — put it on the
-  following lines as bullet points under that entry, not in the entry itself.
+  One sentence per line, and for **nearly every line that is the whole entry**. Reasoning is the
+  exception, not the shape: add it only where the line reads as arbitrary or backwards without it
+  — a measurement that decided the design, a rule whose direction is not guessable. A reason under
+  every line is the failure mode, and it buries the two that matter.
+
+  Where a line does earn one, it goes on the following lines as bullet points, **with a blank line
+  before and after the bullets**. Without them GitHub folds the next `ADDED:` line into the bullet
+  as a lazy list continuation, and the body renders as nonsense.
 
   A **pull request summarises the commits it contains and invents nothing**: take each commit's
   own `ADDED:`/`CHANGED:`/`REMOVED:` lines, pool them, and re-sort into the same three groups.
