@@ -1540,7 +1540,7 @@ TEST_CASE("the misc_filters booleans ask the item to be what it is, and only say
         const Item it = resolved(*gd, kRareChest);
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
 
-        for (const char* key : {"corrupted", "mirrored", "identified"}) {
+        for (const char* key : {"corrupted", "mirrored", "mutated", "identified"}) {
             const OptionFilter* f = p.option(key);
             REQUIRE_MESSAGE(f != nullptr, key);
             CHECK(f->enabled);
@@ -1548,6 +1548,7 @@ TEST_CASE("the misc_filters booleans ask the item to be what it is, and only say
         }
         CHECK(flag_of(p, "corrupted") == false);
         CHECK(flag_of(p, "mirrored") == false);
+        CHECK(flag_of(p, "mutated") == false);
         // It is identified, so that is what the search asks for.
         CHECK(flag_of(p, "identified") == true);
     }
@@ -1581,6 +1582,18 @@ Unidentified
         CHECK(f->option == "true");
         CHECK(f->enabled);
         CHECK(f->shown);
+    }
+
+    SUBCASE("a foulborn unique asks for the mutation and offers the row") {
+        Item it = resolved(*gd, kRareChest);
+        it.foulborn = true;
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const OptionFilter* f = p.option("mutated");
+        REQUIRE(f != nullptr);
+        CHECK(f->label == "Foulborn"); // the site's key is `mutated`; the game's word is not
+        CHECK(f->option == "true");
+        CHECK(f->enabled);
+        CHECK(f->shown); // foulborn copies are their own market, and priced apart from the rest
     }
 
     SUBCASE("a gem is never asked to be identified") {

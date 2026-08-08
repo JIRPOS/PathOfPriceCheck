@@ -87,17 +87,17 @@ struct NumericFilter {
 };
 
 /// A filter the trade site takes as an **option** rather than as an interval: the booleans
-/// (corrupted, mirrored, identified, blighted), and the closed vocabularies (a chart's shape, a
-/// Valdo map's payout). One shape for all of them, because the wire form is the same — an
-/// `{"option": …}` under one of the filter groups — and the only thing that differs is where the
-/// string comes from.
+/// (corrupted, mirrored, foulborn, identified, blighted), and the closed vocabularies (a
+/// chart's shape, a Valdo map's payout). One shape for all of them, because the wire form is the
+/// same — an `{"option": …}` under one of the filter groups — and the only thing that differs is
+/// where the string comes from.
 ///
 /// **`shown` is the whole point of the struct.** Most of these are answered by the item without
-/// the user having anything to decide: an uncorrupted, unmirrored, identified rare is the
-/// ordinary case, and three rows saying so would push the modifiers — the thing being read —
+/// the user having anything to decide: an uncorrupted, unmirrored, unmutated, identified rare is
+/// the ordinary case, and four rows saying so would push the modifiers — the thing being read —
 /// off the panel. So they are imposed silently. It is the *unusual* value that is worth a row,
-/// because that is the one a buyer might want to relax: a mirrored item cannot be crafted on,
-/// an unidentified one is a different product, and a corrupted one is a different market.
+/// because that is the one a buyer might want to relax: a mirrored item cannot be crafted on, an
+/// unidentified one is a different product, and a corrupted or foulborn one is a different market.
 struct OptionFilter {
     std::string key;     ///< the filter's name: "corrupted", "chart_shape", "map_blighted"
     std::string label;   ///< "Corrupted", "Chart Shape"

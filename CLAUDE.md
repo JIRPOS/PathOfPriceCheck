@@ -349,7 +349,11 @@ holds no SDL/X11/curl and every layer can log into it.
   `clipboard_poke`). Suspect it first whenever turning the log on changes the behaviour being logged.
 
 A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
-the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
+the SDL3+GL+ImGui window; `Config` persists to JSON. **`SDL_HINT_VIDEO_ALLOW_SCREENSAVER` is set
+back on**: SDL disables the screensaver at video init on the assumption that it is running a game,
+and on Linux that is an `org.freedesktop.ScreenSaver` inhibit — reason "Playing a game" — held for
+the life of the process, so an application that sits in the tray all day stopped the machine from
+sleeping. The game does its own inhibiting; we are a desktop app. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check panel on a captured
 clipboard instead, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
 appears while the game is the window in front).
@@ -691,16 +695,16 @@ bundle, and only the third and fourth encode pricing judgement.
   none of them, because it never touches what the weapon displays. The base percentile is the one
   derived number a local roll is **not** inside: it is recovered by taking those rolls back out.
   **Everything the site takes as an `{"option": …}` is a `SearchPlan::options` entry** — the
-  booleans (corrupted, mirrored, identified, blighted), and the closed vocabularies (a chart's
-  shape, a Valdo map's payout). One struct, because the wire form is one thing and only the
+  booleans (corrupted, mirrored, foulborn, identified, blighted), and the closed vocabularies (a
+  chart's shape, a Valdo map's payout). One struct, because the wire form is one thing and only the
   source of the string differs; `option_group_for` in `trade/query` is what files each under
   `misc_filters` or `map_filters`.
   The rule for the booleans is one line: the search
   asks the item to be what it is, and it says so out loud only where that is not the ordinary
   answer. `OptionFilter::shown` is the whole of the struct's reason to exist — an uncorrupted,
-  unmirrored, identified item is what nearly every check is about, so those three are imposed
-  with no row at all, and three rows saying nothing is unusual would push the modifiers off the
-  panel. The *unusual* value gets the row, because that is the one a buyer might want to widen
+  unmirrored, unmutated, identified item is what nearly every check is about, so those four are
+  imposed with no row at all, and four rows saying nothing is unusual would push the modifiers off
+  the panel. The *unusual* value gets the row, because that is the one a buyer might want to widen
   back out: a mirrored item cannot be crafted on, an unidentified one is a different product, a
   corrupted one is a different market. Synthesis and fracturing are asked in one direction only —
   evidence about the copy in hand rather than a choice, and an ordinary item's search has no
@@ -709,6 +713,15 @@ bundle, and only the third and fourth encode pricing judgement.
   under `category: gem` and **0** for a Facetor's Lens, against 10000 and 177 without it, because
   trade indexes the flag only for what can be unidentified. `mirrored: false` was checked the
   same way and is safe everywhere.
+  **Foulborn is one of those booleans and the site's key for it is `mutated`.** Chayula's
+  mutation is a different item at a different price — measured on Tulfall: 3855 listings in all,
+  1896 not foulborn and 1960 foulborn, and the mutated ones *cheaper* — so a search that leaves
+  it open prices the two markets together and undercuts the copy in hand. Nothing about it is a
+  flag line: the game states it as a prefix on the name ("Foulborn Romira's Banquet") and as the
+  info line of the modifier it added, and `parse_item` takes either, the name being the half that
+  survives Advanced Mod Descriptions being off. `mutated: false` is safe everywhere `mirrored`
+  is, checked the same way (655/655 gems, 1299 Facetor's Lenses, 10000 wands and 10000 tier-16
+  maps either way), so it is imposed at every strategy even though only a unique can be one.
 - **`item/plan`'s three property filters** (`add_property_filters`) are the `misc_filters`
   intervals that come off a **property line** rather than off a modifier, so none has a tier to
   gate against and none gets a window: the number is what this copy has, and all a filter can say
@@ -979,7 +992,14 @@ and divine ones interleave correctly and are **not** out of order.
 
 The account is the **whole** handle, `Name#1234` — the digits are what tells two players sharing a
 name apart — and is drawn in `fonts.unicode` (above), since a Cyrillic or Korean handle is boxes in
-Fontin. The price copies the site's own form, `5 x [symbol] Divine Orb`: the symbol arrives off the
+Fontin. **A listing of the user's own is tinted green and says `(you)`**, matched against
+`Config::account_name` when that has been filled in — case-insensitively, since the handle is typed
+into Settings by hand and one entered with the wrong capital would fail to light up with nothing on
+screen to say so. It is `ImGuiTableBgTarget_RowBg1`, which tints the alternating stripe rather than
+replacing it, and the words are there because a green row is nothing at all to a reader who cannot
+see green. Own listings are what a price is otherwise read straight off: one sitting at the top of
+the page reads as the market's floor, which it is not.
+The price copies the site's own form, `5 x [symbol] Divine Orb`: the symbol arrives off the
 CDN in the background, so the currency is **named** as well as pictured and the row reads correctly
 before it lands. A lowercase `x` rather than the site's `×`, which Fontin draws as `?`. The
 listing's **gold fee** (`listing.fee`, a sibling of `price`, not a field of it) is shown, and

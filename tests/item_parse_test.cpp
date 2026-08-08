@@ -299,6 +299,9 @@ TEST_CASE("a catalyst names the mods it scaled and the item's own quality kind")
     CHECK(it.quality == 20);
     CHECK(it.quality_kind == "Critical Modifiers");
     CHECK(it.name == "Foulborn Romira's Banquet");
+    // No flag line says so: the name prefix and the added modifier's info line are the two
+    // statements, and either one on its own is enough.
+    CHECK(it.foulborn);
 
     // The catalyst scaled the Critical-tagged mods, and the roll printed for them is the
     // unscaled one — the tooltip shows 36% where the clipboard says 30.

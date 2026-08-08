@@ -152,6 +152,11 @@ int App::run() {
     // focus for Settings (claimed explicitly). Stealing focus would break the copy.
     SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, "0");
     SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_RAISED, "0");
+    // SDL disables the screensaver at video init on the assumption it is running a
+    // game, and on Linux holds an org.freedesktop.ScreenSaver inhibit — reason
+    // "Playing a game" — for the life of the process, so an idle tray app blocks
+    // sleep. The game does its own inhibiting; we are a desktop app.
+    SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return 1;
