@@ -14,3 +14,6 @@ imgui.ini
 assets/fonts/*.ttf
 assets/fonts/*.otf
 assets/fonts/Fontin-LICENSE.txt
+
+# built website
+_site/
