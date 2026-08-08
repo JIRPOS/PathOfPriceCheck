@@ -41,6 +41,8 @@ Config Config::load() {
     }
     c.league = j.value("league", c.league);
     c.account_name = j.value("account_name", c.account_name);
+    c.client_language = j.value("client_language", c.client_language);
+    c.ui_language = j.value("ui_language", c.ui_language);
     c.poe_window_title = j.value("poe_window_title", c.poe_window_title);
     if (j.contains("hotkeys")) {
         const auto& h = j["hotkeys"];
@@ -76,6 +78,8 @@ bool Config::save() const {
     json j;
     j["league"] = league;
     j["account_name"] = account_name;
+    j["client_language"] = client_language;
+    j["ui_language"] = ui_language;
     j["poe_window_title"] = poe_window_title;
     j["hotkeys"]["price_check"] = to_string(price_check);
     j["hotkeys"]["settings"] = to_string(settings);

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "item/item.hpp"
+#include "parse_en.hpp"
 
 namespace fs = std::filesystem;
 using namespace ppc::item;
@@ -28,7 +29,7 @@ std::string capture(const char* dir, const char* name) {
 }
 
 Item parse(const char* dir, const char* name) {
-    std::optional<Item> it = parse_item(capture(dir, name));
+    std::optional<Item> it = parse_item_en(capture(dir, name));
     REQUIRE_MESSAGE(it.has_value(), "failed to parse " << name);
     return *it;
 }
@@ -44,9 +45,9 @@ const Modifier* find_mod(const Item& it, std::string_view first_line) {
 } // namespace
 
 TEST_CASE("text that is not an item is rejected") {
-    CHECK_FALSE(parse_item("").has_value());
-    CHECK_FALSE(parse_item("git commit -m nope").has_value());
-    CHECK(looks_like_item("Item Class: Rings\nRarity: Normal\nIron Ring"));
+    CHECK_FALSE(parse_item_en("").has_value());
+    CHECK_FALSE(parse_item_en("git commit -m nope").has_value());
+    CHECK(looks_like_item_en("Item Class: Rings\nRarity: Normal\nIron Ring"));
 }
 
 TEST_CASE("decimals survive a locale whose separator is not a dot") {
@@ -152,7 +153,7 @@ TEST_CASE("an info line separated by a plain hyphen parses the same") {
     // What a Latin-1 clipboard read hands us: Wine serves CF_TEXT as the X11 STRING target and
     // the em dash comes through as '-'. The same copy alternates between the two forms, so an
     // item must not price differently depending on which one the poll caught.
-    const std::optional<Item> parsed = parse_item(R"(Item Class: Body Armours
+    const std::optional<Item> parsed = parse_item_en(R"(Item Class: Body Armours
 Rarity: Rare
 Rift Carapace
 Twilight Regalia
@@ -314,9 +315,9 @@ TEST_CASE("a catalyst names the mods it scaled and the item's own quality kind")
     // A modifier added to the unique, which not every copy of it has.
     const Modifier& added = it.mods.back();
     CHECK(added.generation == "Foulborn Unique");
-    CHECK(added.added_unique());
+    CHECK(added.added_unique);
     CHECK(added.lines.front() == "+1 to Maximum Power Charges");
-    CHECK_FALSE(find_mod(it, "+54(40-60) to maximum Mana")->added_unique());
+    CHECK_FALSE(find_mod(it, "+54(40-60) to maximum Mana")->added_unique);
     CHECK(it.flavour_text.size() == 4);
 }
 

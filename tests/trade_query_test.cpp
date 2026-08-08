@@ -6,6 +6,7 @@
 #include "item/item.hpp"
 #include "trade/currency.hpp"
 #include "trade/query.hpp"
+#include "parse_en.hpp"
 #include "util/base64.hpp"
 
 using namespace ppc::trade;
@@ -434,7 +435,7 @@ TEST_CASE("the mod-type markers the site's item text leaves off are put back") {
     std::vector<Listing> ls;
     REQUIRE(parse_fetch(body, ls));
     REQUIRE(ls.size() == 1);
-    const std::optional<ppc::item::Item> it = ppc::item::parse_item(ls[0].item_text);
+    const std::optional<ppc::item::Item> it = ppc::item::parse_item_en(ls[0].item_text);
     REQUIRE(it);
     CHECK(it->fractured_item);
     REQUIRE(it->mods_of(ppc::data::ModType::Fractured).size() == 1);

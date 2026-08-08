@@ -22,6 +22,7 @@
 #include "screens/pricecheck_screen.hpp"
 #include "screens/settings_screen.hpp"
 #include "trade/query.hpp"
+#include "ui/strings.hpp"
 #include "util/debug_log.hpp"
 
 namespace ppc {
@@ -207,6 +208,8 @@ int App::run() {
     // Reclaim superseded bundles and map the installed one before anything else can hold a
     // mapping — on Windows a mapped directory cannot be removed.
     updater_.init(cache_dir() / "data", data_event_);
+    ui::set_language(config_.ui_language, config_.client_language);
+    updater_.set_language(config_.client_language);
     data_ = updater_.load_installed();
     updater_.start_check(); // background; the panel degrades gracefully until it lands
 
@@ -533,7 +536,7 @@ const ListingItem* App::listing_item(size_t i) {
     if (slot) return &*slot;
 
     ListingItem li;
-    li.item = item::parse_item(ls[i].item_text);
+    li.item = item::parse_item(ls[i].item_text, item_lexicon());
     if (li.item) {
         // The same snapshot the item in hand was pinned to, and for the same reason: the
         // updater swaps `data_` from its own thread, and a resolved item points into the
@@ -549,10 +552,11 @@ const ListingItem* App::listing_item(size_t i) {
 }
 
 void App::rebuild_plan() {
-    item_ = item::parse_item(clipboard_);
-    // Pin the snapshot the item is resolved against: the updater swaps `data_` from its own
-    // thread, and every stat the item points at lives in the bundle it was matched in.
+    // Pin the snapshot the item is resolved against *before* reading it: the updater swaps
+    // `data_` from its own thread, every stat the item points at lives in the bundle it was
+    // matched in, and the vocabulary the text is read with has to come from that same bundle.
     item_data_ = data_;
+    item_ = item::parse_item(clipboard_, item_lexicon());
     plan_ = {};
     derived_ = {};
     if (!item_) {
@@ -915,6 +919,10 @@ void App::end_capture() {
 void App::apply_and_save_config() {
     config_.save();
     rebind_hotkeys();
+    // Our own text redraws in the new language at once; the client language does not, because
+    // the bundle was opened with the old one and every parsed item points into it. Settings
+    // says so on the row rather than pretending the change has landed.
+    ui::set_language(config_.ui_language, config_.client_language);
 }
 
 void App::rebind_hotkeys() {

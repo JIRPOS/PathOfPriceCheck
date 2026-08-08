@@ -596,7 +596,12 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
     q.item_class = it.item_class;
     q.corrupted = it.corrupted;
     q.links = max_links(it.sockets);
-    q.base_type = it.base_name.empty() ? it.base_type : it.base_name;
+    // poe.ninja publishes English names whatever language the client is, so a resolved
+    // record's reference name is what is matched against; the printed one is the fallback for
+    // an item nothing resolved, where English is the only language it can have been.
+    q.base_type = it.base && !it.base->ref_name.empty()
+                      ? it.base->ref_name
+                      : (it.base_name.empty() ? it.base_type : it.base_name);
 
     // A gem is looked up under one name and no other. `gem_name()` is what poe.ninja lists it
     // as, which for a Vaal gem is not what the clipboard printed — a Vaal Blight prints
@@ -607,8 +612,11 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
     } else {
         // The printed name first: poe.ninja prices "Foulborn Headhunter" as its own line, and
         // it is not a Headhunter. Currency prints its name on the base line instead.
+        const std::string unique_ref =
+            it.unique_entry && !it.unique_entry->ref_name.empty() ? it.unique_entry->ref_name
+                                                                  : std::string();
         for (const std::string* n : std::initializer_list<const std::string*>{
-                 &it.name, &plan.name, &q.base_type, &it.base_type})
+                 &unique_ref, &it.name, &plan.name, &q.base_type, &it.base_type})
             if (!n->empty() && std::find(q.names.begin(), q.names.end(), *n) == q.names.end())
                 q.names.push_back(*n);
     }
@@ -627,7 +635,7 @@ Query query_for(const item::Item& it, const item::SearchPlan& plan, std::string_
     // "Stack Size: 6000/20" — the count, not the maximum, which is what fits in one inventory
     // slot and says nothing about a currency stash tab's five or ten thousand.
     for (const item::Property& p : it.properties)
-        if (p.label == "Stack Size" && p.num && *p.num >= 1)
+        if (p.key == data::PropertyKey::StackSize && p.num && *p.num >= 1)
             q.stack = static_cast<int>(*p.num);
 
     if (plan.strategy == item::Strategy::Gem) {

@@ -50,21 +50,33 @@ the game in the game's own typeface.
 | **Windows** | 10 or later. Single `.exe`, no runtime, no DLLs. |
 | **Linux** | An **X11 session**. Wayland is not supported — it blocks global hotkeys and click-through overlays without portals this project does not yet use. |
 | **The game** | Native client, or Wine/Proton. |
-| **Game language** | **English only.** The whole tool works by matching the wordings the client prints, so a client set to any other language is not read at all. See below. |
+| **Game language** | **English only, today.** The whole tool works by matching the wordings the client prints. Other languages are wired for and waiting on published data — see below. |
 
 ### Only an English client, for now
 
 Everything here starts from the text the game writes to your clipboard, and every modifier is
 matched against the wording the client printed. Those wordings are language-specific, so a
-non-English client produces item text this tool cannot parse — it will not mis-price an item, it
-simply will not recognise one.
+client set to another language produces item text this tool cannot parse — it will not mis-price
+an item, it simply will not recognise one.
 
-This is a **stretch goal, not a design limit.** The seam is already there and unused: every data
-file is language-prefixed (`en-items.ndjson`, `en-stats.ndjson`), the bundle loader takes the
-language as a parameter, and the manifest declares which languages a release carries. What is
-missing is the work behind it — GGG ships localised stat-description files that the data builder
-does not currently fetch, so no other language is built or published, and there is no setting to
-pick one. Until that is done, the honest answer is "English clients only".
+This is a **stretch goal, not a design limit**, and the application side of it is now built.
+Every word the client prints — the section labels, the flag lines, the property names, the
+Advanced Mod Descriptions vocabulary — is read from a table rather than compared against a
+literal, English is one entry in that table, and Settings has a **Client language** row listing
+whatever the installed data bundle declares. There is one build for every language: what a
+language costs is a data release, not a separate download.
+
+What is still missing is upstream. GGG ships localised stat-description files that the data
+builder does not yet fetch, so `en` is the only language any bundle declares and the row has one
+entry in it. Two smaller things follow that data rather than lead it: a unique's poe.ninja
+variant is still matched on the wording the client printed, and a weapon's DPS is still totalled
+from English modifier wordings, so both fall back to what a printed range can prove until there
+is a translated bundle to verify them against.
+
+The application's **own** text — Settings, the panel, the buttons — is a separate setting
+(**Interface**, defaulting to whichever the client is) and a separate table. Only English is
+written so far. Translating it buys nothing toward reading a translated client, which is why the
+two are not one switch.
 
 ## Install
 

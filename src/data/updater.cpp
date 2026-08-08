@@ -42,7 +42,7 @@ std::shared_ptr<GameData> DataUpdater::load_installed() {
     if (dir.empty()) return nullptr;
 
     std::string err;
-    auto gd = GameData::open(dir, "en", &err);
+    auto gd = GameData::open(dir, language_, &err);
     if (!gd) {
         SDL_Log("data: installed bundle is unusable (%s); will re-download", err.c_str());
         return nullptr;
@@ -201,7 +201,7 @@ void DataUpdater::run() {
     }
 
     // Map on this thread, so a corrupt bundle fails here rather than inside a frame.
-    auto gd = GameData::open(store.version_dir(m.data_version), "en", &err);
+    auto gd = GameData::open(store.version_dir(m.data_version), language_, &err);
     if (!gd) {
         fail("installed but unusable: " + err);
         busy_ = false;

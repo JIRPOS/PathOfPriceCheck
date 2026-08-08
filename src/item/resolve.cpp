@@ -156,7 +156,14 @@ void resolve_base(const data::GameData& gd, Item& it) {
     // the site accepts and matches nothing at all, and no bundle carries a base under that
     // name either. Measured — a tier-12 search sent as "Blighted Map" returned 0 listings
     // against 1398 for the Map base plus the filter.
-    if (it.blighted || it.blight_ravaged) it.base_name = "Map";
+    //
+    // "Map" is a *reference* name and not what a translated client prints, so the redirect
+    // goes through the ref index and the base's own display name is what `base_name` becomes.
+    if (it.blighted || it.blight_ravaged) {
+        const std::vector<const data::BaseType*> maps =
+            gd.find_bases_by_ref(data::Namespace::Item, "Map");
+        if (!maps.empty()) it.base_name = maps.front()->name;
+    }
 
     for (const data::BaseType* b : gd.find_bases(data::Namespace::Item, it.base_name)) {
         // Same-named bases (the three Two-Stone Rings) are told apart by their defences,

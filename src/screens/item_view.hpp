@@ -20,6 +20,9 @@ std::string strip_roll_ranges(std::string_view line);
 ///
 /// `d` supplies the numbers the game leaves the player to work out — DPS, the base's
 /// percentile — which are printed in small grey under the property block they summarise.
-void draw_item_tooltip(const item::Item& it, const item::Derived& d, const Fonts& fonts);
+/// `lex` is the vocabulary the item was parsed with: an info line is taken apart during
+/// parsing and rebuilt here, so the words between its pieces come from the same table.
+void draw_item_tooltip(const item::Item& it, const item::Derived& d, const Fonts& fonts,
+                       const data::Lexicon& lex);
 
 } // namespace ppc

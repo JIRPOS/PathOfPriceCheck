@@ -83,6 +83,13 @@ public:
 
     /// The item the current price check is about, or null while there is none. Valid until
     /// the next price check: it points into the bundle snapshot `item_data_` pins.
+    /// The vocabulary the item in hand was read with — the pinned bundle's, so it stays the
+    /// one the item was parsed against even after the updater swaps a newer bundle in.
+    /// English while no bundle is installed, which is what the compiled-in table is for.
+    const data::Lexicon& item_lexicon() const {
+        return item_data_ ? item_data_->lexicon() : data::Lexicon::english();
+    }
+
     const item::Item* item() const { return item_ ? &*item_ : nullptr; }
     const item::Derived& derived() const { return derived_; }
     item::SearchPlan& plan() { return plan_; }

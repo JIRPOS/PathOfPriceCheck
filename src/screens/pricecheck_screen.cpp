@@ -929,7 +929,7 @@ float draw_item_card(App& app, const item::Item& it) {
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav);
-    draw_item_tooltip(it, app.derived(), app.fonts());
+    draw_item_tooltip(it, app.derived(), app.fonts(), app.item_lexicon());
     const float bottom = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
     ImGui::End();
     return bottom;
@@ -965,7 +965,7 @@ void draw_listing_tooltip(App& app, const trade::Listing& l, const ListingItem& 
         ImGui::SetNextWindowSize(ImVec2(lay.panel_w, 0.0f));
     }
     ImGui::BeginTooltip();
-    draw_item_tooltip(*li.item, li.derived, app.fonts());
+    draw_item_tooltip(*li.item, li.derived, app.fonts(), app.item_lexicon());
     // The gold the trade takes on top of the price, under the seller's own note — which is
     // where the site puts it, and the only place it can go now that a competing tooltip is
     // not an option.
@@ -1157,7 +1157,7 @@ void draw_pricecheck_screen(App& app) {
         // In the panel whenever it is not in the gutter: either the game window left no room
         // for one, or there are no filters for it to be making room for.
         if (gutter_top == 0.0f) {
-            draw_item_tooltip(*it, app.derived(), app.fonts());
+            draw_item_tooltip(*it, app.derived(), app.fonts(), app.item_lexicon());
             ImGui::Dummy(ImVec2(0, 8));
             ImGui::Separator();
         }

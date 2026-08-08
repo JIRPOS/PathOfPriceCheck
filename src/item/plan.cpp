@@ -64,13 +64,35 @@ void add_flag(SearchPlan& p, std::string key, std::string label, bool value, boo
                shown);
 }
 
+/// The name the *trade site* files a record under, which is not always the one the client
+/// printed. Three names can differ and the order between them matters:
+///
+/// - `trade_name`, where the site files the item somewhere else entirely — a transfigured gem
+///   goes under the skill it alters, and sending what the clipboard printed matches nothing;
+/// - `ref_name`, the English name every localised bundle carries beside the printed one,
+///   because the trade API's `name`/`type` terms are English whatever language the client is;
+/// - `name`, the printed one, which is the same string as `ref_name` on an English bundle and
+///   on every bundle published before `refName` existed.
+std::string_view wire_name(const data::BaseType* b) {
+    if (!b) return {};
+    if (!b->trade_name.empty()) return b->trade_name;
+    return b->ref_name.empty() ? b->name : b->ref_name;
+}
+
+/// The base as trade knows it, or what the client printed when nothing resolved — in which
+/// case the search is as good as the bundle allowed, which is what the plan's notes say.
+std::string base_wire_name(const Item& it) {
+    const std::string_view n = wire_name(it.base);
+    return n.empty() ? it.base_name : std::string(n);
+}
+
 /// A property the game prints as `Label: value`, turned into the `misc_filters` interval trade
 /// indexes it under. These are not rolls and there is no tier behind them — the number is
 /// simply what this copy has — so the filter is one-sided, and which side it is open on is what
 /// "better" means for that property.
-const Property* property_of(const Item& it, std::string_view label) {
+const Property* property_of(const Item& it, data::PropertyKey key) {
     for (const Property& p : it.properties)
-        if (p.label == label) return &p;
+        if (p.key == key) return &p;
     return nullptr;
 }
 
@@ -84,9 +106,9 @@ std::string quality_note(const Item& it) {
 /// copy* raised it above what the base gives. It is the only statement the clipboard makes
 /// about a property being better than default, and the bundle carries no base crit chance or
 /// attack speed to compare against.
-bool property_augmented(const Item& it, std::string_view label) {
+bool property_augmented(const Item& it, data::PropertyKey key) {
     return std::any_of(it.properties.begin(), it.properties.end(),
-                       [label](const Property& p) { return p.label == label && p.augmented; });
+                       [key](const Property& p) { return p.key == key && p.augmented; });
 }
 
 void add_defences(SearchPlan& p, const Item& it, const Derived& d, bool enabled) {
@@ -130,9 +152,9 @@ void add_weapon(SearchPlan& p, const Item& it, const Derived& d, bool enabled) {
     // worth searching is a modifier having raised it — and the game says exactly that by
     // printing the value augmented.
     add_numeric(p, "aps", "Attacks per Second", it.attacks_per_second,
-                enabled && property_augmented(it, "Attacks per Second"), 2);
+                enabled && property_augmented(it, data::PropertyKey::AttacksPerSecond), 2);
     add_numeric(p, "crit", "Critical Strike Chance", it.crit_chance,
-                enabled && property_augmented(it, "Critical Strike Chance"), 2);
+                enabled && property_augmented(it, data::PropertyKey::CriticalStrikeChance), 2);
 }
 
 /// The roll a trade filter for this mod is compared against, and the tier's range for it.
@@ -285,7 +307,7 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
             // crafted onto this copy, and an implicit corruption or synthesis could have put
             // there — there is no way to tell an added implicit from the unique's own without
             // per-unique mod data.
-            f.enabled = variable || m.added_unique() || added_to_copy(m.type) ||
+            f.enabled = variable || m.added_unique || added_to_copy(m.type) ||
                         (m.type == data::ModType::Implicit && (it.corrupted || it.synthesised));
             break;
         case Strategy::Map:
@@ -546,16 +568,19 @@ std::optional<int> map_affix_count(const Item& it) {
 /// with no single modifier behind it, which is why `StatFilter::mod_index` is optional.
 void add_map_pseudo(const Item& it, SearchPlan& p) {
     struct Drop {
-        const char* label; ///< the property the game prints
+        data::PropertyKey key; ///< the property the game prints
         const char* id;
         const char* text; ///< the trade site's own wording, so the two read alike
     };
     // Every "More" the chisels grant; there is no fifth pseudo stat in /api/trade/data/stats.
     static constexpr Drop kDrops[]{
-        {"More Maps", "pseudo.pseudo_map_more_map_drops", "More Maps: #%"},
-        {"More Scarabs", "pseudo.pseudo_map_more_scarab_drops", "More Scarabs: #%"},
-        {"More Currency", "pseudo.pseudo_map_more_currency_drops", "More Currency: #%"},
-        {"More Divination Cards", "pseudo.pseudo_map_more_card_drops", "More Divination Cards: #%"},
+        {data::PropertyKey::MoreMaps, "pseudo.pseudo_map_more_map_drops", "More Maps: #%"},
+        {data::PropertyKey::MoreScarabs, "pseudo.pseudo_map_more_scarab_drops",
+         "More Scarabs: #%"},
+        {data::PropertyKey::MoreCurrency, "pseudo.pseudo_map_more_currency_drops",
+         "More Currency: #%"},
+        {data::PropertyKey::MoreDivinationCards, "pseudo.pseudo_map_more_card_drops",
+         "More Divination Cards: #%"},
     };
 
     const auto pseudo = [&p](const char* id, const char* text, double min, bool enabled) {
@@ -569,8 +594,8 @@ void add_map_pseudo(const Item& it, SearchPlan& p) {
     };
 
     for (const Drop& d : kDrops)
-        for (const Property& prop : it.properties)
-            if (prop.label == d.label && prop.num) pseudo(d.id, d.text, *prop.num, true);
+        if (const Property* prop = property_of(it, d.key); prop && prop->num)
+            pseudo(d.id, d.text, *prop->num, true);
 
     // Only on a corrupted map: below eight the count is what every rare map of its rarity has,
     // and filtering on it would drop the six-mod maps that are the same item.
@@ -644,7 +669,7 @@ void plan_gem(const Item& it, SearchPlan& p) {
                               : name);
         return;
     }
-    p.type = it.base->trade_name.empty() ? it.base->name : it.base->trade_name;
+    p.type = std::string(wire_name(it.base));
     p.discriminator = it.base->trade_disc;
 
     const auto exact = [&p](const char* key, const char* label, std::optional<int> v) {
@@ -661,8 +686,7 @@ void plan_gem(const Item& it, SearchPlan& p) {
 /// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
 /// other map prints one, which is what makes it the marker as well as the thing searched for.
 const Property* reward_property(const Item& it) {
-    for (const Property& prop : it.properties)
-        if (prop.label == "Reward") return &prop;
+    if (const Property* prop = property_of(it, data::PropertyKey::Reward)) return prop;
     return nullptr;
 }
 
@@ -734,12 +758,9 @@ const data::BaseType* find_chart_area(const data::GameData& gd, std::string_view
 /// vocabulary — five shapes, numbered — so it is a table rather than something fetched, and the
 /// game prints the option's own text, which is what makes the join possible at all. Sending the
 /// text instead answers `{"code":2,"message":"Invalid chart shape"}` and fails the whole search.
-std::string_view chart_shape_id(std::string_view printed) {
-    static constexpr std::pair<std::string_view, std::string_view> kShapes[]{
-        {"End", "1"}, {"Corner", "2"}, {"Straight", "3"}, {"Junction", "4"}, {"Crossing", "5"}};
-    for (const auto& [text, id] : kShapes)
-        if (text == printed) return id;
-    return {};
+std::string chart_shape_id(const data::Lexicon& lex, std::string_view printed) {
+    const int i = lex.index_of(data::TermList::ChartShapes, printed);
+    return i < 0 ? std::string() : std::to_string(i + 1);
 }
 
 /// A chart is a map by another name, and the strategy it shares says why: its prefixes and
@@ -758,10 +779,10 @@ std::string_view chart_shape_id(std::string_view printed) {
 ///   ("Voyage Modifier will be revealed once Charted"), which is itself a searchable stat.
 void plan_chart(const data::GameData& gd, const Item& it, SearchPlan& p) {
     if (const data::BaseType* area = find_chart_area(gd, it.type_line)) {
-        p.type = area->name;
+        p.type = std::string(wire_name(area));
         p.discriminator = area->trade_disc;
     } else {
-        p.type = it.base_name;
+        p.type = base_wire_name(it);
         if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
         if (!it.type_line.empty())
             p.notes.push_back("\"" + it.type_line +
@@ -769,11 +790,12 @@ void plan_chart(const data::GameData& gd, const Item& it, SearchPlan& p) {
                               "chart of this kind rather than for this one's area");
     }
 
-    if (const Property* lvl = property_of(it, "Area Level"); lvl && lvl->num)
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
         add_numeric(p, "area_level", "Area Level", *lvl->num, true, 0, {}, *lvl->num);
-    if (const Property* shape = property_of(it, "Chart Shape"); shape && !shape->value.empty()) {
-        if (const std::string_view id = chart_shape_id(shape->value); !id.empty())
-            add_option(p, "chart_shape", "Chart Shape", std::string(id), shape->value, true);
+    if (const Property* shape = property_of(it, data::PropertyKey::ChartShape);
+        shape && !shape->value.empty()) {
+        if (std::string id = chart_shape_id(gd.lexicon(), shape->value); !id.empty())
+            add_option(p, "chart_shape", "Chart Shape", std::move(id), shape->value, true);
         else
             p.notes.push_back("\"" + shape->value +
                               "\" is not a chart shape the trade site knows, so the search does "
@@ -781,7 +803,7 @@ void plan_chart(const data::GameData& gd, const Item& it, SearchPlan& p) {
     }
     // The league's own currency, so the same reasoning as a map's quantity rather than as its
     // rarity: it is what the area is run for, and a copy yielding less of it is worth less.
-    if (const Property* s = property_of(it, "Dead Man's Sulphur"); s && s->num)
+    if (const Property* s = property_of(it, data::PropertyKey::Sulphur); s && s->num)
         add_numeric(p, "chart_sulphur", "Dead Man's Sulphur", *s->num, true);
 }
 
@@ -800,7 +822,7 @@ void plan_chart(const data::GameData& gd, const Item& it, SearchPlan& p) {
 void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
     p.rarity = it.rarity == Rarity::Unique ? "unique" : "nonunique";
     if (it.rarity == Rarity::Unique) {
-        p.name = it.unique_entry ? it.unique_entry->name : it.name;
+        p.name = it.unique_entry ? std::string(wire_name(it.unique_entry)) : it.name;
         if (!it.identified)
             p.notes.emplace_back(
                 "unidentified: the clipboard does not say which unique map "
@@ -810,7 +832,7 @@ void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
     if (it.is_chart()) {
         plan_chart(gd, it, p);
     } else {
-        p.type = it.base_name;
+        p.type = base_wire_name(it);
         // "Map" is a type on trade *and* the prefix of every unique map's own entry, so it
         // always carries a discriminator; the unique's record repeats it, which is what lets one
         // field serve both terms. It is **load-bearing** rather than a tie-break: a query sending
@@ -856,21 +878,22 @@ void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
     }
 
     struct Bonus {
-        const char* label; ///< the property the game prints
-        const char* key;   ///< the trade `map_filters` filter
+        data::PropertyKey property; ///< what the game printed
+        const char* key;            ///< the trade `map_filters` filter
         bool enabled;
     };
     // Quantity and pack size are what a map is run for; rarity is a preference, and imposing it
     // would drop the cheaper copies of the same map that most buyers are actually after.
     static constexpr Bonus kBonuses[]{
-        {"Item Quantity", "map_iiq", true},
-        {"Monster Pack Size", "map_packsize", true},
-        {"Item Rarity", "map_iir", false},
+        {data::PropertyKey::ItemQuantity, "map_iiq", true},
+        {data::PropertyKey::MonsterPackSize, "map_packsize", true},
+        {data::PropertyKey::ItemRarity, "map_iir", false},
     };
+    // The row is labelled with what the client printed, which is the wording the reader has
+    // in front of them in the game.
     for (const Bonus& b : kBonuses)
-        for (const Property& prop : it.properties)
-            if (prop.label == b.label && prop.num)
-                add_numeric(p, b.key, b.label, *prop.num, b.enabled && !reward);
+        if (const Property* prop = property_of(it, b.property); prop && prop->num)
+            add_numeric(p, b.key, prop->label, *prop->num, b.enabled && !reward);
 }
 
 /// The `misc_filters` booleans every plan carries, and whether the user is offered a say.
@@ -924,11 +947,11 @@ void add_item_flags(const Item& it, SearchPlan& p) {
 ///   to craft on the item does not care what it has accrued.
 /// - **Stored Experience** is what a Facetor's Lens is, and the only thing telling two apart.
 void add_property_filters(const Item& it, SearchPlan& p) {
-    if (const Property* m = property_of(it, "Memory Strands"); m && m->num)
+    if (const Property* m = property_of(it, data::PropertyKey::MemoryStrands); m && m->num)
         add_numeric(p, "memory_level", "Memory Strands", *m->num, true);
-    if (const Property* i = property_of(it, "Intangibility"); i && i->num)
+    if (const Property* i = property_of(it, data::PropertyKey::Intangibility); i && i->num)
         add_numeric(p, "intangibility", "Intangibility", std::nullopt, false, 0, {}, *i->num);
-    if (const Property* x = property_of(it, "Stored Experience"); x && x->num)
+    if (const Property* x = property_of(it, data::PropertyKey::StoredExperience); x && x->num)
         add_numeric(p, "stored_experience", "Stored Experience", *x->num, true);
 }
 
@@ -1037,8 +1060,8 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         case Strategy::Unique:
             // The resolved record's name, not the printed one: a unique can be renamed by
             // what was done to it ("Foulborn Romira's Banquet"), and trade knows the unique.
-            p.name = it.unique_entry ? it.unique_entry->name : it.name;
-            p.type = it.base_name;
+            p.name = it.unique_entry ? std::string(wire_name(it.unique_entry)) : it.name;
+            p.type = base_wire_name(it);
             if (it.unique_entry && !it.unique_entry->trade_disc.empty())
                 p.discriminator = it.unique_entry->trade_disc;
             if (!it.identified) plan_unidentified(gd, it, p);
@@ -1046,7 +1069,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                 p.notes.push_back("\"" + it.name + "\" is not in this data bundle");
             break;
         case Strategy::BaseItem:
-            p.type = it.base_name;
+            p.type = base_wire_name(it);
             if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
             add_numeric(p, "ilvl", "Item Level",
                         it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
@@ -1062,7 +1085,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // Cheetah") as the type matches nothing, which reads as nobody selling one.
             if (it.is_flask()) {
                 if (it.base) {
-                    p.type = it.base_name;
+                    p.type = base_wire_name(it);
                     if (!it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
                 } else {
                     p.notes.push_back("\"" + it.base_type +
@@ -1091,8 +1114,8 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // map fragment that prints an item level: what says a currency item is not
             // interchangeable is that it prints something no other copy of it does. poe.ninja
             // still prices it in the currency market, which is the floor under the search.
-            else if (p.strategy == Strategy::Currency && property_of(it, "Stored Experience")) {
-                p.type = it.base ? it.base->name : it.base_name;
+            else if (p.strategy == Strategy::Currency && property_of(it, data::PropertyKey::StoredExperience)) {
+                p.type = base_wire_name(it);
                 if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
             }
             break;

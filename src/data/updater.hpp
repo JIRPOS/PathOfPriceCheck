@@ -44,6 +44,11 @@ public:
     void init(std::filesystem::path cache_root, uint32_t sdl_event_type);
 
     /// Removes staging leftovers and superseded bundles, then maps the installed one.
+    /// Which language's assets a bundle is opened with — `Config::client_language`. Set
+    /// before `load_installed()`; a bundle carrying no such language fails to open and is
+    /// reported exactly as a corrupt one is, which is the honest answer.
+    void set_language(std::string lang) { language_ = std::move(lang); }
+
     /// Call once at startup, before anything holds a mapping. Null if nothing is installed.
     std::shared_ptr<GameData> load_installed();
 
@@ -56,6 +61,7 @@ public:
     std::shared_ptr<GameData> take_ready_bundle();
 
 private:
+    std::string language_ = "en";
     void run();
     void set_state(State s);
     void publish(); ///< wakes the main loop so the UI repaints

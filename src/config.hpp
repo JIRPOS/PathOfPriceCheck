@@ -19,6 +19,20 @@ struct Config {
     std::string league = "Standard";
     std::string account_name; ///< optional; "Name#1234", see check_account_name
 
+    /// Which language the *client* is in, as the data bundle names it. This picks the assets
+    /// the bundle is opened with and the vocabulary the clipboard is read against — not the
+    /// language this application's own text is drawn in, which is `ui_language`.
+    ///
+    /// Not validated on load: the set of languages is whatever the installed bundle declares,
+    /// and a bundle that does not carry this one simply fails to open, which the updater
+    /// already reports. Defaults to English, which is what every bundle has.
+    std::string client_language = "en";
+
+    /// Which language this application's own text is drawn in — "auto" to follow the client.
+    /// Separate from `client_language` because they answer to different things: one has to
+    /// match the game the user is running, the other the person reading the panel.
+    std::string ui_language = "auto";
+
     /// Substring matched against the foreground window title. Deliberately not in the
     /// Settings UI — it only needs changing when Wine/Lutris renames the window, which is
     /// rare enough to be worth a config-file edit rather than a knob everyone else scrolls past.
