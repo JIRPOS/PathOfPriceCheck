@@ -1,10 +1,12 @@
 #include "screens/pricecheck_screen.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <ctime>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <imgui.h>
@@ -26,6 +28,22 @@ constexpr ImVec4 kWarn(0.90f, 0.55f, 0.25f, 1.0f);
 /// than putting it over the panel. Only reachable on a game window too small to have room
 /// beside the panel at all.
 constexpr float kMinGutter = 260.0f;
+
+/// The listing that is the user's own. Translucent, and set as `RowBg1` rather than `RowBg0`,
+/// so it tints the alternating stripe underneath instead of replacing it — the row stays part
+/// of the table, and the hover highlight still reads on top of it.
+constexpr ImU32 kOwnRow = IM_COL32(60, 140, 70, 90);
+
+/// Whether a listing is the user's own. Case-insensitive: the handle is typed into Settings by
+/// hand, and one entered with the wrong capital would simply never light up — a failure with
+/// nothing on screen to show for it. ASCII is the whole of it by construction, since
+/// `check_account_name` and the Settings field both refuse anything else.
+bool same_account(std::string_view a, std::string_view b) {
+    return std::equal(a.begin(), a.end(), b.begin(), b.end(), [](char x, char y) {
+        return std::tolower(static_cast<unsigned char>(x)) ==
+               std::tolower(static_cast<unsigned char>(y));
+    });
+}
 
 std::string format_number(double v, int dp) {
     char buf[32];
@@ -1008,9 +1026,18 @@ void draw_results(App& app, float gutter_top) {
     ImGui::TableSetupColumn("Price", ImGuiTableColumnFlags_WidthStretch, 1.0f);
     ImGui::TableHeadersRow();
 
+    // Who the user is, when they have told Settings. A listing of their own is otherwise
+    // indistinguishable from the rest of the page, and the page is what a price is read off:
+    // an own listing sitting at the top reads as the market's floor, which it is not.
+    const std::string& me = app.config().account_name;
+
     for (size_t i = 0; i < t.results().listings.size(); ++i) {
         const trade::Listing& l = t.results().listings[i];
         ImGui::TableNextRow();
+        const bool mine = !me.empty() && same_account(l.account, me);
+        // After TableNextRow and before the row is drawn: the background is a channel of its
+        // own, under everything the cells put down.
+        if (mine) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, kOwnRow);
         ImGui::TableSetColumnIndex(0);
         // The whole handle, "#1234" included: the digits are what tells two players sharing a
         // name apart, and dropping them made the column look like a name it is not. Drawn in
@@ -1020,8 +1047,14 @@ void draw_results(App& app, float gutter_top) {
         // A Selectable rather than text so the *row* is the hover target for the item tooltip
         // and lights up to say so. It spans every column, and AllowOverlap lets the price
         // cell's own hover (the fee) sit on top of it.
+        //
+        // The user's own row says so in words as well as in colour: the tint is what catches
+        // the eye at a glance, and a green row is nothing at all to a reader who cannot see
+        // green. Clipped away on a narrow panel, where the tint is still there.
+        const std::string label =
+            (mine ? l.account + "  (you)" : l.account) + "##row" + std::to_string(i);
         ImGui::PushFont(app.fonts().unicode, 0.0f);
-        ImGui::Selectable((l.account + "##row" + std::to_string(i)).c_str(), false,
+        ImGui::Selectable(label.c_str(), false,
                           ImGuiSelectableFlags_SpanAllColumns |
                               ImGuiSelectableFlags_AllowOverlap);
         ImGui::PopFont();

@@ -988,7 +988,14 @@ and divine ones interleave correctly and are **not** out of order.
 
 The account is the **whole** handle, `Name#1234` — the digits are what tells two players sharing a
 name apart — and is drawn in `fonts.unicode` (above), since a Cyrillic or Korean handle is boxes in
-Fontin. The price copies the site's own form, `5 x [symbol] Divine Orb`: the symbol arrives off the
+Fontin. **A listing of the user's own is tinted green and says `(you)`**, matched against
+`Config::account_name` when that has been filled in — case-insensitively, since the handle is typed
+into Settings by hand and one entered with the wrong capital would fail to light up with nothing on
+screen to say so. It is `ImGuiTableBgTarget_RowBg1`, which tints the alternating stripe rather than
+replacing it, and the words are there because a green row is nothing at all to a reader who cannot
+see green. Own listings are what a price is otherwise read straight off: one sitting at the top of
+the page reads as the market's floor, which it is not.
+The price copies the site's own form, `5 x [symbol] Divine Orb`: the symbol arrives off the
 CDN in the background, so the currency is **named** as well as pictured and the row reads correctly
 before it lands. A lowercase `x` rather than the site's `×`, which Fontin draws as `?`. The
 listing's **gold fee** (`listing.fee`, a sibling of `price`, not a field of it) is shown, and
