@@ -153,10 +153,25 @@ modifiers, so "LShift" registers as "Shift".
   before and after the bullets**. Without them GitHub folds the next `ADDED:` line into the bullet
   as a lazy list continuation, and the body renders as nonsense.
 
-  A **pull request summarises the commits it contains and invents nothing**: take each commit's
-  own `ADDED:`/`CHANGED:`/`REMOVED:` lines, pool them, and re-sort into the same three groups.
-  Reasons ride along with the lines they belong to. Prefer the commit's wording over a fresh one —
-  the PR is a merge of what is already written, not a second telling of it.
+  A **pull request has two audiences and therefore two sections**, `## Release notes` first and
+  `## Review notes` second, both in the three groups above:
+
+  - **Release notes** is what a *user* gets out of the version: a new, changed or removed way to
+    use the app, or behaviour they would notice. No identifiers, no filenames, no measurements,
+    no bullets — a user does not care that a filter is called `mutated` or that 1896 listings
+    were counted, only that a Foulborn unique is now priced apart from an ordinary one. A PR
+    with nothing user-facing — a refactor, a CI fix, the version bump — **has no Release notes
+    section at all**, which is the right answer rather than an omission.
+  - **Review notes** is the pooled commit lines: take each commit's own
+    `ADDED:`/`CHANGED:`/`REMOVED:` lines, pool them, re-sort into the same three groups, and let
+    the reasons ride along with the lines they belong to. Prefer the commit's wording over a
+    fresh one — this half is a merge of what is already written, not a second telling of it.
+
+  **The release page is built out of the Release notes sections and nothing else.** The release
+  job asks the API for the notes `--generate-notes` would have written, opens every PR they name,
+  and keeps only that one section; the generated list of titles goes underneath as the index and
+  the attribution. So the same change is stated twice on purpose, once per audience, and the
+  user-facing half is written at the only moment anyone knows what it should say.
 - **The maintainer is `JIRPOS`.** Use the GitHub alias in every file — docs, licenses, anything
   published. The legal name goes in no file, here or in the data repo. Git's own `user.name` is a
   separate matter and is **not** to be changed: the commits are GPG-signed, the key is bound to

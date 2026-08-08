@@ -153,10 +153,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          VER: ${{ needs.prepare.outputs.version }}
+          BRANCH: ${{ needs.prepare.outputs.branch }}
         run: |
-          ver="${{ needs.prepare.outputs.version }}"
-          gh release create "v${ver}" artifacts/* --title "v${ver}" --generate-notes \
-            --target "${{ needs.prepare.outputs.branch }}"
+          set -euo pipefail
+          # `--generate-notes` is a list of PR *titles*, and a title is the topic rather than the
+          # change. What a user needs is each PR's **Release notes** section — the new, changed
+          # and removed ways to use the app — so the same list is asked for through the API and
+          # every PR it names is opened for that one section. The generated list keeps its place
+          # underneath, where it is the index and the attribution rather than the notes.
+          notes=$(gh api "repos/${GH_REPO}/releases/generate-notes" \
+            -f tag_name="v${VER}" -f target_commitish="${BRANCH}" -q .body)
+          {
+            # Ascending, and de-duplicated: a PR is linked twice when its author is also a new
+            # contributor. Numbers come off the links in the notes rather than off the commits,
+            # so whatever GitHub decided is in this release is what gets read.
+            for n in $(printf '%s' "$notes" | grep -oE 'pull/[0-9]+' | cut -d/ -f2 | sort -un); do
+              # Everything under "## Release notes" until the next heading. A PR with nothing
+              # user-facing has no such section and contributes nothing here, which is the
+              # answer for a refactor or a version bump rather than an omission.
+              section=$(gh pr view "$n" --json body -q .body | awk '
+                { sub(/\r$/, "") }
+                /^##[[:space:]]/ { keep = ($0 ~ /^##[[:space:]]*[Rr]elease[[:space:]]+[Nn]otes[[:space:]]*$/); next }
+                keep')
+              if [ -n "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+                printf '%s\n\n' "$section"
+              fi
+            done
+            printf -- '---\n\n%s\n' "$notes"
+          } | sed '/^🤖 Generated with/d' | cat -s | sed '/./,$!d' > notes.md
+          gh release create "v${VER}" artifacts/* --title "v${VER}" \
+            --target "${BRANCH}" --notes-file notes.md
 
   # Land the version bump on master, or clean up a branch nothing will ever merge.
   finalize:
