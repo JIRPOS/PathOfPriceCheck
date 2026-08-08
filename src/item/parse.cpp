@@ -10,11 +10,6 @@ namespace {
 
 constexpr std::string_view kSeparator = "--------";
 
-/// Lines that are a flag on their own. Influence lines are handled separately.
-constexpr std::array<std::string_view, 9> kFlagLines{
-    "Corrupted", "Unidentified", "Mirrored", "Split", "Synthesised Item",
-    "Fractured Item", "Veiled", "Unmodifiable", "Transfigured"};
-
 std::string_view trim(std::string_view s) {
     while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r'))
         s.remove_prefix(1);
@@ -56,7 +51,8 @@ std::optional<int> first_int(std::string_view s) {
 /// Drop the parentheticals the game appends to a *value* — "(augmented)", "(gem)", "(unmet)",
 /// "(Max)" — reporting whether an augment was among them. A range such as an Advanced Mod
 /// Descriptions "(229-263)" is not one of them and survives.
-std::string strip_value_annotations(std::string_view s, bool* augmented) {
+std::string strip_value_annotations(std::string_view s, bool* augmented,
+                                    const data::Lexicon& lex) {
     std::string out;
     out.reserve(s.size());
     for (size_t i = 0; i < s.size();) {
@@ -64,9 +60,8 @@ std::string strip_value_annotations(std::string_view s, bool* augmented) {
             const size_t close = s.find(')', i);
             if (close != std::string_view::npos) {
                 const std::string_view inner = s.substr(i + 1, close - i - 1);
-                if (inner == "augmented" || inner == "gem" || inner == "unmet" ||
-                    inner == "Max" || inner == "fractured") {
-                    if (inner == "augmented" && augmented) *augmented = true;
+                if (lex.contains(data::TermList::ValueAnnotations, inner)) {
+                    if (inner == lex.term(data::Term::Augmented) && augmented) *augmented = true;
                     i = close + 1;
                     while (!out.empty() && out.back() == ' ') out.pop_back();
                     if (i < s.size() && s[i] == ' ') ++i;
@@ -179,35 +174,26 @@ bool is_info_line(std::string_view line) {
 
 /// The mod-type suffix the game appends: " (implicit)", " (crafted)", … Shortens `line` and
 /// returns the type; nothing when the line carries no suffix.
-std::optional<data::ModType> take_mod_suffix(std::string_view& line) {
+std::optional<data::ModType> take_mod_suffix(std::string_view& line,
+                                             const data::Lexicon& lex) {
     if (line.empty() || line.back() != ')') return std::nullopt;
     const size_t open = line.rfind(" (");
     if (open == std::string_view::npos) return std::nullopt;
     const std::string_view inner = line.substr(open + 2, line.size() - open - 3);
-    const std::optional<data::ModType> t = data::mod_type_from_prefix(inner);
-    if (!t) return std::nullopt;
+    const int t = lex.index_of(data::TermList::ModSuffixes, inner);
+    if (t < 0) return std::nullopt;
     line = trim(line.substr(0, open));
-    return t;
+    return static_cast<data::ModType>(t);
 }
 
 /// The info line's generation words say what kind of mod follows; its own lines do not repeat
 /// it, so "Master Crafted Prefix" is the only thing marking a crafted mod on an item whose
 /// owner has Advanced Mod Descriptions on.
-struct Generation {
-    std::string_view word;
-    data::ModType type;
-};
-
-data::ModType type_from_generation(std::string_view g) {
-    static constexpr Generation kMap[]{
-        {"Implicit", data::ModType::Implicit},   {"Enchant", data::ModType::Enchant},
-        {"Fractured", data::ModType::Fractured}, {"Crafted", data::ModType::Crafted},
-        {"Veiled", data::ModType::Veiled},       {"Scourge", data::ModType::Scourge},
-        {"Crucible", data::ModType::Crucible},   {"Sanctum", data::ModType::Sanctum},
-        {"Delve", data::ModType::Delve},         {"Ultimatum", data::ModType::Ultimatum},
-    };
-    for (const Generation& e : kMap)
-        if (g.find(e.word) != std::string_view::npos) return e.type;
+data::ModType type_from_generation(std::string_view g, const data::Lexicon& lex) {
+    const std::vector<std::string>& words = lex.list(data::TermList::Generations);
+    for (size_t i = 0; i < words.size(); ++i)
+        if (!words[i].empty() && g.find(words[i]) != std::string_view::npos)
+            return static_cast<data::ModType>(i);
     return data::ModType::Explicit;
 }
 
@@ -215,7 +201,7 @@ data::ModType type_from_generation(std::string_view g) {
 /// game appends after the tags: `{ Implicit Modifier — Critical — 20% Increased }` is a mod a
 /// catalyst scaled, and the roll printed on the line is the *unscaled* one. A plain " - "
 /// separates them just as well — see the clipboard encoding note below.
-bool parse_info_line(std::string_view line, Modifier& out) {
+bool parse_info_line(std::string_view line, Modifier& out, const data::Lexicon& lex) {
     if (!is_info_line(line)) return false;
     line = trim(line.substr(1, line.size() - 2));
 
@@ -240,9 +226,11 @@ bool parse_info_line(std::string_view line, Modifier& out) {
         if (dash == std::string_view::npos) break;
         const std::string_view seg = trim(line.substr(dash + dash_len));
         line = trim(line.substr(0, dash));
-        if (seg.ends_with("Increased") || seg.ends_with("Reduced")) {
+        const std::string_view incr = lex.term(data::Term::IncreasedWord);
+        const std::string_view red = lex.term(data::Term::ReducedWord);
+        if ((!incr.empty() && seg.ends_with(incr)) || (!red.empty() && seg.ends_with(red))) {
             out.roll_incr = first_number(seg).value_or(0);
-            if (seg.ends_with("Reduced")) out.roll_incr = -out.roll_incr;
+            if (!red.empty() && seg.ends_with(red)) out.roll_incr = -out.roll_incr;
             continue;
         }
         // Tags, and the last segment reached is the leftmost, so prepend to keep their order.
@@ -262,8 +250,10 @@ bool parse_info_line(std::string_view line, Modifier& out) {
         const size_t open = line.rfind('(');
         if (open == std::string_view::npos) break;
         const std::string_view inner = line.substr(open + 1, line.size() - open - 2);
-        if (inner.starts_with("Tier: ")) out.tier = first_int(inner).value_or(0);
-        else if (inner.starts_with("Rank: ")) out.rank = first_int(inner).value_or(0);
+        if (inner.starts_with(lex.term(data::Term::TierPrefix)))
+            out.tier = first_int(inner).value_or(0);
+        else if (inner.starts_with(lex.term(data::Term::RankPrefix)))
+            out.rank = first_int(inner).value_or(0);
         else if (inner.find(' ') == std::string_view::npos) out.qualifier = std::string(inner);
         else break;
         line = trim(line.substr(0, open));
@@ -276,21 +266,39 @@ bool parse_info_line(std::string_view line, Modifier& out) {
         }
     }
 
-    if (line.ends_with("Modifier")) line = trim(line.substr(0, line.size() - 8));
+    const std::string_view noun = lex.term(data::Term::ModifierWord);
+    if (!noun.empty() && line.ends_with(noun))
+        line = trim(line.substr(0, line.size() - noun.size()));
     out.generation = std::string(line);
-    if (out.generation.ends_with("Prefix")) out.affix = Affix::Prefix;
-    else if (out.generation.ends_with("Suffix")) out.affix = Affix::Suffix;
+    const std::string_view prefix = lex.term(data::Term::PrefixWord);
+    const std::string_view suffix = lex.term(data::Term::SuffixWord);
+    if (!prefix.empty() && out.generation.ends_with(prefix)) out.affix = Affix::Prefix;
+    else if (!suffix.empty() && out.generation.ends_with(suffix)) out.affix = Affix::Suffix;
+    // A modifier something *added* to a unique — "Foulborn Unique Modifier". A bare "Unique"
+    // is the unique's own and every copy has it.
+    const std::string_view uniq = lex.term(data::Term::UniqueWord);
+    out.added_unique = !uniq.empty() && out.generation.ends_with(uniq) && out.generation != uniq;
     out.advanced = true;
     return true;
 }
 
-void parse_header(const Section& sec, Item& it) {
+/// What follows `label: ` on this line, or nothing when the line is not that label.
+std::optional<std::string_view> take_label(std::string_view line, std::string_view label) {
+    if (label.empty()) return std::nullopt;
+    std::string colon(label);
+    colon += ": ";
+    if (!line.starts_with(colon)) return std::nullopt;
+    return line.substr(colon.size());
+}
+
+void parse_header(const Section& sec, Item& it, const data::Lexicon& lex) {
     for (const std::string& line : sec) {
         std::string_view v = line;
-        if (v.starts_with("Item Class: ")) {
-            it.item_class = std::string(trim(v.substr(12)));
-        } else if (v.starts_with("Rarity: ")) {
-            it.rarity = rarity_from_string(trim(v.substr(8)));
+        if (const auto cls = take_label(v, lex.term(data::Term::ItemClassLabel))) {
+            it.item_class = std::string(trim(*cls));
+            it.class_kind = lex.class_kind(it.item_class);
+        } else if (const auto r = take_label(v, lex.term(data::Term::RarityLabel))) {
+            it.rarity = rarity_from_string(trim(*r), lex);
         } else if (it.name.empty() && it.base_type.empty()) {
             it.base_type = line;
         } else if (it.name.empty()) {
@@ -303,15 +311,18 @@ void parse_header(const Section& sec, Item& it) {
     }
     // A normal item with quality is printed as "Superior <base>"; the affix is not part of
     // the base's name and would fail every lookup.
-    if (it.rarity == Rarity::Normal && it.base_type.starts_with("Superior "))
-        it.base_type.erase(0, 9);
+    const std::string_view superior = lex.term(data::Term::SuperiorPrefix);
+    if (it.rarity == Rarity::Normal && !superior.empty() && it.base_type.starts_with(superior))
+        it.base_type.erase(0, superior.size());
     // A map prints its tier on the base line — "Map (Tier 16)", and on a magic one after the
     // affixes, "Map of Impedance (Tier 16)". It is the thing the map is searched on and it is
     // not part of the base's name, which is a bare "Map" in every bundle and on trade.
-    if (const size_t open = it.base_type.rfind(" (Tier ");
+    const std::string_view tier_open = lex.term(data::Term::MapTierPrefix);
+    if (const size_t open = tier_open.empty() ? std::string::npos
+                                              : it.base_type.rfind(tier_open);
         open != std::string::npos && it.base_type.back() == ')') {
-        const std::string_view inner(it.base_type.data() + open + 7,
-                                     it.base_type.size() - open - 8);
+        const size_t at = open + tier_open.size();
+        const std::string_view inner(it.base_type.data() + at, it.base_type.size() - at - 1);
         if (!inner.empty() && std::all_of(inner.begin(), inner.end(), [](char c) {
                 return std::isdigit(static_cast<unsigned char>(c)) != 0;
             })) {
@@ -321,23 +332,22 @@ void parse_header(const Section& sec, Item& it) {
     }
     // Blight is printed as part of the base line and nowhere else — there is no flag line and
     // no property saying so, only "Blighted Map" where an ordinary map says "Map".
-    it.blighted = it.base_type == "Blighted Map";
-    it.blight_ravaged = it.base_type == "Blight-ravaged Map";
+    it.blighted = it.base_type == lex.term(data::Term::BlightedMap);
+    it.blight_ravaged = it.base_type == lex.term(data::Term::BlightRavagedMap);
     it.base_name = it.base_type;
 }
 
-void parse_requirements(const Section& sec, Item& it) {
+void parse_requirements(const Section& sec, Item& it, const data::Lexicon& lex) {
     for (const std::string& line : sec) {
-        if (line == "Requirements:") continue;
         const size_t colon = line.find(':');
         if (colon == std::string::npos) continue;
         const std::string_view label = trim(std::string_view(line).substr(0, colon));
         const std::optional<int> v = first_int(std::string_view(line).substr(colon + 1));
         if (!v) continue;
-        if (label == "Level") it.req.level = v;
-        else if (label == "Str") it.req.str = v;
-        else if (label == "Dex") it.req.dex = v;
-        else if (label == "Int") it.req.intelligence = v;
+        if (label == lex.term(data::Term::ReqLevel)) it.req.level = v;
+        else if (label == lex.term(data::Term::ReqStr)) it.req.str = v;
+        else if (label == lex.term(data::Term::ReqDex)) it.req.dex = v;
+        else if (label == lex.term(data::Term::ReqInt)) it.req.intelligence = v;
     }
 }
 
@@ -352,22 +362,31 @@ void parse_sockets(std::string_view line, Item& it) {
 
 void take_typed_property(const Property& p, Item& it) {
     const std::string& v = p.value;
-    if (p.label == "Quality") {
+    switch (p.key) {
+    case data::PropertyKey::Quality:
         it.quality = first_int(v);
-    } else if (p.label.starts_with("Quality (") && p.label.ends_with(")")) {
-        // Catalyst quality on jewellery: "Quality (Critical Modifiers): +20%".
+        break;
+    case data::PropertyKey::QualityCatalyst: {
+        // Catalyst quality on jewellery: "Quality (Critical Modifiers): +20%". The catalyst's
+        // own name is the parenthetical, which is what the label carries beyond the prefix.
         it.quality = first_int(v);
-        it.quality_kind = p.label.substr(9, p.label.size() - 10);
-    } else if (p.label == "Physical Damage") {
+        const size_t open = p.label.find('(');
+        if (open != std::string::npos && p.label.size() > open + 2)
+            it.quality_kind = p.label.substr(open + 1, p.label.size() - open - 2);
+        break;
+    }
+    case data::PropertyKey::PhysicalDamage:
         it.physical = parse_damage(v);
         if (it.physical) it.physical->augmented = p.augmented;
-    } else if (p.label == "Chaos Damage") {
+        break;
+    case data::PropertyKey::ChaosDamage:
         it.chaos = parse_damage(v);
         if (it.chaos) {
             it.chaos->element = Element::Chaos;
             it.chaos->augmented = p.augmented;
         }
-    } else if (p.label == "Elemental Damage") {
+        break;
+    case data::PropertyKey::ElementalDamage: {
         // "23-42, 3-50" — one entry per element, but the line never says which.
         std::string_view rest = v;
         while (!rest.empty()) {
@@ -379,31 +398,27 @@ void take_typed_property(const Property& p, Item& it) {
             if (comma == std::string_view::npos) break;
             rest = rest.substr(comma + 1);
         }
-    } else if (p.label == "Critical Strike Chance") {
-        it.crit_chance = first_number(v);
-    } else if (p.label == "Attacks per Second") {
-        it.attacks_per_second = first_number(v);
-    } else if (p.label == "Armour") {
-        it.armour = first_int(v);
-    } else if (p.label == "Evasion Rating") {
-        it.evasion = first_int(v);
-    } else if (p.label == "Energy Shield") {
-        it.energy_shield = first_int(v);
-    } else if (p.label == "Ward") {
-        it.ward = first_int(v);
-    } else if (p.label == "Chance to Block" || p.label == "Block chance") {
-        it.block = first_int(v);
-    } else if (p.label == "Item Level") {
-        it.item_level = first_int(v);
-    } else if (p.label == "Level" && it.rarity == Rarity::Gem) {
+        break;
+    }
+    case data::PropertyKey::CriticalStrikeChance: it.crit_chance = first_number(v); break;
+    case data::PropertyKey::AttacksPerSecond: it.attacks_per_second = first_number(v); break;
+    case data::PropertyKey::Armour: it.armour = first_int(v); break;
+    case data::PropertyKey::EvasionRating: it.evasion = first_int(v); break;
+    case data::PropertyKey::EnergyShield: it.energy_shield = first_int(v); break;
+    case data::PropertyKey::Ward: it.ward = first_int(v); break;
+    case data::PropertyKey::ChanceToBlock: it.block = first_int(v); break;
+    case data::PropertyKey::ItemLevel: it.item_level = first_int(v); break;
+    case data::PropertyKey::Level:
         // The gem's own level. The clipboard prints "Level:" twice — this one, in the property
         // block under the tag line, and the character level under `Requirements:`, which is a
         // different number and goes to `Item::req`.
-        it.gem_level = first_int(v);
+        if (it.rarity == Rarity::Gem) it.gem_level = first_int(v);
+        break;
+    default: break;
     }
 }
 
-void parse_properties(const Section& sec, Item& it) {
+void parse_properties(const Section& sec, Item& it, const data::Lexicon& lex) {
     for (const std::string& line : sec) {
         if (data::is_reminder_text(line) && !it.properties.empty()) {
             // The buff a utility flask grants brings its own reminder text ("(Onslaught grants
@@ -422,7 +437,7 @@ void parse_properties(const Section& sec, Item& it) {
                 it.inherent_lines.push_back(line);
             } else {
                 Property p;
-                p.value = strip_value_annotations(line, &p.augmented);
+                p.value = strip_value_annotations(line, &p.augmented, lex);
                 it.properties.push_back(std::move(p));
             }
             continue;
@@ -430,41 +445,54 @@ void parse_properties(const Section& sec, Item& it) {
         const size_t colon = line.find(':');
         Property p;
         p.label = strip_link_markup(trim(std::string_view(line).substr(0, colon)));
-        p.value = strip_value_annotations(std::string_view(line).substr(colon + 1), &p.augmented);
+        p.key = lex.property_key(p.label);
+        p.value =
+            strip_value_annotations(std::string_view(line).substr(colon + 1), &p.augmented, lex);
         p.num = first_number(p.value);
         take_typed_property(p, it);
         it.properties.push_back(std::move(p));
     }
 }
 
-void parse_flags(const Section& sec, Item& it) {
+void parse_flags(const Section& sec, Item& it, const data::Lexicon& lex) {
     for (const std::string& line : sec) {
-        if (line == "Corrupted") it.corrupted = true;
-        else if (line == "Unidentified") it.identified = false;
-        else if (line == "Mirrored") it.mirrored = true;
-        else if (line == "Split") it.split = true;
-        else if (line == "Synthesised Item") it.synthesised = true;
-        else if (line == "Fractured Item") it.fractured_item = true;
-        else if (line == "Veiled") it.veiled = true;
-        else if (line == "Unmodifiable") it.unmodifiable = true;
-        else if (line == "Transfigured") it.transfigured = true;
-        else if (const std::optional<Influence> i = influence_from_line(line))
-            it.influences.push_back(*i);
+        const int f = lex.index_of(data::TermList::Flags, line);
+        if (f < 0) {
+            if (const std::optional<Influence> i = influence_from_line(line, lex))
+                it.influences.push_back(*i);
+            continue;
+        }
+        switch (static_cast<data::ItemFlag>(f)) {
+        case data::ItemFlag::Corrupted: it.corrupted = true; break;
+        case data::ItemFlag::Unidentified: it.identified = false; break;
+        case data::ItemFlag::Mirrored: it.mirrored = true; break;
+        case data::ItemFlag::Split: it.split = true; break;
+        case data::ItemFlag::Synthesised: it.synthesised = true; break;
+        case data::ItemFlag::Fractured: it.fractured_item = true; break;
+        case data::ItemFlag::Veiled: it.veiled = true; break;
+        case data::ItemFlag::Unmodifiable: it.unmodifiable = true; break;
+        case data::ItemFlag::Transfigured: it.transfigured = true; break;
+        case data::ItemFlag::Count: break;
+        }
     }
 }
 
-bool is_flag_line(const std::string& line) {
-    return std::find(kFlagLines.begin(), kFlagLines.end(), line) != kFlagLines.end() ||
-           influence_from_line(line).has_value();
+bool is_flag_line(const std::string& line, const data::Lexicon& lex) {
+    return lex.contains(data::TermList::Flags, line) ||
+           influence_from_line(line, lex).has_value();
 }
 
-bool is_flag_section(const Section& sec) {
-    return std::all_of(sec.begin(), sec.end(), is_flag_line);
+bool is_flag_section(const Section& sec, const data::Lexicon& lex) {
+    return std::all_of(sec.begin(), sec.end(),
+                       [&lex](const std::string& l) { return is_flag_line(l, lex); });
 }
 
-bool is_cosmetic_section(const Section& sec) {
-    return std::all_of(sec.begin(), sec.end(), [](const std::string& line) {
-        return line.starts_with("Has ") && line.ends_with(" Effect");
+bool is_cosmetic_section(const Section& sec, const data::Lexicon& lex) {
+    const std::string_view open = lex.term(data::Term::CosmeticPrefix);
+    const std::string_view close = lex.term(data::Term::CosmeticSuffix);
+    if (open.empty() || close.empty()) return false;
+    return std::all_of(sec.begin(), sec.end(), [open, close](const std::string& line) {
+        return line.starts_with(open) && line.ends_with(close);
     });
 }
 
@@ -489,25 +517,18 @@ bool is_prose_section(const Section& sec) {
 /// "Modifiable only with Chaos Orbs, Vaal Orbs, Delirium Orbs and Chisels" is here for the same
 /// reason: a Nightmare map prints it in a section of its own under the usage note, where the
 /// prose rules would otherwise read it as an unmatchable modifier.
-bool is_help_section(const Section& sec) {
-    static constexpr std::array<std::string_view, 7> kNeedles{
-        "Right click", "Shift click", "Place into an item socket", "Map Device",
-        "Can be used in a personal Map Device", "Modifiable only with",
-        // A chart's, which is where a map prints its Map Device line.
-        "Take this item to Valerie"};
-    return std::any_of(sec.begin(), sec.end(), [](const std::string& line) {
-        return std::any_of(kNeedles.begin(), kNeedles.end(), [&](std::string_view n) {
-            return line.find(n) != std::string::npos;
-        });
+bool is_help_section(const Section& sec, const data::Lexicon& lex) {
+    return std::any_of(sec.begin(), sec.end(), [&lex](const std::string& line) {
+        return lex.any_in(data::TermList::UsageNeedles, line);
     });
 }
 
 /// Decisive evidence that a section is modifiers: an Advanced Mod Descriptions info line, or a
 /// line carrying the game's own mod-type suffix. Either outranks every prose heuristic.
-bool looks_like_mods(const Section& sec) {
-    return std::any_of(sec.begin(), sec.end(), [](const std::string& line) {
+bool looks_like_mods(const Section& sec, const data::Lexicon& lex) {
+    return std::any_of(sec.begin(), sec.end(), [&lex](const std::string& line) {
         std::string_view v = line;
-        return is_info_line(line) || take_mod_suffix(v).has_value();
+        return is_info_line(line) || take_mod_suffix(v, lex).has_value();
     });
 }
 
@@ -523,15 +544,16 @@ bool is_bottom_prose(const Item& it, const Section& sec, size_t index, size_t fl
     return index == flavour_at && it.rarity == Rarity::Unique && !it.mods.empty();
 }
 
-void parse_mod_section(const Section& sec, data::ModType fallback, Item& it) {
+void parse_mod_section(const Section& sec, data::ModType fallback, Item& it,
+                       const data::Lexicon& lex) {
     // The mod an info line opened, so its continuation lines land on the same Modifier.
     // An index, not a pointer: pushing the next mod reallocates.
     size_t open = static_cast<size_t>(-1);
 
     for (const std::string& line : sec) {
         Modifier info;
-        if (parse_info_line(line, info)) {
-            info.type = type_from_generation(info.generation);
+        if (parse_info_line(line, info, lex)) {
+            info.type = type_from_generation(info.generation, lex);
             it.mods.push_back(std::move(info));
             open = it.mods.size() - 1;
             continue;
@@ -541,7 +563,7 @@ void parse_mod_section(const Section& sec, data::ModType fallback, Item& it) {
             continue;
         }
         std::string_view text = line;
-        const std::optional<data::ModType> suffix = take_mod_suffix(text);
+        const std::optional<data::ModType> suffix = take_mod_suffix(text, lex);
         if (open != static_cast<size_t>(-1)) {
             // Under an info line every following line belongs to that one affix — that is
             // how a hybrid mod is recognised without guessing.
@@ -559,17 +581,19 @@ void parse_mod_section(const Section& sec, data::ModType fallback, Item& it) {
 
 /// Colour the elemental damage entries. The property line lists them in the game's fixed
 /// fire, cold, lightning order but never names them, so the mods have to say which are there.
-void infer_elemental_kinds(Item& it) {
+void infer_elemental_kinds(Item& it, const data::Lexicon& lex) {
     if (it.elemental.empty()) return;
+    const std::string_view adds = lex.term(data::Term::AddsPrefix);
     std::vector<Element> present;
     for (const Element e : {Element::Fire, Element::Cold, Element::Lightning}) {
-        const std::string_view needle = e == Element::Fire      ? "Fire Damage"
-                                       : e == Element::Cold    ? "Cold Damage"
-                                                               : "Lightning Damage";
+        const std::string_view needle =
+            e == Element::Fire   ? lex.term(data::Term::FireDamage)
+            : e == Element::Cold ? lex.term(data::Term::ColdDamage)
+                                 : lex.term(data::Term::LightningDamage);
         for (const Modifier& m : it.mods) {
             bool hit = false;
             for (const std::string& l : m.lines)
-                hit = hit || (l.starts_with("Adds ") && l.find(needle) != std::string::npos);
+                hit = hit || (l.starts_with(adds) && l.find(needle) != std::string::npos);
             if (hit) {
                 present.push_back(e);
                 break;
@@ -582,18 +606,24 @@ void infer_elemental_kinds(Item& it) {
 
 } // namespace
 
-bool looks_like_item(std::string_view text) {
-    return text.find("Item Class:") != std::string_view::npos ||
-           text.find("Rarity:") != std::string_view::npos;
+bool looks_like_item(std::string_view text, const data::Lexicon& lex) {
+    const std::string cls = std::string(lex.term(data::Term::ItemClassLabel)) + ":";
+    const std::string rarity = std::string(lex.term(data::Term::RarityLabel)) + ":";
+    return text.find(cls) != std::string_view::npos ||
+           text.find(rarity) != std::string_view::npos;
 }
 
-std::optional<Item> parse_item(std::string_view clipboard) {
-    if (!looks_like_item(clipboard)) return std::nullopt;
+std::optional<Item> parse_item(std::string_view clipboard, const data::Lexicon& lex) {
+    if (!looks_like_item(clipboard, lex)) return std::nullopt;
     const std::vector<Section> sections = split_sections(clipboard);
     if (sections.empty()) return std::nullopt;
 
+    const std::string note_label = std::string(lex.term(data::Term::NoteLabel)) + ":";
+    const std::string req_label = std::string(lex.term(data::Term::RequirementsLabel)) + ":";
+    const std::string sockets_label = std::string(lex.term(data::Term::SocketsLabel)) + ":";
+
     Item it;
-    parse_header(sections[0], it);
+    parse_header(sections[0], it, lex);
     if (it.rarity == Rarity::Unknown && it.item_class.empty()) return std::nullopt;
 
     // Flavour text is the last section that is not a flag, a note, a cosmetic effect or the
@@ -602,10 +632,10 @@ std::optional<Item> parse_item(std::string_view clipboard) {
     size_t flavour_at = 0;
     for (size_t i = sections.size(); i-- > 1;) {
         const Section& s = sections[i];
-        if (is_flag_section(s) || is_cosmetic_section(s) || is_help_section(s) ||
-            s.front().starts_with("Note:"))
+        if (is_flag_section(s, lex) || is_cosmetic_section(s, lex) || is_help_section(s, lex) ||
+            s.front().starts_with(note_label))
             continue;
-        if (is_prose_section(s) && !looks_like_mods(s)) flavour_at = i;
+        if (is_prose_section(s) && !looks_like_mods(s, lex)) flavour_at = i;
         break;
     }
 
@@ -616,18 +646,18 @@ std::optional<Item> parse_item(std::string_view clipboard) {
         const Section& sec = sections[i];
         const std::string& first = sec.front();
 
-        if (is_flag_section(sec)) {
-            parse_flags(sec, it);
-        } else if (first == "Requirements:") {
-            parse_requirements(sec, it);
-        } else if (first.starts_with("Sockets:")) {
+        if (is_flag_section(sec, lex)) {
+            parse_flags(sec, it, lex);
+        } else if (first == req_label) {
+            parse_requirements(sec, it, lex);
+        } else if (first.starts_with(sockets_label)) {
             parse_sockets(first, it);
-        } else if (first.starts_with("Note:")) {
-            it.note = std::string(trim(std::string_view(first).substr(5)));
-        } else if (is_cosmetic_section(sec)) {
+        } else if (first.starts_with(note_label)) {
+            it.note = std::string(trim(std::string_view(first).substr(note_label.size())));
+        } else if (is_cosmetic_section(sec, lex)) {
             it.cosmetic_lines.insert(it.cosmetic_lines.end(), sec.begin(), sec.end());
         } else if (std::all_of(sec.begin(), sec.end(), is_property_line)) {
-            parse_properties(sec, it);
+            parse_properties(sec, it, lex);
             props_seen = true;
         } else if (!props_seen && i == 1 &&
                    (std::any_of(sec.begin(), sec.end(), is_property_line) || it.is_flask())) {
@@ -636,17 +666,17 @@ std::optional<Item> parse_item(std::string_view clipboard) {
             // that this is that block at all, except on a flask: the block is always there and
             // an unquality one prints no `Label: value` line, so all of "Lasts 6 Seconds /
             // Consumes 40 of 60 Charges on use / Onslaught" read as modifiers instead.
-            parse_properties(sec, it);
+            parse_properties(sec, it, lex);
             props_seen = true;
         } else if (it.rarity == Rarity::Gem && it.vaal_name.empty() && sec.size() == 1 &&
-                   first.starts_with("Vaal ")) {
+                   first.starts_with(lex.term(data::Term::VaalPrefix))) {
             // A Vaal gem is two skills in one, and the game heads the second half with its own
             // name in a section of its own. The header printed the *base* skill, so this line
             // is the only thing saying that this is a Vaal Blight and not a Blight.
             it.vaal_name = first;
-        } else if (is_help_section(sec) && is_prose_section(sec)) {
+        } else if (is_help_section(sec, lex) && is_prose_section(sec)) {
             it.help_text.insert(it.help_text.end(), sec.begin(), sec.end());
-        } else if (is_prose_section(sec) && !looks_like_mods(sec) &&
+        } else if (is_prose_section(sec) && !looks_like_mods(sec, lex) &&
                    is_bottom_prose(it, sec, i, flavour_at)) {
             // A fragment says what it does in prose and then prints its verse in the same
             // shape, so the first block is the description and anything after it is flavour.
@@ -667,14 +697,14 @@ std::optional<Item> parse_item(std::string_view clipboard) {
             // Influence lines sometimes come glued to the end of the last mod block instead of
             // in a section of their own, and then the last affix swallows them.
             Section mods = sec, flags;
-            while (!mods.empty() && is_flag_line(mods.back())) {
+            while (!mods.empty() && is_flag_line(mods.back(), lex)) {
                 flags.insert(flags.begin(), mods.back());
                 mods.pop_back();
             }
-            if (!flags.empty()) parse_flags(flags, it);
+            if (!flags.empty()) parse_flags(flags, it, lex);
             if (mods.empty()) continue;
             mod_sections.push_back(it.mods.size());
-            parse_mod_section(mods, data::ModType::Explicit, it);
+            parse_mod_section(mods, data::ModType::Explicit, it, lex);
         }
     }
 
@@ -692,12 +722,14 @@ std::optional<Item> parse_item(std::string_view clipboard) {
     // prefix, and the modifier Chayula added carries the info line naming it. Either is
     // enough — the prefix is what a client with Advanced Mod Descriptions off still prints,
     // and the info line is what survives a mutation that somehow left the name alone.
-    it.foulborn = (it.rarity == Rarity::Unique && it.name.starts_with("Foulborn ")) ||
-                  std::any_of(it.mods.begin(), it.mods.end(), [](const Modifier& m) {
-                      return m.generation.starts_with("Foulborn");
-                  });
+    const std::string_view foulborn = lex.term(data::Term::FoulbornWord);
+    it.foulborn =
+        (it.rarity == Rarity::Unique && it.name.starts_with(lex.term(data::Term::FoulbornPrefix))) ||
+        std::any_of(it.mods.begin(), it.mods.end(), [foulborn](const Modifier& m) {
+            return !foulborn.empty() && m.generation.starts_with(foulborn);
+        });
 
-    infer_elemental_kinds(it);
+    infer_elemental_kinds(it, lex);
     return it;
 }
 

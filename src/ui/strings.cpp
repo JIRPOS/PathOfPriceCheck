@@ -1,0 +1,145 @@
+#include "ui/strings.hpp"
+
+#include <array>
+
+namespace ppc::ui {
+namespace {
+
+constexpr size_t kCount = static_cast<size_t>(Msg::Count);
+/// A raw array rather than a `std::array`, so that a table one entry short is a compile
+/// error against the `static_assert` below instead of a silently zero-filled tail.
+using Table = const char* const*;
+
+/// The English table, and the fallback for every entry another language leaves out. Written
+/// in `Msg` order; a designated-initialiser form would survive reordering but C++20 forbids
+/// them on an array, so the order here is the contract and `kEnglish` is the one place it is
+/// stated.
+constexpr const char* kEnglish[]{
+    "PathOfPriceCheck \xe2\x80\x94 Settings",
+    "General",
+    "Language",
+    "Trade search",
+    "Filter ranges",
+    "Hotkeys",
+    "Price-check panel",
+    "Game data",
+    "Diagnostics",
+
+    "League",
+    "Refresh",
+    "Just refreshed \xe2\x80\x94 wait %ds",
+    "Fetching league list\xe2\x80\xa6",
+    "%zu leagues",
+    "Couldn't reach the trade API (%s)",
+    "Offline list",
+    "Account",
+    "Name#1234",
+    "Expected Name#1234",
+
+    "Client language",
+    "The language your game client prints item text in. Item text is matched word for word, "
+    "so this has to be right or nothing parses.",
+    "Interface",
+    "Follow the client",
+    "Takes effect the next time the application starts.",
+    "This bundle carries no wordings for that language, so item text is being read with the "
+    "built-in English ones.",
+
+    "Listings",
+    "Fetch top",
+    "Top %d",
+    "%d request%s per check \xe2\x80\x94 about %d checks per 5 minutes",
+    "Auto-search",
+    "Every price check spends a trade API request.",
+    "Off: the panel searches when you press Search.",
+
+    "How wide each modifier's filter opens around the roll in hand.",
+    "Minimum",
+    "Maximum",
+    "Unbound leaves that side open. Tiered never asks past what the modifier's own tier can "
+    "roll.",
+
+    "Price check",
+    "Settings",
+    "press keys\xe2\x80\xa6",
+
+    "Docks beside whichever game panel the cursor was over.",
+    "Width",
+    "Stash edge",
+    "Inventory edge",
+
+    "Bundle",
+    "Downloading %.1f / %.1f MB",
+    "Downloading\xe2\x80\xa6",
+    "Checking for updates\xe2\x80\xa6",
+    "Installing\xe2\x80\xa6",
+    "No data installed",
+    "Not downloaded yet",
+    "Check now",
+    "Item parsing works without this; pricing needs it.",
+    "%zu stat wordings indexed",
+    "Unique modifier data from %s",
+
+    "Debug logging",
+    "could not open a log file",
+    "Records the copy path, item text included. Off by default.",
+
+    "Save",
+};
+
+/// Every compiled-in table. English is index 0 and is the fallback, so it is the one entry
+/// that may never be removed. A new language is a table added here and nothing else — no
+/// build flag, no asset, no second binary.
+struct Language {
+    std::string_view id;
+    Table table;
+};
+static_assert(std::size(kEnglish) == kCount, "the English table needs one entry per Msg");
+
+constexpr Language kLanguages[]{
+    {"en", kEnglish},
+};
+
+/// A null entry falls through to English, so a table can be added with only the rows somebody
+/// has actually translated filled in.
+Table selected = kEnglish;
+std::string_view selected_id = "en";
+
+Table table_for(std::string_view lang) {
+    for (const Language& l : kLanguages)
+        if (l.id == lang) return l.table;
+    return nullptr;
+}
+
+} // namespace
+
+const char* text(Msg m) {
+    const size_t i = static_cast<size_t>(m);
+    if (i >= kCount) return "";
+    const char* s = selected[i];
+    return s && *s ? s : kEnglish[i];
+}
+
+void set_language(std::string_view lang, std::string_view client) {
+    const std::string_view want = lang.empty() || lang == "auto" ? client : lang;
+    if (const Table t = table_for(want)) {
+        selected = t;
+        selected_id = want;
+        return;
+    }
+    selected = kEnglish;
+    selected_id = "en";
+}
+
+std::string_view language() { return selected_id; }
+
+std::span<const std::string_view> languages() {
+    static const std::array<std::string_view, std::size(kLanguages)> ids = [] {
+        std::array<std::string_view, std::size(kLanguages)> out{};
+        for (size_t i = 0; i < std::size(kLanguages); ++i) out[i] = kLanguages[i].id;
+        return out;
+    }();
+    return ids;
+}
+
+} // namespace ppc::ui

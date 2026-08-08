@@ -124,6 +124,8 @@ add_library(ppc_core STATIC
   src/util/base64.cpp
   src/util/debug_log.cpp
   src/data/index.cpp
+  src/data/lexicon.cpp
+  src/ui/strings.cpp
   src/data/stat_normalize.cpp
   src/data/game_data.cpp
   src/data/stat_matcher.cpp
@@ -221,6 +223,7 @@ function(ppc_add_test name)
   add_executable(${name} tests/${name}.cpp)
   target_link_libraries(${name} PRIVATE ppc_core doctest::doctest)
   # Fixtures live beside the sources so tests do not depend on the working directory.
+  target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
   target_compile_definitions(${name} PRIVATE
     PPC_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
   # doctest 2.4.12 includes <ciso646>, which libstdc++ warns about under C++20.
@@ -241,6 +244,7 @@ ppc_add_test(normalize_test)
 ppc_add_test(game_data_test)
 ppc_add_test(stat_matcher_test)
 ppc_add_test(install_test)
+ppc_add_test(lexicon_test)
 ppc_add_test(item_parse_test)
 ppc_add_test(item_pricing_test)
 ppc_add_test(trade_query_test)

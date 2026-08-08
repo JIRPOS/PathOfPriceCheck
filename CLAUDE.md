@@ -153,10 +153,25 @@ modifiers, so "LShift" registers as "Shift".
   before and after the bullets**. Without them GitHub folds the next `ADDED:` line into the bullet
   as a lazy list continuation, and the body renders as nonsense.
 
-  A **pull request summarises the commits it contains and invents nothing**: take each commit's
-  own `ADDED:`/`CHANGED:`/`REMOVED:` lines, pool them, and re-sort into the same three groups.
-  Reasons ride along with the lines they belong to. Prefer the commit's wording over a fresh one —
-  the PR is a merge of what is already written, not a second telling of it.
+  A **pull request has two audiences and therefore two sections**, `## Release notes` first and
+  `## Review notes` second, both in the three groups above:
+
+  - **Release notes** is what a *user* gets out of the version: a new, changed or removed way to
+    use the app, or behaviour they would notice. No identifiers, no filenames, no measurements,
+    no bullets — a user does not care that a filter is called `mutated` or that 1896 listings
+    were counted, only that a Foulborn unique is now priced apart from an ordinary one. A PR
+    with nothing user-facing — a refactor, a CI fix, the version bump — **has no Release notes
+    section at all**, which is the right answer rather than an omission.
+  - **Review notes** is the pooled commit lines: take each commit's own
+    `ADDED:`/`CHANGED:`/`REMOVED:` lines, pool them, re-sort into the same three groups, and let
+    the reasons ride along with the lines they belong to. Prefer the commit's wording over a
+    fresh one — this half is a merge of what is already written, not a second telling of it.
+
+  **The release page is built out of the Release notes sections and nothing else.** The release
+  job asks the API for the notes `--generate-notes` would have written, opens every PR they name,
+  and keeps only that one section; the generated list of titles goes underneath as the index and
+  the attribution. So the same change is stated twice on purpose, once per audience, and the
+  user-facing half is written at the only moment anyone knows what it should say.
 - **The maintainer is `JIRPOS`.** Use the GitHub alias in every file — docs, licenses, anything
   published. The legal name goes in no file, here or in the data repo. Git's own `user.name` is a
   separate matter and is **not** to be changed: the commits are GPG-signed, the key is bound to
@@ -307,7 +322,11 @@ overlay is a 200×48 rectangle rather than a dialog-sized one nothing is drawn i
 control's own label to its *right*, which is why nothing passes a visible label. League is a combo
 fed by `LeagueService` from `/api/trade/data/leagues`, cached 24h under `cache_dir()`; the payload
 repeats each id per realm so it is filtered to `pc`, hardcoded because this binary can only be
-driven by a PC client. Two invariants: the dropdown is never empty (fallback → cache → fetch), and
+driven by a PC client. **Language** is two rows of the same shape and for the same reason: a
+configured value the list does not have is still selectable, or opening Settings would silently
+change it. Client language is offered from `GameData::languages()` and says on the row that it
+lands on the next run; Interface takes effect at once, since nothing is cached on it. Two
+invariants: the dropdown is never empty (fallback → cache → fetch), and
 the configured league is never lost — it is the combo preview and is appended as a selectable when
 a fetch does not contain it, which is exactly what happens on league-launch day. No request is made
 unless Settings is opened. `poe_window_title` is config-file-only, deliberately not in the UI.
@@ -413,7 +432,8 @@ absent from Fontin's cmap outright, so adding it to `kBorrowedGlyphs` is all it 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
 so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
 the debug log, which every platform seam writes into), all of `item/`, all of `data/` except the
-updater, and all of `trade/`, `ninja/` and `exchange/` except their clients. The rule is that `ppc_core` links
+updater, `ui/strings` (our own text is a table, not a widget), and all of `trade/`, `ninja/` and
+`exchange/` except their clients. The rule is that `ppc_core` links
 no SDL3, no ImGui, no X11 and no libcurl. Tests use doctest and link only `ppc_core`.
 
 ### Static game data (built)
@@ -445,6 +465,30 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   bundle-level signal saying whether `BaseType::exchange` means anything, because unlike a whole
   missing file an absent boolean cannot tell "no data" from "no". `install` writes it only when
   non-zero, since a 0 would claim the opposite of what it means. See the currency-exchange section.
+- **`data/lexicon`** is every word the *client* prints, for one language: the section labels
+  (`Item Class`, `Rarity`, `Requirements`, `Sockets`, `Note`), the flag lines, the rarity and
+  influence names, the mod-type suffixes and Advanced Mod Descriptions generation words, the
+  property labels, the usage-note needles, the base-line decorations (`Superior `,
+  `Blighted Map`, ` (Tier `, `Foulborn `, `Vaal `) and the chart shapes. `item/parse` used to
+  compare each of those against a literal, which is the whole of why the app reads an English
+  client and nothing else.
+  **It is game data, so the bundle is the authority** — `<lang>-lexicon.json`, read by
+  `GameData::open` and reachable as `GameData::lexicon()`. The English table is *compiled in*
+  as the default because every bundle published so far carries no lexicon at all, and a
+  lexicon **overlays** rather than replaces: an entry it does not name stays English, so a
+  partial translation degrades to English instead of to a blank rule that matches every line.
+  `has_lexicon()` is what says which of the two happened. Three shapes, and the difference is
+  load-bearing: `Term` is a single string, a `TermList` is a set (the fixed-order ones are
+  **indexed by an enum** — `Rarities` by `item::Rarity`, `ModSuffixes` and `Generations` by
+  `ModType` — so a language's list has to keep the order and a replaced list is replaced
+  whole), and the property and item-class tables are keyed the other way round, printed label
+  to key, so a translated one replaces the English outright.
+  **An empty entry never matches**, deliberately: `starts_with("")` is true of every line, and
+  `ModType::Explicit` has no generation word of its own.
+  `parse_item` and `looks_like_item` **take a lexicon and have no default**. The language is
+  the one input this layer cannot infer, and a default is precisely the bug — the app would go
+  on reading English after the user said their client is not. Tests state it once, in
+  `tests/parse_en.hpp`.
 - **`data/stat_normalize`** turns `+42 to maximum Life` into `# to maximum Life` and its fallbacks.
   **`NORMALIZATION.md` in the data repo is normative** and this must reproduce it exactly — a
   divergence does not crash, it silently mismatches a mod and returns a confident wrong price.
@@ -465,7 +509,10 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
 what a search for it would ask for. Four steps, deliberately separate: only the middle two need a
 bundle, and only the third and fourth encode pricing judgement.
 
-- **`item/parse`** — pure, no bundle, no I/O: `parse_item(text) -> optional<Item>`. Sections split on
+- **`item/parse`** — pure, no I/O, and no bundle beyond the `data::Lexicon` that says what
+  language the client wrote in: `parse_item(text, lex) -> optional<Item>`. Every word quoted
+  below is the English entry of that table rather than a literal in this file — see
+  `data/lexicon`. Sections split on
   `--------`; the header gives `Item Class`, `Rarity` and one or two name lines. Section *kind* is
   decided in a fixed order (flags → `Requirements:` → `Sockets:` → `Note:` → cosmetic → all-property
   → the first mixed block → usage note → bottom prose → gem lines → mods), because PoE prints no
@@ -1443,16 +1490,70 @@ the right one, and it is GGG's own numbers rather than a third party's reading o
   as currency — whether a thing trades there is a fact about the market rather than about our
   strategy.
 
+### Localisation, and what it is not
+
+**Two unrelated problems wear the one word, and neither buys anything toward the other.**
+Reading a *translated client* is game text — GGG's words, shipped in the bundle, load-bearing:
+get one wrong and an item does not parse. Translating *our own* text is our words, compiled in,
+cosmetic: get one wrong and a button reads oddly. So they are two settings and two tables.
+
+- **`Config::client_language`** picks the assets `GameData::open` maps and the vocabulary
+  `data/lexicon` reads item text with. Read **once at startup** (`DataUpdater::set_language`),
+  because the bundle is opened with it and every parsed item points into that bundle — so
+  Settings offers it, states that it lands on the next run, and does not pretend otherwise.
+  Its options are `GameData::languages()`, off the manifest: asking for a language the bundle
+  does not carry simply fails to open it, which is a worse way to find out.
+- **`Config::ui_language`** is `src/ui/strings.cpp` — `ui::Msg`, one enum entry per piece of
+  our own text, `ui::text()`, and one compiled-in table per language with English at index 0
+  as the fallback. A null or empty entry falls through to English, so a table can be added with
+  only the rows somebody has actually translated. `static_assert` on the table length, because
+  a short one would otherwise zero-fill its tail silently. Defaults to `"auto"`, which follows
+  the client. **One binary for every language**: a table is a few kilobytes against an
+  executable already embedding four typefaces, and per-language builds would contradict the
+  rule that a new league needs a data build rather than a release.
+
+Three things that had to move for any of it to work, and are better even in English:
+
+- **`Property::key`** (`data::PropertyKey`). The printed label used to be the key: `parse`
+  dispatched on `"Attacks per Second"` and `item/plan` matched the same string again, two
+  copies of one vocabulary drifting apart. The label stays on the `Property` for the tooltip
+  to draw; everything downstream decides on the key.
+- **`Item::class_kind`** (`data::ClassKind`). `is_flask()` was `item_class.ends_with("Flasks")`
+  and `is_map()` was `== "Maps"`. The lexicon says which class is which kind, and parse needs
+  no bundle to ask.
+- **`BaseType::ref_name` on the wire.** The trade API's `name`/`type` terms are English
+  whatever language the client is, so `wire_name` in `item/plan` states the order once —
+  `trade_name` (where the site files the item somewhere else entirely, i.e. a transfigured
+  gem), then `ref_name`, then the printed `name`, which is the same string as `ref_name` on an
+  English bundle. `GameData::find_bases_by_ref` reads `<lang>-items-ref.index.bin` — which has
+  shipped in every bundle and was never opened until now — and is how the app names a record
+  the clipboard did not print: the blighted-map redirect to the `Map` base is the case that
+  proves it, since `"Map"` is a reference name and not what a translated client shows.
+
 ### Still to build
 
-- **Any client language but English.** Every modifier is matched against the wording the client
-  printed, and those are language-specific, so a non-English client produces text nothing here
-  parses — it does not mis-price, it fails to recognise an item at all. The seam exists and is
-  unused: assets are language-prefixed, `GameData::open` takes the language, and `manifest.json`
-  declares a `languages` list. What is missing is upstream — the data build fetches only the
-  English `stat_descriptions.txt` files and emits one language — plus a setting to pick one.
-  Nothing in the schema has to change. **Say so in the README rather than letting it be
-  discovered**, which is why it is a Requirements row there.
+- **A language other than English to actually select.** The application side above is built;
+  what is missing is upstream. The data build fetches only the English `stat_descriptions.txt`
+  files and emits one language, so `manifest.json` declares `["en"]` and the Settings row has
+  one entry. A second language needs the build to emit `<lang>-stats.ndjson`,
+  `<lang>-items.ndjson` with `refName` filled in, and a `<lang>-lexicon.json`. Nothing in the
+  app's schema has to change. **Say so in the README rather than letting it be discovered.**
+- **Two things still matched on English wordings**, both deliberately left alone rather than
+  guessed at, because getting either wrong is a confident wrong price rather than a failure:
+  `item/derive`'s local-modifier lists (`kLocalDefences` and the weapon wordings) and
+  `item/resolve`'s `kLocalWordings` compare `placeholder_form` of the printed line, and
+  `ninja`'s `narrow_by_mods` compares a unique's printed modifiers against poe.ninja's English
+  ones. The obvious fix — key them on `Stat::ref`, which is already treated as language-neutral
+  by `Item::sum_of` and `plan`'s `kVoid` — needs two upstream answers first: whether a
+  localised bundle's `ref` stays English, and whether the `" (Local)"` suffix rides on a
+  localised matcher. **Pin it to a real localised bundle, not to a guess.**
+  `ninja::kKeywords` is the same shape and already reads `ref_name`, which is why it is not on
+  this list.
+- **`chart_area_key`'s convention is Latin-only** — it capitalises words and drops apostrophes
+  to turn a printed area name into the internal id trade files a chart under. That cannot work
+  for Russian, Korean or Thai, and the answer is for the bundle to carry the mapping rather
+  than for the app to keep deriving it. A wrong key already costs breadth and never correctness
+  (the search falls back to the chart's own base type plus a note), so it degrades honestly.
 - **Telling apart the variants a modifier wording cannot.** `narrow_by_mods` resolves a unique
   whose variants differ in *wording*; the ones that differ only in a **number poe.ninja publishes
   for some variants and not others** stay a span. Mageblood is the case: the item prints "Leftmost
@@ -1614,6 +1715,12 @@ The item parser must be runnable and tested without any windowing or network dep
 what `ppc_core` is for.
 
 ### Regenerating the test fixtures
+
+`tests/parse_en.hpp` is where every test states that its captures came from an English client —
+`parse_item` takes a lexicon and has no default, so the alternative was saying so at three hundred
+call sites. `lexicon_test` covers the other direction with a hand-written pseudo-French lexicon and
+an item written in it: nothing in that capture is English, so anything the parser still gets right
+it got from the table, and the same bytes read as English are correctly not an item at all.
 
 `tests/data/stat-normalization-vectors.ndjson` and `tests/data/bundle/` are slices of a real data
 release, committed so the suite runs offline. **`./scripts/slice-test-bundle.py

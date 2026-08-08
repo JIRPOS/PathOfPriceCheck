@@ -216,6 +216,31 @@ TEST_CASE("Item Class maps to a trade category") {
     CHECK(gd->trade_category_for("Nonexistent Class").empty());
 }
 
+TEST_CASE("a base can be named by its reference name") {
+    auto gd = fixture();
+    // How the app names a record the clipboard did not print — the blighted-map redirect is
+    // the one that matters, since "Map" is a reference name and not what a translated client
+    // would have shown.
+    const std::vector<const BaseType*> maps = gd->find_bases_by_ref(Namespace::Item, "Map");
+    REQUIRE_FALSE(maps.empty());
+    CHECK(maps.front()->name == "Map");
+    CHECK(gd->find_bases_by_ref(Namespace::Item, "Not A Base").empty());
+    // The namespace is part of the key here as it is for the name index.
+    CHECK(gd->find_bases_by_ref(Namespace::Unique, "Map").empty());
+}
+
+TEST_CASE("a bundle with no lexicon reads its items in English") {
+    auto gd = fixture();
+    // Every bundle published so far is this one's shape, which is why the English table is
+    // compiled in rather than required from the bundle.
+    CHECK_FALSE(gd->has_lexicon());
+    CHECK(gd->lexicon().language() == "en");
+    CHECK(gd->lexicon().term(Term::RarityLabel) == "Rarity");
+    // And it declares which languages it has assets for, which is what Settings offers.
+    REQUIRE_FALSE(gd->languages().empty());
+    CHECK(gd->languages().front() == "en");
+}
+
 TEST_CASE("normalizer output feeds straight into lookup") {
     auto gd = fixture();
     // The end-to-end path the parser will take: clipboard line -> candidates -> stat.

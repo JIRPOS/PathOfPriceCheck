@@ -302,17 +302,18 @@ bool in(std::initializer_list<data::ModType> types, data::ModType t) {
 /// Descriptions say (affix, tier, tags) and the reminder text explaining what the wording means
 /// — is a hover tooltip rather than printed lines: together they more than doubled the height of
 /// every rolled item, and the panel is competing with the game's own tooltip for the same screen.
-void draw_mods(const Item& it, const Fonts& fonts, std::initializer_list<data::ModType> types) {
+void draw_mods(const Item& it, const Fonts& fonts, const data::Lexicon& lex,
+               std::initializer_list<data::ModType> types) {
     for (const Modifier& m : it.mods) {
         if (!in(types, m.type)) continue;
         // The game prints a modifier added to a unique in magenta, not in the mod blue.
-        const ImU32 colour = m.added_unique() ? kColScourge : mod_colour(m.type);
+        const ImU32 colour = m.added_unique ? kColScourge : mod_colour(m.type);
         // A continuation reprints its affix, unlike in the game's own tooltip: it is the only
         // place the reader gets *this* stat's range, and a hover shows one modifier at a time.
         ImGui::BeginGroup();
         for (const std::string& l : m.lines) draw_line(strip_roll_ranges(l), colour);
         ImGui::EndGroup();
-        draw_hover_tip(join_lines(m.info_text(), m.reminder), fonts);
+        draw_hover_tip(join_lines(m.info_text(lex), m.reminder), fonts);
     }
 }
 
@@ -340,7 +341,8 @@ std::string strip_roll_ranges(std::string_view line) {
     return out;
 }
 
-void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& fonts) {
+void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& fonts,
+                       const data::Lexicon& lex) {
     ImGui::PushFont(fonts.small_caps, 0.0f);
     draw_name_plate(it, fonts);
 
@@ -383,7 +385,7 @@ void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& font
           {data::ModType::Crucible}}) {
         if (!has_mods(it, block)) continue;
         draw_rule();
-        draw_mods(it, fonts, block);
+        draw_mods(it, fonts, lex, block);
     }
 
     if (!it.identified) {

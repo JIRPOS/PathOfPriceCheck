@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "data/index.hpp"
+#include "data/lexicon.hpp"
 #include "data/mapped_file.hpp"
 #include "data/types.hpp"
 
@@ -46,6 +47,14 @@ public:
     /// unique colliding with a base name. The caller disambiguates on the returned fields.
     std::vector<const BaseType*> find_bases(Namespace ns, std::string_view name) const;
 
+    /// Every base whose English `refName` is `ref` — how to name a record the clipboard did
+    /// not print, and the one lookup that means the same thing in every language.
+    ///
+    /// A bundle with no ref index answers through the name index instead, which is right for
+    /// an English one (the two names are the same string) and the only thing available on a
+    /// bundle published before the index shipped.
+    std::vector<const BaseType*> find_bases_by_ref(Namespace ns, std::string_view ref) const;
+
     /// Every unique that drops on `base`, in file order — which is all an **unidentified**
     /// unique states about itself: the clipboard prints the base line and no name at all.
     ///
@@ -81,8 +90,28 @@ public:
     /// exists to fix, on every bundle older than it.
     bool has_exchange_flags() const { return exchange_items_ > 0; }
 
+    /// The words this bundle's client prints, for the language it was opened in.
+    ///
+    /// English unless the bundle carries a `<lang>-lexicon.json`, and English for whatever
+    /// that file leaves unsaid — see `Lexicon`. Never absent, so no caller has to decide what
+    /// to do without one.
+    const Lexicon& lexicon() const { return lexicon_; }
+    /// False for a bundle that carries no lexicon for the language it was opened in, i.e. one
+    /// whose item text this build can only read because it happens to be English.
+    bool has_lexicon() const { return has_lexicon_; }
+
+    /// The languages this bundle declares assets for, off the manifest. What Settings offers
+    /// as the client language, since asking for one the bundle does not have simply fails to
+    /// open it. Never empty: a manifest that says nothing is read as English-only, which is
+    /// what every bundle published so far is.
+    const std::vector<std::string>& languages() const { return languages_; }
+
     /// "Item Class: Rings" -> the trade `category` option, e.g. "accessory.ring".
     /// Empty when the class has no trade category, which is not an error.
+    ///
+    /// `item-classes.ndjson` is language-neutral and keyed on the *English* printed name, so
+    /// a translated client's class is found through the lexicon's `class_id` instead. The
+    /// printed name is still tried first: it is what every bundle published so far answers to.
     std::string_view trade_category_for(std::string_view item_class) const;
     const ItemClass* item_class(std::string_view item_class) const;
 
@@ -103,17 +132,23 @@ private:
 
     MappedFile stats_nd_, items_nd_, unique_mods_nd_;
     MappedFile stats_matcher_idx_, stats_ref_idx_, items_name_idx_, items_base_idx_,
-        unique_mods_name_idx_;
+        items_ref_idx_, unique_mods_name_idx_;
     HashIndex stats_matcher_index_, stats_ref_index_, items_name_index_, items_base_index_,
-        unique_mods_name_index_;
+        items_ref_index_, unique_mods_name_index_;
 
     // Parsed on demand. mutable because lookups are logically const.
     mutable std::unordered_map<uint32_t, std::unique_ptr<Stat>> stat_cache_;
     mutable std::unordered_map<uint32_t, std::unique_ptr<BaseType>> base_cache_;
     mutable std::unordered_map<uint32_t, std::unique_ptr<UniqueMods>> unique_mods_cache_;
 
-    // Small enough (90 rows) that parsing it up front beats indexing it.
+    // Small enough (90 rows) that parsing it up front beats indexing it. Keyed on the
+    // English printed class name, which is what the file states; `by_class_id_` is the same
+    // rows keyed on the game's internal id, for a client that printed something else.
     std::unordered_map<std::string, ItemClass> classes_;
+    std::unordered_map<std::string, const ItemClass*> by_class_id_;
+    Lexicon lexicon_ = Lexicon::english();
+    bool has_lexicon_ = false;
+    std::vector<std::string> languages_{"en"};
     std::string data_version_;
     std::string unique_mods_attribution_;
     /// How many items the data build's crawl found trading on the currency exchange. 0 means

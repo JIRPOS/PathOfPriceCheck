@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "data/lexicon.hpp"
 #include "data/stat_matcher.hpp"
 #include "data/types.hpp"
 
@@ -20,9 +21,11 @@ enum class Rarity : uint8_t {
     Unknown, Normal, Magic, Rare, Unique, Gem, Currency, DivinationCard, Quest
 };
 
+/// The English name, for a log line or a fixture. What the *client* printed is
+/// `lex.at(TermList::Rarities, …)`; this is deliberately not that.
 std::string_view to_string(Rarity r);
 /// `Rarity::Unknown` for anything unrecognised — never an error, the item still renders.
-Rarity rarity_from_string(std::string_view s);
+Rarity rarity_from_string(std::string_view s, const data::Lexicon& lex);
 
 enum class Influence : uint8_t {
     Shaper, Elder, Crusader, Redeemer, Hunter, Warlord, SearingExarch, EaterOfWorlds, Count
@@ -30,7 +33,7 @@ enum class Influence : uint8_t {
 
 std::string_view to_string(Influence i);
 /// "Elder Item" -> Influence::Elder. The clipboard prints one such line per influence.
-std::optional<Influence> influence_from_line(std::string_view line);
+std::optional<Influence> influence_from_line(std::string_view line, const data::Lexicon& lex);
 
 /// Which side of the mod pool a roll came from. Only Advanced Mod Descriptions say.
 enum class Affix : uint8_t { Unknown, Prefix, Suffix };
@@ -49,6 +52,10 @@ struct DamageRange {
 /// whatever the game prints — map tier, memory strands, gem level — without a field per
 /// item type. A label-less entry is a property the game prints as prose ("Lasts 7.20 Seconds").
 struct Property {
+    /// What the line is asking about, whatever words it was printed with. The label below is
+    /// what the reader sees; this is what everything downstream decides on — `item/plan` used
+    /// to re-match the printed English a second time, which was two copies of one vocabulary.
+    data::PropertyKey key = data::PropertyKey::None;
     std::string label, value;
     bool augmented = false;
     std::optional<double> num; ///< the first number in the value, when there is one
@@ -90,13 +97,19 @@ struct Modifier {
     /// A modifier *added* to a unique rather than one of its own: the info line names what
     /// added it ("Foulborn Unique Modifier") and the game prints it in magenta. Not every copy
     /// of the unique has it, so unlike the unique's fixed mods it is worth searching on.
-    bool added_unique() const;
+    ///
+    /// Decided while parsing rather than asked of `generation` later, because deciding it
+    /// needs the client's own word for "Unique" and nothing downstream holds a lexicon.
+    bool added_unique = false;
 
     std::string text() const; ///< `lines` joined with '\n'
     /// The info line as the game prints it, plus the tier's own roll range, or "" when this
     /// mod had no info line. The range is here rather than inline in `lines` because the view
     /// strips "+86(77-90)" down to "+86" and this is where the reader gets it back.
-    std::string info_text() const;
+    ///
+    /// Rebuilt rather than kept: the parser takes the line apart, so the words between the
+    /// pieces come back from the lexicon that read it.
+    std::string info_text(const data::Lexicon& lex) const;
     /// The range each of this mod's numbers rolled within, "77-90"; "" when unknown or fixed.
     std::string range_text() const;
 };
@@ -107,6 +120,9 @@ struct Requirements {
 
 struct Item {
     std::string item_class; ///< as printed: "Thrusting One Hand Swords"
+    /// Which of the classes the app branches on that is, decided by the lexicon while
+    /// parsing. `Other` for the ninety-odd classes nothing here special-cases.
+    data::ClassKind class_kind = data::ClassKind::Other;
     Rarity rarity = Rarity::Unknown;
     std::string name;       ///< rare/unique name; empty for normal and magic items
     std::string base_type;  ///< the base line as printed — a magic item's still has its affixes
@@ -217,10 +233,15 @@ struct Item {
     double sum_of(std::string_view stat_ref) const;
 };
 
-/// Parse clipboard text. Returns nothing when the text is not an item at all.
-std::optional<Item> parse_item(std::string_view clipboard);
+/// Parse clipboard text the client wrote in `lex`'s language. Returns nothing when the text
+/// is not an item at all.
+///
+/// There is deliberately no default lexicon: the language is the one input this layer cannot
+/// infer, and a default is exactly the bug — the app would go on reading English after the
+/// user had said their client is not.
+std::optional<Item> parse_item(std::string_view clipboard, const data::Lexicon& lex);
 
 /// True when `text` has the shape of PoE item text. Cheap; used to accept a clipboard read.
-bool looks_like_item(std::string_view text);
+bool looks_like_item(std::string_view text, const data::Lexicon& lex);
 
 } // namespace ppc::item

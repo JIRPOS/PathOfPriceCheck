@@ -8,6 +8,7 @@
 
 #include "item/item.hpp"
 #include "ninja/ninja.hpp"
+#include "parse_en.hpp"
 
 using namespace ppc;
 
@@ -32,7 +33,7 @@ ninja::Overview load(const std::string& rel, ninja::Feed feed, const char* type)
 }
 
 item::Item parse_capture(const std::string& rel) {
-    std::optional<item::Item> it = item::parse_item(read(rel));
+    std::optional<item::Item> it = item::parse_item_en(read(rel));
     REQUIRE(it.has_value());
     return *it;
 }

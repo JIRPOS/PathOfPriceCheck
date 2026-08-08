@@ -10,6 +10,7 @@
 #include "item/derive.hpp"
 #include "item/plan.hpp"
 #include "item/resolve.hpp"
+#include "parse_en.hpp"
 
 namespace fs = std::filesystem;
 using namespace ppc::item;
@@ -35,7 +36,7 @@ std::string capture(const char* name, const char* dir = "items") {
 /// Parse and resolve in one step. The items here are written against the committed fixture
 /// bundle, which holds a handful of stats and bases — enough for every code path.
 Item resolved(const GameData& gd, std::string_view text) {
-    std::optional<Item> it = parse_item(text);
+    std::optional<Item> it = parse_item_en(text);
     REQUIRE(it.has_value());
     resolve_item(gd, *it);
     return *it;
@@ -1101,7 +1102,7 @@ TEST_CASE("a map item is a bulk good or an item, and the item level is what says
     // hands on the in-game currency exchange rather than through a listing.
     for (const char* f : {"fragment-scarab.txt", "fragment-allflame-ember.txt",
                           "fragment-phoenix.txt", "fragment-mavens-writ.txt"}) {
-        std::optional<Item> it = parse_item(capture(f));
+        std::optional<Item> it = parse_item_en(capture(f));
         REQUIRE_MESSAGE(it.has_value(), f);
         CHECK_MESSAGE(!it->item_level.has_value(), f);
         CHECK_MESSAGE(default_strategy(*it) == Strategy::Currency, f);
@@ -1109,7 +1110,7 @@ TEST_CASE("a map item is a bulk good or an item, and the item level is what says
 
     // One that prints an item level can also carry a rarity and its own quantity/rarity
     // modifiers, exactly as a map does, so it goes down the ordinary path for its rarity.
-    const std::optional<Item> inv = parse_item(capture("invitation-writhing.txt"));
+    const std::optional<Item> inv = parse_item_en(capture("invitation-writhing.txt"));
     REQUIRE(inv.has_value());
     CHECK(inv->item_level == 83);
     CHECK(default_strategy(*inv) == Strategy::BaseItem);

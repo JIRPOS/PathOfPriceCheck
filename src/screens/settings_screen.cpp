@@ -9,6 +9,7 @@
 #include <imgui_stdlib.h>
 
 #include "app.hpp"
+#include "ui/strings.hpp"
 #include "util/debug_log.hpp"
 
 namespace ppc {
@@ -50,7 +51,7 @@ void section(App& app, const char* title) {
 
 void hotkey_row(App& app, const char* label, Action which, Hotkey& hk) {
     const char* id = row(label, 180.0f);
-    std::string cur = app.capturing(which) ? "press keys\xe2\x80\xa6" : to_string(hk);
+    std::string cur = app.capturing(which) ? ui::text(ui::Msg::PressKeys) : to_string(hk);
     ImGui::PushID(id);
     if (ImGui::Button(cur.c_str(), ImVec2(180, 0))) app.begin_capture(which);
     ImGui::PopID();
@@ -62,7 +63,7 @@ void league_row(App& app, Config& c) {
     const LeagueService& svc = app.leagues();
 
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("League");
+    ImGui::TextUnformatted(ui::text(ui::Msg::League));
     ImGui::SameLine(kLabelW);
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - kRefreshW -
                             ImGui::GetStyle().ItemSpacing.x);
@@ -88,27 +89,27 @@ void league_row(App& app, Config& c) {
     const int cd = svc.cooldown_s();
     const bool busy = svc.state() == LeagueState::Loading;
     ImGui::BeginDisabled(busy || cd > 0);
-    if (ImGui::Button("Refresh", ImVec2(kRefreshW, 0))) app.refresh_leagues();
+    if (ImGui::Button(ui::text(ui::Msg::Refresh), ImVec2(kRefreshW, 0))) app.refresh_leagues();
     ImGui::EndDisabled();
     if (cd > 0 && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("Just refreshed \xe2\x80\x94 wait %ds", cd);
+        ImGui::SetTooltip(ui::text(ui::Msg::JustRefreshed), cd);
 
     row_gutter();
     switch (svc.state()) {
     case LeagueState::Loading:
-        ImGui::TextDisabled("Fetching league list\xe2\x80\xa6");
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::FetchingLeagues));
         break;
     case LeagueState::Ok:
-        ImGui::TextDisabled("%zu leagues", svc.list().size());
+        ImGui::TextDisabled(ui::text(ui::Msg::LeagueCount), svc.list().size());
         break;
     case LeagueState::Error:
         // curl's messages run past the panel edge, so wrap rather than clip.
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextColored(kWarn, "Couldn't reach the trade API (%s)", svc.error().c_str());
+        ImGui::TextColored(kWarn, ui::text(ui::Msg::LeagueError), svc.error().c_str());
         ImGui::PopTextWrapPos();
         break;
     case LeagueState::Idle:
-        ImGui::TextDisabled("Offline list");
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::OfflineList));
         break;
     }
 }
@@ -118,7 +119,7 @@ void data_row(App& app) {
     const data::DataUpdater::Status st = app.data_status();
 
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted("Bundle");
+    ImGui::TextUnformatted(ui::text(ui::Msg::Bundle));
     ImGui::SameLine(kLabelW);
 
     const bool busy = st.state == State::Checking || st.state == State::Downloading ||
@@ -126,26 +127,27 @@ void data_row(App& app) {
     switch (st.state) {
     case State::Downloading:
         if (st.bytes_total)
-            ImGui::Text("Downloading %.1f / %.1f MB", st.bytes_done / 1e6, st.bytes_total / 1e6);
+            ImGui::Text(ui::text(ui::Msg::Downloading), st.bytes_done / 1e6, st.bytes_total / 1e6);
         else
-            ImGui::TextUnformatted("Downloading\xe2\x80\xa6");
+            ImGui::TextUnformatted(ui::text(ui::Msg::DownloadingPlain));
         break;
     case State::Checking:
-        ImGui::TextUnformatted("Checking for updates\xe2\x80\xa6");
+        ImGui::TextUnformatted(ui::text(ui::Msg::CheckingUpdates));
         break;
     case State::Installing:
-        ImGui::TextUnformatted("Installing\xe2\x80\xa6");
+        ImGui::TextUnformatted(ui::text(ui::Msg::Installing));
         break;
     case State::Failed:
         ImGui::PushTextWrapPos(0.0f);
         ImGui::TextColored(kWarn, "%s (%s)",
-                           st.data_version.empty() ? "No data installed" : st.data_version.c_str(),
+                           st.data_version.empty() ? ui::text(ui::Msg::NoDataInstalled)
+                                                    : st.data_version.c_str(),
                            st.error.c_str());
         ImGui::PopTextWrapPos();
         break;
     default:
         if (st.data_version.empty())
-            ImGui::TextDisabled("Not downloaded yet");
+            ImGui::TextDisabled("%s", ui::text(ui::Msg::NotDownloadedYet));
         else
             ImGui::Text("%s", st.data_version.c_str());
         break;
@@ -156,24 +158,87 @@ void data_row(App& app) {
     constexpr float kCheckW = 110.0f;
     ImGui::SameLine(ImGui::GetWindowWidth() - kCheckW - 18.0f);
     ImGui::BeginDisabled(busy);
-    if (ImGui::Button("Check now", ImVec2(kCheckW, 0))) app.check_for_data();
+    if (ImGui::Button(ui::text(ui::Msg::CheckNow), ImVec2(kCheckW, 0))) app.check_for_data();
     ImGui::EndDisabled();
 
     row_gutter();
     const std::shared_ptr<data::GameData> gd = app.game_data();
     if (!gd) {
-        ImGui::TextDisabled("Item parsing works without this; pricing needs it.");
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::ParsingWorksWithout));
         return;
     }
-    ImGui::TextDisabled("%zu stat wordings indexed", gd->stat_count());
+    ImGui::TextDisabled(ui::text(ui::Msg::StatWordings), gd->stat_count());
     // A condition of the licence the per-unique modifier data comes under, so it is shown
     // wherever the data itself is: the bundle states the credit, this only renders it.
     if (!gd->unique_mods_attribution().empty()) {
         row_gutter();
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled("Unique modifier data from %s",
+        ImGui::TextDisabled(ui::text(ui::Msg::UniqueModsCredit),
                             std::string(gd->unique_mods_attribution()).c_str());
         ImGui::PopTextWrapPos();
+    }
+}
+
+/// The two languages, which answer to different things and are therefore two rows.
+///
+/// **Client language** picks the vocabulary item text is read with and the assets the bundle
+/// is opened from, so its options are whatever the *installed bundle* declares — asking for
+/// one it does not carry simply fails to open it, which is a worse way to find out. It is
+/// read once at startup, so the change lands on the next run and the row says so.
+///
+/// **Interface** is our own text and takes effect immediately, since nothing is cached on it.
+/// "Follow the client" is the default and the honest one: a player who set the client to
+/// Russian most likely reads Russian.
+void language_rows(App& app, Config& c) {
+    const std::shared_ptr<data::GameData> gd = app.game_data();
+    const std::vector<std::string> fallback{"en"};
+    const std::vector<std::string>& client_langs = gd ? gd->languages() : fallback;
+
+    if (ImGui::BeginCombo(row(ui::text(ui::Msg::ClientLanguage)), c.client_language.c_str())) {
+        bool seen = false;
+        for (const std::string& id : client_langs) {
+            const bool sel = id == c.client_language;
+            seen = seen || sel;
+            if (ImGui::Selectable(id.c_str(), sel)) c.client_language = id;
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        // The same rule as the league combo: a configured value the list does not have must
+        // still be selectable, or opening Settings silently changes it.
+        if (!seen && !c.client_language.empty()) {
+            ImGui::Separator();
+            ImGui::Selectable(c.client_language.c_str(), true);
+        }
+        ImGui::EndCombo();
+    }
+    row_gutter();
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::ClientLanguageHelp));
+    ImGui::PopTextWrapPos();
+    if (gd && !gd->has_lexicon() && c.client_language != "en") {
+        row_gutter();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextColored(kWarn, "%s", ui::text(ui::Msg::NoLexicon));
+        ImGui::PopTextWrapPos();
+    }
+    if (gd && c.client_language != std::string(gd->lexicon().language())) {
+        row_gutter();
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::LanguageNeedsRestart));
+    }
+
+    const char* preview = c.ui_language == "auto" || c.ui_language.empty()
+                              ? ui::text(ui::Msg::FollowClient)
+                              : c.ui_language.c_str();
+    if (ImGui::BeginCombo(row(ui::text(ui::Msg::InterfaceLanguage)), preview)) {
+        const bool automatic = c.ui_language == "auto" || c.ui_language.empty();
+        if (ImGui::Selectable(ui::text(ui::Msg::FollowClient), automatic)) c.ui_language = "auto";
+        if (automatic) ImGui::SetItemDefaultFocus();
+        for (const std::string_view id : ui::languages()) {
+            const std::string s(id);
+            const bool sel = s == c.ui_language;
+            if (ImGui::Selectable(s.c_str(), sel)) c.ui_language = s;
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
     }
 }
 
@@ -224,28 +289,32 @@ void draw_settings_screen(App& app) {
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
 
     ImGui::PushFont(app.fonts().bold, 0.0f);
-    ImGui::TextUnformatted("PathOfPriceCheck \xe2\x80\x94 Settings");
+    ImGui::TextUnformatted(ui::text(ui::Msg::SettingsTitle));
     ImGui::PopFont();
     ImGui::SameLine(ImGui::GetWindowWidth() - 34);
     if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
 
-    section(app, "General");
+    section(app, ui::text(ui::Msg::SectionGeneral));
     league_row(app, c);
 
     const NameCheck nc = check_account_name(c.account_name);
     if (nc == NameCheck::Malformed) ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.42f, 0.13f, 0.13f, 1.0f));
-    ImGui::InputTextWithHint(row("Account"), "Name#1234", &c.account_name,
+    ImGui::InputTextWithHint(row(ui::text(ui::Msg::Account)), ui::text(ui::Msg::AccountHint),
+                             &c.account_name,
                              ImGuiInputTextFlags_CallbackCharFilter, account_char_filter);
     if (nc == NameCheck::Malformed) {
         ImGui::PopStyleColor();
         row_gutter();
-        ImGui::TextColored(kWarn, "Expected Name#1234");
+        ImGui::TextColored(kWarn, "%s", ui::text(ui::Msg::AccountExpected));
     }
 
-    section(app, "Trade search");
+    section(app, ui::text(ui::Msg::SectionLanguage));
+    language_rows(app, c);
+
+    section(app, ui::text(ui::Msg::SectionTradeSearch));
     // GGG's own labels, in the site's own order, so what is picked here reads the same as
     // what the trade page shows.
-    if (ImGui::BeginCombo(row("Listings"),
+    if (ImGui::BeginCombo(row(ui::text(ui::Msg::Listings)),
                           std::string(trade::status_label(c.listing_status)).c_str())) {
         for (const trade::StatusOption& o : trade::status_options()) {
             const bool sel = o.id == c.listing_status;
@@ -254,10 +323,15 @@ void draw_settings_screen(App& app) {
         }
         ImGui::EndCombo();
     }
-    if (ImGui::BeginCombo(row("Fetch top"), ("Top " + std::to_string(c.result_count)).c_str())) {
+    const auto top_n = [](int n) {
+        char buf[64];
+        std::snprintf(buf, sizeof buf, ui::text(ui::Msg::TopN), n);
+        return std::string(buf);
+    };
+    if (ImGui::BeginCombo(row(ui::text(ui::Msg::FetchTop)), top_n(c.result_count).c_str())) {
         for (const int n : trade::result_counts()) {
             const bool sel = n == c.result_count;
-            if (ImGui::Selectable(("Top " + std::to_string(n)).c_str(), sel)) c.result_count = n;
+            if (ImGui::Selectable(top_n(n).c_str(), sel)) c.result_count = n;
             if (sel) ImGui::SetItemDefaultFocus();
         }
         ImGui::EndCombo();
@@ -268,60 +342,61 @@ void draw_settings_screen(App& app) {
     // next one wait. See trade.hpp.
     {
         const int reqs = trade::fetch_requests(c.result_count);
-        ImGui::TextDisabled("%d request%s per check \xe2\x80\x94 about %d checks per 5 minutes",
-                            reqs, reqs == 1 ? "" : "s", std::min(30, 50 / reqs));
+        ImGui::TextDisabled(ui::text(ui::Msg::RequestCost), reqs, reqs == 1 ? "" : "s",
+                            std::min(30, 50 / reqs));
     }
 
-    ImGui::Checkbox(row("Auto-search"), &c.auto_search);
+    ImGui::Checkbox(row(ui::text(ui::Msg::AutoSearch)), &c.auto_search);
     row_gutter();
     if (c.auto_search)
-        ImGui::TextDisabled("Every price check spends a trade API request.");
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::AutoSearchOn));
     else
-        ImGui::TextDisabled("Off: the panel searches when you press Search.");
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::AutoSearchOff));
 
-    section(app, "Filter ranges");
-    ImGui::TextDisabled("How wide each modifier's filter opens around the roll in hand.");
-    bound_row("Minimum", c.range_match.min_mode, c.range_match.min_pct);
-    bound_row("Maximum", c.range_match.max_mode, c.range_match.max_pct);
+    section(app, ui::text(ui::Msg::SectionFilterRanges));
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::FilterRangesHelp));
+    bound_row(ui::text(ui::Msg::Minimum), c.range_match.min_mode, c.range_match.min_pct);
+    bound_row(ui::text(ui::Msg::Maximum), c.range_match.max_mode, c.range_match.max_pct);
     row_gutter();
     // Said once, under both rows: the two options that need explaining are the ones whose names
     // cannot carry it, and "tiered" is the whole reason the default asks for a window at all.
     ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextDisabled("Unbound leaves that side open. Tiered never asks past what the "
-                        "modifier's own tier can roll.");
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::BoundHelp));
     ImGui::PopTextWrapPos();
 
-    section(app, "Hotkeys");
-    hotkey_row(app, "Price check", Action::PriceCheck, c.price_check);
-    hotkey_row(app, "Settings", Action::ToggleSettings, c.settings);
+    section(app, ui::text(ui::Msg::SectionHotkeys));
+    hotkey_row(app, ui::text(ui::Msg::HotkeyPriceCheck), Action::PriceCheck, c.price_check);
+    hotkey_row(app, ui::text(ui::Msg::HotkeySettings), Action::ToggleSettings, c.settings);
 
-    section(app, "Price-check panel");
-    ImGui::TextDisabled("Docks beside whichever game panel the cursor was over.");
-    ImGui::SliderInt(row("Width"), &c.panel_width, 280, 900, "%d px");
+    section(app, ui::text(ui::Msg::SectionPricePanel));
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::PanelHelp));
+    ImGui::SliderInt(row(ui::text(ui::Msg::PanelWidth)), &c.panel_width, 280, 900, "%d px");
     // Fractions of the game's height, not its width — see Config. Raise one if the panel
     // overlaps that side's frame; the next price check picks up the change.
-    ImGui::SliderFloat(row("Stash edge"), &c.stash_edge, 0.40f, 0.90f, "%.3f");
-    ImGui::SliderFloat(row("Inventory edge"), &c.inventory_edge, 0.40f, 0.90f, "%.3f");
+    ImGui::SliderFloat(row(ui::text(ui::Msg::StashEdge)), &c.stash_edge, 0.40f, 0.90f, "%.3f");
+    ImGui::SliderFloat(row(ui::text(ui::Msg::InventoryEdge)), &c.inventory_edge, 0.40f, 0.90f,
+                       "%.3f");
 
-    section(app, "Game data");
+    section(app, ui::text(ui::Msg::SectionGameData));
     data_row(app);
 
-    section(app, "Diagnostics");
-    if (ImGui::Checkbox(row("Debug logging"), &c.debug_log)) app.set_debug_log(c.debug_log);
+    section(app, ui::text(ui::Msg::SectionDiagnostics));
+    if (ImGui::Checkbox(row(ui::text(ui::Msg::DebugLogging)), &c.debug_log))
+        app.set_debug_log(c.debug_log);
     row_gutter();
     if (c.debug_log) {
         // The path, not just "on": the user is going to attach this file to a report, and
         // every price check shows the id that indexes into it.
         ImGui::PushTextWrapPos(0.0f);
         const std::string p = debug::log_path();
-        ImGui::TextDisabled("%s", p.empty() ? "could not open a log file" : p.c_str());
+        ImGui::TextDisabled("%s", p.empty() ? ui::text(ui::Msg::LogOpenFailed) : p.c_str());
         ImGui::PopTextWrapPos();
     } else {
-        ImGui::TextDisabled("Records the copy path, item text included. Off by default.");
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::DebugLogHelp));
     }
 
     ImGui::Separator();
-    if (ImGui::Button("Save", ImVec2(120, 0))) app.apply_and_save_config();
+    if (ImGui::Button(ui::text(ui::Msg::Save), ImVec2(120, 0))) app.apply_and_save_config();
     ImGui::SameLine();
     ImGui::TextDisabled("%s", Config::path().c_str());
 

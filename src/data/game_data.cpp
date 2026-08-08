@@ -115,6 +115,12 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
     if (gd->items_base_idx_.open(dir / (p + "items-base.index.bin")))
         gd->items_base_index_.attach(gd->items_base_idx_.data(), gd->items_base_idx_.size());
 
+    // The same records keyed on their English `refName` — how the app names a base it is not
+    // reading off the clipboard, and how it says which one to send to trade. Identical to the
+    // name index for an English bundle, which is why it has never been opened before now.
+    if (gd->items_ref_idx_.open(dir / (p + "items-ref.index.bin")))
+        gd->items_ref_index_.attach(gd->items_ref_idx_.data(), gd->items_ref_idx_.size());
+
     // Optional, and missing on every bundle published before the dataset existed: a unique
     // then falls back to what a printed range can prove, which is what the app did before.
     // Both files or neither — an index without its ndjson resolves to offsets into nothing.
@@ -137,12 +143,31 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         if (!ic.item_class.empty()) gd->classes_.emplace(ic.item_class, std::move(ic));
     }
     if (gd->classes_.empty()) return fail("item-classes.ndjson is empty");
+    for (const auto& [name, ic] : gd->classes_)
+        if (!ic.id.empty()) gd->by_class_id_.emplace(ic.id, &ic);
+
+    // The client's own vocabulary for this language. Optional, and absent from every bundle
+    // published so far, which is why English is compiled in rather than required here: a
+    // bundle without one still reads an English client exactly as it always did.
+    if (std::ifstream lex(dir / (p + "lexicon.json")); lex) {
+        const std::string text((std::istreambuf_iterator<char>(lex)),
+                               std::istreambuf_iterator<char>());
+        std::string lex_err;
+        gd->lexicon_ = Lexicon::parse(text, &lex_err);
+        gd->has_lexicon_ = lex_err.empty();
+    }
 
     std::ifstream mf(dir / "manifest.json");
     if (mf) {
         const json j = json::parse(mf, nullptr, false);
         if (!j.is_discarded()) {
             gd->data_version_ = j.value("data_version", std::string());
+            if (const auto l = j.find("languages"); l != j.end() && l->is_array()) {
+                std::vector<std::string> langs;
+                for (const json& s : *l)
+                    if (s.is_string()) langs.push_back(s.get<std::string>());
+                if (!langs.empty()) gd->languages_ = std::move(langs);
+            }
             if (const auto s = j.find("source"); s != j.end() && s->is_object()) {
                 gd->unique_mods_attribution_ =
                     s->value("unique_mods_attribution", std::string());
@@ -334,6 +359,25 @@ std::vector<const BaseType*> GameData::find_bases(Namespace ns,
     return out;
 }
 
+std::vector<const BaseType*> GameData::find_bases_by_ref(Namespace ns,
+                                                         std::string_view ref) const {
+    std::string key(to_string(ns));
+    key += "::";
+    key += ref;
+
+    std::vector<uint32_t> offsets;
+    items_ref_index_.lookup(key, offsets);
+    std::vector<const BaseType*> out;
+    for (uint32_t off : offsets) {
+        const BaseType* b = base_at(off);
+        if (b && b->ns == ns && b->ref_name == ref) out.push_back(b);
+    }
+    // In English the two names are the same string, so a bundle with no ref index answers
+    // this correctly through the name index rather than not at all.
+    if (out.empty() && !items_ref_index_.valid()) return find_bases(ns, ref);
+    return out;
+}
+
 std::vector<const BaseType*> GameData::find_uniques_on_base(std::string_view base) const {
     // Keyed under the *unique* namespace, because the records it addresses are uniques: it is
     // "the uniques of this base", not "this base".
@@ -352,8 +396,14 @@ std::vector<const BaseType*> GameData::find_uniques_on_base(std::string_view bas
 }
 
 const ItemClass* GameData::item_class(std::string_view cls) const {
-    const auto it = classes_.find(std::string(cls));
-    return it == classes_.end() ? nullptr : &it->second;
+    if (const auto it = classes_.find(std::string(cls)); it != classes_.end())
+        return &it->second;
+    // Not the English name, so ask the lexicon what class the client printed and look the
+    // row up by the game's own id instead.
+    const std::string_view id = lexicon_.class_id(cls);
+    if (id.empty()) return nullptr;
+    const auto by_id = by_class_id_.find(std::string(id));
+    return by_id == by_class_id_.end() ? nullptr : by_id->second;
 }
 
 std::string_view GameData::trade_category_for(std::string_view cls) const {

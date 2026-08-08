@@ -1,0 +1,114 @@
+#pragma once
+
+#include <cstdint>
+#include <span>
+#include <string>
+#include <string_view>
+
+/// The text *this application* writes, as against the text the game does.
+///
+/// Two different problems wear the word "localisation" here and they share nothing. Reading a
+/// translated client is `data::Lexicon`: game text, authored by GGG, shipped in the data
+/// bundle, and load-bearing — get a word wrong and an item fails to parse. This is the other
+/// half: our own labels and help lines, authored by us, compiled in, and cosmetic — get one
+/// wrong and a button reads oddly. Neither buys anything toward the other, which is why they
+/// are separate settings (`Config::client_language`, `Config::ui_language`): a player running
+/// a Russian client may want an English panel, or the reverse.
+///
+/// Every table is compiled in. They are a few kilobytes each against an executable that
+/// already embeds four typefaces, and a per-language build would contradict the rule that a
+/// new league needs a data build rather than a release.
+namespace ppc::ui {
+
+/// One piece of our own text. Values with a `%` in their English form are format strings and
+/// are handed to `ImGui::Text`, so a translation must keep the same conversions in the same
+/// order — a table with a mismatched one is a crash, not a typo.
+enum class Msg : uint16_t {
+    SettingsTitle,
+    SectionGeneral,
+    SectionLanguage,
+    SectionTradeSearch,
+    SectionFilterRanges,
+    SectionHotkeys,
+    SectionPricePanel,
+    SectionGameData,
+    SectionDiagnostics,
+
+    League,
+    Refresh,
+    JustRefreshed,      ///< "%d" — seconds left on the cooldown
+    FetchingLeagues,
+    LeagueCount,        ///< "%zu"
+    LeagueError,        ///< "%s" — what curl said
+    OfflineList,
+    Account,
+    AccountHint,
+    AccountExpected,
+
+    ClientLanguage,
+    ClientLanguageHelp,
+    InterfaceLanguage,
+    FollowClient,
+    LanguageNeedsRestart,
+    NoLexicon,
+
+    Listings,
+    FetchTop,
+    TopN,               ///< "%d"
+    RequestCost,        ///< "%d", "%s" (plural), "%d"
+    AutoSearch,
+    AutoSearchOn,
+    AutoSearchOff,
+
+    FilterRangesHelp,
+    Minimum,
+    Maximum,
+    BoundHelp,
+
+    HotkeyPriceCheck,
+    HotkeySettings,
+    PressKeys,
+
+    PanelHelp,
+    PanelWidth,
+    StashEdge,
+    InventoryEdge,
+
+    Bundle,
+    Downloading,        ///< "%.1f", "%.1f" — megabytes done and total
+    DownloadingPlain,
+    CheckingUpdates,
+    Installing,
+    NoDataInstalled,
+    NotDownloadedYet,
+    CheckNow,
+    ParsingWorksWithout,
+    StatWordings,       ///< "%zu"
+    UniqueModsCredit,   ///< "%s" — the credit the bundle states
+
+    DebugLogging,
+    LogOpenFailed,
+    DebugLogHelp,
+
+    Save,
+    Count
+};
+
+/// The text for `m`, in the selected language and in English wherever that language has
+/// nothing to say. Never null and never empty — an untranslated entry falls back rather than
+/// leaving a blank control.
+const char* text(Msg m);
+
+/// Draw our own text in `lang`, or follow the client when it is "auto" or a language nothing
+/// is compiled in for. `client` is `Config::client_language`, which is what "auto" follows.
+void set_language(std::string_view lang, std::string_view client);
+
+/// Which language is actually being drawn, after "auto" and the fallback are resolved.
+std::string_view language();
+
+/// Every language a table is compiled in for, English first. This is the *interface* list and
+/// is deliberately not the client list: the two are filled in one at a time and by different
+/// work, so a language can be readable long before it is speakable, or the other way round.
+std::span<const std::string_view> languages();
+
+} // namespace ppc::ui
