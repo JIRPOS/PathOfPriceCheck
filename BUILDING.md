@@ -30,8 +30,8 @@ Windows release a single `.exe` with no DLL beside it and no CA bundle to ship.
 
 ## Linux
 
-X11 only. See [Runtime requirements](#runtime-requirements) below before building — a Wayland
-session will build the binary fine and then not let it work.
+An X11 client, which under a Wayland session means Xwayland. See
+[Runtime requirements](#runtime-requirements) below for what that does and does not cover.
 
 **The `apt` list is the one CI installs on every push and pull request, so it is the only one
 continuously verified.** The others are its equivalents and are checked by hand; if one is wrong,
@@ -126,15 +126,32 @@ MSVC is what CI builds and is therefore what is known to work; clang-cl is untes
 
 ## Runtime requirements
 
-- **Linux: an X11 session.** Global hotkeys (`XGrabKey`), foreground-window detection, synthetic
-  input (`XTest`) and clipboard ownership tracking (`XFixes`) are all X11. Wayland blocks arbitrary
-  global hotkeys and click-through overlays without compositor portals or evdev access, and is a
-  later stretch goal rather than something to work around — under a Wayland session the sensible
-  answer today is to log into an X11 one. There is a known, unfixable-from-here failure where
-  KWin's Xwayland clipboard bridge drops the selection owner entirely; see
-  [CLAUDE.md](CLAUDE.md#architecture).
+- **Linux: X11, or Xwayland.** Global hotkeys (`XGrabKey`), foreground-window detection, synthetic
+  input (`XTest`) and clipboard ownership tracking (`XFixes`) are all X11, and the binary asks SDL
+  for the X11 backend outright rather than letting it choose. So it is an X11 client either way: on
+  a Wayland session it runs through **Xwayland**, which is how it is developed daily. What does not
+  exist is a *native* Wayland backend, and it is a later stretch goal rather than something to work
+  around — Wayland blocks arbitrary global hotkeys and click-through overlays without compositor
+  portals or evdev access, all of which Xwayland already provides.
+  One caveat worth knowing under Wayland: copying in a **Wayland-native** application while the game
+  is running can leave the X selection with no owner at all, and only a window-manager-level focus
+  change out of the game recovers it. That is KWin's Xwayland clipboard bridge and is not fixable
+  from here; see [CLAUDE.md](CLAUDE.md#architecture).
 - **The release tarball is built on the CI Ubuntu image**, so it links that image's glibc and
   system libcurl. On an older distribution, build from source rather than fighting the loader.
+  These are the libraries it needs present; they are library names rather than package names,
+  since those differ per distribution, and the lists above are the **development headers** for
+  building rather than these.
+
+  | | |
+  |---|---|
+  | Both downloads | `glibc` 2.35+, `libstdc++`, `libX11`, and an OpenGL driver (`libglvnd`/`libGL`). SDL's X11 backend also loads `libXcursor`, `libXi`, `libXrandr` and `libxkbcommon` where they exist, and the tray icon needs GTK 3 with `libayatana-appindicator3` — without it the app runs but has nothing to quit from. |
+  | Tarball only | `libcurl` and whichever TLS stack it was built against, plus `libXext`, `libXfixes` and `libXtst`. |
+
+  **That second row is the whole difference between the two downloads**: the AppImage bundles
+  libcurl with its TLS, compression and Kerberos tree and those three X extensions, and takes
+  everything in the first row from the host — as it must, since libX11 and the GL driver
+  belong to the session, not to the application.
 - **Windows 10 or later.** No runtime dependencies beyond the OS.
 - **The game may be the native Windows client or Wine/Proton.** The copy path carries a good deal
   of hard-won handling for how Wine publishes the clipboard; that story is in

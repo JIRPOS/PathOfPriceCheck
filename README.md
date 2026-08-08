@@ -48,7 +48,7 @@ the game in the game's own typeface.
 | | |
 |---|---|
 | **Windows** | 10 or later. Single `.exe`, no runtime, no DLLs. |
-| **Linux** | An **X11 session**. Wayland is not supported — it blocks global hotkeys and click-through overlays without portals this project does not yet use. |
+| **Linux** | **X11**, or a Wayland session through **Xwayland** — the binary asks SDL for the X11 backend outright, so it is an X11 client either way, and Xwayland is what it is developed on. There is no *native* Wayland backend and none is needed. |
 | **The game** | Native client, or Wine/Proton. |
 | **Game language** | **English only, today.** The whole tool works by matching the wordings the client prints. Other languages are wired for and waiting on published data — see below. |
 
@@ -148,9 +148,10 @@ debug log, which records clipboard contents, is off by default. Full detail in
 
 ## Versioning
 
-`MAJOR.MINOR.BUILD` — `MAJOR.MINOR` lives in [VERSION](VERSION) and is bumped by the **Version
-bump** workflow; `BUILD` is the cumulative CI run counter. Pushes to `master` publish a release for
-win64 and linux.
+`MAJOR.MINOR.BUILD` — `MAJOR.MINOR` lives in [VERSION](VERSION), `BUILD` is the cumulative CI run
+counter. A push to `master` is not a release: the **Release** workflow is run by hand, optionally
+carrying the `MAJOR.MINOR` bump with it, and publishes the Windows zip, the Linux tarball and the
+AppImage together.
 
 ## License
 
