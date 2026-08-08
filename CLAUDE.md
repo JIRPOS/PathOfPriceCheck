@@ -349,7 +349,11 @@ holds no SDL/X11/curl and every layer can log into it.
   `clipboard_poke`). Suspect it first whenever turning the log on changes the behaviour being logged.
 
 A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
-the SDL3+GL+ImGui window; `Config` persists to JSON. `PPC_DEV_OVERLAY=1` opens Settings and disables
+the SDL3+GL+ImGui window; `Config` persists to JSON. **`SDL_HINT_VIDEO_ALLOW_SCREENSAVER` is set
+back on**: SDL disables the screensaver at video init on the assumption that it is running a game,
+and on Linux that is an `org.freedesktop.ScreenSaver` inhibit — reason "Playing a game" — held for
+the life of the process, so an application that sits in the tray all day stopped the machine from
+sleeping. The game does its own inhibiting; we are a desktop app. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check panel on a captured
 clipboard instead, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
 appears while the game is the window in front).
