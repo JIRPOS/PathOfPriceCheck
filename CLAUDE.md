@@ -691,16 +691,16 @@ bundle, and only the third and fourth encode pricing judgement.
   none of them, because it never touches what the weapon displays. The base percentile is the one
   derived number a local roll is **not** inside: it is recovered by taking those rolls back out.
   **Everything the site takes as an `{"option": …}` is a `SearchPlan::options` entry** — the
-  booleans (corrupted, mirrored, identified, blighted), and the closed vocabularies (a chart's
-  shape, a Valdo map's payout). One struct, because the wire form is one thing and only the
+  booleans (corrupted, mirrored, foulborn, identified, blighted), and the closed vocabularies (a
+  chart's shape, a Valdo map's payout). One struct, because the wire form is one thing and only the
   source of the string differs; `option_group_for` in `trade/query` is what files each under
   `misc_filters` or `map_filters`.
   The rule for the booleans is one line: the search
   asks the item to be what it is, and it says so out loud only where that is not the ordinary
   answer. `OptionFilter::shown` is the whole of the struct's reason to exist — an uncorrupted,
-  unmirrored, identified item is what nearly every check is about, so those three are imposed
-  with no row at all, and three rows saying nothing is unusual would push the modifiers off the
-  panel. The *unusual* value gets the row, because that is the one a buyer might want to widen
+  unmirrored, unmutated, identified item is what nearly every check is about, so those four are
+  imposed with no row at all, and four rows saying nothing is unusual would push the modifiers off
+  the panel. The *unusual* value gets the row, because that is the one a buyer might want to widen
   back out: a mirrored item cannot be crafted on, an unidentified one is a different product, a
   corrupted one is a different market. Synthesis and fracturing are asked in one direction only —
   evidence about the copy in hand rather than a choice, and an ordinary item's search has no
@@ -709,6 +709,15 @@ bundle, and only the third and fourth encode pricing judgement.
   under `category: gem` and **0** for a Facetor's Lens, against 10000 and 177 without it, because
   trade indexes the flag only for what can be unidentified. `mirrored: false` was checked the
   same way and is safe everywhere.
+  **Foulborn is one of those booleans and the site's key for it is `mutated`.** Chayula's
+  mutation is a different item at a different price — measured on Tulfall: 3855 listings in all,
+  1896 not foulborn and 1960 foulborn, and the mutated ones *cheaper* — so a search that leaves
+  it open prices the two markets together and undercuts the copy in hand. Nothing about it is a
+  flag line: the game states it as a prefix on the name ("Foulborn Romira's Banquet") and as the
+  info line of the modifier it added, and `parse_item` takes either, the name being the half that
+  survives Advanced Mod Descriptions being off. `mutated: false` is safe everywhere `mirrored`
+  is, checked the same way (655/655 gems, 1299 Facetor's Lenses, 10000 wands and 10000 tier-16
+  maps either way), so it is imposed at every strategy even though only a unique can be one.
 - **`item/plan`'s three property filters** (`add_property_filters`) are the `misc_filters`
   intervals that come off a **property line** rather than off a modifier, so none has a tier to
   gate against and none gets a window: the number is what this copy has, and all a filter can say

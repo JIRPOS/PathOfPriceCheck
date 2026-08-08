@@ -876,26 +876,33 @@ void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
 /// The `misc_filters` booleans every plan carries, and whether the user is offered a say.
 ///
 /// The rule is one line: **the search asks the item to be what it is**, and it says so out loud
-/// only where that is not the ordinary answer. An uncorrupted, unmirrored, identified item is
-/// what nearly every check is about, so those three are imposed without a row; a corrupted,
-/// mirrored or unidentified one is a different product, and *that* is worth a row, because it is
-/// the one a buyer might want to widen back out.
+/// only where that is not the ordinary answer. An uncorrupted, unmirrored, unmutated, identified
+/// item is what nearly every check is about, so those four are imposed without a row; a
+/// corrupted, mirrored, foulborn or unidentified one is a different product, and *that* is worth
+/// a row, because it is the one a buyer might want to widen back out.
 ///
-/// Two of the five are asked in one direction only. Synthesis and fracturing are evidence about
+/// Two of the six are asked in one direction only. Synthesis and fracturing are evidence about
 /// the copy in hand rather than a choice — an ordinary item's search has no reason to rule out
 /// the fractured ones, which are strictly more constrained versions of it.
 ///
 /// **`identified` is not asked of a gem or a currency item**, measured rather than assumed:
 /// `identified: true` returns 0 listings under `category: gem` and 0 for a Facetor's Lens (10000
 /// and 177 without it), because trade indexes the flag only for what can be unidentified. A
-/// filter that matches nothing reads as an item nobody is selling. `mirrored: false` is safe
-/// everywhere and was checked the same way.
+/// filter that matches nothing reads as an item nobody is selling. `mirrored: false` and
+/// `mutated: false` are safe everywhere and were checked the same way — only a unique can be
+/// foulborn, but asking a gem, a currency item, a rare or a map not to be one narrows nothing
+/// (655/655 gems, 1299 Facetor's Lenses either way).
 void add_item_flags(const Item& it, SearchPlan& p) {
     if (p.strategy == Strategy::Unsupported) return;
     // Corruption is never incidental: it fixes the item's mods forever and splits the market in
     // two, so it is matched exactly whatever the strategy.
     add_flag(p, "corrupted", "Corrupted", it.corrupted, it.corrupted);
     add_flag(p, "mirrored", "Mirrored", it.mirrored, it.mirrored);
+    // Foulborn — the site's own key for it is `mutated` — is the same shape and the same
+    // argument: Chayula's mutation is a different item at a different price, and a search
+    // that leaves it open prices the two together. Measured on Tulfall: 3855 listings in
+    // all, 1896 of them not foulborn and 1960 foulborn, the mutated ones cheaper.
+    add_flag(p, "mutated", "Foulborn", it.foulborn, it.foulborn);
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||
         p.strategy == Strategy::Unique || p.strategy == Strategy::Map)
         add_flag(p, "identified", "Identified", it.identified, !it.identified);

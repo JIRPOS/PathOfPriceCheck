@@ -688,6 +688,15 @@ std::optional<Item> parse_item(std::string_view clipboard) {
                 it.mods[m].type = data::ModType::Enchant;
     }
 
+    // Foulborn is stated twice and neither statement is a flag line: the name carries the
+    // prefix, and the modifier Chayula added carries the info line naming it. Either is
+    // enough — the prefix is what a client with Advanced Mod Descriptions off still prints,
+    // and the info line is what survives a mutation that somehow left the name alone.
+    it.foulborn = (it.rarity == Rarity::Unique && it.name.starts_with("Foulborn ")) ||
+                  std::any_of(it.mods.begin(), it.mods.end(), [](const Modifier& m) {
+                      return m.generation.starts_with("Foulborn");
+                  });
+
     infer_elemental_kinds(it);
     return it;
 }

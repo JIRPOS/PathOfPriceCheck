@@ -121,6 +121,11 @@ struct Item {
     bool fractured_item = false;
     bool veiled = false;
     bool unmodifiable = false;
+    /// Chayula's mutation of a unique. There is no flag line for it: the game says so by
+    /// prefixing the name ("Foulborn Romira's Banquet") and by the info line of the modifier
+    /// it added. The name is the load-bearing half — with Advanced Mod Descriptions off there
+    /// are no info lines at all.
+    bool foulborn = false;
     std::vector<Influence> influences;
 
     std::vector<Property> properties; ///< every property line, in printed order
