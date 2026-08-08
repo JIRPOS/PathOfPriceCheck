@@ -185,6 +185,15 @@ jobs:
           gh release create "v${VER}" artifacts/* --title "v${VER}" \
             --target "${BRANCH}" --notes-file notes.md
 
+  # The site's download buttons name this release's assets, so it is republished once they exist.
+  pages:
+    needs: release
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+
   # Land the version bump on master, or clean up a branch nothing will ever merge.
   finalize:
     needs: [prepare, release]

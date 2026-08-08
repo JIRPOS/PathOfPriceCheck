@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Path of Price Check — a native Path of Exile price-check overlay</title>
+<meta name="description" content="Take the guesswork out of your Path to Riches. A native, lightweight, privacy-first price-check overlay for Path of Exile: one hotkey, with prices from the official trade API, poe.ninja and the in-game currency exchange. Windows and Linux, free and open source.">
+<link rel="icon" href="favicon.ico" sizes="128x128 64x64">
+<link rel="stylesheet" href="style.css">
+<link rel="canonical" href="{{BASE_URL}}/">
+<meta property="og:title" content="Path of Price Check">
+<meta property="og:description" content="Take the guesswork out of your Path to Riches. One hotkey press away — a native, lightweight, privacy-first price-check overlay for Path of Exile.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{BASE_URL}}/">
+<meta property="og:image" content="{{BASE_URL}}/{{OG_IMAGE}}">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+
+<header class="bar">
+  <a class="brand" href="index.html"><img src="popc_icon.png" alt="" width="28" height="28">Path of Price Check</a>
+  <nav>{{NAV}}</nav>
+</header>
+
+<section class="hero">
+  <img class="logo" src="popc_icon.png" alt="" width="128" height="128">
+  <h1>Path of Price Check</h1>
+  <p class="tagline">Take the guesswork out of your Path to Riches. One hotkey press away.</p>
+  <p class="sub">Native, lightweight, fast<sup>*</sup>, open-source, multi-platform<sup>**</sup> and privacy-first price check overlay tool for Path of Exile. A live economy requires live data — this is the tool that lets you in on them in one place and at a glance, minimising the friction between the (for sure) multi-mirror item you've dropped and otherwise would vendor for Alteration shards.</p>
+  <p class="fineprint"><sup>*</sup> Results may vary, not tested on a potato.<br><sup>**</sup> Windows and Linux, see below.</p>
+
+  <div class="downloads">
+    <div class="dl">
+      <a class="primary" href="{{DL_WIN}}">Windows</a>
+      <span>.zip archive with portable .exe</span>
+      <span class="size">{{DL_WIN_SIZE}}</span>
+    </div>
+    <div class="dl">
+      <a class="primary" href="{{DL_APPIMAGE}}">Linux · AppImage</a>
+      <span>Self-contained, libcurl and OpenSSL bundled. Other requirements: <a class="req" href="#requirements">see requirements</a></span>
+      <span class="size">{{DL_APPIMAGE_SIZE}}</span>
+    </div>
+    <div class="dl">
+      <a class="primary" href="{{DL_TAR}}">Linux · tarball</a>
+      <span>Binary. For dependencies, <a class="req" href="#requirements">see requirements</a></span>
+      <span class="size">{{DL_TAR_SIZE}}</span>
+    </div>
+  </div>
+  <p class="relnote">{{VERSION}} · released {{RELEASED}} · <a href="{{RELEASES_URL}}">all releases and changelogs</a></p>
+
+  <p class="warn"><strong>Early development.</strong> It works and it is used daily, but settings, interfaces and the panel layout all still move.</p>
+</section>
+
+{{GALLERY}}
+
+<section class="feature">
+  <h2>What it does</h2>
+  <ul>
+    <li><strong>One hotkey.</strong> Ctrl+D over an item. The game's own copy shortcut is synthesized for you, so there is no separate Ctrl+C to remember.</li>
+    <li><strong>Reads the item properly.</strong> Implicits, explicits, fractured, crafted, enchants, corruption, influences and quality — plus the numbers the game leaves implicit, like quality-20 DPS and where a base's defences fall in their own roll range.</li>
+    <li><strong>Asks the right question for the kind of item.</strong> A rare is searched on its modifiers, bounded by the tier each one rolled. A unique is searched on the rolls that actually vary. A map is searched on none of its affixes, because a single Chaos Orb re-rolls them all. A gem goes on its name, level and quality.</li>
+    <li><strong>Three sources, not one.</strong> The official trade API for listings, poe.ninja for the going rate on uniques, gems, currency and base types, and GGG's own in-game currency exchange for the things that are traded in bulk rather than listed.</li>
+    <li><strong>Nothing is baked in.</strong> The game data is downloaded at runtime and published separately, so a new league needs a data build rather than a new release of this.</li>
+  </ul>
+  <p><a href="about.html">The full list, and how each part works &rarr;</a></p>
+</section>
+
+<section class="feature cols" id="requirements">
+  <div>
+    <h2>Requirements</h2>
+    <dl>
+      <dt>Path of Exile</dt>
+      <dd>
+        <ul>
+          <li>The International client — Steam or Standalone</li>
+          <li>Client language: <a href="about.html#only-an-english-client-for-now">English</a></li>
+          <li>Any public league currently running; private leagues are not offered</li>
+        </ul>
+      </dd>
+
+      <dt>Windows</dt>
+      <dd>
+        <ul>
+          <li>Windows 10 or newer, 64-bit</li>
+          <li>Nothing else — no runtime, no DLLs beside the .exe</li>
+        </ul>
+      </dd>
+      <dt>Linux</dt>
+      <dd>
+        <ul>
+          <li>X11, or Wayland through Xwayland — it is an X11 client either way, and Xwayland is what it is developed on</li>
+          <li>glibc 2.35 or newer (Ubuntu 22.04, Debian 12); older than that, build from source</li>
+        </ul>
+        <details class="reqs">
+          <summary>Binary (tarball) release</summary>
+          <p>The tarball is the bare executable, so it wants from the system what the AppImage carries for you:</p>
+          <ul>
+            <li><code>libcurl</code>, with whichever TLS stack it was built against</li>
+            <li><code>libXext</code>, <code>libXfixes</code>, <code>libXtst</code></li>
+          </ul>
+          <p><strong>Both</strong> downloads need <code>glibc</code> 2.35 or newer, <code>libstdc++</code>, <code>libX11</code> and an OpenGL driver (<code>libglvnd</code> / <code>libGL</code>) — those belong to the session rather than to the application, so nothing can bundle them. The window also loads <code>libXcursor</code>, <code>libXi</code>, <code>libXrandr</code> and <code>libxkbcommon</code> where they exist, and the tray icon needs GTK 3 with <code>libayatana-appindicator3</code>; without that one the app still runs, it just has nothing to quit from.</p>
+          <p>These are library names, not package names — those differ by distribution. <a href="building.html#runtime-requirements">Building from source</a> carries per-distribution lists, but those are the <em>development headers</em> for compiling rather than this.</p>
+        </details>
+      </dd>
+
+      <dt>An internet connection</dt>
+      <dd>
+        <ul>
+          <li>The game data, republished every 6 hours — checked at startup, and ~4 MB to download only when there is a bundle you do not have</li>
+          <li>The official trade API, when you run a search</li>
+          <li>The in-game currency exchange history</li>
+          <li><a href="https://poe.ninja">poe.ninja</a>, for reference prices</li>
+          <li>Item images, once each, cached from then on</li>
+        </ul>
+        <p class="aside">Path of Exile needs one as well, so this is less a requirement than an observation.</p>
+      </dd>
+    </dl>
+  </div>
+  <div>
+    <h2>What it sends</h2>
+    <p>No account, no telemetry, no analytics, no crash reporting, no usage counter — and no server on the other end to collect anything with. The trade queries go to the same hosts your browser would talk to, and nothing else leaves the machine.</p>
+    <p><a href="privacy.html">Every outbound request, listed &rarr;</a></p>
+  </div>
+</section>
+
+<section class="feature">
+  <h2>Documentation</h2>
+  <ul class="docs">{{DOCS}}</ul>
+</section>
+
+<footer>
+  <p><a href="https://github.com/{{REPO}}">Source on GitHub</a> · <a href="https://github.com/{{REPO}}/releases">Releases</a> · <a href="https://github.com/{{REPO}}/issues">Issues</a></p>
+  <p class="fine">MIT licensed, and as otherwise stated by the attributed projects. Path of Exile is © Grinding Gear Games. This project is not affiliated with or endorsed by Grinding Gear Games in any way. This site collects nothing: no analytics, no cookies, no trackers.</p>
+</footer>
+
+</body>
+</html>

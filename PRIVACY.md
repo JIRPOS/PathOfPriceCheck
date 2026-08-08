@@ -109,6 +109,15 @@ So: while it is on, item text you price is written to disk, along with anything 
 your clipboard when the hotkey fired. Turn it on to diagnose something, and **read a log before
 attaching it to an issue.** Nothing sends it anywhere for you.
 
+## The website
+
+Everything above is about the **application**. The project's website is a set of static pages
+served by GitHub Pages, and it carries no analytics, no cookies, no trackers and no fonts or
+scripts fetched from anywhere else — a visit is a request for the pages themselves and nothing
+more. GitHub serves them and logs the request as any web host does; that is between you and
+[GitHub](https://docs.github.com/site-policy). The application never visits it, and downloads
+go to the same `github.com` release assets listed above.
+
 ## Changes
 
 This document describes the code in this repository at the commit you are reading it at. If a

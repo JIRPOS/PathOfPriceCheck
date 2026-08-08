@@ -1,0 +1,53 @@
+name: Pages
+
+# The site is rebuilt when a document it publishes changes, and again after every release —
+# the download buttons name the release assets, and those carry the version, so there is no
+# fixed `releases/latest/download/...` URL that could have been linked instead.
+on:
+  push:
+    branches: [master]
+    paths:
+      - '*.md'
+      - '!CLAUDE.md' # the agent brief is not published
+      - 'LICENSE'
+      - 'site/**'
+      - 'assets/popc_icon.*'
+      - 'scripts/build-site.sh'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Deployments serialise; a queued one must wait rather than be dropped, or a release could
+# publish the site as it stood before its own assets existed.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: ./scripts/build-site.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
