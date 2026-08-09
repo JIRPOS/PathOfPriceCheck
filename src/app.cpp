@@ -459,6 +459,11 @@ void App::poll_pending_copy() {
                 clipboard_poke();
             }
             nudge_clipboard_handover(elapsed);
+            // Wine exports within ~160ms of losing the active window or not at all, so past
+            // that the game is being held out of the foreground for nothing.
+            static constexpr uint64_t kHandoverHoldMs = 250;
+            if (copy_deactivated_ && SDL_GetTicks() - copy_nudge_ms_ >= kHandoverHoldMs)
+                restore_game_activation();
             return;
         }
         if (debug::enabled()) {
@@ -479,6 +484,7 @@ void App::poll_pending_copy() {
     }
 
     copy_pending_ = false;
+    restore_game_activation(); // the copy landed, so the focus-out has done all it can
     if (debug::enabled())
         debug::log("[copy] clipboard written after %llums (stamp %llu -> %llu) owner=%s",
                    (unsigned long long)elapsed, (unsigned long long)copy_stamp_,
@@ -492,10 +498,12 @@ void App::poll_pending_copy() {
     set_screen(Screen::PriceCheck);
 }
 
-/// Give up on the copy in flight, leaving nothing on screen. Hands back any keyboard focus the
-/// handover nudge took, so a failed check doesn't quietly leave the game unable to receive keys.
+/// Give up on the copy in flight, leaving nothing on screen. Hands back whatever the handover
+/// nudge took, so a failed check doesn't quietly leave the game out of the foreground or unable
+/// to receive keys.
 void App::abandon_copy() {
     copy_pending_ = false;
+    restore_game_activation();
     if (overlay_.has_focus() && screen_ != Screen::Settings)
         focus_game_window(config_.poe_window_title);
     need_redraw_ = true;
@@ -507,18 +515,25 @@ void App::abandon_copy() {
 /// path can shorten it. Until then the previous owner keeps serving the previous text and every
 /// signal we have says, correctly, that no copy has happened.
 ///
-/// So take the keyboard onto the panel: the focus-out is the event the game is waiting for, and
-/// the panel is a thing the user clicks anyway. Deliberately **not** unconditional — a healthy
-/// clipboard (any Windows machine, a native X11 game) answers the first poll, and stealing the
-/// keyboard mid-fight for a copy that was never late is a worse bug than the one being fixed.
-/// Hence: once per check, only past the grace period, and only while the game is still the
-/// window in front — if the user has already alt-tabbed away, the focus-out has happened and
-/// grabbing focus would take it off whatever they moved to.
+/// So give the game a focus-out. **The focus that counts is the window manager's, not the X
+/// server's**: this used to call `overlay_take_keyboard_focus`, which moves the input focus onto
+/// our override-redirect panel, and the log says plainly that it achieved nothing — `input=` moved
+/// to us while `active=` stayed on the game, and Wine never re-exported. An override-redirect
+/// window is one the WM does not manage and therefore can never make active, so that call could
+/// not have worked whatever it did to the server. `deactivate_game_window` asks the WM instead,
+/// with a throwaway pixel of a window as the thing to activate.
+///
+/// Deliberately **not** unconditional — a healthy clipboard (any Windows machine, a native X11
+/// game) answers the first poll, and taking the game out of the foreground mid-fight for a copy
+/// that was never late is a worse bug than the one being fixed. Hence: once per check, only past
+/// the grace period, and only while the game is still the window in front — if the user has
+/// already alt-tabbed away, the focus-out has happened and there is nothing to ask for.
 void App::nudge_clipboard_handover(uint64_t elapsed) {
     // Three polls of the 100ms loop. Long enough that a clipboard which works never sees this.
     static constexpr uint64_t kGraceMs = 350;
     if (copy_nudged_ || elapsed < kGraceMs) return;
     copy_nudged_ = true;
+    copy_nudge_ms_ = SDL_GetTicks();
     // No screen check: nothing is on screen during a check, by design. Guarding on
     // `screen_ == PriceCheck` is what silently disabled this after the panel stopped being
     // shown while the copy was in flight.
@@ -528,10 +543,24 @@ void App::nudge_clipboard_handover(uint64_t elapsed) {
                    (unsigned long long)elapsed);
         return;
     }
-    debug::log("[copy]   no handover after %llums — taking the keyboard onto the panel so the"
-               " game sees a focus-out",
-               (unsigned long long)elapsed);
-    overlay_take_keyboard_focus(overlay_.window());
+    copy_deactivated_ = deactivate_game_window();
+    debug::log("[copy]   no handover after %llums — asked the window manager to take the game"
+               " off the active window (%s). %s",
+               (unsigned long long)elapsed, copy_deactivated_ ? "asked" : "nothing to ask",
+               focus_info().c_str());
+}
+
+/// Put the game back, and never leave it to the timeout: the whole point is a focus-out the
+/// *user* did not ask for, so it has to be the shortest one that works. Called the moment the
+/// clipboard moves, when the check is dropped, and on a hold timer for the case where neither
+/// happens quickly — the measured export lands within 160ms of the game losing focus, so a copy
+/// that has not arrived by then is not waiting on this.
+void App::restore_game_activation() {
+    if (!copy_deactivated_) return;
+    copy_deactivated_ = false;
+    activate_game_window(config_.poe_window_title);
+    debug::log("[copy]   handed the game back after %llums. %s",
+               (unsigned long long)(SDL_GetTicks() - copy_nudge_ms_), focus_info().c_str());
 }
 
 void App::accept_clipboard(std::string text) {
@@ -760,6 +789,10 @@ void App::handle_action(Action a) {
         copy_stamp_ = clipboard_stamp();
         // Don't touch the focus on the way in: we just confirmed the game is foreground, and
         // XSetInputFocus on its toplevel can land somewhere Wine didn't put it.
+        // A previous check's handover is always undone by now, but never inject into a game
+        // this one left deactivated — and a second `deactivate_game_window` would leak the
+        // window the first allocated.
+        restore_game_activation();
         const uint64_t t0 = SDL_GetTicks();
         simulate_copy();
         copy_pending_ = true;

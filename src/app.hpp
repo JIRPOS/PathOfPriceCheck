@@ -159,6 +159,7 @@ private:
     void poll_pending_copy();                ///< show the item once the clipboard is written
     void abandon_copy();                     ///< drop the copy in flight, showing nothing
     void nudge_clipboard_handover(uint64_t elapsed); ///< make the game let go of the copy
+    void restore_game_activation();                  ///< undo the nudge, whatever it achieved
     void accept_clipboard(std::string text); ///< take item text: parse, resolve, plan
     void rebuild_plan();                     ///< re-resolve and re-plan the item in hand
     void price_reference();                  ///< ask poe.ninja about the item as planned
@@ -213,6 +214,8 @@ private:
     uint64_t copy_started_ms_ = 0; ///< when the simulated copy was injected
     uint64_t copy_poked_ms_ = 0;   ///< last clipboard_poke(), which is throttled
     bool copy_nudged_ = false;     ///< the handover nudge has fired for this check; once is enough
+    uint64_t copy_nudge_ms_ = 0;   ///< when it fired, so the game is not left deactivated
+    bool copy_deactivated_ = false;///< the game is currently off the WM's active window, by us
     bool mouse_was_down_ = false;  ///< prior global mouse button state, for click-away edges
 
     bool dev_mode_ = false;  ///< PPC_DEV_OVERLAY: keep overlay up regardless of focus

@@ -1,7 +1,9 @@
 #include "platform/foreground.hpp"
 #include "platform/platform.hpp"
 
+#include <chrono>
 #include <cstdio>
+#include <thread>
 #include <vector>
 
 #include <X11/Xatom.h>
@@ -103,6 +105,47 @@ Window matching_window(Display* d, const std::string& needle) {
     return 0;
 }
 
+/// One throwaway pixel the window manager can be asked to activate. Kept between the two
+/// halves of a handover and destroyed by `activate_game_window`.
+Window g_handover = 0;
+
+/// A real server timestamp, obtained the standard way: a zero-length property append on our own
+/// window, whose `PropertyNotify` carries the server's clock. KWin discards an activation
+/// request carrying `CurrentTime` or a stale time, so this is not optional — but it is a round
+/// trip on the main loop, so it is bounded and falls back rather than waiting.
+Time server_time(Display* d, Window w) {
+    XChangeProperty(d, w, XInternAtom(d, "_PPC_TIMESTAMP", False), XA_ATOM, 32, PropModeAppend,
+                    nullptr, 0);
+    XSync(d, False);
+    for (int i = 0; i < 20; ++i) { // ~20ms; in practice the reply is already queued
+        XEvent e;
+        if (XCheckTypedWindowEvent(d, w, PropertyNotify, &e)) return e.xproperty.time;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return CurrentTime;
+}
+
+/// The EWMH "please activate this window" message.
+///
+/// `data.l[0]` is the source indication and it decides everything: **1 (application) is
+/// refused** by KWin's focus-stealing prevention for any window that did not just map — the
+/// activation out succeeds and the one back does not, which strands the user off the game. 2
+/// (pager, i.e. a direct user action) is honoured both ways, measured at 10ms each. It is also
+/// the truthful one: this only ever runs because the user pressed the price-check hotkey.
+void ask_activate(Display* d, Window w, Time when) {
+    XEvent e{};
+    e.xclient.type = ClientMessage;
+    e.xclient.window = w;
+    e.xclient.message_type = XInternAtom(d, "_NET_ACTIVE_WINDOW", False);
+    e.xclient.format = 32;
+    e.xclient.data.l[0] = 2;
+    e.xclient.data.l[1] = static_cast<long>(when);
+    e.xclient.data.l[2] = 0;
+    XSendEvent(d, DefaultRootWindow(d), False, SubstructureRedirectMask | SubstructureNotifyMask,
+               &e);
+    XFlush(d);
+}
+
 } // namespace
 
 void platform_init() { XInitThreads(); }
@@ -158,6 +201,59 @@ void focus_game_window(const std::string& needle) {
         // Sync, not flush: simulate_copy() injects on a *different* X connection, so
         // without a round trip the keystroke can beat the focus change to the server.
         XSync(d, False);
+    }
+}
+
+bool deactivate_game_window() {
+    Display* d = display();
+    if (!d || g_handover) return false;
+    // No property on the root means no EWMH window manager, and nothing to ask.
+    if (XInternAtom(d, "_NET_ACTIVE_WINDOW", True) == None) return false;
+
+    XSetWindowAttributes attrs{};
+    attrs.override_redirect = False; // the WM must *manage* it, or it cannot be made active
+    attrs.event_mask = PropertyChangeMask;
+    g_handover = XCreateWindow(d, DefaultRootWindow(d), 0, 0, 1, 1, 0, CopyFromParent, InputOutput,
+                               CopyFromParent, CWOverrideRedirect | CWEventMask, &attrs);
+    XStoreName(d, g_handover, "PathOfPriceCheck clipboard handover");
+    const Atom utility = XInternAtom(d, "_NET_WM_WINDOW_TYPE_UTILITY", False);
+    XChangeProperty(d, g_handover, XInternAtom(d, "_NET_WM_WINDOW_TYPE", False), XA_ATOM, 32,
+                    PropModeReplace, reinterpret_cast<const unsigned char*>(&utility), 1);
+    const Atom states[2] = {XInternAtom(d, "_NET_WM_STATE_SKIP_TASKBAR", False),
+                            XInternAtom(d, "_NET_WM_STATE_SKIP_PAGER", False)};
+    XChangeProperty(d, g_handover, XInternAtom(d, "_NET_WM_STATE", False), XA_ATOM, 32,
+                    PropModeReplace, reinterpret_cast<const unsigned char*>(states), 2);
+    // Undecorated, or the window manager frames one pixel with a titlebar and the handover is a
+    // box flashing over the game. With this, KWin reparents it to a 1x1 frame at 0,0.
+    const struct {
+        unsigned long flags, functions, decorations;
+        long input_mode;
+        unsigned long status;
+    } mwm{2, 0, 0, 0, 0}; // MWM_HINTS_DECORATIONS, none of them
+    const Atom mwm_atom = XInternAtom(d, "_MOTIF_WM_HINTS", False);
+    XChangeProperty(d, g_handover, mwm_atom, mwm_atom, 32, PropModeReplace,
+                    reinterpret_cast<const unsigned char*>(&mwm), 5);
+    XMapWindow(d, g_handover);
+    XSync(d, False);
+
+    ask_activate(d, g_handover, server_time(d, g_handover));
+    return true;
+}
+
+void activate_game_window(const std::string& needle) {
+    Display* d = display();
+    if (!d) return;
+    if (Window w = matching_window(d, needle)) {
+        // The timestamp comes off the handover window while it still exists — it is the only
+        // window of ours on this connection. Without one there is nothing to take a server
+        // clock from, and CurrentTime is what KWin refuses.
+        ask_activate(d, w, g_handover ? server_time(d, g_handover) : CurrentTime);
+        XSync(d, False); // the request must reach the WM before the window it names goes away
+    }
+    if (g_handover) {
+        XDestroyWindow(d, g_handover);
+        g_handover = 0;
+        XFlush(d);
     }
 }
 

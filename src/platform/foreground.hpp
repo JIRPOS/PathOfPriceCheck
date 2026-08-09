@@ -36,4 +36,22 @@ GameWindow find_game_window(const std::string& needle);
 /// synthetic Ctrl+C reaches the game, not our overlay) and when a panel closes.
 void focus_game_window(const std::string& needle);
 
+/// Take the *window manager's* active window off the game, onto one throwaway pixel of ours.
+///
+/// A different thing from `focus_game_window`'s opposite: that moves the X input focus, which
+/// the server owns, and Wine does not act on it — measured, the game stayed
+/// `_NET_ACTIVE_WINDOW` throughout and never published its copy. Wine re-exports the clipboard
+/// on a **WM-level** activation change, so this asks the WM for one. Undone by
+/// `activate_game_window`, which every caller owes: leaving the game deactivated is the same
+/// bug as an alt-tab nobody undid.
+///
+/// False where there is nothing to do (Windows, whose clipboard needs none of this) or where
+/// the request could not be made.
+bool deactivate_game_window();
+
+/// Ask the window manager to make the game active again — the WM's own decision, not the
+/// server's, so it is not `focus_game_window`. Also releases whatever
+/// `deactivate_game_window` allocated, so it is safe (and required) to call after a failed one.
+void activate_game_window(const std::string& needle);
+
 } // namespace ppc

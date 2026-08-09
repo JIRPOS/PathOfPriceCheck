@@ -93,4 +93,10 @@ void focus_game_window(const std::string& needle) {
     if (ctx.hwnd) SetForegroundWindow(ctx.hwnd);
 }
 
+// Nothing to hand over: the Windows clipboard is written by the copy itself, so there is no
+// wedged owner to shake loose and no reason to take the foreground off the game.
+bool deactivate_game_window() { return false; }
+
+void activate_game_window(const std::string& needle) { focus_game_window(needle); }
+
 } // namespace ppc

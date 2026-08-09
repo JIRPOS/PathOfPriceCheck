@@ -92,6 +92,19 @@ The seams (windowing still comes free from SDL3; the clipboard did not — see b
 - **`platform/foreground.hpp` — `foreground_title_contains()`:** X11 reads `_NET_ACTIVE_WINDOW` +
   `_NET_WM_NAME`; Win32 `GetForegroundWindow` + `GetWindowTextW`. Matched against a configurable title
   (default "Path of Exile") to decide whether to auto-copy.
+  `deactivate_game_window()` / `activate_game_window()` are the pair that gives the game a
+  **window-manager-level** focus-out, which is the only kind Wine acts on (see the copy path
+  below). X11 maps a 1×1 undecorated utility window and sends the WM an `_NET_ACTIVE_WINDOW`
+  client message naming it, then another naming the game. Two things are load-bearing and both
+  were measured: the **source indication must be 2** (pager / direct user action) — with 1
+  (application) KWin's focus-stealing prevention grants the activation *out*, because that
+  window has just mapped, and refuses the one *back*, which strands the user off the game; and
+  the message must carry a **real server timestamp**, taken from a zero-length property append
+  on our own window, since `CurrentTime` is refused outright. Round trip 10ms each way, and the
+  helper is undecorated via `_MOTIF_WM_HINTS` or the WM frames one pixel with a titlebar and the
+  handover becomes a box flashing over the game. Windows needs none of it — its clipboard is
+  written by the copy itself — so `deactivate_game_window()` is `false` there and the caller
+  does nothing.
 - **`platform/input_sim.hpp` — `simulate_copy()`:** synthesizes Ctrl+C to the focused window so the
   price-check hotkey grabs the hovered item itself (no manual copy). X11 uses `XTestFakeKeyEvent`
   (libXtst); Win32 uses `SendInput`. The chord must look like a *human* keypress or the game ignores
@@ -281,9 +294,13 @@ clipboard bridge asserts over it 2ms later with the Wayland-side content, and 0m
 selection is dropped to **no owner at all**. Now nothing works — there is nobody to poke, nobody to
 read, and Wine still believes it owns the selection, so every later copy in the game stays inside
 the prefix. Only a real **WM-level** focus change out of the game recovers it, by making Wine
-re-export. `nudge_clipboard_handover` is *not* enough here and the log proves it: it fired, moved
-the X input focus (`input=0x9a00037 active=0x8400001`), and Wine did not re-assert — the game never
-stopped being `_NET_ACTIVE_WINDOW`. Captured in `ppc-20260805-162746.log`, checks `ECJG` (the race)
+re-export. The first `nudge_clipboard_handover` was *not* enough here and the log proves it: it
+fired, moved the X input focus (`input=0x9a00037 active=0x8400001`), and Wine did not re-assert —
+**the game never stopped being `_NET_ACTIVE_WINDOW`**, because the thing it took focus onto was our
+override-redirect panel, which no window manager manages and none can therefore make active. That
+is the diagnosis the current nudge is built on rather than a reason to stop: it now asks the WM to
+activate a managed window of its own, which does move `active=` (measured, both ways).
+Captured in `ppc-20260805-162746.log`, checks `ECJG` (the race)
 and `3NDN` (the stuck state). A drop to no owner is deliberately **not** counted by
 `clipboard_stamp()`: it is the opposite of a write, and counting it made an empty read look like a
 successful copy of something that "is not an item".
@@ -316,6 +333,11 @@ failure the app can state truthfully, and it is what saves the next investigatio
 over. Captured in `ppc-20260809-011007.log`: check `S36Q` gave up at 2014ms with the owner serving
 `application/x-kde-onlyReplaceEmpty`, and `GM54` — the very next check, after the user alt-tabbed
 by hand — read the item in 3ms.
+The note still tells the user to alt-tab even though `nudge_clipboard_handover` now asks the
+window manager for exactly that at 350ms, and it is not stale: reaching the give-up line *is* the
+statement that the automatic one did not work, and a hand alt-tab is a focus-out of arbitrary
+length against a 250ms hold. Read the two `[copy]` lines above the note before concluding
+anything about a capture — they say whether the activation moved at all.
 
 Everything else follows: no fallback to the previous clipboard (that's whatever the user last copied
 anywhere, and showing it reads as a successful but wrong price check), and **failure is silent**.
@@ -333,7 +355,8 @@ away. The debug-log capture `MMHW` shows the same shape for an injected copy (pu
 of trying were aimed at the wrong layer. Two things do move it, and neither is the copy: **asking**
 (`clipboard_poke`, above — the reliable one, 0-2ms) and the game **losing focus**
 (`nudge_clipboard_handover` — a focus-out makes Wine export proactively, which is what the watcher
-saw at the alt-tab; kept as a 350ms backstop for when asking doesn't work). Clearing the clipboard
+saw at the alt-tab; kept as a 350ms backstop for when asking doesn't work, and it has to be the
+**window manager's** idea of focus, not the server's). Clearing the clipboard
 before the copy was tried as a third lever and **made it worse**; don't re-add it.
 `PPC_DEBUG_COPY=1` traces the whole timeline to stderr, and the **debug log** below records the same
 thing plus everything stderr is too narrow for. The overlay is
@@ -354,13 +377,31 @@ the copy path used to call `focus_game_window()` on a window it had just confirm
 and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
 the game on close **only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
 
-Taking focus onto **our own** panel is the one sanctioned exception, and it exists for exactly one
-reason: it is the only thing that makes Wine let go of the clipboard (above). `nudge_clipboard_handover`
-fires **once per check, at 350ms, only while the game is still in front**, and never in dev mode.
-Do not promote it to unconditional. A healthy clipboard — any Windows machine, a native X11 game —
-answers the first poll and never reaches the grace period, and taking the keyboard mid-fight for a
-copy that was not late is a worse bug than the one it fixes. Its own `[copy]` log line, and the
-`input=`/`active=` fields `focus_info()` puts on every poll line, are what says whether it worked.
+Taking the game **out of the foreground** is the one sanctioned exception, and it exists for
+exactly one reason: it is the only thing that makes Wine let go of the clipboard (above).
+`nudge_clipboard_handover` fires **once per check, at 350ms, only while the game is still in
+front**, and never in dev mode. Do not promote it to unconditional. A healthy clipboard — any
+Windows machine, a native X11 game — answers the first poll and never reaches the grace period,
+and pulling the game out of the foreground mid-fight for a copy that was not late is a worse bug
+than the one it fixes. Its own `[copy]` log line, and the `input=`/`active=` fields `focus_info()`
+puts on every poll line, are what says whether it worked.
+
+**It is the window manager's focus and not the X server's**, and that distinction is the whole
+history of this function: it used to call `overlay_take_keyboard_focus`, which is
+`XSetInputFocus` on our own override-redirect window, and the log shows `input=` moving while
+`active=` stayed on the game and Wine stayed silent. A window the WM does not manage cannot be
+made active, so that version could not have worked. `deactivate_game_window` asks the WM to
+activate a throwaway pixel instead — see the seam above for why the source indication and the
+timestamp are not optional.
+
+**Every path that starts a handover owes the game back** (`restore_game_activation`, called from
+the copy landing, from `abandon_copy`, and from the start of the next check), and it is on a
+**250ms hold** rather than left until the 2s timeout: the measured export lands within 160ms of
+the game losing the active window or not at all, so a copy still missing after that is not
+waiting on this, and holding the game out of the foreground for the rest of the timeout is
+purely a cost. This is why `deactivate_game_window` allocates and `activate_game_window`
+releases even when it finds no game window — an unmatched pair leaks the helper, and the next
+`deactivate_game_window` then refuses.
 
 `App::place_overlay()` gives each screen its own geometry: Settings is a 520×680 dialog centered over
 the game, price-check is a **full-height panel docked beside the item's own frame** — right of the
