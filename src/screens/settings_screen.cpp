@@ -11,26 +11,40 @@
 
 #include "app.hpp"
 #include "ui/strings.hpp"
+#include "ui/theme.hpp"
 #include "util/debug_log.hpp"
 
 namespace ppc {
 namespace {
 
+using ui::col::kWarn;
+
 /// Label column width. Every row's control starts here, so the panel reads as one grid.
 constexpr float kLabelW = 160.0f;
 
-const ImVec4 kWarn(0.90f, 0.55f, 0.25f, 1.0f);
+/// The dialog's own name, in the size the game gives a screen title.
+constexpr float kTitleSize = 21.0f;
 
-/// Draws `label` in the left column, parks the cursor on the control column with the item
-/// width already set, and returns the hidden id ("##label") to hand the widget — ImGui draws
-/// a control's own label to its *right*, which is what made this panel look inconsistent.
+/// Draws `label` in the left column and parks the cursor on the control column. For the rows
+/// that build their own control; everything else goes through `row()`.
+void row_label(const char* label) {
+    ImGui::AlignTextToFramePadding();
+    // Tinted, where the value beside it is not: it is most of how the game's option screens
+    // read as a grid without one being drawn.
+    ImGui::PushStyleColor(ImGuiCol_Text, ui::col::kLabel);
+    ImGui::TextUnformatted(label);
+    ImGui::PopStyleColor();
+    ImGui::SameLine(kLabelW); // fixed, not measured: every label here is far under 160px
+}
+
+/// `row_label` with the item width already set, returning the hidden id ("##label") to hand the
+/// widget — ImGui draws a control's own label to its *right*, which is what made this panel
+/// look inconsistent.
 ///
 /// The returned id lives in a static buffer valid only until the next call, so use it inline:
 /// `ImGui::SliderInt(row("Width"), ...)`. One row() per expression.
 const char* row(const char* label, float width = -FLT_MIN) {
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(label);
-    ImGui::SameLine(kLabelW); // fixed, not measured: every label here is far under 160px
+    row_label(label);
     ImGui::SetNextItemWidth(width);
     static char id[96];
     std::snprintf(id, sizeof id, "##%s", label);
@@ -43,10 +57,26 @@ void row_gutter() {
     ImGui::SameLine();
 }
 
+/// Continues the current line with a `w`-wide control flush against the content region's right
+/// edge — measured from where the cursor actually is, so a scrollbar or a child window's inset
+/// moves the control with it rather than under it.
+void right_align(float w) {
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - w);
+}
+
+/// A titled block, in the small caps the game sets every heading in. The rule above it is a
+/// divider *between* blocks, so the first block of a tab does without one — the body it sits in
+/// already has a border of its own.
 void section(App& app, const char* title) {
-    ImGui::Separator();
-    ImGui::PushFont(app.fonts().bold, 0.0f);
+    if (ImGui::GetCursorPosY() > ImGui::GetStyle().WindowPadding.y) {
+        ImGui::Spacing();
+        ImGui::Separator();
+    }
+    ImGui::PushFont(app.fonts().small_caps, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_Text, ui::col::kSection);
     ImGui::TextUnformatted(title);
+    ImGui::PopStyleColor();
     ImGui::PopFont();
 }
 
@@ -63,9 +93,7 @@ constexpr float kRefreshW = 84.0f;
 void league_row(App& app, Config& c) {
     const LeagueService& svc = app.leagues();
 
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(ui::text(ui::Msg::League));
-    ImGui::SameLine(kLabelW);
+    row_label(ui::text(ui::Msg::League));
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - kRefreshW -
                             ImGui::GetStyle().ItemSpacing.x);
     // The preview is the configured value, not a list index. A league the list doesn't have
@@ -119,9 +147,7 @@ void data_row(App& app) {
     using State = data::DataUpdater::State;
     const data::DataUpdater::Status st = app.data_status();
 
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(ui::text(ui::Msg::Bundle));
-    ImGui::SameLine(kLabelW);
+    row_label(ui::text(ui::Msg::Bundle));
 
     const bool busy = st.state == State::Checking || st.state == State::Downloading ||
                       st.state == State::Installing;
@@ -157,7 +183,7 @@ void data_row(App& app) {
     // Right-aligned: the status text left of it varies in width every frame while a
     // download runs, and a button that slides around is unclickable.
     constexpr float kCheckW = 110.0f;
-    ImGui::SameLine(ImGui::GetWindowWidth() - kCheckW - 18.0f);
+    right_align(kCheckW);
     ImGui::BeginDisabled(busy);
     if (ImGui::Button(ui::text(ui::Msg::CheckNow), ImVec2(kCheckW, 0))) app.check_for_data();
     ImGui::EndDisabled();
@@ -189,9 +215,11 @@ void update_row(App& app, Config& c) {
     using State = update::Updater::State;
     const update::Updater::Status st = app.update_status();
 
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(ui::text(ui::Msg::Application));
-    ImGui::SameLine(kLabelW);
+    // An id scope of its own: this row's button reads "Check now" and so does the bundle's, and
+    // two identical labels in one window are one widget as far as ImGui is concerned.
+    ImGui::PushID("update");
+
+    row_label(ui::text(ui::Msg::Application));
 
     const bool busy = st.state == State::Checking || st.state == State::Downloading ||
                       st.state == State::Verifying;
@@ -226,7 +254,7 @@ void update_row(App& app, Config& c) {
     // Right-aligned, for the same reason the bundle's button is: the text left of it changes
     // width every frame while something is downloading.
     constexpr float kActionW = 110.0f;
-    ImGui::SameLine(ImGui::GetWindowWidth() - kActionW - 18.0f);
+    right_align(kActionW);
     if (st.state == State::Ready) {
         if (ImGui::Button(ui::text(ui::Msg::RestartNow), ImVec2(kActionW, 0)))
             app.restart_for_update();
@@ -240,9 +268,11 @@ void update_row(App& app, Config& c) {
         ImGui::EndDisabled();
     }
 
-    row_gutter();
+    // The gutter belongs to the help line, not to the checkbox below it: row() lays out its own
+    // label column, and starting it already on a SameLine drew the box on top of its own label.
     if (st.state == State::Offer) {
         using Offered = update::Updater::Offered;
+        row_gutter();
         ImGui::PushTextWrapPos(0.0f);
         ImGui::TextDisabled("%s", ui::text(st.reason == Offered::Unmanaged
                                                ? ui::Msg::UpdateOfferUnmanaged
@@ -250,11 +280,14 @@ void update_row(App& app, Config& c) {
                                                ? ui::Msg::UpdateOfferNoAsset
                                                : ui::Msg::UpdateOfferHelp));
         ImGui::PopTextWrapPos();
-        row_gutter();
     }
     ImGui::Checkbox(row(ui::text(ui::Msg::AutoUpdate)), &c.auto_update);
     row_gutter();
+    ImGui::PushTextWrapPos(0.0f);
     ImGui::TextDisabled("%s", ui::text(ui::Msg::AutoUpdateHelp));
+    ImGui::PopTextWrapPos();
+
+    ImGui::PopID();
 }
 
 /// The two languages, which answer to different things and are therefore two rows.
@@ -356,27 +389,13 @@ int account_char_filter(ImGuiInputTextCallbackData* d) {
     return ok ? 0 : 1; // non-zero discards
 }
 
-} // namespace
-
-void draw_settings_screen(App& app) {
-    Config& c = app.config();
-    ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(io.DisplaySize);
-    ImGui::Begin("Settings", nullptr,
-                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
-
-    ImGui::PushFont(app.fonts().bold, 0.0f);
-    ImGui::TextUnformatted(ui::text(ui::Msg::SettingsTitle));
-    ImGui::PopFont();
-    ImGui::SameLine(ImGui::GetWindowWidth() - 34);
-    if (ImGui::Button("X", ImVec2(24, 0))) app.close_overlay();
-
-    section(app, ui::text(ui::Msg::SectionGeneral));
+void general_tab(App& app, Config& c) {
+    section(app, ui::text(ui::Msg::SectionAccount));
     league_row(app, c);
 
     const NameCheck nc = check_account_name(c.account_name);
-    if (nc == NameCheck::Malformed) ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.42f, 0.13f, 0.13f, 1.0f));
+    if (nc == NameCheck::Malformed)
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.32f, 0.09f, 0.07f, 1.0f));
     ImGui::InputTextWithHint(row(ui::text(ui::Msg::Account)), ui::text(ui::Msg::AccountHint),
                              &c.account_name,
                              ImGuiInputTextFlags_CallbackCharFilter, account_char_filter);
@@ -389,6 +408,21 @@ void draw_settings_screen(App& app) {
     section(app, ui::text(ui::Msg::SectionLanguage));
     language_rows(app, c);
 
+    section(app, ui::text(ui::Msg::SectionHotkeys));
+    hotkey_row(app, ui::text(ui::Msg::HotkeyPriceCheck), Action::PriceCheck, c.price_check);
+    hotkey_row(app, ui::text(ui::Msg::HotkeySettings), Action::ToggleSettings, c.settings);
+
+    section(app, ui::text(ui::Msg::SectionAppearance));
+    // Nothing to apply: the dialog's own theme reads this every frame, and App hands it to the
+    // other panels' backgrounds before each one draws. Save only persists it.
+    ImGui::Checkbox(row(ui::text(ui::Msg::ReduceTransparency)), &c.reduce_transparency);
+    row_gutter();
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::ReduceTransparencyHelp));
+    ImGui::PopTextWrapPos();
+}
+
+void price_check_tab(App& app, Config& c) {
     section(app, ui::text(ui::Msg::SectionTradeSearch));
     // GGG's own labels, in the site's own order, so what is picked here reads the same as
     // what the trade page shows.
@@ -442,10 +476,6 @@ void draw_settings_screen(App& app) {
     ImGui::TextDisabled("%s", ui::text(ui::Msg::BoundHelp));
     ImGui::PopTextWrapPos();
 
-    section(app, ui::text(ui::Msg::SectionHotkeys));
-    hotkey_row(app, ui::text(ui::Msg::HotkeyPriceCheck), Action::PriceCheck, c.price_check);
-    hotkey_row(app, ui::text(ui::Msg::HotkeySettings), Action::ToggleSettings, c.settings);
-
     section(app, ui::text(ui::Msg::SectionPricePanel));
     ImGui::TextDisabled("%s", ui::text(ui::Msg::PanelHelp));
     ImGui::SliderInt(row(ui::text(ui::Msg::PanelWidth)), &c.panel_width, 280, 900, "%d px");
@@ -454,7 +484,9 @@ void draw_settings_screen(App& app) {
     ImGui::SliderFloat(row(ui::text(ui::Msg::StashEdge)), &c.stash_edge, 0.40f, 0.90f, "%.3f");
     ImGui::SliderFloat(row(ui::text(ui::Msg::InventoryEdge)), &c.inventory_edge, 0.40f, 0.90f,
                        "%.3f");
+}
 
+void application_tab(App& app, Config& c) {
     section(app, ui::text(ui::Msg::SectionGameData));
     data_row(app);
 
@@ -475,12 +507,98 @@ void draw_settings_screen(App& app) {
     } else {
         ImGui::TextDisabled("%s", ui::text(ui::Msg::DebugLogHelp));
     }
+}
 
+/// The fixed header: the screen's name in small caps, and the disc in the corner that leaves
+/// it. The game puts both in the frame's top edge and neither ever scrolls.
+void draw_header(App& app) {
+    const float h = ImGui::GetFrameHeight();
+
+    ImGui::PushFont(app.fonts().small_caps, kTitleSize);
+    ImGui::AlignTextToFramePadding();
+    ImGui::PushStyleColor(ImGuiCol_Text, ui::col::kTitle);
+    ImGui::TextUnformatted(ui::text(ui::Msg::SettingsTitle));
+    ImGui::PopStyleColor();
+    ImGui::PopFont();
+
+    right_align(h);
+    // Square, so the full rounding makes it a disc — the one red control on the panel, which is
+    // where the game puts its only one too.
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.5f);
+    ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kClose);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ui::col::kCloseHovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ui::col::kCloseHovered);
+    if (ImGui::Button("X", ImVec2(h, h))) app.close_overlay();
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar();
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", ui::text(ui::Msg::Close));
+}
+
+struct Tab {
+    ui::Msg name;
+    void (*draw)(App&, Config&);
+};
+
+constexpr Tab kTabs[]{
+    {ui::Msg::TabGeneral, &general_tab},
+    {ui::Msg::TabPriceCheck, &price_check_tab},
+    {ui::Msg::TabApplication, &application_tab},
+};
+
+/// The fixed tab strip. Buttons rather than `ImGui::BeginTabBar`, because the game marks the
+/// open tab by lighting its *name* and ImGui has no colour for a selected tab's label.
+void draw_tabs(App& app) {
+    for (int i = 0; i < static_cast<int>(std::size(kTabs)); ++i) {
+        if (i) ImGui::SameLine(0.0f, 4.0f);
+        const bool open = app.settings_tab() == i;
+        ImGui::PushStyleColor(ImGuiCol_Text, open ? ui::col::kAccent : ui::col::kText);
+        ImGui::PushStyleColor(ImGuiCol_Button, open ? ui::col::kButton : ui::col::kTabIdle);
+        if (ImGui::Button(ui::text(kTabs[i].name))) app.set_settings_tab(i);
+        ImGui::PopStyleColor(2);
+    }
+}
+
+/// The fixed footer: Save, and where it is saved to.
+void draw_footer(App& app) {
     ImGui::Separator();
-    if (ImGui::Button(ui::text(ui::Msg::Save), ImVec2(120, 0))) app.apply_and_save_config();
+    // The one lit button on the panel, as the game lights whichever of its footer buttons
+    // commits: everything else here is undone by closing.
+    ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kButtonHovered);
+    if (ImGui::Button(ui::text(ui::Msg::Save), ImVec2(140, 0))) app.apply_and_save_config();
+    ImGui::PopStyleColor();
     ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
     ImGui::TextDisabled("%s", Config::path().c_str());
+}
 
+} // namespace
+
+void draw_settings_screen(App& app) {
+    Config& c = app.config();
+    ImGuiIO& io = ImGui::GetIO();
+    // Opened before Begin, so the window's own background and border are drawn with it, and
+    // reading the live setting rather than the saved one, so the checkbox previews itself.
+    const ui::Theme theme(c.reduce_transparency);
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(io.DisplaySize);
+    ImGui::Begin("Settings", nullptr,
+                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
+
+    draw_header(app);
+    draw_tabs(app);
+
+    // Header and tab strip above, Save below, and only the rows between them scroll. The dialog
+    // is one fixed size (App::kSettingsH) whichever tab is open, so the body is whatever the two
+    // of them leave — and a tab too tall for it scrolls without taking the header or the Save
+    // button with it.
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float footer_h = style.ItemSpacing.y * 2.0f + 1.0f + ImGui::GetFrameHeight();
+    ImGui::BeginChild("##body", ImVec2(0.0f, ImGui::GetContentRegionAvail().y - footer_h));
+    const int open = std::clamp(app.settings_tab(), 0, static_cast<int>(std::size(kTabs)) - 1);
+    kTabs[open].draw(app, c);
+    ImGui::EndChild();
+
+    draw_footer(app);
     ImGui::End();
 }
 

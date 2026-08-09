@@ -144,6 +144,10 @@ public:
     /// How far down the gutter the item card reached this frame — opaque UI of ours over the
     /// game, so `poll_click_away` has to spare it. 0 when it was drawn in the panel instead.
     void set_card_height(float h) { card_h_ = h; }
+    /// Which Settings tab is open. Held here rather than in the screen because the screen is a
+    /// free function redrawn from scratch every frame.
+    int settings_tab() const { return settings_tab_; }
+    void set_settings_tab(int i) { settings_tab_ = i; }
     /// False while there is nothing to search — no bundle, a strategy with no query behind it
     /// (currency), or a gem the bundle could not name.
     bool can_search() const;
@@ -223,6 +227,7 @@ private:
     Side side_ = Side::Inventory; ///< side the current price check docked to
     PanelLayout layout_;          ///< set by place_overlay, read by the price-check renderer
     float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
+    int settings_tab_ = 0;        ///< which Settings tab is open
     std::string clipboard_;
     bool running_ = true;
 

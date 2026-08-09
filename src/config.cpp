@@ -69,6 +69,7 @@ Config Config::load() {
     c.inventory_edge = j.value("inventory_edge", c.inventory_edge);
     c.status_right = j.value("status_right", c.status_right);
     c.status_bottom = j.value("status_bottom", c.status_bottom);
+    c.reduce_transparency = j.value("reduce_transparency", c.reduce_transparency);
     c.auto_update = j.value("auto_update", c.auto_update);
     c.debug_log = j.value("debug_log", c.debug_log);
     return c;
@@ -96,6 +97,7 @@ bool Config::save() const {
     j["inventory_edge"] = inventory_edge;
     j["status_right"] = status_right;
     j["status_bottom"] = status_bottom;
+    j["reduce_transparency"] = reduce_transparency;
     j["auto_update"] = auto_update;
     j["debug_log"] = debug_log;
     std::ofstream out(path());

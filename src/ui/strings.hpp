@@ -25,8 +25,15 @@ namespace ppc::ui {
 /// order — a table with a mismatched one is a crash, not a typo.
 enum class Msg : uint16_t {
     SettingsTitle,
-    SectionGeneral,
+    Close,
+
+    TabGeneral,
+    TabPriceCheck,
+    TabApplication,
+
+    SectionAccount,
     SectionLanguage,
+    SectionAppearance,
     SectionTradeSearch,
     SectionFilterRanges,
     SectionHotkeys,
@@ -69,6 +76,9 @@ enum class Msg : uint16_t {
     HotkeyPriceCheck,
     HotkeySettings,
     PressKeys,
+
+    ReduceTransparency,
+    ReduceTransparencyHelp,
 
     PanelHelp,
     PanelWidth,

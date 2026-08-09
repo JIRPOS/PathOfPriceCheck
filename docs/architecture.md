@@ -155,7 +155,7 @@ purely a cost. This is why `deactivate_game_window` allocates and `activate_game
 releases even when it finds no game window — an unmatched pair leaks the helper, and the next
 `deactivate_game_window` then refuses.
 
-`App::place_overlay()` gives each screen its own geometry: Settings is a 520×680 dialog centered over
+`App::place_overlay()` gives each screen its own geometry: Settings is a 640×720 dialog centered over
 the game, price-check is a **full-height panel docked beside the item's own frame** — right of the
 stash if the cursor was in the left half of the game window at hotkey time, left of the inventory if
 in the right half (`App::cursor_side()`, sampled before the copy; the user has moved on by the time
@@ -198,8 +198,16 @@ from the game window's bottom-right corner ÷ its height (the same reasoning as 
 they are config-file-only. `place_overlay` sizes the window to the text for that screen, so the idle
 overlay is a 200×48 rectangle rather than a dialog-sized one nothing is drawn into.
 
+**Settings is three tabs** — General, Price check, Application — between a fixed header (the title
+and the close disc) and a fixed footer (Save). `kTabs` in `settings_screen.cpp` pairs each name with
+the function that draws it; `App::settings_tab()` holds which one is open, because the screen is a
+free function rebuilt every frame. The strip is buttons, not `ImGui::BeginTabBar`: the game marks
+the open tab by lighting its *name*, and ImGui has no colour for a selected tab's label. Only the
+open tab draws, so only it is measured — see the height rule below.
+
 **Settings** lays every row out on one grid via `row()` in `settings_screen.cpp` — ImGui draws a
-control's own label to its *right*, which is why nothing passes a visible label. League is a combo
+control's own label to its *right*, which is why nothing passes a visible label. `row_label()` is
+the left column on its own, for the rows that build their control by hand. League is a combo
 fed by `LeagueService` from `/api/trade/data/leagues`, cached 24h under `cache_dir()`; the payload
 repeats each id per realm so it is filtered to `pc`, hardcoded because this binary can only be
 driven by a PC client. **Language** is two rows of the same shape and for the same reason: a
@@ -213,10 +221,28 @@ unless Settings is opened. `poe_window_title` is config-file-only, deliberately 
 **Filter ranges** is two rows of the same shape (`bound_row`), one per side of the interval every
 modifier's filter opens to — see `item/range_match`. The percentage box beside each is *disabled*
 rather than hidden for the two modes that do not read it: the dialog is sized to hold every section
-without scrolling, and a row whose height depends on its own value breaks that for whichever mode
-happens to be picked. The size is `kSettingsW × kSettingsH` **capped at the game's height**, since a
-dialog taller than the screen scrolls whatever that constant says; measure the content against the
-window before adding a section rather than guessing at the new number.
+without scrolling, and a row whose height depends on its own value makes that a moving target.
+
+**Its size is declared, not measured** — `kSettingsW`×`kSettingsH`, 640×720, the same for every
+tab, **capped at the game's own height**. It used to be measured: the form reported what the last
+row left on the cursor and the window resized to it between frames. Tabs ended that. Each tab
+measures differently, so the dialog jumped under the pointer on every tab click, which is a worse
+failure than the scrollbar the measuring was there to avoid; 720 clears the tallest tab and still
+fits a 768-tall game window. Because the rows scroll **inside a child**, the header, the tab strip
+and the Save row sit outside it and stay put when they do — a form whose Save button scrolls away
+is the failure that shape exists to prevent. Adding a section needs no new number; adding one that
+overflows 720 needs this one raised.
+
+**The look is `src/ui/theme.cpp`** — the game's palette and control shapes, sampled off its Options
+dialog: near-black frames under hairline brown borders, headings and the title in the small-caps
+face, the left column tinted where the value beside it is not, and orange for check marks, slider
+grabs and the open tab. It is app-side and never `ppc_core`, and it is a **scope** rather than the
+global style — `ui::Theme` pushes for the window that opens it, because so far only Settings is
+styled. `Config::reduce_transparency` is the one part of it that reaches further: `App` calls
+`ui::set_opaque_windows()` once per frame, outside every screen, so that a screen which pushes its
+own window colour cannot pop the base value back over it. It is opacity and not a blur because
+there is no backdrop to sample — the overlay composites over another process's window, and what is
+behind our pixels never reaches our framebuffer.
 
 Seven SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
 data-updater state, trade result, poe.ninja result, currency-exchange result, application-updater

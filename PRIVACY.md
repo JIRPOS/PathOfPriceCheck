@@ -81,7 +81,7 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 
 | path | what |
 |---|---|
-| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, whether to update automatically |
+| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, panel opacity, whether to update automatically |
 | `<config>/cookies.txt` | the cookie jar above |
 | `<cache>/data/<version>/` | the downloaded game-data bundle, plus a `current` pointer |
 | `<cache>/update/` | a downloaded release of the application, waiting for the restart that applies it. One file, consumed as it is applied; absent whenever no update is pending |

@@ -15,9 +15,16 @@ using Table = const char* const*;
 /// them on an array, so the order here is the contract and `kEnglish` is the one place it is
 /// stated.
 constexpr const char* kEnglish[]{
-    "PathOfPriceCheck \xe2\x80\x94 Settings",
+    "Path of Price Check \xe2\x80\x94 Settings",
+    "Close",
+
     "General",
+    "Price check",
+    "Application",
+
+    "League and account",
     "Language",
+    "Appearance",
     "Trade search",
     "Filter ranges",
     "Hotkeys",
@@ -63,6 +70,9 @@ constexpr const char* kEnglish[]{
     "Price check",
     "Settings",
     "press keys\xe2\x80\xa6",
+
+    "Reduce transparency",
+    "Draws the panels solid instead of letting the game show through them.",
 
     "Docks beside whichever game panel the cursor was over.",
     "Width",
