@@ -31,6 +31,9 @@ std::string_view group_for(std::string_view key) {
     if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize" ||
         key == "area_level" || key == "chart_sulphur")
         return "map_filters";
+    // The reveal counts and the nine rogue-job levels. `area_level` above is deliberately not
+    // among them: a heist item asks about one, and the site still files it under Map/Chart.
+    if (key.starts_with("heist_")) return "heist_filters";
     return {};
 }
 
@@ -39,6 +42,7 @@ std::string_view group_for(std::string_view key) {
 /// `ultimatum_filters` four, which are the whole of what an Inscribed Ultimatum is.
 std::string_view option_group_for(std::string_view key) {
     if (key.starts_with("ultimatum_")) return "ultimatum_filters";
+    if (key.starts_with("heist_")) return "heist_filters";
     if (key.starts_with("map_") || key == "chart_shape") return "map_filters";
     return "misc_filters";
 }
@@ -87,6 +91,11 @@ bool searchable(const item::SearchPlan& p) {
         // A beast is its species, and a plan that could not name one has nothing left: the
         // search would be every beast in the league at this item level. Same shape as a gem.
         case item::Strategy::Beast: return !p.type.empty();
+        // A heist item is the area it opens, and the category is the coarser search left when
+        // the bundle cannot name one — unlike a gem or a beast, that is still a real question
+        // ("some blueprint at area level 83 with these wings revealed") rather than a useless
+        // one, because the filters that tell two apart do not live in the type term.
+        case item::Strategy::Heist: return !p.type.empty() || !p.category.empty();
         // An ultimatum is one base type, so the type term alone is every ultimatum in the league
         // — but the whole of what tells two apart is the ultimatum filters, and a plan that could
         // fill none of them in is that useless search. Type *and* something asked about it.
@@ -177,7 +186,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!p.rarity.empty()) type_filters["rarity"] = json{{"option", p.rarity}};
 
     json misc = json::object(), armour = json::object(), weapon = json::object(),
-         map = json::object(), ultimatum = json::object();
+         map = json::object(), ultimatum = json::object(), heist = json::object();
     // Whether an option has a row in the panel is the plan's business; all that matters here is
     // that an unticked one is not asked for. `map_completion_reward` rides the same path and
     // takes a unique's own name rather than a boolean, which is why the value is a string all
@@ -186,8 +195,10 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     for (const item::OptionFilter& f : p.options) {
         if (!f.enabled) continue;
         const std::string_view g = option_group_for(f.key);
-        (g == "map_filters" ? map : g == "ultimatum_filters" ? ultimatum : misc)[f.key] =
-            json{{"option", f.option}};
+        (g == "map_filters"         ? map
+         : g == "ultimatum_filters" ? ultimatum
+         : g == "heist_filters"     ? heist
+                                    : misc)[f.key] = json{{"option", f.option}};
     }
     for (const item::Influence i : p.influences)
         if (const std::string_view k = influence_key(i); !k.empty()) misc[std::string(k)] = option(true);
@@ -201,6 +212,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
         (g == "misc_filters"     ? misc
          : g == "armour_filters" ? armour
          : g == "map_filters"    ? map
+         : g == "heist_filters"  ? heist
                                  : weapon)[f.key] = std::move(v);
     }
     json filters = json::object();
@@ -210,6 +222,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!weapon.empty()) filters["weapon_filters"] = json{{"filters", std::move(weapon)}};
     if (!map.empty()) filters["map_filters"] = json{{"filters", std::move(map)}};
     if (!ultimatum.empty()) filters["ultimatum_filters"] = json{{"filters", std::move(ultimatum)}};
+    if (!heist.empty()) filters["heist_filters"] = json{{"filters", std::move(heist)}};
 
     json q = json::object();
     q["status"] = json{{"option", valid_status(status) ? status : kDefaultStatus}};

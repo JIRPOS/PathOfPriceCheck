@@ -667,3 +667,93 @@ TEST_CASE("an Inscribed Ultimatum is a contract, not a currency item with prose 
               "Mirrorable, Rare Item");
     }
 }
+
+TEST_CASE("a heist contract and blueprint are read off their property block") {
+    // The one item class here that says what it is on the header line. What it does *not* say is
+    // anything the site indexes it on: the reveal counts, the job levels and the objective's
+    // value are all in the property block, and one of them is not a "label: value" line at all.
+    SUBCASE("the area is the base, and a rare's own name is generated per copy") {
+        const Item it = parse("items", "heist-contract-rare-tunnels.txt");
+        CHECK(it.item_class == "Contracts");
+        CHECK(it.is_heist_contract());
+        CHECK(it.is_heist());
+        CHECK_FALSE(it.is_heist_blueprint());
+        CHECK(it.name == "Gloom Testament");
+        CHECK(it.base_type == "Contract: Tunnels");
+    }
+    SUBCASE("a unique contract carries the \"Contract: \" in its name, not in its base") {
+        // Which is how the trade site files it too, so nothing is stripped off either line.
+        const Item it = parse("items", "heist-contract-unique-slaver-king.txt");
+        CHECK(it.rarity == Rarity::Unique);
+        CHECK(it.name == "Contract: The Slaver King");
+        CHECK(it.base_type == "Vigilante Contract");
+    }
+    SUBCASE("a magic blueprint's affixes wrap the base line") {
+        const Item it = parse("items", "heist-blueprint-magic-records-office.txt");
+        CHECK(it.is_heist_blueprint());
+        CHECK(it.rarity == Rarity::Magic);
+        CHECK(it.name.empty());
+        CHECK(it.base_type == "Deployed Blueprint: Records Office of Spine-Chilling");
+    }
+    SUBCASE("a job requirement is a property, kept as the sentence the game wrote") {
+        // "Requires Brute Force (Level 4)" has no colon in it, so it used to come out as a
+        // label-less line with no key and no number — and the panel draws it whole, which is
+        // why the line survives verbatim rather than being taken apart into label and value.
+        const Item it = parse("items", "heist-blueprint-rare-underbelly.txt");
+        std::vector<std::pair<std::string, double>> jobs;
+        for (const Property& p : it.properties)
+            if (p.key == PropertyKey::HeistJob) jobs.emplace_back(p.value, p.num.value_or(-1));
+        REQUIRE(jobs.size() == 3);
+        CHECK(jobs[0] == std::pair<std::string, double>{"Requires Brute Force (Level 4)", 4});
+        CHECK(jobs[1] == std::pair<std::string, double>{"Requires Agility (Level 3)", 3});
+        CHECK(jobs[2] == std::pair<std::string, double>{"Requires Deception (Level 1)", 1});
+        for (const Property& p : it.properties)
+            if (p.key == PropertyKey::HeistJob) CHECK(p.label.empty());
+    }
+    SUBCASE("the reveal counts keep both numbers, and the target keeps its value") {
+        const Item it = parse("items", "heist-blueprint-rare-tunnels-full.txt");
+        const auto value_of = [&it](PropertyKey k) {
+            for (const Property& p : it.properties)
+                if (p.key == k) return p.value;
+            return std::string();
+        };
+        CHECK(value_of(PropertyKey::WingsRevealed) == "4/4");
+        CHECK(value_of(PropertyKey::EscapeRoutesRevealed) == "8/8");
+        CHECK(value_of(PropertyKey::RewardRoomsRevealed) == "28/28");
+        CHECK(parse("items", "heist-contract-rare-laboratory.txt")
+                  .properties[1]
+                  .value == "Sword of the Inverse Relic (Priceless)");
+    }
+    SUBCASE("handing the item to Adiyah is a usage note, not a modifier") {
+        // Two sentences, neither of them opening with a click instruction, sitting exactly
+        // where a mod block can. On a unique contract it was the only "modifier" on the item.
+        const Item it = parse("items", "heist-contract-unique-slaver-king.txt");
+        CHECK(it.mods.empty());
+        REQUIRE(it.help_text.size() == 1);
+        CHECK(it.help_text.front().find("Adiyah") != std::string::npos);
+        CHECK(it.flavour_text.size() == 2);
+
+        const Item bp = parse("items", "heist-blueprint-rare-tunnels-full.txt");
+        CHECK(bp.mods.size() == 8); // the enchant and seven hazards, and nothing else
+        CHECK(bp.help_text.size() == 1);
+    }
+    SUBCASE("the same item copied out of the game rather than off a listing") {
+        // These captures came from trade, so each ends with a separator and a "Note: ~b/o".
+        // In game there is neither, and nothing else about the item changes.
+        const std::string listed = capture("items", "heist-contract-rare-laboratory.txt");
+        const size_t note = listed.rfind("--------\nNote:");
+        REQUIRE(note != std::string::npos);
+        const std::optional<Item> stripped = parse_item_en(listed.substr(0, note));
+        REQUIRE(stripped.has_value());
+        const Item in_game = *stripped;
+        const Item off_trade = parse("items", "heist-contract-rare-laboratory.txt");
+        CHECK(in_game.note.empty());
+        CHECK(off_trade.note == "~b/o 1 chaos");
+        CHECK(in_game.name == off_trade.name);
+        CHECK(in_game.base_type == off_trade.base_type);
+        CHECK(in_game.properties.size() == off_trade.properties.size());
+        CHECK(in_game.mods.size() == off_trade.mods.size());
+        CHECK(in_game.flavour_text == off_trade.flavour_text);
+        CHECK(in_game.help_text == off_trade.help_text);
+    }
+}

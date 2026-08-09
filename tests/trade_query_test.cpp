@@ -593,3 +593,39 @@ TEST_CASE("an ultimatum's four options go in a group of their own, and it sends 
     }
     SUBCASE("and one that filled in any of them is") { CHECK(searchable(p)); }
 }
+
+TEST_CASE("a heist item's filters go in heist_filters, and its area level does not") {
+    SearchPlan p;
+    p.strategy = Strategy::Heist;
+    p.category = "heistmission.blueprint";
+    p.type = "Blueprint: Tunnels";
+    p.options = {{"heist_objective_value", "Objective Value", "priceless", "Priceless", true,
+                  true}};
+    p.numerics = {{"area_level", "Area Level", 83, 83, true},
+                  {"heist_wings", "Wings Revealed", 4, std::nullopt, true},
+                  {"heist_max_wings", "Total Wings", 4, 4, true},
+                  // Seeded as a ceiling and unticked, so it must not be sent at all.
+                  {"heist_brute_force", "Brute Force Level", std::nullopt, 5, false}};
+
+    const json q = query_of(p);
+    const json& h = q["filters"]["heist_filters"]["filters"];
+    CHECK(h["heist_objective_value"]["option"] == "priceless");
+    CHECK(h["heist_wings"]["min"] == 4);
+    CHECK_FALSE(h["heist_wings"].contains("max"));
+    CHECK(h["heist_max_wings"]["max"] == 4);
+    CHECK_FALSE(h.contains("heist_brute_force"));
+    // "Area Level" is a heist item's, but the site files that filter under Map/Chart whatever
+    // kind of item is asking — so the `heist_` prefix is the whole of the group rule.
+    CHECK(q["filters"]["map_filters"]["filters"]["area_level"]["min"] == 83);
+    CHECK_FALSE(h.contains("area_level"));
+
+    SUBCASE("the category alone is a search when the bundle could not name the wing") {
+        // Unlike a gem, whose type term is the only question it has: a heist item is told apart
+        // by filters that live outside it, so "some blueprint at this level, this much revealed"
+        // is coarser rather than useless.
+        p.type.clear();
+        CHECK(searchable(p));
+        p.category.clear();
+        CHECK_FALSE(searchable(p));
+    }
+}

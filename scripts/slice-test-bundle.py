@@ -91,6 +91,12 @@ STATS = [
     # the one an ultimatum is indexed under, measured rather than assumed.
     "#% increased Monster Damage",
     "#% more Monster Life",
+    # A heist blueprint's enchant and one of its hazards, which is the whole of what the heist
+    # strategy has to tell apart in a modifier list: the enchant is what the run is for and is
+    # ticked, the hazard is the danger it will hold and is offered unticked. "#% more Monster
+    # Life" above is a hazard too — the same stat an ultimatum stakes on.
+    "Heist Targets are always Enchanted Armaments",
+    "Players are Cursed with Temporal Chains",
 ]
 
 ITEMS = [
@@ -166,6 +172,16 @@ ITEMS = [
     # namespaces the site's own filter names, and the card half of that had no positive case.
     "DIVINATION_CARD::Blind Venture",
     "ITEM::Ancient Orb",
+    # Heist. Two wings apiece because a contract and a blueprint of the same area are separate
+    # bases under separate trade categories, and a magic blueprint's base line arrives wrapped in
+    # its affixes ("Deployed Blueprint: Records Office of Spine-Chilling"), so Records Office is
+    # what covers stripping them off a heist item at all. The unique contract and the quest base
+    # it rolls on are the pair that proves a unique heist item is planned as a unique.
+    "ITEM::Contract: Tunnels",
+    "ITEM::Blueprint: Tunnels",
+    "ITEM::Blueprint: Records Office",
+    "ITEM::Vigilante Contract",
+    "UNIQUE::Contract: The Slaver King",
 ]
 
 UNIQUE_MODS = [
@@ -176,7 +192,7 @@ UNIQUE_MODS = [
 
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
-                "Support Gems", "Chart", "Misc Map Items"]
+                "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints"]
 
 LANG = "en"
 

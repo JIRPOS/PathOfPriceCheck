@@ -125,6 +125,12 @@ bool Item::is_ultimatum() const {
     });
 }
 
+bool Item::is_heist_contract() const { return class_kind == data::ClassKind::HeistContract; }
+
+bool Item::is_heist_blueprint() const { return class_kind == data::ClassKind::HeistBlueprint; }
+
+bool Item::is_heist() const { return is_heist_contract() || is_heist_blueprint(); }
+
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }

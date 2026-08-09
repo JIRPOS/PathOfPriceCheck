@@ -1,0 +1,18 @@
+Item Class: Contracts
+Rarity: Unique
+Contract: The Slaver King
+Vigilante Contract
+--------
+Client: Whakano
+Heist Target: Defeat Friedrich Tarollo
+Area Level: 80
+Requires Brute Force (Level 3)
+--------
+Item Level: 83
+--------
+"There can be no freedom
+while hate still reigns."
+--------
+Give this Contract to Adiyah in the Rogue Harbour to embark on the Heist.
+--------
+Note: ~b/o 1 chance

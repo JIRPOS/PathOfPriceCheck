@@ -35,3 +35,8 @@
 {"art":"Art/2DItems/Belts/InjectorBelt.png","name":"Mageblood","namespace":"UNIQUE","refName":"Mageblood","unique":{"base":"Heavy Belt"}}
 {"craftable":{"category":"Divination Cards"},"dropLevel":23,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardBlindVenture","name":"Blind Venture","namespace":"DIVINATION_CARD","refName":"Blind Venture","w":1}
 {"craftable":{"category":"Stackable Currency"},"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollUnique","name":"Ancient Orb","namespace":"ITEM","refName":"Ancient Orb","w":1}
+{"craftable":{"category":"Contracts"},"dropLevel":55,"h":1,"metadataId":"Metadata/Items/Heist/HeistContractRobotTunnels","name":"Contract: Tunnels","namespace":"ITEM","refName":"Contract: Tunnels","w":1}
+{"craftable":{"category":"Blueprints"},"dropLevel":55,"h":1,"metadataId":"Metadata/Items/Heist/HeistBlueprintRobotTunnels","name":"Blueprint: Tunnels","namespace":"ITEM","refName":"Blueprint: Tunnels","w":1}
+{"craftable":{"category":"Blueprints"},"dropLevel":50,"h":1,"metadataId":"Metadata/Items/Heist/HeistBlueprintCourts","name":"Blueprint: Records Office","namespace":"ITEM","refName":"Blueprint: Records Office","w":1}
+{"craftable":{"category":"Contracts"},"dropLevel":80,"h":1,"metadataId":"Metadata/Items/Heist/QuestContracts/HeistContractQuestWhakanoRepeatable","name":"Vigilante Contract","namespace":"ITEM","refName":"Vigilante Contract","w":1}
+{"art":"Art/2DItems/Currency/Heist/SlaveMerchantFightContract.png","name":"Contract: The Slaver King","namespace":"UNIQUE","refName":"Contract: The Slaver King","unique":{"base":"Vigilante Contract"}}

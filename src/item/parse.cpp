@@ -424,6 +424,19 @@ void take_typed_property(const Property& p, Item& it) {
     }
 }
 
+/// The level a heist item's "Requires Brute Force (Level 4)" line asks for, or nothing when the
+/// line is not one. **Which** job it names is deliberately not read here: the panel draws the
+/// line as the game wrote it, and the plan is the only thing that needs the job apart.
+std::optional<int> heist_job_level(std::string_view line, const data::Lexicon& lex) {
+    const std::string_view prefix = lex.term(data::Term::HeistJobPrefix);
+    const std::string_view level = lex.term(data::Term::HeistJobLevel);
+    if (prefix.empty() || level.empty()) return std::nullopt;
+    if (!line.starts_with(prefix) || !line.ends_with(")")) return std::nullopt;
+    const size_t at = line.rfind(level);
+    if (at == std::string_view::npos || at < prefix.size()) return std::nullopt;
+    return first_int(line.substr(at + level.size()));
+}
+
 void parse_properties(const Section& sec, Item& it, const data::Lexicon& lex) {
     for (const std::string& line : sec) {
         if (data::is_reminder_text(line) && !it.properties.empty()) {
@@ -437,7 +450,17 @@ void parse_properties(const Section& sec, Item& it, const data::Lexicon& lex) {
             // tag list) — never one carrying a number, or an unquality flask's own "Lasts 6
             // Seconds" becomes its type. Later prose is a flask's own effect when it reads
             // like a mod, and one of the flask's stats ("Lasts 7.20 Seconds") when it does not.
-            if (it.type_line.empty() && it.properties.empty() && !first_number(line)) {
+            if (const std::optional<int> lvl = heist_job_level(line, lex)) {
+                // "Requires Brute Force (Level 4)", the one property line the game writes as a
+                // sentence rather than as a label and a value. Kept whole and label-less, which
+                // is how the panel already draws it; the job it names is looked up where it is
+                // needed. Ahead of the number rule below, which would file it as a flask stat.
+                Property p;
+                p.key = data::PropertyKey::HeistJob;
+                p.value = line;
+                p.num = static_cast<double>(*lvl);
+                it.properties.push_back(std::move(p));
+            } else if (it.type_line.empty() && it.properties.empty() && !first_number(line)) {
                 it.type_line = line;
             } else if (first_number(line) && !std::isalpha(static_cast<unsigned char>(line[0]))) {
                 it.inherent_lines.push_back(line);

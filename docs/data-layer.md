@@ -45,10 +45,11 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   load-bearing: `Term` is a single string, a `TermList` is a set (the fixed-order ones are
   **indexed by an enum** — `Rarities` by `item::Rarity`, `ModSuffixes` and `Generations` by
   `ModType` — so a language's list has to keep the order and a replaced list is replaced
-  whole; three of them are ordered by a **trade option id** instead, `ChartShapes` and
-  `UltimatumChallenges` and `UltimatumRewards`, which is what lets the client's words be sent as
-  the id the site wants), and the property and item-class tables are keyed the other way round,
-  printed label to key, so a translated one replaces the English outright.
+  whole; five of them are ordered by a **trade filter key or option id** instead — `ChartShapes`,
+  `UltimatumChallenges`, `UltimatumRewards`, `HeistJobs` and `HeistObjectiveValues` — which is what
+  lets the client's own words be sent as the id the site wants), and the property and item-class
+  tables are keyed the other way round, printed label to key, so a translated one replaces the
+  English outright.
   **An empty entry never matches**, deliberately: `starts_with("")` is true of every line, and
   `ModType::Explicit` has no generation word of its own.
   `parse_item` and `looks_like_item` **take a lexicon and have no default**. The language is

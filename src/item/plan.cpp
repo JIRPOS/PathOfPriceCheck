@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <unordered_map>
 #include <utility>
@@ -15,7 +16,7 @@ namespace {
 
 constexpr std::array<std::string_view, static_cast<size_t>(Strategy::Unsupported) + 1>
     kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",
-                "Map",       "Beast",     "Ultimatum", "Unsupported"};
+                "Map",       "Beast",     "Ultimatum", "Heist",    "Unsupported"};
 
 /// How many decimals `v` needs to survive being printed. Rolls are at most hundredths.
 int decimals_needed(double v) {
@@ -318,6 +319,13 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
             // The affixes are handled entirely by their count — see `map_affix_count`.
             f.enabled = true;
             break;
+        case Strategy::Heist:
+            // The map argument with the tick left off instead of the whole row. A blueprint's
+            // **enchant** is what the run is for and somebody paid to put it there; its other
+            // modifiers are the danger it will hold, which is rolled and re-rollable, so they
+            // are offered and not imposed — seven ticked hazards ask for one copy in the world.
+            f.enabled = m.type == data::ModType::Enchant;
+            break;
         default:
             f.enabled = false;
             break;
@@ -362,6 +370,20 @@ StatFilter* filter_saying(SearchPlan& p, const Item& it, std::string_view line) 
             if (l == line) return &f;
     }
     return nullptr;
+}
+
+/// Whether `line` is one of the item's **property** lines, as the game prints it — either
+/// "Label: value" or, for the ones the game writes as a sentence, the value alone.
+///
+/// The other half of `filter_saying`: both answer "is this already on screen", and the per-unique
+/// data does not distinguish a property from a modifier. A unique heist contract is the case —
+/// its client, area level, heist target and job requirement are listed there as modifiers and
+/// printed by the game as properties.
+bool printed_as_property(const Item& it, std::string_view line) {
+    for (const Property& p : it.properties) {
+        if (p.label.empty() ? p.value == line : line == p.label + ": " + p.value) return true;
+    }
+    return false;
 }
 
 /// Fold the bundle's per-unique modifier data into the plan.
@@ -479,6 +501,11 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
     // between this and the loop above they cost twelve lines of panel to say what four unticked
     // boxes said. Only prose with nothing on screen behind it is worth a note of its own.
     for (const std::string& u : um->unlisted) {
+        // On screen as a **property** rather than as a filter, which is the same argument one
+        // step over: the source lists a unique heist contract's client, area level, target and
+        // job requirement as modifiers, and the game prints all four in the property block. Four
+        // notes saying they are not searched, beside four lines already saying what they are.
+        if (printed_as_property(it, u)) continue;
         if (StatFilter* f = filter_saying(p, it, u)) {
             f->caveat = "the modifier data states this but does not enumerate it, so nothing "
                         "here knows what it can roll";
@@ -858,6 +885,162 @@ void plan_ultimatum(const data::GameData& gd, const Item& it, SearchPlan& p) {
         add_numeric(p, "area_level", lvl->label, *lvl->num, true, 0, {}, *lvl->num);
 }
 
+/// The `heist_*` filter for each rogue job, in the order `TermList::HeistJobs` names them.
+constexpr std::string_view kHeistJobKeys[]{
+    "heist_lockpicking", "heist_brute_force",         "heist_perception",
+    "heist_demolition",  "heist_counter_thaumaturgy", "heist_trap_disarmament",
+    "heist_agility",     "heist_deception",           "heist_engineering"};
+/// The `heist_objective_value` option ids, in the order `TermList::HeistObjectiveValues` lists
+/// the words the game prints for them.
+constexpr std::string_view kHeistObjectiveIds[]{"moderate", "high", "precious", "priceless"};
+
+/// A blueprint's "3/21" — what is revealed and what there is to reveal. Absent when the value
+/// is not that shape, which is how a client that words it differently degrades: no filter
+/// rather than a filter for a number that is not there.
+std::optional<std::pair<double, double>> revealed_of(const Property& p) {
+    const size_t slash = p.value.find('/');
+    if (slash == std::string::npos || !p.num) return std::nullopt;
+    const std::string_view rest = std::string_view(p.value).substr(slash + 1);
+    double total = 0;
+    // `std::from_chars` and not the C locale, which would read "21" against a decimal comma.
+    const auto [end, ec] = std::from_chars(rest.data(), rest.data() + rest.size(), total);
+    if (ec != std::errc{} || end == rest.data()) return std::nullopt;
+    return std::pair{*p.num, total};
+}
+
+/// The parenthetical a heist objective's name ends with — "Ancient Seal (Precious)" — or "".
+/// The value is the whole of what trade indexes about a target; the target's own name is not a
+/// term the site takes at all.
+std::string_view objective_value_of(const Property& p) {
+    if (p.value.empty() || p.value.back() != ')') return {};
+    const size_t open = p.value.rfind(" (");
+    if (open == std::string::npos) return {};
+    return std::string_view(p.value).substr(open + 2, p.value.size() - open - 3);
+}
+
+/// A heist contract or blueprint: **which run this is**, and what it will cost to make.
+///
+/// The first iteration of a market nobody here has traded, so it errs towards offering rather
+/// than towards deciding — every heist filter the site has is a row, and what separates the
+/// ticked from the untitcked is one question: is this a fact about *which item this is*, or is
+/// it the variation between two copies of the same one?
+///
+/// Imposed, because they say which run it is:
+/// - **The area**, which is the base type and is what the game names the item after ("Blueprint:
+///   Underbelly"). A rare heist item's own name — "Cataclysm Vow" — is generated per copy and is
+///   no more searchable than a rare bow's.
+/// - **The area level**, exact, on the same reading a chart's and an ultimatum's get: pricing is
+///   like for like, and a level 83 run is a different product from a level 77 one.
+/// - **What is revealed**, on a blueprint, as a floor: more of the map uncovered is strictly more
+///   of what a buyer is paying for. The total beside each count is exact where the site indexes
+///   one — a blueprint's wing count varies per copy, so it is part of which item this is rather
+///   than an amount of anything — and Total Escape Routes is left out entirely. See below.
+/// - **The objective's value** on a contract, which is the parenthetical after the target.
+/// - **The enchant**, on a blueprint that has one: "Heist Targets are always Enchanted
+///   Armaments" is what the whole run is for, and somebody paid to put it there.
+///
+/// Offered and left unticked, because they are the roll rather than the item:
+/// - **The job levels.** A requirement is a demand on the *buyer's* rogue, not a property of the
+///   thing being bought, so it is seeded as a ceiling — copies asking less are strictly more
+///   usable — and left off, because a buyer whose rogue is levelled does not care.
+/// - **The heist modifiers.** They are the danger the run will hold: rolled, re-rollable, and
+///   the map argument exactly, except that the row stays and only the tick goes. A contract
+///   carries seven of them and ticking all seven asks for one particular copy in the world.
+///
+/// Not offered at all, because trade indexes none of them: item quantity, item rarity, alert
+/// level reduction, time before lockdown, maximum alive reinforcements. They are on the item
+/// beside the panel, and there is no `heist_` filter to put them in.
+void plan_heist(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    const data::Lexicon& lex = gd.lexicon();
+    if (it.base) {
+        p.type = base_wire_name(it);
+        if (!it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+    } else {
+        // Deliberately no type rather than the printed one: a magic blueprint's base line still
+        // carries its affixes ("Deployed Blueprint: Records Office of Spine-Chilling") and
+        // sending that matches nothing, which reads as an empty market. The category is still a
+        // real search, and a coarser one is what the note says it is.
+        p.notes.push_back("\"" + it.base_type +
+                          "\" is not a heist base in this data bundle, so the search is for any "
+                          "contract or blueprint rather than for this area");
+    }
+
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
+        add_numeric(p, "area_level", lvl->label, *lvl->num, true, 0, {}, *lvl->num);
+
+    // Only what is **revealed**, never the total printed beside it. The site publishes a filter
+    // for each total — `heist_max_wings`, `heist_max_escape_routes`, `heist_max_reward_rooms` —
+    // and indexes nothing under them. Measured on the Records Office capture: the three totals
+    // alone, at the item's own 2, 4 and 13, returned **0 matches**, against **135** for the three
+    // revealed counts alone and **252** for neither. They are accepted rather than rejected, so
+    // sending one costs the whole search and reads as an empty market — which is why they are
+    // not offered as unticked rows either. The numbers are on the item beside the panel.
+    // **Total Escape Routes is the one filter here with nothing behind it.** The site publishes
+    // `heist_max_escape_routes` and indexes no listing under it, so any bound at all empties the
+    // result. Measured one filter at a time on the fully revealed Tunnels capture, everything
+    // else identical: `heist_max_wings` at 4 returned **460** and `heist_max_reward_rooms` at 28
+    // returned **460** (1040 at a bare `min: 1`), while `heist_max_escape_routes` returned **0**
+    // both at the item's own 8 and at `min: 1`. It is accepted rather than rejected, so sending
+    // it costs the whole search and reads as an empty market — and it is not offered as an
+    // unticked row either, because ticking it would do the same. The number is on the item.
+    struct Reveal {
+        data::PropertyKey property;
+        const char* key;
+        const char* total;       ///< "" where the site indexes no total
+        const char* total_label;
+    };
+    static constexpr Reveal kReveals[]{
+        {data::PropertyKey::WingsRevealed, "heist_wings", "heist_max_wings", "Total Wings"},
+        {data::PropertyKey::EscapeRoutesRevealed, "heist_escape_routes", "", ""},
+        {data::PropertyKey::RewardRoomsRevealed, "heist_reward_rooms", "heist_max_reward_rooms",
+         "Total Reward Rooms"},
+    };
+    for (const Reveal& r : kReveals) {
+        const Property* prop = property_of(it, r.property);
+        if (!prop) continue;
+        const std::optional<std::pair<double, double>> both = revealed_of(*prop);
+        if (!both) continue;
+        // Revealed is a floor — more of the blueprint uncovered is strictly more of what is
+        // being bought. The total is exact, because it is not an amount of anything: a Tunnels
+        // blueprint comes with two, three or four wings, and a four-wing one is a different
+        // item rather than a better copy of the same one.
+        add_numeric(p, r.key, prop->label, both->first, true);
+        if (*r.total)
+            add_numeric(p, r.total, r.total_label, both->second, true, 0, {}, both->second);
+    }
+
+    // A contract's, and only a contract's: a blueprint sends the crew after a wing rather than
+    // after a thing, and prints no target line at all.
+    if (const Property* t = property_of(it, data::PropertyKey::HeistTarget)) {
+        const std::string_view value = objective_value_of(*t);
+        const int i = value.empty()
+                          ? -1
+                          : lex.index_of(data::TermList::HeistObjectiveValues, value);
+        if (i >= 0 && static_cast<size_t>(i) < std::size(kHeistObjectiveIds))
+            add_option(p, "heist_objective_value", "Objective Value",
+                       std::string(kHeistObjectiveIds[i]), std::string(value), true);
+        else if (!value.empty())
+            p.notes.push_back("\"" + std::string(value) +
+                              "\" is not an objective value the trade site knows, so the search "
+                              "does not ask what the target is worth");
+        // No parenthetical at all is the ordinary shape of a boss contract ("Kill Admiral
+        // Darnaw"), not a gap: there is no value to ask about, so nothing is said.
+    }
+
+    // One row per job the item demands, seeded as a ceiling and left off. See the note above:
+    // a job level is what the run asks of the buyer, and a copy asking less still answers.
+    for (const Property& prop : it.properties) {
+        if (prop.key != data::PropertyKey::HeistJob || !prop.num) continue;
+        const std::vector<std::string>& jobs = lex.list(data::TermList::HeistJobs);
+        for (size_t i = 0; i < jobs.size() && i < std::size(kHeistJobKeys); ++i) {
+            if (jobs[i].empty() || prop.value.find(jobs[i]) == std::string::npos) continue;
+            add_numeric(p, std::string(kHeistJobKeys[i]), jobs[i] + " Level", std::nullopt, false,
+                        0, {}, *prop.num);
+            break;
+        }
+    }
+}
+
 /// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
 /// other map prints one, which is what makes it the marker as well as the thing searched for.
 const Property* reward_property(const Item& it) {
@@ -1206,6 +1389,12 @@ Strategy default_strategy(const Item& it) {
     // no item level, so it would be planned as a bulk good and handed to a reference price that
     // does not exist. Two copies of one base differ in everything a buyer cares about.
     if (it.is_ultimatum()) return Strategy::Ultimatum;
+    // A heist item **at any rarity but unique**. Its affixes are real, so the rarity switch
+    // below would plan a rare contract as a rare and search seven heist hazards as if they were
+    // what somebody was buying — and none of the reveal counts, job levels or objective values
+    // that are the whole of how the site indexes one. A *unique* contract is left to the unique
+    // strategy: it is bought for its name, and everything else about it is fixed by that name.
+    if (it.is_heist() && it.rarity != Rarity::Unique) return Strategy::Heist;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1295,6 +1484,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             plan_beast(it, p);
             break;
         case Strategy::Ultimatum: plan_ultimatum(gd, it, p); break;
+        case Strategy::Heist: plan_heist(gd, it, p); break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
             // query — bulk is what it sells in, and a stat filter has nothing to say about a

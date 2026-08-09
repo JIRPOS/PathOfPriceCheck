@@ -9,14 +9,16 @@
   the interval end for end as well as in sign: 77..90 as the game prints it is -90..-77 as the site
   indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
   contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
-  (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`) and rejects one filed in the
-  wrong place. `option_group_for` is the same contract for `SearchPlan::options`, which go out as
-  `{"option": …}` under `misc_filters`, `map_filters` or `ultimatum_filters`; an **unticked one is
-  not sent at all** — whether an option has a row in the panel is the plan's business, and this
-  layer only reads `enabled`. The ultimatum group is keyed off the `ultimatum_` prefix and carries
-  all four of the things an Inscribed Ultimatum is bought for; its **area level is not one of
-  them** and goes in `map_filters`, because the site files "Area Level" under Map/Chart filters
-  whatever kind of item is asking.
+  (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`, `heist_filters`) and rejects
+  one filed in the wrong place. `option_group_for` is the same contract for `SearchPlan::options`,
+  which go out as `{"option": …}` under `misc_filters`, `map_filters`, `ultimatum_filters` or
+  `heist_filters`; an **unticked one is not sent at all** — whether an option has a row in the
+  panel is the plan's business, and this layer only reads `enabled`. The ultimatum and heist
+  groups are keyed off their `ultimatum_` and `heist_` prefixes, which is the whole rule: an
+  Inscribed Ultimatum's four options and a heist item's reveal counts, nine job levels and
+  objective value. **Area Level is in neither**, though both kinds of item ask about it — the site
+  files that one filter under Map/Chart whatever is asking, which is why `group_for` names it
+  explicitly instead of letting a prefix decide.
   Whether the search names a `type` is the **plan's** call and this layer sends whatever it was
   given: a `Modifiers` plan leaves it empty (a rare is bought for its mods, and the category
   already says where those can live) **except on a flask**, where it names the base.

@@ -1989,3 +1989,158 @@ TEST_CASE("an ultimatum is searched on the deal it offers, not on the danger it 
         CHECK(shown == 4);
     }
 }
+
+TEST_CASE("a heist item is searched on the run it opens, not on the danger it rolled") {
+    auto gd = fixture();
+
+    const auto asked = [](const SearchPlan& p, std::string_view key) {
+        const OptionFilter* f = p.option(key);
+        return f && f->enabled ? f->option : std::string();
+    };
+
+    SUBCASE("a magic or rare heist item gets its own strategy; a unique one does not") {
+        // The rarity switch would plan a rare contract as a rare and search its seven hazards
+        // as if somebody were buying them, and ask for none of the filters the site indexes it
+        // on. A unique contract is the opposite case: it is bought for its name, and the name
+        // fixes everything else about it — so it stays with the unique strategy.
+        CHECK(default_strategy(resolved(*gd, capture("heist-contract-rare-tunnels.txt"))) ==
+              Strategy::Heist);
+        CHECK(default_strategy(
+                  resolved(*gd, capture("heist-blueprint-magic-records-office.txt"))) ==
+              Strategy::Heist);
+        CHECK(default_strategy(resolved(*gd, capture("heist-contract-unique-slaver-king.txt"))) ==
+              Strategy::Unique);
+    }
+
+    SUBCASE("the area is the type, and contracts and blueprints are separate categories") {
+        const Item c = resolved(*gd, capture("heist-contract-rare-tunnels.txt"));
+        const SearchPlan cp = build_plan(*gd, c, derive(gd.get(), c));
+        CHECK(cp.type == "Contract: Tunnels");
+        CHECK(cp.category == "heistmission.contract");
+        // The generated name is one copy's own, exactly as a rare bow's is.
+        CHECK(cp.name.empty());
+
+        // Same area, same wing, different item and a different market.
+        const Item b = resolved(*gd, capture("heist-blueprint-rare-tunnels-full.txt"));
+        const SearchPlan bp = build_plan(*gd, b, derive(gd.get(), b));
+        CHECK(bp.type == "Blueprint: Tunnels");
+        CHECK(bp.category == "heistmission.blueprint");
+    }
+
+    SUBCASE("a magic blueprint is searched by the base under its affixes") {
+        // "Deployed Blueprint: Records Office of Spine-Chilling" as a type matches nothing.
+        const Item it = resolved(*gd, capture("heist-blueprint-magic-records-office.txt"));
+        CHECK(it.base_type == "Deployed Blueprint: Records Office of Spine-Chilling");
+        CHECK(build_plan(*gd, it, derive(gd.get(), it)).type == "Blueprint: Records Office");
+    }
+
+    SUBCASE("what is revealed is a floor and what there is of it is exact") {
+        const Item it = resolved(*gd, capture("heist-blueprint-magic-records-office.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        const NumericFilter* wings = numeric_for(p, "heist_wings");
+        REQUIRE(wings != nullptr);
+        CHECK(wings->enabled);
+        CHECK(wings->min == 1);
+        CHECK_FALSE(wings->max.has_value());
+
+        // A Records Office blueprint comes with two, three or four wings, so the total is part
+        // of which item this is rather than an amount of anything.
+        const NumericFilter* total = numeric_for(p, "heist_max_wings");
+        REQUIRE(total != nullptr);
+        CHECK(total->enabled);
+        CHECK(total->min == 2);
+        CHECK(total->max == 2);
+        REQUIRE(numeric_for(p, "heist_max_reward_rooms") != nullptr);
+        CHECK(numeric_for(p, "heist_max_reward_rooms")->min == 13);
+    }
+
+    SUBCASE("Total Escape Routes is never asked for, because nothing is indexed under it") {
+        // The site publishes `heist_max_escape_routes` and accepts it, and no listing carries a
+        // value for it — so any bound empties the result and it reads as nobody selling one.
+        // Measured one filter at a time on the fully revealed Tunnels capture: `heist_max_wings`
+        // at 4 returned 460 and `heist_max_reward_rooms` at 28 returned 460, while
+        // `heist_max_escape_routes` returned 0 both at the item's own 8 and at a bare min of 1.
+        const Item it = resolved(*gd, capture("heist-blueprint-rare-tunnels-full.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(numeric_for(p, "heist_max_escape_routes") == nullptr);
+        // Its revealed count is asked for, though — that one is indexed like the other two.
+        REQUIRE(numeric_for(p, "heist_escape_routes") != nullptr);
+        CHECK(numeric_for(p, "heist_escape_routes")->min == 8);
+    }
+
+    SUBCASE("the objective's value is the parenthetical, and a boss contract has none") {
+        const auto value_of = [&](const char* file) {
+            const Item it = resolved(*gd, capture(file));
+            return asked(build_plan(*gd, it, derive(gd.get(), it)), "heist_objective_value");
+        };
+        CHECK(value_of("heist-contract-rare-tunnels.txt") == "high");
+        CHECK(value_of("heist-contract-rare-laboratory.txt") == "priceless");
+        CHECK(value_of("heist-contract-rare-underbelly.txt") == "precious");
+        // A blueprint sends the crew after a wing rather than after a thing, so it prints no
+        // target line at all and there is nothing to ask.
+        CHECK(value_of("heist-blueprint-rare-tunnels-full.txt").empty());
+    }
+
+    SUBCASE("a job level is a ceiling and is offered rather than asked") {
+        // What the run demands of the *buyer's* rogue, not a property of the thing being
+        // bought — so a copy asking less is strictly more usable, and a buyer whose rogue is
+        // levelled does not care at all.
+        const Item it = resolved(*gd, capture("heist-blueprint-rare-underbelly.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        for (const char* key : {"heist_brute_force", "heist_agility", "heist_deception"}) {
+            const NumericFilter* f = numeric_for(p, key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK_MESSAGE(!f->enabled, key);
+            CHECK_MESSAGE(!f->min.has_value(), key);
+        }
+        CHECK(numeric_for(p, "heist_brute_force")->max == 4);
+        CHECK(numeric_for(p, "heist_agility")->max == 3);
+        CHECK(numeric_for(p, "heist_deception")->max == 1);
+        // The six it does not demand are not rows at all.
+        CHECK(numeric_for(p, "heist_engineering") == nullptr);
+        CHECK(numeric_for(p, "heist_lockpicking") == nullptr);
+    }
+
+    SUBCASE("the enchant is imposed and the hazards are only offered") {
+        // "Heist Targets are always Enchanted Armaments" is what the whole run is for and
+        // somebody paid to put it there. The rest is the danger it will hold — rolled and
+        // re-rollable — and seven ticked hazards ask for one particular copy in the world.
+        const Item it = resolved(*gd, capture("heist-blueprint-rare-tunnels-full.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* ench = filter_saying(p, "Heist Targets are always Enchanted Armaments");
+        REQUIRE(ench != nullptr);
+        CHECK(ench->type == ppc::data::ModType::Enchant);
+        CHECK(ench->enabled);
+        for (const StatFilter& f : p.stats)
+            if (f.type != ppc::data::ModType::Enchant) CHECK_MESSAGE(!f.enabled, f.text);
+    }
+
+    SUBCASE("an area the bundle does not know is still a search, and says what it is not") {
+        // The heist wings grow with the league and a bundle behind the game is the ordinary
+        // case. Unlike a beast, the clipboard's own spelling is not a usable fallback — a magic
+        // blueprint's base line carries its affixes — so the type is dropped and the category,
+        // the area level and the reveal counts are what the search has left.
+        const Item it = resolved(*gd, capture("heist-contract-rare-underbelly.txt"));
+        CHECK(it.base == nullptr);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type.empty());
+        CHECK(p.category == "heistmission.contract");
+        CHECK(asked(p, "heist_objective_value") == "precious");
+        CHECK(p.notes.front().find("is not a heist base in this data bundle") !=
+              std::string::npos);
+    }
+
+    SUBCASE("a unique contract's properties are not four notes about not searching them") {
+        // The per-unique modifier data lists this contract's client, area level, heist target
+        // and job requirement as modifiers it never enumerates, and the game prints all four as
+        // properties. Four notes saying they are not searched, beside four lines already on
+        // screen saying what they are.
+        const Item it = resolved(*gd, capture("heist-contract-unique-slaver-king.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Unique);
+        CHECK(p.name == "Contract: The Slaver King");
+        CHECK(p.type == "Vigilante Contract");
+        CHECK(p.notes.empty());
+    }
+}

@@ -56,6 +56,17 @@ bundle, and only the third and fourth encode pricing judgement.
     its class already makes it a map fragment, so the prose heuristics were never reached, and its
     thirteen hazard lines parse as ordinary modifiers. Which of them is *searched* is the plan's
     business, not the parser's.
+    A **heist contract or blueprint** is the opposite: its item class ("Contracts", "Blueprints")
+    is its own, so `ClassKind` carries it and `Item::is_heist()` reads that. What it hides is in
+    the property block. **"Requires Brute Force (Level 4)" is the one property line the game
+    writes as a sentence** — no colon, so it used to come out label-less with no key and no
+    number — and it is kept exactly that way, whole and label-less under `PropertyKey::HeistJob`
+    with the level in `num`, because that is how the panel already draws it and taking it apart
+    into a label and a value would change what the reader sees. Which of the nine jobs it names
+    is a lexicon lookup where it is needed, not a field. The reveal counts keep both of their
+    numbers ("3/21") for the same reason. Its usage note is two sentences and neither opens with
+    a click instruction, so **"Adiyah"** — the fence both are handed to — is the needle, and
+    without it a unique contract's only "modifier" was the instruction to hand it in.
   - Mod type comes from the ` (implicit)` / ` (crafted)` / … suffix, else from an Advanced Mod
     Descriptions info line's generation words, else Explicit. A flask enchant carries no suffix, so
     on a flask the earlier of two unsuffixed sections is the enchant.
@@ -371,6 +382,40 @@ bundle, and only the third and fourth encode pricing judgement.
   All four options are `shown` and ticked. Unlike the booleans, none of them is the ordinary
   answer that would be noise on a row: they are the terms of the deal, and which of them to relax
   is exactly the question the reader is there to answer.
+- **`item/plan`'s heist strategy** (`plan_heist`) covers contracts and blueprints together — they
+  share every filter the site has for them and differ only in the category and in whether reveal
+  counts are printed. It is the **first iteration of a market nobody here has traded**, so it errs
+  towards offering rather than deciding: every heist filter the site publishes is a row, and one
+  question decides the tick. *Is this a fact about which item this is, or is it the variation
+  between two copies of the same one?*
+  Imposed, because they say which run it is: the **area**, which is the base type and what the
+  game names the item after ("Blueprint: Underbelly") — a rare heist item's own name, "Cataclysm
+  Vow", is generated per copy and no more searchable than a rare bow's; the **area level**, exact,
+  on the same reading a chart's and an ultimatum's get; **what is revealed** on a blueprint, as a
+  floor, with the **total** beside it exact where the site indexes one, because a blueprint's wing
+  count varies per copy and a four-wing Tunnels is a different item rather than a better one; the
+  **objective's value** on a contract, which is the parenthetical after the target and the only
+  thing about that target the site takes; and the **enchant**, which on a blueprint is what the
+  whole run is for and is something somebody paid to put there.
+  Offered and left unticked: the **job levels**, seeded as ceilings, because a requirement is a
+  demand on the *buyer's* rogue rather than a property of the thing being bought, and a copy
+  asking less is strictly more usable; and the **heist modifiers**, which are the danger the run
+  will hold — rolled, re-rollable, the map argument exactly, except that here the row stays and
+  only the tick goes, because a contract carries seven and ticking all seven asks for one
+  particular copy in the world.
+  Two things are left out entirely. **Item quantity, item rarity, alert level reduction, time
+  before lockdown and maximum alive reinforcements** have no `heist_` filter at all, so there is
+  nowhere to put them. And **Total Escape Routes** has one, `heist_max_escape_routes`, which the
+  site accepts and indexes no listing under — so any bound at all empties the result, and it is
+  not offered as an unticked row either, because ticking it would do the same. Measured one
+  filter at a time on the fully revealed Tunnels capture, everything else identical:
+  `heist_max_wings` at 4 returned **460** and `heist_max_reward_rooms` at 28 returned **460**
+  (1040 at a bare `min: 1`), against **0** for `heist_max_escape_routes` both at the item's own 8
+  and at `min: 1`. The first pass measured all three totals together and concluded the whole
+  family was dead, which is what one variable at a time exists to prevent.
+  A **unique** contract is left to the unique strategy: it is bought for its name, and the name
+  fixes everything else about it. Trade files it under the name the clipboard prints, `"Contract:
+  The Slaver King"` — prefix and all — so nothing is stripped off either name line.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is

@@ -1,0 +1,18 @@
+Item Class: Contracts
+Rarity: Unique
+Contract: Death to Darnaw
+Naval Contract
+--------
+Client: Faustus
+Heist Target: Kill Admiral Darnaw
+Area Level: 82
+Requires Counter-Thaumaturgy (Level 4)
+--------
+Item Level: 83
+--------
+"If Admiral Darnaw is stupid enough to send orders to his fleet members 
+and not expect us to steal them, then he deserves what's coming to him!"
+--------
+Give this Contract to Adiyah in the Rogue Harbour to embark on the Heist.
+--------
+Note: ~b/o 1 alch

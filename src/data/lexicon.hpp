@@ -65,12 +65,26 @@ enum class PropertyKey : uint8_t {
     /// every invitation and its rarity line says "Currency" like an orb's.
     Challenge,
     RequiresSacrifice,
+    /// What a heist contract sends the crew after. Its parenthetical is the objective's value
+    /// ("Ancient Seal (Precious)"), which is the one thing trade indexes about it.
+    HeistTarget,
+    /// A blueprint's reveal state, printed as "revealed/total" — two numbers in one value, and
+    /// trade takes each as a filter of its own.
+    WingsRevealed,
+    EscapeRoutesRevealed,
+    RewardRoomsRevealed,
+    /// One "Requires Brute Force (Level 4)" line. Deliberately kept label-less with the whole
+    /// line as its value, because that is how the game prints it and how the panel draws it;
+    /// which job it names is a lexicon lookup at the point of use.
+    HeistJob,
     Count
 };
 
 /// The item classes the app branches on. Every other class is `Other` — the trade category
 /// comes from the bundle and needs no enum here.
-enum class ClassKind : uint8_t { Other, Flask, Map, MapFragment, Chart };
+enum class ClassKind : uint8_t {
+    Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint
+};
 
 /// A flag the game prints on a line of its own. Influence lines are not among them: they are
 /// a wording (`" Item"` on the end of an influence's name) rather than a fixed set.
@@ -117,6 +131,8 @@ enum class Term : uint8_t {
     ReqInt,
     CosmeticPrefix,   ///< "Has " … " Effect"
     CosmeticSuffix,
+    HeistJobPrefix,   ///< "Requires ", opening a heist item's job line
+    HeistJobLevel,    ///< " (Level ", closed by ')' — "Requires Brute Force (Level 4)"
     Augmented,        ///< the "(augmented)" annotation, the one whose presence is recorded
     AddsPrefix,       ///< "Adds " — which added-damage mod coloured which elemental entry
     FireDamage,
@@ -151,6 +167,14 @@ enum class TermList : uint8_t {
     /// **Three, not four**: the fourth reward is a unique, and the line the game prints for it
     /// is that unique's name rather than a wording of its own.
     UltimatumRewards,
+    /// The nine rogue jobs, in the order of the `heist_*` filter keys they map to. Searched
+    /// *inside* a job line rather than compared to it, because the line the game prints wraps
+    /// the name ("Requires Counter-Thaumaturgy (Level 4)") and the panel draws that line whole.
+    HeistJobs,
+    /// A heist objective's value, in the order of the `heist_objective_value` option ids. What
+    /// the game prints in the parenthetical after the target's name, so "Precious" and not
+    /// "(Precious)".
+    HeistObjectiveValues,
     Count
 };
 

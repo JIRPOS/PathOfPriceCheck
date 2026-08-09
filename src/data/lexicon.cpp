@@ -18,13 +18,14 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
     "influence_suffix", "tier_prefix",   "rank_prefix",        "modifier_word",
     "prefix_word",      "suffix_word",   "unique_word",        "increased_word",
     "reduced_word",     "req_level",     "req_str",            "req_dex",
-    "req_int",          "cosmetic_prefix", "cosmetic_suffix",  "augmented",
-    "adds_prefix",      "fire_damage",   "cold_damage",        "lightning_damage"};
+    "req_int",          "cosmetic_prefix", "cosmetic_suffix",  "heist_job_prefix",
+    "heist_job_level",  "augmented",     "adds_prefix",        "fire_damage",
+    "cold_damage",      "lightning_damage"};
 
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
     "rarities", "influences", "flags", "mod_suffixes", "generations", "value_annotations",
     "usage_needles", "quest_rarity", "chart_shapes", "ultimatum_challenges",
-    "ultimatum_rewards"};
+    "ultimatum_rewards", "heist_jobs", "heist_objective_values"};
 
 struct PropertyName {
     std::string_view key;
@@ -65,6 +66,10 @@ constexpr PropertyName kPropertyNames[]{
     {"family", PropertyKey::Family},
     {"challenge", PropertyKey::Challenge},
     {"requires_sacrifice", PropertyKey::RequiresSacrifice},
+    {"heist_target", PropertyKey::HeistTarget},
+    {"wings_revealed", PropertyKey::WingsRevealed},
+    {"escape_routes_revealed", PropertyKey::EscapeRoutesRevealed},
+    {"reward_rooms_revealed", PropertyKey::RewardRoomsRevealed},
 };
 
 struct ClassKindName {
@@ -76,6 +81,8 @@ constexpr ClassKindName kClassKindNames[]{
     {"map", ClassKind::Map},
     {"map_fragment", ClassKind::MapFragment},
     {"chart", ClassKind::Chart},
+    {"heist_contract", ClassKind::HeistContract},
+    {"heist_blueprint", ClassKind::HeistBlueprint},
 };
 
 /// The mod-type suffix the game prints in a parenthetical, indexed by `ModType`. In English
@@ -129,6 +136,8 @@ void Lexicon::assign_english() {
     set(terms_, Term::ReqInt, "Int");
     set(terms_, Term::CosmeticPrefix, "Has ");
     set(terms_, Term::CosmeticSuffix, " Effect");
+    set(terms_, Term::HeistJobPrefix, "Requires ");
+    set(terms_, Term::HeistJobLevel, " (Level ");
     set(terms_, Term::Augmented, "augmented");
     set(terms_, Term::AddsPrefix, "Adds ");
     set(terms_, Term::FireDamage, "Fire Damage");
@@ -159,7 +168,11 @@ void Lexicon::assign_english() {
         // the phrase above — a needle is a substring, so "Right click" never matches it. An
         // itemised beast prints only this one, and without it "Right-click to add this to
         // your bestiary." came back as an unrecognised modifier.
-        "Right-click"};
+        "Right-click",
+        // The fence at the Rogue Harbour, whom every contract and blueprint is handed to. Their
+        // usage note is two sentences and neither opens with a click instruction, so it came
+        // back as a modifier — and on a unique contract it was the *only* one.
+        "Adiyah"};
     // "Quest Item" and "Divination Card" are printed with a trailing noun on some items, so
     // the rarity line is matched on a prefix as well as whole.
     lists_[static_cast<size_t>(TermList::QuestRarity)] = {"Quest"};
@@ -171,6 +184,11 @@ void Lexicon::assign_english() {
     lists_[static_cast<size_t>(TermList::UltimatumRewards)] = {
         "Doubles sacrificed Currency", "Doubles sacrificed Divination Cards",
         "Item and Mirrored Copy"};
+    lists_[static_cast<size_t>(TermList::HeistJobs)] = {
+        "Lockpicking", "Brute Force", "Perception", "Demolition", "Counter-Thaumaturgy",
+        "Trap Disarmament", "Agility", "Deception", "Engineering"};
+    lists_[static_cast<size_t>(TermList::HeistObjectiveValues)] = {
+        "Moderate Value", "High Value", "Precious", "Priceless"};
 
     quality_prefix_ = "Quality (";
     properties_ = {
@@ -209,6 +227,10 @@ void Lexicon::assign_english() {
         {"Family", PropertyKey::Family},
         {"Challenge", PropertyKey::Challenge},
         {"Requires Sacrifice", PropertyKey::RequiresSacrifice},
+        {"Heist Target", PropertyKey::HeistTarget},
+        {"Wings Revealed", PropertyKey::WingsRevealed},
+        {"Escape Routes Revealed", PropertyKey::EscapeRoutesRevealed},
+        {"Reward Rooms Revealed", PropertyKey::RewardRoomsRevealed},
     };
 
     class_kinds_ = {
@@ -219,6 +241,8 @@ void Lexicon::assign_english() {
         {"Map Fragments", ClassKind::MapFragment},
         {"Misc Map Items", ClassKind::MapFragment},
         {"Chart", ClassKind::Chart},
+        {"Contracts", ClassKind::HeistContract},
+        {"Blueprints", ClassKind::HeistBlueprint},
     };
 }
 

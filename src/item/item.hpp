@@ -226,6 +226,13 @@ struct Item {
     /// that look like an identity is one: the item class is the "Misc Map Items" it shares with
     /// every invitation, and the rarity says "Currency" as an orb's does.
     bool is_ultimatum() const;
+    /// A heist contract or blueprint. Unlike a beast or an ultimatum, the **item class says so**
+    /// — "Contracts" and "Blueprints" are theirs alone — so these read the class kind, and the
+    /// two are told apart because trade files them under different categories and a blueprint
+    /// carries reveal counts a contract has none of.
+    bool is_heist_contract() const;
+    bool is_heist_blueprint() const;
+    bool is_heist() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is

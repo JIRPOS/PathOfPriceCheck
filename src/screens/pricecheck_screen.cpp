@@ -186,7 +186,11 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     // two share covers every rarity they print. Nor a beast, which prints "Rare" without being
     // gear — its species is the only thing about it either reading could name, and both would
     // search the wrong market for it.
-    if (!it.is_map() && !it.is_chart() && !it.is_beast() &&
+    // Nor a heist contract or blueprint, which is magic or rare and is neither reading: its
+    // modifiers are the danger the run holds and its base is the area, and the site indexes it
+    // on a group of filters that only the heist strategy fills in. Offering the pair drew two
+    // radio buttons with neither of them selected.
+    if (!it.is_map() && !it.is_chart() && !it.is_beast() && !it.is_heist() &&
         (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare)) {
         for (const item::Strategy s : {item::Strategy::Modifiers, item::Strategy::BaseItem}) {
             const bool on = plan.strategy == s;
