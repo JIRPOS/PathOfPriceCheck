@@ -555,3 +555,109 @@ TEST_CASE("a chart's options and intervals go under map_filters, beside a map's"
     CHECK(q["filters"]["misc_filters"]["filters"]["corrupted"]["option"] == "false");
     CHECK_FALSE(map.contains("corrupted"));
 }
+
+TEST_CASE("an ultimatum's four options go in a group of their own, and it sends no category") {
+    SearchPlan p;
+    p.strategy = Strategy::Ultimatum;
+    p.type = "Inscribed Ultimatum";
+    // Deliberately empty: the plan drops the bundle's answer for "Misc Map Items" because
+    // `map.fragment` matched nothing, and the type term is the whole of what is left to say.
+    p.category.clear();
+    p.options = {{"corrupted", "Corrupted", "false", "no"},
+                 {"ultimatum_challenge", "Challenge", "Conquer", "Stand in the Stone Circles",
+                  true, true},
+                 {"ultimatum_reward", "Reward", "ExchangeUnique", "Mageblood", true, true},
+                 {"ultimatum_output", "Reward Unique", "Mageblood", "Mageblood", true, true},
+                 {"ultimatum_input", "Requires Sacrifice", "Martyr of Innocence",
+                  "Martyr of Innocence", true, true}};
+    p.numerics = {{"area_level", "Area Level", 83, 83, true}};
+
+    const json q = query_of(p);
+    CHECK(q["type"] == "Inscribed Ultimatum");
+    CHECK_FALSE(q["filters"]["type_filters"]["filters"].contains("category"));
+    const json& u = q["filters"]["ultimatum_filters"]["filters"];
+    CHECK(u["ultimatum_challenge"]["option"] == "Conquer");
+    CHECK(u["ultimatum_reward"]["option"] == "ExchangeUnique");
+    CHECK(u["ultimatum_output"]["option"] == "Mageblood");
+    CHECK(u["ultimatum_input"]["option"] == "Martyr of Innocence");
+    // The corruption boolean is not one of them, and the area level is the map group's — the
+    // site files "Area Level" under Map/Chart filters whatever kind of item asks about it.
+    CHECK(q["filters"]["misc_filters"]["filters"].contains("corrupted"));
+    CHECK(q["filters"]["map_filters"]["filters"]["area_level"]["min"] == 83);
+
+    SUBCASE("a plan that could fill none of them in is not a search") {
+        // One base type, so the type term alone is every ultimatum in the league — the cheapest
+        // listing among them would read as this contract's price.
+        p.options = {{"corrupted", "Corrupted", "false", "no"}};
+        CHECK_FALSE(searchable(p));
+    }
+    SUBCASE("and one that filled in any of them is") { CHECK(searchable(p)); }
+}
+
+TEST_CASE("a heist item's filters go in heist_filters, and its area level does not") {
+    SearchPlan p;
+    p.strategy = Strategy::Heist;
+    p.category = "heistmission.blueprint";
+    p.type = "Blueprint: Tunnels";
+    p.options = {{"heist_objective_value", "Objective Value", "priceless", "Priceless", true,
+                  true}};
+    p.numerics = {{"area_level", "Area Level", 83, 83, true},
+                  {"heist_wings", "Wings Revealed", 4, std::nullopt, true},
+                  {"heist_max_wings", "Total Wings", 4, 4, true},
+                  // Seeded as a ceiling and unticked, so it must not be sent at all.
+                  {"heist_brute_force", "Brute Force Level", std::nullopt, 5, false}};
+
+    const json q = query_of(p);
+    const json& h = q["filters"]["heist_filters"]["filters"];
+    CHECK(h["heist_objective_value"]["option"] == "priceless");
+    CHECK(h["heist_wings"]["min"] == 4);
+    CHECK_FALSE(h["heist_wings"].contains("max"));
+    CHECK(h["heist_max_wings"]["max"] == 4);
+    CHECK_FALSE(h.contains("heist_brute_force"));
+    // "Area Level" is a heist item's, but the site files that filter under Map/Chart whatever
+    // kind of item is asking — so the `heist_` prefix is the whole of the group rule.
+    CHECK(q["filters"]["map_filters"]["filters"]["area_level"]["min"] == 83);
+    CHECK_FALSE(h.contains("area_level"));
+
+    SUBCASE("the category alone is a search when the bundle could not name the wing") {
+        // Unlike a gem, whose type term is the only question it has: a heist item is told apart
+        // by filters that live outside it, so "some blueprint at this level, this much revealed"
+        // is coarser rather than useless.
+        p.type.clear();
+        CHECK(searchable(p));
+        p.category.clear();
+        CHECK_FALSE(searchable(p));
+    }
+}
+
+TEST_CASE("a sanctum's filters go in sanctum_filters, and its area level does not") {
+    SearchPlan p;
+    p.strategy = Strategy::Sanctum;
+    p.category = "sanctum.research";
+    p.type = "Sanctum Vaults Research";
+    p.numerics = {{"area_level", "Area Level", 83, 83, true},
+                  {"sanctum_resolve", "Resolve", 299, std::nullopt, true},
+                  // Seeded open on the right and left unticked, so it must not be sent.
+                  {"sanctum_max_resolve", "Maximum Resolve", 300, std::nullopt, false},
+                  {"sanctum_inspiration", "Inspiration", 0, std::nullopt, true},
+                  {"sanctum_gold", "Aureus", 399, std::nullopt, true}};
+
+    const json q = query_of(p);
+    const json& s = q["filters"]["sanctum_filters"]["filters"];
+    CHECK(s["sanctum_resolve"]["min"] == 299);
+    CHECK_FALSE(s["sanctum_resolve"].contains("max"));
+    CHECK(s["sanctum_inspiration"]["min"] == 0);
+    CHECK(s["sanctum_gold"]["min"] == 399);
+    CHECK_FALSE(s.contains("sanctum_max_resolve"));
+    // The same exception a heist item's gets: the site files Area Level under Map/Chart
+    // whichever kind of item is asking.
+    CHECK(q["filters"]["map_filters"]["filters"]["area_level"]["max"] == 83);
+    CHECK_FALSE(s.contains("area_level"));
+
+    SUBCASE("the category alone is a search when the bundle could not name the floor") {
+        p.type.clear();
+        CHECK(searchable(p));
+        p.category.clear();
+        CHECK_FALSE(searchable(p));
+    }
+}

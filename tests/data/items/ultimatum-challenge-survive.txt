@@ -1,0 +1,21 @@
+Item Class: Misc Map Items
+Rarity: Currency
+Inscribed Ultimatum
+--------
+Challenge: Survive
+Area Level: 83
+Requires Sacrifice: Ancient Orb x4
+Reward: Doubles sacrificed Currency
+--------
+Stormcaller Runes II
+Raging Dead
+Blistering Cold II
+Razor Dance IV
+Totem of Costly Might
+Escalating Damage Taken
+20% increased Monster Damage
+70% more Monster Life
+--------
+Can be used in a personal map device to open portals to the Trialmaster's Domain and attempt his challenge. Portals will close once the challenge begins. While viewing your Atlas, Right-click this item to pinpoint its location.
+--------
+Note: ~b/o 1 blessed

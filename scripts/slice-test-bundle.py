@@ -85,6 +85,36 @@ STATS = [
     # most of them this promise of one is the whole of what an implicit search has to go on —
     # and it is a real stat with a real trade id, not prose.
     "Voyage Modifier will be revealed once Charted",
+    # The two modifiers an Inscribed Ultimatum is searched on, and the only two: they are the
+    # size of the deal rather than the shape of the danger. "#% more Monster Life" is also the
+    # case for a stat the builder emits with **two** trade ids for one mod type — the first is
+    # the one an ultimatum is indexed under, measured rather than assumed.
+    "#% increased Monster Damage",
+    "#% more Monster Life",
+    # A heist blueprint's enchant and one of its hazards, which is the whole of what the heist
+    # strategy has to tell apart in a modifier list: the enchant is what the run is for and is
+    # ticked, the hazard is the danger it will hold and is offered unticked. "#% more Monster
+    # Life" above is a hazard too — the same stat an ultimatum stakes on.
+    "Heist Targets are always Enchanted Armaments",
+    "Players are Cursed with Temporal Chains",
+    # A sanctum's two shapes of modifier, both of them only searchable in the `sanctum`
+    # namespace — which is what the parser has to type them as, and the reason they are here at
+    # all. The first pair is the ordinary affix; the boons and afflictions after it are stats
+    # too, one per effect, looked up by the name the item prints under a "Has ".
+    "The Merchant has # additional Choices",
+    "#% increased Merchant Prices",
+    "# additional Rooms are revealed on the Sanctum Map",
+    "Has Rusted Chimes",
+    "Has Sharpened Arrowhead",
+    "Has Gold Coin",
+    "Has Weakened Flesh",
+    "Has Scrying Crystal",
+    "Has Gold Mine",
+    "Has Enchanted Urn",
+    "Has Empty Trove",
+    # "Has Red Smoke" — the second affliction of the third capture — is deliberately **not**
+    # here, for the reason Porcupine Goliath and Dialla's Subjugation are not: an effect the
+    # bundle cannot name has to be left out of the search and said out loud.
 ]
 
 ITEMS = [
@@ -140,6 +170,39 @@ ITEMS = [
     # internal id, with the "chart" discriminator and no display name anywhere on it.
     "ITEM::Coral Reef Chart",
     "ITEM::SeafloorRidges",
+    # Itemised beasts, which live in a namespace of their own — the species is the base and the
+    # rare title above it is not looked up at all. Porcupine Goliath is captured too and is
+    # deliberately **not** here: the beast list grows every league, so a bundle that does not
+    # know a species is the ordinary case and needs a fixture of its own.
+    "CAPTURED_BEAST::Wild Hellion Alpha",
+    "CAPTURED_BEAST::Chrome-touched Croaker",
+    "CAPTURED_BEAST::Farric Goliath",
+    # An Inscribed Ultimatum, and the items two of the captures stake or pay out. All three are
+    # looked up to be *confirmed*, because the trade site fails a search outright on a required
+    # item or a reward unique it does not know. "Dialla's Subjugation" — the divination card the
+    # fourth capture stakes — is deliberately **not** here, for the reason Porcupine Goliath is
+    # not: a bundle that cannot confirm a name has to leave the filter off and say so.
+    "ITEM::Inscribed Ultimatum",
+    "ITEM::Divine Orb",
+    "UNIQUE::Martyr of Innocence",
+    "UNIQUE::Mageblood",
+    # A card that *is* here, alongside the one that is not: a stake is looked up across all three
+    # namespaces the site's own filter names, and the card half of that had no positive case.
+    "DIVINATION_CARD::Blind Venture",
+    "ITEM::Ancient Orb",
+    # Heist. Two wings apiece because a contract and a blueprint of the same area are separate
+    # bases under separate trade categories, and a magic blueprint's base line arrives wrapped in
+    # its affixes ("Deployed Blueprint: Records Office of Spine-Chilling"), so Records Office is
+    # what covers stripping them off a heist item at all. The unique contract and the quest base
+    # it rolls on are the pair that proves a unique heist item is planned as a unique.
+    "ITEM::Contract: Tunnels",
+    "ITEM::Blueprint: Tunnels",
+    "ITEM::Blueprint: Records Office",
+    "ITEM::Vigilante Contract",
+    "UNIQUE::Contract: The Slaver King",
+    # An itemised sanctum. One floor of the four is enough: they differ only by name, and the
+    # base is the whole of what a sanctum's identity is looked up for.
+    "ITEM::Sanctum Vaults Research",
 ]
 
 UNIQUE_MODS = [
@@ -150,7 +213,8 @@ UNIQUE_MODS = [
 
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
-                "Support Gems", "Chart"]
+                "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
+                "Sanctum Research"]
 
 LANG = "en"
 

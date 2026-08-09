@@ -18,12 +18,14 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
     "influence_suffix", "tier_prefix",   "rank_prefix",        "modifier_word",
     "prefix_word",      "suffix_word",   "unique_word",        "increased_word",
     "reduced_word",     "req_level",     "req_str",            "req_dex",
-    "req_int",          "cosmetic_prefix", "cosmetic_suffix",  "augmented",
-    "adds_prefix",      "fire_damage",   "cold_damage",        "lightning_damage"};
+    "req_int",          "cosmetic_prefix", "cosmetic_suffix",  "heist_job_prefix",
+    "heist_job_level",  "sanctum_effect_prefix", "augmented",  "adds_prefix",
+    "fire_damage",      "cold_damage",   "lightning_damage"};
 
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
     "rarities", "influences", "flags", "mod_suffixes", "generations", "value_annotations",
-    "usage_needles", "quest_rarity", "chart_shapes"};
+    "usage_needles", "quest_rarity", "chart_shapes", "ultimatum_challenges",
+    "ultimatum_rewards", "heist_jobs", "heist_objective_values"};
 
 struct PropertyName {
     std::string_view key;
@@ -59,6 +61,20 @@ constexpr PropertyName kPropertyNames[]{
     {"area_level", PropertyKey::AreaLevel},
     {"chart_shape", PropertyKey::ChartShape},
     {"sulphur", PropertyKey::Sulphur},
+    {"genus", PropertyKey::Genus},
+    {"group", PropertyKey::Group},
+    {"family", PropertyKey::Family},
+    {"challenge", PropertyKey::Challenge},
+    {"requires_sacrifice", PropertyKey::RequiresSacrifice},
+    {"heist_target", PropertyKey::HeistTarget},
+    {"wings_revealed", PropertyKey::WingsRevealed},
+    {"escape_routes_revealed", PropertyKey::EscapeRoutesRevealed},
+    {"reward_rooms_revealed", PropertyKey::RewardRoomsRevealed},
+    {"resolve", PropertyKey::Resolve},
+    {"inspiration", PropertyKey::Inspiration},
+    {"aureus", PropertyKey::Aureus},
+    {"boons", PropertyKey::Boons},
+    {"afflictions", PropertyKey::Afflictions},
 };
 
 struct ClassKindName {
@@ -70,6 +86,9 @@ constexpr ClassKindName kClassKindNames[]{
     {"map", ClassKind::Map},
     {"map_fragment", ClassKind::MapFragment},
     {"chart", ClassKind::Chart},
+    {"heist_contract", ClassKind::HeistContract},
+    {"heist_blueprint", ClassKind::HeistBlueprint},
+    {"sanctum_research", ClassKind::SanctumResearch},
 };
 
 /// The mod-type suffix the game prints in a parenthetical, indexed by `ModType`. In English
@@ -123,6 +142,9 @@ void Lexicon::assign_english() {
     set(terms_, Term::ReqInt, "Int");
     set(terms_, Term::CosmeticPrefix, "Has ");
     set(terms_, Term::CosmeticSuffix, " Effect");
+    set(terms_, Term::HeistJobPrefix, "Requires ");
+    set(terms_, Term::HeistJobLevel, " (Level ");
+    set(terms_, Term::SanctumEffectPrefix, "Has ");
     set(terms_, Term::Augmented, "augmented");
     set(terms_, Term::AddsPrefix, "Adds ");
     set(terms_, Term::FireDamage, "Fire Damage");
@@ -148,12 +170,32 @@ void Lexicon::assign_english() {
         "Right click", "Shift click", "Place into an item socket", "Map Device",
         "Can be used in a personal Map Device", "Modifiable only with",
         // A chart's, which is where a map prints its Map Device line.
-        "Take this item to Valerie"};
+        "Take this item to Valerie",
+        // The game writes the same instruction both ways and the hyphen is not a variant of
+        // the phrase above — a needle is a substring, so "Right click" never matches it. An
+        // itemised beast prints only this one, and without it "Right-click to add this to
+        // your bestiary." came back as an unrecognised modifier.
+        "Right-click",
+        // The fence at the Rogue Harbour, whom every contract and blueprint is handed to. Their
+        // usage note is two sentences and neither opens with a click instruction, so it came
+        // back as a modifier — and on a unique contract it was the *only* one.
+        "Adiyah"};
     // "Quest Item" and "Divination Card" are printed with a trailing noun on some items, so
     // the rarity line is matched on a prefix as well as whole.
     lists_[static_cast<size_t>(TermList::QuestRarity)] = {"Quest"};
     lists_[static_cast<size_t>(TermList::ChartShapes)] = {"End", "Corner", "Straight",
                                                          "Junction", "Crossing"};
+    lists_[static_cast<size_t>(TermList::UltimatumChallenges)] = {
+        "Defeat Waves of Enemies", "Survive", "Protect the Altar",
+        "Stand in the Stone Circles"};
+    lists_[static_cast<size_t>(TermList::UltimatumRewards)] = {
+        "Doubles sacrificed Currency", "Doubles sacrificed Divination Cards",
+        "Item and Mirrored Copy"};
+    lists_[static_cast<size_t>(TermList::HeistJobs)] = {
+        "Lockpicking", "Brute Force", "Perception", "Demolition", "Counter-Thaumaturgy",
+        "Trap Disarmament", "Agility", "Deception", "Engineering"};
+    lists_[static_cast<size_t>(TermList::HeistObjectiveValues)] = {
+        "Moderate Value", "High Value", "Precious", "Priceless"};
 
     quality_prefix_ = "Quality (";
     properties_ = {
@@ -187,6 +229,24 @@ void Lexicon::assign_english() {
         {"Area Level", PropertyKey::AreaLevel},
         {"Chart Shape", PropertyKey::ChartShape},
         {"Dead Man's Sulphur", PropertyKey::Sulphur},
+        {"Genus", PropertyKey::Genus},
+        {"Group", PropertyKey::Group},
+        {"Family", PropertyKey::Family},
+        {"Challenge", PropertyKey::Challenge},
+        {"Requires Sacrifice", PropertyKey::RequiresSacrifice},
+        {"Heist Target", PropertyKey::HeistTarget},
+        {"Wings Revealed", PropertyKey::WingsRevealed},
+        {"Escape Routes Revealed", PropertyKey::EscapeRoutesRevealed},
+        {"Reward Rooms Revealed", PropertyKey::RewardRoomsRevealed},
+        {"Resolve", PropertyKey::Resolve},
+        {"Inspiration", PropertyKey::Inspiration},
+        {"Aureus", PropertyKey::Aureus},
+        // Minor and major share a key each: which one it is stays on the label, and what the
+        // search needs is the names in the value, one trade stat apiece.
+        {"Minor Boons", PropertyKey::Boons},
+        {"Major Boons", PropertyKey::Boons},
+        {"Minor Afflictions", PropertyKey::Afflictions},
+        {"Major Afflictions", PropertyKey::Afflictions},
     };
 
     class_kinds_ = {
@@ -197,6 +257,9 @@ void Lexicon::assign_english() {
         {"Map Fragments", ClassKind::MapFragment},
         {"Misc Map Items", ClassKind::MapFragment},
         {"Chart", ClassKind::Chart},
+        {"Contracts", ClassKind::HeistContract},
+        {"Blueprints", ClassKind::HeistBlueprint},
+        {"Sanctum Research", ClassKind::SanctumResearch},
     };
 }
 

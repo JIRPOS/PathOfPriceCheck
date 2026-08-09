@@ -22,6 +22,10 @@ enum class Strategy : uint8_t {
     Currency,    ///< priced in bulk on poe.ninja and the in-game exchange, never searched
     Gem,         ///< the skill's name, its level and its quality — never what the skill does
     Map,         ///< tier or area, the drop bonuses, implicits and enchants — never the affixes
+    Beast,       ///< the species and its item level — never the monster modifiers or the title
+    Ultimatum,   ///< the trial, its stake and its payout, plus the two mods that scale the stake
+    Heist,       ///< a contract or blueprint: the area, what is revealed, and what it demands
+    Sanctum,     ///< a run in progress: how far it has got, and the boons and afflictions it holds
     Unsupported
 };
 

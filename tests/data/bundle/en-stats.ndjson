@@ -27,3 +27,18 @@
 {"better":1,"matchers":[{"string":"Natural inhabitants of this area have been removed"}],"ref":"Natural inhabitants of this area have been removed","trade":{"ids":{"implicit":["implicit.stat_2656027173"]}}}
 {"better":1,"matchers":[{"string":"Players who Die in area are sent to the Void"}],"ref":"Players who Die in area are sent to the Void","trade":{"ids":{"explicit":["explicit.stat_1095765106"]}}}
 {"better":1,"matchers":[{"string":"Voyage Modifier will be revealed once Charted"}],"ref":"Voyage Modifier will be revealed once Charted","trade":{"ids":{"implicit":["implicit.stat_3582759801"]}}}
+{"better":1,"matchers":[{"string":"#% increased Monster Damage"}],"ref":"#% increased Monster Damage","trade":{"ids":{"explicit":["explicit.stat_1890519597"],"fractured":["fractured.stat_1890519597"]}}}
+{"better":1,"matchers":[{"string":"#% more Monster Life"},{"negate":true,"string":"#% less Monster Life"}],"ref":"#% more Monster Life","trade":{"ids":{"explicit":["explicit.stat_95249895","explicit.stat_2710898947"],"fractured":["fractured.stat_95249895"],"implicit":["implicit.stat_95249895"]}}}
+{"better":1,"matchers":[{"string":"Heist Targets are always Enchanted Armaments"}],"ref":"Heist Targets are always Enchanted Armaments","trade":{"ids":{"enchant":["enchant.stat_3709545805"]}}}
+{"better":1,"matchers":[{"string":"Players are Cursed with Temporal Chains"}],"ref":"Players are Cursed with Temporal Chains","trade":{"ids":{"explicit":["explicit.stat_2326202293"],"fractured":["fractured.stat_2326202293"]}}}
+{"better":1,"matchers":[{"string":"The Merchant has an additional Choice","value":1.0},{"string":"The Merchant has # additional Choices"}],"ref":"The Merchant has # additional Choices","trade":{"ids":{"sanctum":["sanctum.stat_290775436"]}}}
+{"better":1,"matchers":[{"string":"#% increased Merchant Prices"},{"negate":true,"string":"#% reduced Merchant Prices"}],"ref":"#% increased Merchant Prices","trade":{"ids":{"sanctum":["sanctum.stat_3096446459"]}}}
+{"better":1,"matchers":[{"string":"An additional Room is revealed on the Sanctum Map","value":1.0},{"string":"# additional Rooms are revealed on the Sanctum Map"}],"ref":"# additional Rooms are revealed on the Sanctum Map","trade":{"ids":{"sanctum":["sanctum.stat_386901949"]}}}
+{"better":1,"matchers":[{"string":"Has Rusted Chimes"}],"ref":"Has Rusted Chimes","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_37341"]}}}
+{"better":1,"matchers":[{"string":"Has Sharpened Arrowhead"}],"ref":"Has Sharpened Arrowhead","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_48487"]}}}
+{"better":1,"matchers":[{"string":"Has Gold Coin"}],"ref":"Has Gold Coin","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_12732"]}}}
+{"better":1,"matchers":[{"string":"Has Weakened Flesh"}],"ref":"Has Weakened Flesh","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_24131"]}}}
+{"better":1,"matchers":[{"string":"Has Scrying Crystal"}],"ref":"Has Scrying Crystal","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_44243"]}}}
+{"better":1,"matchers":[{"string":"Has Gold Mine"}],"ref":"Has Gold Mine","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_50425"]}}}
+{"better":1,"matchers":[{"string":"Has Enchanted Urn"}],"ref":"Has Enchanted Urn","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_38167"]}}}
+{"better":1,"matchers":[{"string":"Has Empty Trove"}],"ref":"Has Empty Trove","trade":{"ids":{"sanctum":["sanctum.sanctum_effect_7865"]}}}

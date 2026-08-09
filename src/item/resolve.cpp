@@ -121,6 +121,16 @@ void resolve_base(const data::GameData& gd, Item& it) {
         return;
     }
 
+    // A beast's two name lines are its rare title and its species, and the species is the base
+    // — "Banebite the Malignant" is one player's copy of a Wild Hellion Alpha, and the title is
+    // no more searchable than a rare bow's is. The bundle files them in a namespace of their
+    // own, so looking one up among the ordinary bases would find nothing.
+    if (it.is_beast()) {
+        for (const data::BaseType* b : gd.find_bases(data::Namespace::CapturedBeast, it.base_name))
+            it.base = b;
+        return;
+    }
+
     // An unidentified unique prints one name line and it is the base's, so the base is all it
     // says about itself. The bundle knows which uniques drop on it, and one candidate is not a
     // guess — that base rolls into exactly this item. Several is a question the user answers

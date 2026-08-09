@@ -38,9 +38,51 @@ bundle, and only the third and fourth encode pricing judgement.
     effect and its verse both used to come back as unrecognised ones. Its first prose block is the
     description and anything after it is flavour — the Maven's Writ prints only a verse and there
     is nothing to tell the two apart, so that one is read as the description.
+    It is false for an **itemised beast** on the same argument from the other direction: a beast
+    prints "Rarity: Rare" because it rolled monster modifiers, and those come from the captured
+    monster's own pool rather than from an affix pool on a base — nothing to tier, to bound or to
+    match. What says an item is one is neither the rarity nor the class ("Stackable Currency",
+    shared with every orb in the game) but the **taxonomy block**, `Genus` / `Group` / `Family`,
+    which nothing else in the game prints — hence `Item::is_beast()` reading `PropertyKey::Genus`.
+    A beast's usage note is also the one place the game writes the instruction **hyphenated**
+    ("Right-click to add this to your bestiary."), and a usage needle is a substring, so the
+    "Right click" every other item prints never matched it and the line came back as a fourth,
+    unrecognised modifier. Both spellings are needles now.
+    An **Inscribed Ultimatum** is the third item whose header says nothing about it, and the one
+    where it says least: its class is the "Misc Map Items" every invitation shares and its rarity
+    line reads "Currency" exactly as an orb's does. `Item::is_ultimatum()` reads
+    `PropertyKey::Challenge` — the trial it names, which nothing else in the game prints — and the
+    `Requires Sacrifice` beside it is the second key this added. It needed no `is_gear()` rule:
+    its class already makes it a map fragment, so the prose heuristics were never reached, and its
+    thirteen hazard lines parse as ordinary modifiers. Which of them is *searched* is the plan's
+    business, not the parser's.
+    A **heist contract or blueprint** is the opposite: its item class ("Contracts", "Blueprints")
+    is its own, so `ClassKind` carries it and `Item::is_heist()` reads that. What it hides is in
+    the property block. **"Requires Brute Force (Level 4)" is the one property line the game
+    writes as a sentence** — no colon, so it used to come out label-less with no key and no
+    number — and it is kept exactly that way, whole and label-less under `PropertyKey::HeistJob`
+    with the level in `num`, because that is how the panel already draws it and taking it apart
+    into a label and a value would change what the reader sees. Which of the nine jobs it names
+    is a lexicon lookup where it is needed, not a field. The reveal counts keep both of their
+    numbers ("3/21") for the same reason. Its usage note is two sentences and neither opens with
+    a click instruction, so **"Adiyah"** — the fence both are handed to — is the needle, and
+    without it a unique contract's only "modifier" was the instruction to hand it in.
+    An **itemised sanctum** names itself on the header line too ("Sanctum Research", another
+    `ClassKind`), and what it hides is two things. Its state is properties — `Resolve`,
+    `Inspiration`, `Aureus`, and the boons and afflictions as comma-separated lists of names,
+    minor and major sharing a key each because the label is what says which and the *names* are
+    what a search needs. And **its affixes are not explicit**: every sanctum stat the site
+    publishes lives in a `sanctum.` namespace alone, and a wording is resolved against one
+    namespace at a time, so with the ordinary fallback "The Merchant has 10 additional Choices"
+    matched nothing at all — the mod section's fallback type is `ModType::Sanctum` on one.
+    It is also the one item where a prose block's **position** is what tells it from a modifier:
+    "The treasures within are tainted by a black spirit." sits between the affixes and the usage
+    note, exactly where a rare's wordy modifier would, so `is_bottom_prose` takes the *last*
+    prose block and only that one — several sanctum affixes carry no number ("Cannot have Boons")
+    and taking the first would swallow them.
   - Mod type comes from the ` (implicit)` / ` (crafted)` / … suffix, else from an Advanced Mod
-    Descriptions info line's generation words, else Explicit. A flask enchant carries no suffix, so
-    on a flask the earlier of two unsuffixed sections is the enchant.
+    Descriptions info line's generation words, else Explicit — except on a sanctum, above. A flask
+    enchant carries no suffix, so on a flask the earlier of two unsuffixed sections is the enchant.
   - The info line's em-dash segments are tags **and** "— 20% Increased", which is a catalyst saying
     it scaled this mod. The clipboard prints the *unscaled* roll and range in that case (`30(20-30)`
     where the tooltip reads 36%), so `roll_incr` is applied to both in `match_stat`. A plain `" - "`
@@ -81,6 +123,13 @@ bundle, and only the third and fourth encode pricing judgement.
     the display names existed has: three "Vaal Blight" rows, only one of them the plain gem. A
     transfigured gem is exactly the one with a discriminator, so nothing falls back to
     "whichever came first".
+  - **A beast's species** (`Namespace::CapturedBeast`). An itemised beast prints two name lines
+    and neither means what it does on a rare: the first is a title the capture generated
+    ("Banebite the Malignant") that no two copies share, and the second is the **species** —
+    a Wild Hellion Alpha — which is the base and the whole of what one copy has in common with
+    another. The bundle files them in a namespace of their own, so looking one up among the
+    ordinary bases finds nothing at all; the species is also the only thing a beastcrafting
+    recipe names, which is why it is what gets searched.
   - **A card's own record** (`Namespace::DivinationCard`). Nothing about a card is *searched* — it
     is `Strategy::Currency` and the in-game exchange is the whole answer — but that answer is
     keyed on `BaseType::metadata_id`, which only a resolved base carries, so a card that fell
@@ -284,6 +333,130 @@ bundle, and only the third and fourth encode pricing judgement.
   other copy of it does. The strategy stays `Currency` (poe.ninja still prices it in the currency
   market, which is the floor under the search) and `trade::searchable` reads the `type` the plan
   filled in, exactly as it does for a gem.
+- **`item/plan`'s beast strategy** (`plan_beast`) is the shortest one here, and every line of it
+  is a thing not asked for. An itemised beast is bought to be released into the menagerie and
+  spent on a beastcrafting recipe, and a recipe names the **species** and nothing else — so the
+  plan is the species as the `type`, the item level as a floor, and that is all.
+  The title above the species is left out because no two copies share one. The **monster
+  modifiers** are left out for the same reason a map's affixes are, and just as silently: they
+  are the captured monster's own abilities rather than rolls on a base, the bundle has no stat
+  for "Satyr Storm" to match, and no recipe asks for one — so "unrecognised modifier: Evasive",
+  five times over, would charge the check with failing at what it did on purpose. The item level
+  is a **floor** rather than a window: a recipe wanting one wants at least that much, and a
+  higher beast still answers.
+  The one thing that is not a matter of judgement is the **category**, and it is the single
+  place a category is not the bundle's answer for the item class. A beast's class is "Stackable
+  Currency" and the bundle maps that to `currency`, which is right for every orb that prints it
+  and wrong here: trade files beasts under `monster.beast`. Measured, because the site accepts
+  either and a wrong category comes back as nobody selling one rather than as an error —
+  `currency` returned **0 matches** for a Wild Hellion Alpha against **1602** for
+  `monster.beast`, same type and same item level.
+- **`item/plan`'s ultimatum strategy** (`plan_ultimatum`) prices a **contract**, and the search
+  asks for the same contract rather than for a better one. An Inscribed Ultimatum is bought to
+  stake a thing and win a thing, so the plan is the four `ultimatum_filters` options — the trial,
+  the reward type, the item sacrificed and, where the reward is a unique, that unique — plus the
+  area level, plus exactly two of the thirteen modifiers.
+  **The two exact modifiers are the whole judgement here.** "#% increased Monster Damage" and
+  "#% more Monster Life" are not rolls to be beaten: they are the scale of the deal, and on a
+  currency or divination-card ultimatum they say how large the stake is. 200% more Monster Life
+  *is* the ultimatum that stakes eight Divine Orbs, so a filter reading "at least 120%" prices the
+  four-orb ones alongside it. They are pinned to their own value **whatever the range-match
+  setting says**, which is the one place a plan overrides that setting outright, and it is done in
+  `build_plan` rather than in `to_filter` because it is the strategy that makes it true.
+  Everything else the item prints — Choking Miasma, Drought, Shattered Shield — is left out, and
+  as silently as a map's affixes: those lines are the shape of the danger, they sit on the item
+  card beside the panel, and eleven notes would charge the check with failing at eleven things it
+  left out on purpose.
+  Three joins are tables rather than guesses. The **challenge** is matched against
+  `TermList::UltimatumChallenges` and sent as trade's own option id (`Conquer`), the same shape
+  as a chart's shape and for the same reason — the game prints the option's own words, so the
+  entries are the site's text and the comparison is **case-insensitive**, because the client
+  writes "Defeat waves of enemies" where the site writes "Defeat Waves of Enemies". All four
+  trials are pinned to a capture, which is what the case rule rests on: the ids (`Defense`,
+  `Survival`) resemble the wordings ("Protect the Altar", "Survive") closely enough to guess from
+  and not closely enough to derive. The **reward**
+  is `TermList::UltimatumRewards`, which has three entries for four rewards: the fourth is a
+  unique, and the line the game prints for it is that unique's name, so a wording that matches
+  none of the three is looked up as a unique and becomes `ExchangeUnique` plus an
+  `ultimatum_output`. The **sacrifice** is looked up across uniques, cards and currency — the
+  three namespaces the site's own `knownItem` filter names — and only a confirmed name is ever
+  sent, because trade fails the whole search on a required item it does not know, exactly as it
+  does on a Valdo map's reward. The count after it (`Divine Orb x8`) is dropped: trade indexes no
+  such number, and the two modifiers above already imply it. The mirror reward is the one with no
+  nameable stake at all — "Mirrorable, Rare Item" is a class of items, and the reward type has
+  already said so — so nothing is asked and nothing is apologised for.
+  The **category is dropped outright**, which is the second override of the bundle's answer for
+  an item class and the first where the override is to send nothing. "Misc Map Items" maps to
+  `map.fragment`, right for the invitations and splinters sharing the class and wrong here.
+  Measured, for the same reason the beast's was: **0 matches** with it against **443** without,
+  everything else identical. Nothing is lost — an ultimatum is one base type, so the `type` term
+  already says everything a category could, and `trade::searchable` asks for that type **and** at
+  least one ultimatum filter, because the type alone is every ultimatum in the league.
+  All four options are `shown` and ticked. Unlike the booleans, none of them is the ordinary
+  answer that would be noise on a row: they are the terms of the deal, and which of them to relax
+  is exactly the question the reader is there to answer.
+- **`item/plan`'s heist strategy** (`plan_heist`) covers contracts and blueprints together — they
+  share every filter the site has for them and differ only in the category and in whether reveal
+  counts are printed. It is the **first iteration of a market nobody here has traded**, so it errs
+  towards offering rather than deciding: every heist filter the site publishes is a row, and one
+  question decides the tick. *Is this a fact about which item this is, or is it the variation
+  between two copies of the same one?*
+  Imposed, because they say which run it is: the **area**, which is the base type and what the
+  game names the item after ("Blueprint: Underbelly") — a rare heist item's own name, "Cataclysm
+  Vow", is generated per copy and no more searchable than a rare bow's; the **area level**, exact,
+  on the same reading a chart's and an ultimatum's get; **what is revealed** on a blueprint, as a
+  floor, with the **total** beside it exact where the site indexes one, because a blueprint's wing
+  count varies per copy and a four-wing Tunnels is a different item rather than a better one; the
+  **objective's value** on a contract, which is the parenthetical after the target and the only
+  thing about that target the site takes; and the **enchant**, which on a blueprint is what the
+  whole run is for and is something somebody paid to put there.
+  Offered and left unticked: the **job levels**, seeded as ceilings, because a requirement is a
+  demand on the *buyer's* rogue rather than a property of the thing being bought, and a copy
+  asking less is strictly more usable; and the **heist modifiers**, which are the danger the run
+  will hold — rolled, re-rollable, the map argument exactly, except that here the row stays and
+  only the tick goes, because a contract carries seven and ticking all seven asks for one
+  particular copy in the world.
+  Two things are left out entirely. **Item quantity, item rarity, alert level reduction, time
+  before lockdown and maximum alive reinforcements** have no `heist_` filter at all, so there is
+  nowhere to put them. And **Total Escape Routes** has one, `heist_max_escape_routes`, which the
+  site accepts and indexes no listing under — so any bound at all empties the result, and it is
+  not offered as an unticked row either, because ticking it would do the same. Measured one
+  filter at a time on the fully revealed Tunnels capture, everything else identical:
+  `heist_max_wings` at 4 returned **460** and `heist_max_reward_rooms` at 28 returned **460**
+  (1040 at a bare `min: 1`), against **0** for `heist_max_escape_routes` both at the item's own 8
+  and at `min: 1`. The first pass measured all three totals together and concluded the whole
+  family was dead, which is what one variable at a time exists to prevent.
+  A **unique** contract is left to the unique strategy: it is bought for its name, and the name
+  fixes everything else about it. Trade files it under the name the clipboard prints, `"Contract:
+  The Slaver King"` — prefix and all — so nothing is stripped off either name line.
+- **`item/plan`'s sanctum strategy** (`plan_sanctum`) prices a **run in progress**, and it is the
+  one strategy here where nothing is left unticked on the argument that it is a roll. A sanctum
+  is "Unmodifiable" — no currency can be applied to it again — so its affixes are as much a part
+  of what is being bought as its resolve is, and there is no re-rollable half to hold back.
+  Imposed: the **floor**, which is the base type (an Archives run and a Vaults run are different
+  items); the **area level**, exact, the reading a chart's, an ultimatum's and a heist item's
+  already get; **Resolve**, **Inspiration** and **Aureus** as floors, since more of each is
+  strictly more of what is being finished; **every boon and affliction**; and the **affixes**,
+  through the ordinary mod path.
+  The boons and afflictions are the interesting join. They are printed as a **property** — a
+  comma-separated list of names under `Minor Boons:` / `Major Afflictions:` — and each of them is
+  a stat of its own, `sanctum.sanctum_effect_…`, whose wording is the name with a `Has ` in front
+  ("Has Rusted Chimes"). So the filters are built in `plan_sanctum` rather than by `to_filter`,
+  with no `mod_index` behind them, and the prefix is a lexicon entry (`Term::SanctumEffectPrefix`)
+  because a translated bundle translates the stat too. A name the bundle has no stat for is left
+  out and said out loud, the way an unknown beast species or ultimatum stake is: the effect list
+  grows with the league.
+  **Maximum Resolve is the one row seeded and left unticked.** Resolve is printed as `299/300` and
+  both numbers are read, but the second says more about the character that opened the sanctum than
+  about how much run is left to sell — so it is offered open on the right and the tick is the
+  reader's.
+  Everything here was verified live one filter at a time, with an impossible bound in place of the
+  item's own value: `sanctum_resolve`, `sanctum_max_resolve`, `sanctum_inspiration`, `sanctum_gold`
+  and `area_level` each took the result to **0**, and adding one effect stat the item does not
+  carry did the same — so all of them are indexed, `sanctum_max_resolve` included, and none of
+  them is a `heist_max_escape_routes`. What could **not** be measured is how narrow any of them
+  is: the whole `sanctum.research` category held **1** listing in the league at the time, so
+  every count from "type and category alone" up to the full eleven-filter plan was the same 1.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is

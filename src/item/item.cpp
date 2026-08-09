@@ -1,5 +1,6 @@
 #include "item/item.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -108,6 +109,30 @@ bool Item::is_map() const { return class_kind == data::ClassKind::Map; }
 
 bool Item::is_chart() const { return class_kind == data::ClassKind::Chart; }
 
+bool Item::is_beast() const {
+    // Not the item class, which is "Stackable Currency" — the same one every orb in the game
+    // prints. The taxonomy block is the game's own marker and nothing else carries it.
+    return std::any_of(properties.begin(), properties.end(), [](const Property& p) {
+        return p.key == data::PropertyKey::Genus;
+    });
+}
+
+bool Item::is_ultimatum() const {
+    // Its class is "Misc Map Items", shared with every invitation, and its rarity line says
+    // "Currency". The trial it names is the only thing on it that only it prints.
+    return std::any_of(properties.begin(), properties.end(), [](const Property& p) {
+        return p.key == data::PropertyKey::Challenge;
+    });
+}
+
+bool Item::is_heist_contract() const { return class_kind == data::ClassKind::HeistContract; }
+
+bool Item::is_heist_blueprint() const { return class_kind == data::ClassKind::HeistBlueprint; }
+
+bool Item::is_heist() const { return is_heist_contract() || is_heist_blueprint(); }
+
+bool Item::is_sanctum() const { return class_kind == data::ClassKind::SanctumResearch; }
+
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }
@@ -122,6 +147,10 @@ bool Item::is_gear() const {
     // that line. It has no modifiers at all — what looks like one is what the fragment does —
     // so none of the rules that exist to tell a rare's mods from its prose apply to it.
     if (is_map_fragment()) return false;
+    // A beast prints "Rarity: Rare" for the same reason: its monster modifiers come from the
+    // monster's own pool rather than from an affix pool on a base, so none of them is a stat
+    // to match, to tier or to bound.
+    if (is_beast()) return false;
     return rarity == Rarity::Normal || rarity == Rarity::Magic || rarity == Rarity::Rare ||
            rarity == Rarity::Unique;
 }

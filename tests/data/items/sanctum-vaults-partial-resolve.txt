@@ -1,0 +1,21 @@
+Item Class: Sanctum Research
+Rarity: Normal
+Sanctum Vaults Research
+--------
+Area Level: 83
+Resolve: 299/300
+Inspiration: 0
+Aureus: 399
+Minor Boons: Scrying Crystal, Gold Mine, Enchanted Urn
+Minor Afflictions: Empty Trove, Red Smoke
+--------
+Item Level: 83
+--------
+The Merchant has 10 additional Choices
+40% reduced Merchant Prices
+--------
+The treasures within are tainted by a black spirit.
+--------
+Right click this item to view details of the Sanctum in progress. Take this item to the Relic Altar in the Forbidden Sanctum to enter.
+--------
+Unmodifiable

@@ -1,0 +1,23 @@
+Item Class: Stackable Currency
+Rarity: Rare
+Marrowripper the Cunning
+Farric Goliath
+--------
+Genus: Goliaths
+Group: Unnaturals
+Family: The Wilds
+--------
+Item Level: 83
+--------
+{ Monster Modifier (Tier: 1) }
+Evasive
+{ Monster Modifier (Tier: 1) }
+Soul Eater
+{ Monster Modifier }
+Spikes on Death
+{ Monster Modifier — Life }
+Aspect of the Hellion
+{ Monster Modifier — Life }
+Satyr Storm
+--------
+Right-click to add this to your bestiary.

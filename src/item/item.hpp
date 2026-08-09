@@ -212,6 +212,31 @@ struct Item {
     /// rolled rewards, priced on where it goes rather than on which affixes it got. Trade puts
     /// it in the same `map_filters` group, which is titled "Map/Chart Filters" for that reason.
     bool is_chart() const;
+    /// An itemised beast — a captured monster in a menagerie item, sold on its species and
+    /// its item level and on nothing else it prints.
+    ///
+    /// Off the taxonomy block ("Genus: Gem Frogs") rather than the item class, which is the
+    /// "Stackable Currency" every orb in the game shares, or the rarity line, which says
+    /// "Rare" because the beast rolled monster modifiers and not because it is gear.
+    bool is_beast() const;
+    /// An Inscribed Ultimatum — the trial itemised, bought for what it pays out and what it
+    /// costs to run.
+    ///
+    /// Off the "Challenge:" property, which nothing else prints. Neither of the other two lines
+    /// that look like an identity is one: the item class is the "Misc Map Items" it shares with
+    /// every invitation, and the rarity says "Currency" as an orb's does.
+    bool is_ultimatum() const;
+    /// A heist contract or blueprint. Unlike a beast or an ultimatum, the **item class says so**
+    /// — "Contracts" and "Blueprints" are theirs alone — so these read the class kind, and the
+    /// two are told apart because trade files them under different categories and a blueprint
+    /// carries reveal counts a contract has none of.
+    bool is_heist_contract() const;
+    bool is_heist_blueprint() const;
+    bool is_heist() const;
+    /// An itemised sanctum — a Forbidden Sanctum run in progress, sold on how far it has got and
+    /// what it has picked up along the way. The item class ("Sanctum Research") is its own, as a
+    /// heist item's is.
+    bool is_sanctum() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is

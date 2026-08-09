@@ -1,0 +1,20 @@
+Item Class: Sanctum Research
+Rarity: Normal
+Sanctum Vaults Research
+--------
+Area Level: 83
+Resolve: 328/328 (augmented)
+Inspiration: 30
+Aureus: 419
+Minor Boons: Rusted Chimes
+Minor Afflictions: Sharpened Arrowhead
+--------
+Item Level: 84
+--------
+18 additional Rooms are revealed on the Sanctum Map
+--------
+The treasures within are tainted by a black spirit.
+--------
+Right click this item to view details of the Sanctum in progress. Take this item to the Relic Altar in the Forbidden Sanctum to enter.
+--------
+Unmodifiable

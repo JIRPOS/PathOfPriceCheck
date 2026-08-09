@@ -1151,6 +1151,69 @@ TEST_CASE("a map item is a bulk good or an item, and the item level is what says
     CHECK(default_strategy(rare) == Strategy::Currency);
 }
 
+TEST_CASE("a beast is bought for its species and its item level, and for nothing else") {
+    auto gd = fixture();
+
+    SUBCASE("the species is the base, and it lives in a namespace of its own") {
+        // Looking one up among the ordinary bases finds nothing at all, so before this the
+        // plan had no type and the search would have been every beast in the league.
+        const Item it = resolved(*gd, capture("beast-hellion-alpha.txt"));
+        REQUIRE(it.base != nullptr);
+        CHECK(it.base->name == "Wild Hellion Alpha");
+        CHECK(it.base->ns == ppc::data::Namespace::CapturedBeast);
+    }
+
+    SUBCASE("the strategy is decided by the taxonomy, not by the rarity or the class") {
+        // "Stackable Currency" is the class every orb shares and "Rare" is what the monster
+        // modifiers made it. Planned as a rare, a Wild Hellion Alpha would search "Extra Life"
+        // as an affix on a currency item, which matches nothing.
+        const Item it = resolved(*gd, capture("beast-hellion-alpha.txt"));
+        CHECK(default_strategy(it) == Strategy::Beast);
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Beast);
+        CHECK(p.type == "Wild Hellion Alpha");
+        // The title is one capture's own and no two copies share it, so it is not asked for.
+        CHECK(p.name.empty());
+        // Not the bundle's answer for "Stackable Currency", which is `currency` and is right
+        // for every orb printing that class. Measured on this capture: `currency` returned 0
+        // matches and `monster.beast` returned 1602, same type and same item level.
+        CHECK(p.category == "monster.beast");
+
+        const NumericFilter* ilvl = numeric_for(p, "ilvl");
+        REQUIRE(ilvl != nullptr);
+        CHECK(ilvl->enabled);
+        CHECK(ilvl->min == 83);
+        // A floor, not a window: a recipe wanting an item level wants at least that much, and
+        // a higher beast still answers.
+        CHECK_FALSE(ilvl->max.has_value());
+    }
+
+    SUBCASE("the monster modifiers are left out silently, exactly as a map's affixes are") {
+        // They are the captured monster's own abilities rather than rolls on a base, the
+        // bundle has no stat for "Satyr Storm" to match, and no beastcrafting recipe asks for
+        // one. Leaving them out is the decision, so "unrecognised modifier: Evasive" — five of
+        // them on this capture — would charge the check with failing at what it did on purpose.
+        const Item it = resolved(*gd, capture("beast-farric-goliath.txt"));
+        REQUIRE(it.mods.size() == 5);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.stats.empty());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a species the bundle does not know still searches, and says what it did") {
+        // The beast list grows every league and a bundle behind the game is the ordinary case.
+        // The clipboard's own spelling is the best term left, unlike a magic item's base line,
+        // which carries affixes and would match nothing — so the search goes ahead with a note.
+        const Item it = resolved(*gd, capture("beast-porcupine-goliath.txt"));
+        CHECK(it.base == nullptr);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Porcupine Goliath");
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes.front().find("is not a beast in this data bundle") != std::string::npos);
+    }
+}
+
 TEST_CASE("what the in-game exchange trades in bulk has to resolve to a base to be found") {
     auto gd = fixture();
     // The exchange states every item by its metadata path and carries no names at all, so the
@@ -1768,5 +1831,414 @@ TEST_CASE("a chart is a map: the area it covers, its shape, and its voyage modif
         CHECK(p.discriminator.empty());
         REQUIRE_FALSE(p.notes.empty());
         CHECK(p.notes.front().find("Trench Of Nowhere") != std::string::npos);
+    }
+}
+
+TEST_CASE("an ultimatum is searched on the deal it offers, not on the danger it describes") {
+    auto gd = fixture();
+
+    /// What the search asks an `ultimatum_filters` option for, or nothing when it does not ask.
+    const auto asked = [](const SearchPlan& p, std::string_view key) {
+        const OptionFilter* f = p.option(key);
+        return f && f->enabled ? f->option : std::string();
+    };
+
+    SUBCASE("the challenge picks the strategy, and the trade category is dropped outright") {
+        const Item it = resolved(*gd, capture("ultimatum-currency-divine-x8.txt"));
+        CHECK(default_strategy(it) == Strategy::Ultimatum);
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Inscribed Ultimatum");
+        CHECK(p.name.empty());
+        // The bundle *does* map "Misc Map Items", and to `map.fragment`, which is right for the
+        // invitations and splinters sharing the class. Measured on this capture: 0 matches with
+        // it and 443 without, everything else identical. The type term says the rest.
+        CHECK(gd->trade_category_for(it.item_class) == "map.fragment");
+        CHECK(p.category.empty());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("the challenge and the reward are sent as trade's own option ids") {
+        // The game prints the option's own text for the challenge and its own wording for the
+        // reward; neither id can be derived from either, so both are joined through a table.
+        const Item it = resolved(*gd, capture("ultimatum-mirror.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_challenge") == "Conquer");
+        CHECK(asked(p, "ultimatum_reward") == "MirrorRare");
+        // "Mirrorable, Rare Item" names a class of items rather than one, and the reward type
+        // has already said so — so there is nothing to ask and nothing to apologise for.
+        CHECK(p.option("ultimatum_input") == nullptr);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("all four trials join, and each to the id trade publishes for it") {
+        // The whole vocabulary, one capture apiece, because the ids are nothing like the words
+        // and a table with an entry out of order fails as a search for the wrong trial rather
+        // than as an error. "Defense" is the altar and "Survival" is the bare "Survive".
+        const std::pair<const char*, const char*> kTrials[]{
+            {"ultimatum-divination.txt", "Exterminate"},
+            {"ultimatum-challenge-survive.txt", "Survival"},
+            {"ultimatum-challenge-altar.txt", "Defense"},
+            {"ultimatum-mirror.txt", "Conquer"}};
+        for (const auto& [file, id] : kTrials) {
+            const Item it = resolved(*gd, capture(file));
+            const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+            CHECK_MESSAGE(asked(p, "ultimatum_challenge") == id, file);
+        }
+    }
+
+    SUBCASE("a divination card is as nameable a stake as an orb or a unique") {
+        // The third of the namespaces the site's `knownItem` filter names, and the one whose
+        // positive case the deliberately-absent Dialla's Subjugation cannot cover.
+        const Item it = resolved(*gd, capture("ultimatum-challenge-altar.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_input") == "Blind Venture");
+        CHECK(asked(p, "ultimatum_reward") == "DoubleDivCards");
+        // No stake-scaling modifiers on this one at all, which is an ordinary ultimatum and
+        // not a plan that failed to read them.
+        CHECK(p.stats.empty());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a lower-case challenge still joins to its option") {
+        // The trade site titles the option "Defeat Waves of Enemies" and the client prints
+        // "Defeat waves of enemies". The case is the only thing that differs, and matching on
+        // it exactly would leave the search asking for every trial at this area level.
+        const Item it = resolved(*gd, capture("ultimatum-divination.txt"));
+        CHECK(it.properties.front().value == "Defeat waves of enemies");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_challenge") == "Exterminate");
+        CHECK(asked(p, "ultimatum_reward") == "DoubleDivCards");
+    }
+
+    SUBCASE("a unique reward is a reward type and the unique's own name") {
+        const Item it = resolved(*gd, capture("ultimatum-mageblood.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_reward") == "ExchangeUnique");
+        CHECK(asked(p, "ultimatum_output") == "Mageblood");
+        // A unique can be staked as readily as paid out, so the stake is looked up across the
+        // three namespaces the site's own filter names rather than in the currency alone.
+        CHECK(asked(p, "ultimatum_input") == "Martyr of Innocence");
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("the stake is the item, never how many of it") {
+        // Trade indexes no count, and the count is already implied by the two modifiers below:
+        // an ultimatum staking eight Divine Orbs is the one at 200% more Monster Life.
+        const Item it = resolved(*gd, capture("ultimatum-currency-divine-x8.txt"));
+        CHECK(it.properties[2].value == "Divine Orb x8");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_input") == "Divine Orb");
+    }
+
+    SUBCASE("the area level is exact, and so are the two modifiers that scale the stake") {
+        const Item it = resolved(*gd, capture("ultimatum-currency-divine-x8.txt"));
+        // Wide enough that anything not forced exact would come out as a window.
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), std::nullopt, kWholeTier);
+
+        const NumericFilter* lvl = numeric_for(p, "area_level");
+        REQUIRE(lvl != nullptr);
+        CHECK(lvl->enabled);
+        CHECK(lvl->min == 83);
+        CHECK(lvl->max == 83);
+
+        REQUIRE(p.stats.size() == 2);
+        for (const StatFilter& f : p.stats) {
+            CHECK(f.enabled);
+            REQUIRE(f.min.has_value());
+            CHECK(f.min == f.max);
+        }
+        CHECK(p.stats[0].min == 30);
+        CHECK(p.stats[1].min == 120);
+    }
+
+    SUBCASE("the hazards are left out silently, exactly as a map's affixes are") {
+        // Eleven of the thirteen lines are the shape of the danger rather than a term of the
+        // deal, the bundle has no stat for "Shattered Shield", and a note apiece would charge
+        // the check with failing at eleven things it left out on purpose.
+        const Item it = resolved(*gd, capture("ultimatum-mageblood.txt"));
+        REQUIRE(it.mods.size() == 13);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.stats.size() == 2);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a stake the bundle cannot confirm is left off, and said out loud") {
+        // The trade site fails the whole search on a required item it does not know, so an
+        // unconfirmed name is never sent — the rest of the contract is still a real search.
+        const Item it = resolved(*gd, capture("ultimatum-divination.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.option("ultimatum_input") == nullptr);
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes.front().find("Dialla's Subjugation") != std::string::npos);
+        // Still a real search: the trial, the payout and the area level are the rest of it.
+        CHECK(p.option("ultimatum_challenge") != nullptr);
+    }
+
+    SUBCASE("every filter it does ask for is offered rather than imposed") {
+        // The user is choosing which half of the contract to relax, so all of them have a row.
+        const Item it = resolved(*gd, capture("ultimatum-mageblood.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        int shown = 0;
+        for (const OptionFilter& f : p.options)
+            if (f.key.starts_with("ultimatum_")) {
+                CHECK(f.enabled);
+                CHECK(f.shown);
+                ++shown;
+            }
+        CHECK(shown == 4);
+    }
+}
+
+TEST_CASE("a heist item is searched on the run it opens, not on the danger it rolled") {
+    auto gd = fixture();
+
+    const auto asked = [](const SearchPlan& p, std::string_view key) {
+        const OptionFilter* f = p.option(key);
+        return f && f->enabled ? f->option : std::string();
+    };
+
+    SUBCASE("a magic or rare heist item gets its own strategy; a unique one does not") {
+        // The rarity switch would plan a rare contract as a rare and search its seven hazards
+        // as if somebody were buying them, and ask for none of the filters the site indexes it
+        // on. A unique contract is the opposite case: it is bought for its name, and the name
+        // fixes everything else about it — so it stays with the unique strategy.
+        CHECK(default_strategy(resolved(*gd, capture("heist-contract-rare-tunnels.txt"))) ==
+              Strategy::Heist);
+        CHECK(default_strategy(
+                  resolved(*gd, capture("heist-blueprint-magic-records-office.txt"))) ==
+              Strategy::Heist);
+        CHECK(default_strategy(resolved(*gd, capture("heist-contract-unique-slaver-king.txt"))) ==
+              Strategy::Unique);
+    }
+
+    SUBCASE("the area is the type, and contracts and blueprints are separate categories") {
+        const Item c = resolved(*gd, capture("heist-contract-rare-tunnels.txt"));
+        const SearchPlan cp = build_plan(*gd, c, derive(gd.get(), c));
+        CHECK(cp.type == "Contract: Tunnels");
+        CHECK(cp.category == "heistmission.contract");
+        // The generated name is one copy's own, exactly as a rare bow's is.
+        CHECK(cp.name.empty());
+
+        // Same area, same wing, different item and a different market.
+        const Item b = resolved(*gd, capture("heist-blueprint-rare-tunnels-full.txt"));
+        const SearchPlan bp = build_plan(*gd, b, derive(gd.get(), b));
+        CHECK(bp.type == "Blueprint: Tunnels");
+        CHECK(bp.category == "heistmission.blueprint");
+    }
+
+    SUBCASE("a magic blueprint is searched by the base under its affixes") {
+        // "Deployed Blueprint: Records Office of Spine-Chilling" as a type matches nothing.
+        const Item it = resolved(*gd, capture("heist-blueprint-magic-records-office.txt"));
+        CHECK(it.base_type == "Deployed Blueprint: Records Office of Spine-Chilling");
+        CHECK(build_plan(*gd, it, derive(gd.get(), it)).type == "Blueprint: Records Office");
+    }
+
+    SUBCASE("what is revealed is a floor and what there is of it is exact") {
+        const Item it = resolved(*gd, capture("heist-blueprint-magic-records-office.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        const NumericFilter* wings = numeric_for(p, "heist_wings");
+        REQUIRE(wings != nullptr);
+        CHECK(wings->enabled);
+        CHECK(wings->min == 1);
+        CHECK_FALSE(wings->max.has_value());
+
+        // A Records Office blueprint comes with two, three or four wings, so the total is part
+        // of which item this is rather than an amount of anything.
+        const NumericFilter* total = numeric_for(p, "heist_max_wings");
+        REQUIRE(total != nullptr);
+        CHECK(total->enabled);
+        CHECK(total->min == 2);
+        CHECK(total->max == 2);
+        REQUIRE(numeric_for(p, "heist_max_reward_rooms") != nullptr);
+        CHECK(numeric_for(p, "heist_max_reward_rooms")->min == 13);
+    }
+
+    SUBCASE("Total Escape Routes is never asked for, because nothing is indexed under it") {
+        // The site publishes `heist_max_escape_routes` and accepts it, and no listing carries a
+        // value for it — so any bound empties the result and it reads as nobody selling one.
+        // Measured one filter at a time on the fully revealed Tunnels capture: `heist_max_wings`
+        // at 4 returned 460 and `heist_max_reward_rooms` at 28 returned 460, while
+        // `heist_max_escape_routes` returned 0 both at the item's own 8 and at a bare min of 1.
+        const Item it = resolved(*gd, capture("heist-blueprint-rare-tunnels-full.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(numeric_for(p, "heist_max_escape_routes") == nullptr);
+        // Its revealed count is asked for, though — that one is indexed like the other two.
+        REQUIRE(numeric_for(p, "heist_escape_routes") != nullptr);
+        CHECK(numeric_for(p, "heist_escape_routes")->min == 8);
+    }
+
+    SUBCASE("the objective's value is the parenthetical, and a boss contract has none") {
+        const auto value_of = [&](const char* file) {
+            const Item it = resolved(*gd, capture(file));
+            return asked(build_plan(*gd, it, derive(gd.get(), it)), "heist_objective_value");
+        };
+        CHECK(value_of("heist-contract-rare-tunnels.txt") == "high");
+        CHECK(value_of("heist-contract-rare-laboratory.txt") == "priceless");
+        CHECK(value_of("heist-contract-rare-underbelly.txt") == "precious");
+        // A blueprint sends the crew after a wing rather than after a thing, so it prints no
+        // target line at all and there is nothing to ask.
+        CHECK(value_of("heist-blueprint-rare-tunnels-full.txt").empty());
+    }
+
+    SUBCASE("a job level is a ceiling and is offered rather than asked") {
+        // What the run demands of the *buyer's* rogue, not a property of the thing being
+        // bought — so a copy asking less is strictly more usable, and a buyer whose rogue is
+        // levelled does not care at all.
+        const Item it = resolved(*gd, capture("heist-blueprint-rare-underbelly.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        for (const char* key : {"heist_brute_force", "heist_agility", "heist_deception"}) {
+            const NumericFilter* f = numeric_for(p, key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK_MESSAGE(!f->enabled, key);
+            CHECK_MESSAGE(!f->min.has_value(), key);
+        }
+        CHECK(numeric_for(p, "heist_brute_force")->max == 4);
+        CHECK(numeric_for(p, "heist_agility")->max == 3);
+        CHECK(numeric_for(p, "heist_deception")->max == 1);
+        // The six it does not demand are not rows at all.
+        CHECK(numeric_for(p, "heist_engineering") == nullptr);
+        CHECK(numeric_for(p, "heist_lockpicking") == nullptr);
+    }
+
+    SUBCASE("the enchant is imposed and the hazards are only offered") {
+        // "Heist Targets are always Enchanted Armaments" is what the whole run is for and
+        // somebody paid to put it there. The rest is the danger it will hold — rolled and
+        // re-rollable — and seven ticked hazards ask for one particular copy in the world.
+        const Item it = resolved(*gd, capture("heist-blueprint-rare-tunnels-full.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* ench = filter_saying(p, "Heist Targets are always Enchanted Armaments");
+        REQUIRE(ench != nullptr);
+        CHECK(ench->type == ppc::data::ModType::Enchant);
+        CHECK(ench->enabled);
+        for (const StatFilter& f : p.stats)
+            if (f.type != ppc::data::ModType::Enchant) CHECK_MESSAGE(!f.enabled, f.text);
+    }
+
+    SUBCASE("an area the bundle does not know is still a search, and says what it is not") {
+        // The heist wings grow with the league and a bundle behind the game is the ordinary
+        // case. Unlike a beast, the clipboard's own spelling is not a usable fallback — a magic
+        // blueprint's base line carries its affixes — so the type is dropped and the category,
+        // the area level and the reveal counts are what the search has left.
+        const Item it = resolved(*gd, capture("heist-contract-rare-underbelly.txt"));
+        CHECK(it.base == nullptr);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type.empty());
+        CHECK(p.category == "heistmission.contract");
+        CHECK(asked(p, "heist_objective_value") == "precious");
+        CHECK(p.notes.front().find("is not a heist base in this data bundle") !=
+              std::string::npos);
+    }
+
+    SUBCASE("a unique contract's properties are not four notes about not searching them") {
+        // The per-unique modifier data lists this contract's client, area level, heist target
+        // and job requirement as modifiers it never enumerates, and the game prints all four as
+        // properties. Four notes saying they are not searched, beside four lines already on
+        // screen saying what they are.
+        const Item it = resolved(*gd, capture("heist-contract-unique-slaver-king.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Unique);
+        CHECK(p.name == "Contract: The Slaver King");
+        CHECK(p.type == "Vigilante Contract");
+        CHECK(p.notes.empty());
+    }
+}
+
+TEST_CASE("an itemised sanctum is searched on the state of the run") {
+    auto gd = fixture();
+
+    SUBCASE("it gets its own strategy rather than being read as a white base item") {
+        // "Rarity: Normal" is all the game has to print on that line, and planning it as a base
+        // item searched for an empty Sanctum Vaults Research at this item level — every run in
+        // the league, and none of what tells two of them apart.
+        const Item it = resolved(*gd, capture("sanctum-vaults-rooms.txt"));
+        CHECK(it.rarity == Rarity::Normal);
+        CHECK(default_strategy(it) == Strategy::Sanctum);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Sanctum Vaults Research");
+        CHECK(p.category == "sanctum.research");
+        CHECK(numeric_for(p, "ilvl") == nullptr);
+    }
+
+    SUBCASE("resolve, inspiration and aureus are floors; the area level is exact") {
+        const Item it = resolved(*gd, capture("sanctum-vaults-rooms.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        const NumericFilter* lvl = numeric_for(p, "area_level");
+        REQUIRE(lvl != nullptr);
+        CHECK(lvl->enabled);
+        CHECK(lvl->min == 83);
+        CHECK(lvl->max == 83);
+
+        for (const auto& [key, min] : std::vector<std::pair<const char*, double>>{
+                 {"sanctum_resolve", 328}, {"sanctum_inspiration", 30}, {"sanctum_gold", 419}}) {
+            const NumericFilter* f = numeric_for(p, key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK_MESSAGE(f->enabled, key);
+            CHECK_MESSAGE(f->min == min, key);
+            CHECK_MESSAGE(!f->max.has_value(), key);
+        }
+    }
+
+    SUBCASE("resolve is two numbers, and only the current one is asked for") {
+        // "299/300" — what is left of the run, and what the character it started on could take.
+        // The maximum is offered open on the right and left unticked: it says more about the
+        // build that opened the sanctum than about how much run is left to sell.
+        const Item it = resolved(*gd, capture("sanctum-vaults-partial-resolve.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(numeric_for(p, "sanctum_resolve")->min == 299);
+        const NumericFilter* max = numeric_for(p, "sanctum_max_resolve");
+        REQUIRE(max != nullptr);
+        CHECK_FALSE(max->enabled);
+        CHECK(max->min == 300);
+        CHECK_FALSE(max->max.has_value());
+    }
+
+    SUBCASE("every boon and affliction is its own stat filter") {
+        const Item it = resolved(*gd, capture("sanctum-vaults-major-boon.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        // Major and minor alike: which of the two it is stays on the item beside the panel, and
+        // the stat the site indexes is the effect's own name either way.
+        for (const char* name : {"Has Gold Coin", "Has Weakened Flesh", "Has Sharpened Arrowhead"}) {
+            const StatFilter* f = filter_saying(p, name);
+            REQUIRE_MESSAGE(f != nullptr, name);
+            CHECK_MESSAGE(f->enabled, name);
+            CHECK_MESSAGE(f->type == ppc::data::ModType::Sanctum, name);
+            CHECK_MESSAGE(f->id.starts_with("sanctum.sanctum_effect_"), name);
+            // Not a modifier — the game prints these as a property — so nothing points back.
+            CHECK_MESSAGE(!f->mod_index.has_value(), name);
+        }
+    }
+
+    SUBCASE("the affixes are searched in the sanctum namespace and nowhere else") {
+        // Every one of these stats is indexed under `sanctum.` alone. With the parser's default
+        // mod type they resolved to nothing at all and came back as unrecognised modifiers.
+        const Item it = resolved(*gd, capture("sanctum-vaults-major-boon.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* choices = filter_saying(p, "The Merchant has 10 additional Choices");
+        REQUIRE(choices != nullptr);
+        CHECK(choices->enabled);
+        CHECK(choices->id == "sanctum.stat_290775436");
+        // The inverse wording: the stat is stored as an increase and the site indexes it that
+        // way, so 40% reduced is a bound on the negative side.
+        const StatFilter* prices = filter_saying(p, "40% reduced Merchant Prices");
+        REQUIRE(prices != nullptr);
+        CHECK(prices->id == "sanctum.stat_3096446459");
+        CHECK(prices->max.value_or(0) < 0);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a boon the bundle cannot name is left out and said out loud") {
+        // The effect list grows with the league, exactly as the beast list does. "Has Red
+        // Smoke" is deliberately absent from the test bundle so the degradation has a case.
+        const Item it = resolved(*gd, capture("sanctum-vaults-partial-resolve.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(filter_saying(p, "Has Red Smoke") == nullptr);
+        REQUIRE(filter_saying(p, "Has Empty Trove") != nullptr);
+        CHECK(std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+            return n.find("\"Red Smoke\" is not a sanctum boon or affliction") !=
+                   std::string::npos;
+        }));
     }
 }

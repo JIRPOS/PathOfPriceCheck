@@ -1,0 +1,25 @@
+Item Class: Misc Map Items
+Rarity: Currency
+Inscribed Ultimatum
+--------
+Challenge: Stand in the Stone Circles
+Area Level: 83
+Requires Sacrifice: Martyr of Innocence
+Reward: Mageblood
+--------
+Choking Miasma II
+Stalking Ruin IV
+Totem of Costly Might
+Reduced Recovery
+Buffs Expire Faster
+Escalating Damage Taken
+Ailment and Curse Reflection
+Shattered Shield
+Unstoppable Monsters
+Precise Monsters
+Dexterous Monsters
+50% increased Monster Damage
+200% more Monster Life
+--------
+Can be used in a personal map device to open portals to the Trialmaster's Domain and attempt his challenge. Portals will close once the challenge begins. While viewing your Atlas, Right-click this item to pinpoint its location.
+--------

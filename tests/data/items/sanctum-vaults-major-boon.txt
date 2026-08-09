@@ -1,0 +1,21 @@
+Item Class: Sanctum Research
+Rarity: Normal
+Sanctum Vaults Research
+--------
+Area Level: 83
+Resolve: 100/100 (augmented)
+Inspiration: 0
+Aureus: 1084
+Major Boons: Gold Coin
+Minor Afflictions: Weakened Flesh, Sharpened Arrowhead
+--------
+Item Level: 84
+--------
+The Merchant has 10 additional Choices
+40% reduced Merchant Prices
+--------
+The treasures within are tainted by a black spirit.
+--------
+Right click this item to view details of the Sanctum in progress. Take this item to the Relic Altar in the Forbidden Sanctum to enter.
+--------
+Unmodifiable

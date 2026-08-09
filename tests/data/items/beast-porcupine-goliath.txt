@@ -1,0 +1,21 @@
+Item Class: Stackable Currency
+Rarity: Rare
+Foulsucker the Harrying
+Porcupine Goliath
+--------
+Genus: Goliaths
+Group: Unnaturals
+Family: The Wilds
+--------
+Item Level: 83
+--------
+{ Monster Modifier (Tier: 1) }
+Extra Damage to Injured Foes
+{ Monster Modifier (Tier: 1) }
+Minions Lightning Explode on Death
+{ Monster Modifier }
+Spikes on Death
+{ Monster Modifier — Life }
+Spectral Swipe
+--------
+Right-click to add this to your bestiary.

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <unordered_map>
 #include <utility>
@@ -13,8 +14,9 @@
 namespace ppc::item {
 namespace {
 
-constexpr std::array<std::string_view, 7> kStrategies{
-    "Base item", "Modifiers", "Unique", "Currency", "Gem", "Map", "Unsupported"};
+constexpr std::array<std::string_view, static_cast<size_t>(Strategy::Unsupported) + 1>
+    kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",         "Map",
+                "Beast",     "Ultimatum", "Heist",     "Sanctum",  "Unsupported"};
 
 /// How many decimals `v` needs to survive being printed. Rolls are at most hundredths.
 int decimals_needed(double v) {
@@ -317,6 +319,19 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
             // The affixes are handled entirely by their count — see `map_affix_count`.
             f.enabled = true;
             break;
+        case Strategy::Heist:
+            // The map argument with the tick left off instead of the whole row. A blueprint's
+            // **enchant** is what the run is for and somebody paid to put it there; its other
+            // modifiers are the danger it will hold, which is rolled and re-rollable, so they
+            // are offered and not imposed — seven ticked hazards ask for one copy in the world.
+            f.enabled = m.type == data::ModType::Enchant;
+            break;
+        case Strategy::Sanctum:
+            // A sanctum's affixes are not a roll somebody could redo — the run is already under
+            // way and nothing can be applied to it again, which is what "Unmodifiable" on the
+            // item means. They are as much a part of what is being bought as its resolve is.
+            f.enabled = true;
+            break;
         default:
             f.enabled = false;
             break;
@@ -361,6 +376,20 @@ StatFilter* filter_saying(SearchPlan& p, const Item& it, std::string_view line) 
             if (l == line) return &f;
     }
     return nullptr;
+}
+
+/// Whether `line` is one of the item's **property** lines, as the game prints it — either
+/// "Label: value" or, for the ones the game writes as a sentence, the value alone.
+///
+/// The other half of `filter_saying`: both answer "is this already on screen", and the per-unique
+/// data does not distinguish a property from a modifier. A unique heist contract is the case —
+/// its client, area level, heist target and job requirement are listed there as modifiers and
+/// printed by the game as properties.
+bool printed_as_property(const Item& it, std::string_view line) {
+    for (const Property& p : it.properties) {
+        if (p.label.empty() ? p.value == line : line == p.label + ": " + p.value) return true;
+    }
+    return false;
 }
 
 /// Fold the bundle's per-unique modifier data into the plan.
@@ -478,6 +507,11 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
     // between this and the loop above they cost twelve lines of panel to say what four unticked
     // boxes said. Only prose with nothing on screen behind it is worth a note of its own.
     for (const std::string& u : um->unlisted) {
+        // On screen as a **property** rather than as a filter, which is the same argument one
+        // step over: the source lists a unique heist contract's client, area level, target and
+        // job requirement as modifiers, and the game prints all four in the property block. Four
+        // notes saying they are not searched, beside four lines already saying what they are.
+        if (printed_as_property(it, u)) continue;
         if (StatFilter* f = filter_saying(p, it, u)) {
             f->caveat = "the modifier data states this but does not enumerate it, so nothing "
                         "here knows what it can roll";
@@ -681,6 +715,435 @@ void plan_gem(const Item& it, SearchPlan& p) {
     // Always, and at zero as readily as at twenty: an unquality gem is a different thing from a
     // 20% one, and leaving the filter off would price it as whatever the cheapest quality is.
     exact("quality", "Quality", it.quality.value_or(0));
+}
+
+/// An itemised beast: the species and the item level, and nothing else the item prints.
+///
+/// A beast is bought to be released into the menagerie and spent on a beastcrafting recipe, and
+/// a recipe names the **species** — a Wild Hellion Alpha — so that is the whole of what one
+/// copy has in common with another. The two lines above it are a rare title the game generated
+/// for this capture ("Banebite the Malignant"), which no two copies share and no buyer asks
+/// for, so the `name` term is deliberately left empty and the species goes in `type`.
+///
+/// The **monster modifiers** are skipped for the same reason a map's affixes are (`build_plan`):
+/// they are the captured monster's own abilities rather than rolls on a base, the bundle has no
+/// stat for "Crushing Claws" to match, and a recipe cares about none of them. Left out silently
+/// — with no unrecognised-modifier note — because leaving them out is the decision, not a
+/// failure to read them.
+///
+/// The item level is a floor rather than a window: the recipes that care about it want a beast
+/// at least that high, and a higher one still answers.
+void plan_beast(const Item& it, SearchPlan& p) {
+    // The one place a category is not the bundle's answer for the item class. A beast's class is
+    // "Stackable Currency", which maps to `currency` and is right for every orb that prints it —
+    // but trade files beasts in a category of their own. Measured: `category: currency` returned
+    // **0 matches** for a Wild Hellion Alpha and `monster.beast` returned **1602**, with the same
+    // type and the same item level. The site accepts either, so the wrong one reads as nobody
+    // selling one rather than as an error, which is what made this worth measuring rather than
+    // reasoning about.
+    p.category = "monster.beast";
+    p.type = base_wire_name(it);
+    if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+    else if (!it.base)
+        p.notes.push_back("\"" + it.base_name +
+                          "\" is not a beast in this data bundle, so the search asks for the "
+                          "species as the clipboard spelled it");
+    add_numeric(p, "ilvl", "Item Level",
+                it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
+}
+
+/// The `ultimatum_challenge` option ids, in the order `TermList::UltimatumChallenges` lists the
+/// wordings the game prints for them. Same shape as the chart shapes and for the same reason:
+/// a closed vocabulary from `/api/trade/data/filters`, joined to the client's text, and the id
+/// is never derived from the words.
+constexpr std::string_view kUltimatumChallengeIds[]{"Exterminate", "Survival", "Defense",
+                                                    "Conquer"};
+/// The `ultimatum_reward` ids for the three rewards the game states as a wording. The fourth,
+/// below, has none: an ultimatum that pays out a unique prints that unique's name on the line.
+constexpr std::string_view kUltimatumRewardIds[]{"DoubleCurrency", "DoubleDivCards", "MirrorRare"};
+constexpr std::string_view kUltimatumUniqueRewardId = "ExchangeUnique";
+
+/// `Lexicon::index_of`, ignoring case. Only the challenge list needs it: the trade site titles
+/// its option "Defeat Waves of Enemies" and the client prints "Defeat waves of enemies", so the
+/// English entries are the site's own text and the case is the one thing that differs.
+int index_of_ci(const data::Lexicon& lex, data::TermList l, std::string_view s) {
+    const std::vector<std::string>& v = lex.list(l);
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (v[i].size() != s.size() || v[i].empty()) continue;
+        if (std::equal(v[i].begin(), v[i].end(), s.begin(), [](char a, char b) {
+                return std::tolower(static_cast<unsigned char>(a)) ==
+                       std::tolower(static_cast<unsigned char>(b));
+            }))
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+/// The item an ultimatum's stake names, without the count the game prints after it: "Divine Orb
+/// x8" is a search for Divine Orbs, and how many of them is not something trade indexes.
+std::string_view strip_stack_count(std::string_view v) {
+    const size_t x = v.rfind(" x");
+    if (x == std::string_view::npos || x + 2 >= v.size()) return v;
+    for (size_t i = x + 2; i < v.size(); ++i)
+        if (!std::isdigit(static_cast<unsigned char>(v[i]))) return v;
+    return v.substr(0, x);
+}
+
+/// The name trade files an ultimatum's stake under, or "" when this bundle does not know it.
+///
+/// The site takes a **known item** here, across the three namespaces its own filter names —
+/// uniques, divination cards and currency — and a name it does not know fails the whole search
+/// rather than widening it, exactly as a Valdo map's reward does. So nothing unconfirmed is sent.
+std::string find_sacrifice(const data::GameData& gd, std::string_view printed) {
+    static constexpr data::Namespace kNs[]{data::Namespace::Unique, data::Namespace::DivinationCard,
+                                           data::Namespace::Item};
+    for (const data::Namespace ns : kNs)
+        for (const data::BaseType* b : gd.find_bases(ns, printed))
+            return std::string(wire_name(b));
+    return {};
+}
+
+/// The two modifiers an ultimatum is searched on, and the only two: they are what the trial's
+/// difficulty *is*, and on a currency or divination-card ultimatum they are also what says how
+/// much is at stake — the sacrificed stack grows with them. Every other line is the shape of the
+/// danger rather than a term of the deal, which is what the user is choosing to run or not.
+bool ultimatum_stake_mod(const Modifier& m) {
+    if (!m.match || !m.match->stat) return false;
+    const std::string& ref = m.match->stat->ref;
+    return ref == "#% increased Monster Damage" || ref == "#% more Monster Life";
+}
+
+/// An Inscribed Ultimatum is a contract, and a search for one asks for the same contract: the
+/// trial, the stake, the payout, and the two numbers that say how large the stake is.
+///
+/// - **The challenge and the reward type** are what the trial is and what it pays, and trade has
+///   an option for each. The reward that is a unique has no wording of its own — the line is the
+///   unique's name — so that name goes into `ultimatum_output` and the type is `ExchangeUnique`.
+/// - **The sacrificed item**, which is the price of entry. Not its count: trade indexes no such
+///   number, and the count is already implied by the two modifiers below. The one reward with no
+///   nameable stake is the mirror, whose line reads "Mirrorable, Rare Item" — a class of items
+///   rather than one, and already fully said by the reward type.
+/// - **The area level**, exact rather than a floor, for the same reason a chart's is: an 83 is a
+///   different trial from a 78, not a better one.
+/// - **Increased Monster Damage and more Monster Life**, exact rather than windowed *whatever the
+///   range-match setting says*, because these two are the scale of the deal and not a roll to be
+///   beaten: 200% more Monster Life is the ultimatum that stakes eight Divine Orbs, and asking
+///   for "at least 120%" prices four of them alongside it.
+///
+/// Everything else it prints — Choking Miasma, Drought, Shattered Shield — is left out, and
+/// silently: they are the trial's hazards, they sit on the item beside the panel, and a note per
+/// line would charge the check with failing at something it deliberately did not attempt.
+void plan_ultimatum(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    const data::Lexicon& lex = gd.lexicon();
+    // **No category at all**, which is the second place the bundle's answer for the item class is
+    // overridden and the first where the override is to send nothing. "Misc Map Items" maps to
+    // `map.fragment`, and that is right for the invitations and splinters that share the class but
+    // not for an ultimatum: measured, the same query returned **0 matches** with it and **443**
+    // without, everything else identical. Nothing is lost by dropping it — an ultimatum is one
+    // base type, so the type term below already says everything a category could.
+    p.category.clear();
+    p.type = base_wire_name(it);
+    if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+
+    if (const Property* c = property_of(it, data::PropertyKey::Challenge); c && !c->value.empty()) {
+        const int i = index_of_ci(lex, data::TermList::UltimatumChallenges, c->value);
+        if (i >= 0 && static_cast<size_t>(i) < std::size(kUltimatumChallengeIds))
+            add_option(p, "ultimatum_challenge", c->label,
+                       std::string(kUltimatumChallengeIds[i]), c->value, true);
+        else
+            p.notes.push_back("\"" + c->value +
+                              "\" is not a challenge the trade site knows, so the search does not "
+                              "ask which trial this is");
+    }
+
+    const Property* reward = property_of(it, data::PropertyKey::Reward);
+    bool mirror_reward = false;
+    if (reward && !reward->value.empty()) {
+        const int i = lex.index_of(data::TermList::UltimatumRewards, reward->value);
+        if (i >= 0 && static_cast<size_t>(i) < std::size(kUltimatumRewardIds)) {
+            mirror_reward = kUltimatumRewardIds[i] == "MirrorRare";
+            add_option(p, "ultimatum_reward", reward->label,
+                       std::string(kUltimatumRewardIds[i]), reward->value, true);
+        } else if (const std::string named = find_unique_in(gd, reward->value); !named.empty()) {
+            add_option(p, "ultimatum_reward", reward->label,
+                       std::string(kUltimatumUniqueRewardId), reward->value, true);
+            add_option(p, "ultimatum_output", "Reward Unique", named, named, true);
+        } else {
+            p.notes.push_back("\"" + reward->value +
+                              "\" is neither a reward wording nor a unique in this data bundle, "
+                              "so the search does not ask what this ultimatum pays out");
+        }
+    }
+
+    if (const Property* s = property_of(it, data::PropertyKey::RequiresSacrifice);
+        s && !s->value.empty() && !mirror_reward) {
+        const std::string_view stake = strip_stack_count(s->value);
+        if (const std::string named = find_sacrifice(gd, stake); !named.empty())
+            add_option(p, "ultimatum_input", s->label, named, std::string(stake), true);
+        else
+            p.notes.push_back("\"" + std::string(stake) +
+                              "\" is not an item in this data bundle, and the trade site rejects a "
+                              "required item it does not know, so the search does not ask what "
+                              "this ultimatum costs to run");
+    }
+
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
+        add_numeric(p, "area_level", lvl->label, *lvl->num, true, 0, {}, *lvl->num);
+}
+
+/// The `heist_*` filter for each rogue job, in the order `TermList::HeistJobs` names them.
+constexpr std::string_view kHeistJobKeys[]{
+    "heist_lockpicking", "heist_brute_force",         "heist_perception",
+    "heist_demolition",  "heist_counter_thaumaturgy", "heist_trap_disarmament",
+    "heist_agility",     "heist_deception",           "heist_engineering"};
+/// The `heist_objective_value` option ids, in the order `TermList::HeistObjectiveValues` lists
+/// the words the game prints for them.
+constexpr std::string_view kHeistObjectiveIds[]{"moderate", "high", "precious", "priceless"};
+
+/// The two numbers of a "3/21" value — what there is now and what there is in all. A blueprint
+/// states each of its reveal counts this way and a sanctum states its resolve. Absent when the
+/// value is not that shape, which is how a client that words it differently degrades: no filter
+/// rather than a filter for a number that is not there.
+std::optional<std::pair<double, double>> slashed_pair(const Property& p) {
+    const size_t slash = p.value.find('/');
+    if (slash == std::string::npos || !p.num) return std::nullopt;
+    const std::string_view rest = std::string_view(p.value).substr(slash + 1);
+    double total = 0;
+    // `std::from_chars` and not the C locale, which would read "21" against a decimal comma.
+    const auto [end, ec] = std::from_chars(rest.data(), rest.data() + rest.size(), total);
+    if (ec != std::errc{} || end == rest.data()) return std::nullopt;
+    return std::pair{*p.num, total};
+}
+
+/// The parenthetical a heist objective's name ends with — "Ancient Seal (Precious)" — or "".
+/// The value is the whole of what trade indexes about a target; the target's own name is not a
+/// term the site takes at all.
+std::string_view objective_value_of(const Property& p) {
+    if (p.value.empty() || p.value.back() != ')') return {};
+    const size_t open = p.value.rfind(" (");
+    if (open == std::string::npos) return {};
+    return std::string_view(p.value).substr(open + 2, p.value.size() - open - 3);
+}
+
+/// A heist contract or blueprint: **which run this is**, and what it will cost to make.
+///
+/// The first iteration of a market nobody here has traded, so it errs towards offering rather
+/// than towards deciding — every heist filter the site has is a row, and what separates the
+/// ticked from the untitcked is one question: is this a fact about *which item this is*, or is
+/// it the variation between two copies of the same one?
+///
+/// Imposed, because they say which run it is:
+/// - **The area**, which is the base type and is what the game names the item after ("Blueprint:
+///   Underbelly"). A rare heist item's own name — "Cataclysm Vow" — is generated per copy and is
+///   no more searchable than a rare bow's.
+/// - **The area level**, exact, on the same reading a chart's and an ultimatum's get: pricing is
+///   like for like, and a level 83 run is a different product from a level 77 one.
+/// - **What is revealed**, on a blueprint, as a floor: more of the map uncovered is strictly more
+///   of what a buyer is paying for. The total beside each count is exact where the site indexes
+///   one — a blueprint's wing count varies per copy, so it is part of which item this is rather
+///   than an amount of anything — and Total Escape Routes is left out entirely. See below.
+/// - **The objective's value** on a contract, which is the parenthetical after the target.
+/// - **The enchant**, on a blueprint that has one: "Heist Targets are always Enchanted
+///   Armaments" is what the whole run is for, and somebody paid to put it there.
+///
+/// Offered and left unticked, because they are the roll rather than the item:
+/// - **The job levels.** A requirement is a demand on the *buyer's* rogue, not a property of the
+///   thing being bought, so it is seeded as a ceiling — copies asking less are strictly more
+///   usable — and left off, because a buyer whose rogue is levelled does not care.
+/// - **The heist modifiers.** They are the danger the run will hold: rolled, re-rollable, and
+///   the map argument exactly, except that the row stays and only the tick goes. A contract
+///   carries seven of them and ticking all seven asks for one particular copy in the world.
+///
+/// Not offered at all, because trade indexes none of them: item quantity, item rarity, alert
+/// level reduction, time before lockdown, maximum alive reinforcements. They are on the item
+/// beside the panel, and there is no `heist_` filter to put them in.
+void plan_heist(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    const data::Lexicon& lex = gd.lexicon();
+    if (it.base) {
+        p.type = base_wire_name(it);
+        if (!it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+    } else {
+        // Deliberately no type rather than the printed one: a magic blueprint's base line still
+        // carries its affixes ("Deployed Blueprint: Records Office of Spine-Chilling") and
+        // sending that matches nothing, which reads as an empty market. The category is still a
+        // real search, and a coarser one is what the note says it is.
+        p.notes.push_back("\"" + it.base_type +
+                          "\" is not a heist base in this data bundle, so the search is for any "
+                          "contract or blueprint rather than for this area");
+    }
+
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
+        add_numeric(p, "area_level", lvl->label, *lvl->num, true, 0, {}, *lvl->num);
+
+    // Only what is **revealed**, never the total printed beside it. The site publishes a filter
+    // for each total — `heist_max_wings`, `heist_max_escape_routes`, `heist_max_reward_rooms` —
+    // and indexes nothing under them. Measured on the Records Office capture: the three totals
+    // alone, at the item's own 2, 4 and 13, returned **0 matches**, against **135** for the three
+    // revealed counts alone and **252** for neither. They are accepted rather than rejected, so
+    // sending one costs the whole search and reads as an empty market — which is why they are
+    // not offered as unticked rows either. The numbers are on the item beside the panel.
+    // **Total Escape Routes is the one filter here with nothing behind it.** The site publishes
+    // `heist_max_escape_routes` and indexes no listing under it, so any bound at all empties the
+    // result. Measured one filter at a time on the fully revealed Tunnels capture, everything
+    // else identical: `heist_max_wings` at 4 returned **460** and `heist_max_reward_rooms` at 28
+    // returned **460** (1040 at a bare `min: 1`), while `heist_max_escape_routes` returned **0**
+    // both at the item's own 8 and at `min: 1`. It is accepted rather than rejected, so sending
+    // it costs the whole search and reads as an empty market — and it is not offered as an
+    // unticked row either, because ticking it would do the same. The number is on the item.
+    struct Reveal {
+        data::PropertyKey property;
+        const char* key;
+        const char* total;       ///< "" where the site indexes no total
+        const char* total_label;
+    };
+    static constexpr Reveal kReveals[]{
+        {data::PropertyKey::WingsRevealed, "heist_wings", "heist_max_wings", "Total Wings"},
+        {data::PropertyKey::EscapeRoutesRevealed, "heist_escape_routes", "", ""},
+        {data::PropertyKey::RewardRoomsRevealed, "heist_reward_rooms", "heist_max_reward_rooms",
+         "Total Reward Rooms"},
+    };
+    for (const Reveal& r : kReveals) {
+        const Property* prop = property_of(it, r.property);
+        if (!prop) continue;
+        const std::optional<std::pair<double, double>> both = slashed_pair(*prop);
+        if (!both) continue;
+        // Revealed is a floor — more of the blueprint uncovered is strictly more of what is
+        // being bought. The total is exact, because it is not an amount of anything: a Tunnels
+        // blueprint comes with two, three or four wings, and a four-wing one is a different
+        // item rather than a better copy of the same one.
+        add_numeric(p, r.key, prop->label, both->first, true);
+        if (*r.total)
+            add_numeric(p, r.total, r.total_label, both->second, true, 0, {}, both->second);
+    }
+
+    // A contract's, and only a contract's: a blueprint sends the crew after a wing rather than
+    // after a thing, and prints no target line at all.
+    if (const Property* t = property_of(it, data::PropertyKey::HeistTarget)) {
+        const std::string_view value = objective_value_of(*t);
+        const int i = value.empty()
+                          ? -1
+                          : lex.index_of(data::TermList::HeistObjectiveValues, value);
+        if (i >= 0 && static_cast<size_t>(i) < std::size(kHeistObjectiveIds))
+            add_option(p, "heist_objective_value", "Objective Value",
+                       std::string(kHeistObjectiveIds[i]), std::string(value), true);
+        else if (!value.empty())
+            p.notes.push_back("\"" + std::string(value) +
+                              "\" is not an objective value the trade site knows, so the search "
+                              "does not ask what the target is worth");
+        // No parenthetical at all is the ordinary shape of a boss contract ("Kill Admiral
+        // Darnaw"), not a gap: there is no value to ask about, so nothing is said.
+    }
+
+    // One row per job the item demands, seeded as a ceiling and left off. See the note above:
+    // a job level is what the run asks of the buyer, and a copy asking less still answers.
+    for (const Property& prop : it.properties) {
+        if (prop.key != data::PropertyKey::HeistJob || !prop.num) continue;
+        const std::vector<std::string>& jobs = lex.list(data::TermList::HeistJobs);
+        for (size_t i = 0; i < jobs.size() && i < std::size(kHeistJobKeys); ++i) {
+            if (jobs[i].empty() || prop.value.find(jobs[i]) == std::string::npos) continue;
+            add_numeric(p, std::string(kHeistJobKeys[i]), jobs[i] + " Level", std::nullopt, false,
+                        0, {}, *prop.num);
+            break;
+        }
+    }
+}
+
+std::string_view trim_spaces(std::string_view s) {
+    while (!s.empty() && s.front() == ' ') s.remove_prefix(1);
+    while (!s.empty() && s.back() == ' ') s.remove_suffix(1);
+    return s;
+}
+
+/// One boon or affliction, as the trade site indexes it: the stat whose wording is the name the
+/// item printed under a `Has `. Null when this bundle has no such stat, or has one it cannot
+/// search — which is what the caller says out loud rather than dropping.
+const data::Stat* sanctum_effect_stat(const data::GameData& gd, std::string_view name) {
+    const std::string_view prefix = gd.lexicon().term(data::Term::SanctumEffectPrefix);
+    if (prefix.empty() || name.empty()) return nullptr;
+    const data::Stat* s = gd.find_stat_by_ref(std::string(prefix) + std::string(name));
+    return s && s->has(data::ModType::Sanctum) ? s : nullptr;
+}
+
+/// Turn the comma-separated names under `Minor Boons:` and `Major Afflictions:` into one stat
+/// filter each. They are not modifiers — the game prints them as a property and the item's mod
+/// block holds the affixes instead — so they are built here rather than by `to_filter`.
+void add_sanctum_effects(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    for (const Property& prop : it.properties) {
+        if (prop.key != data::PropertyKey::Boons && prop.key != data::PropertyKey::Afflictions)
+            continue;
+        for (std::string_view rest = prop.value; !rest.empty();) {
+            const size_t comma = rest.find(',');
+            const std::string_view name = trim_spaces(rest.substr(0, comma));
+            rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+            if (name.empty()) continue;
+            const data::Stat* s = sanctum_effect_stat(gd, name);
+            if (!s) {
+                p.notes.push_back("\"" + std::string(name) +
+                                  "\" is not a sanctum boon or affliction the trade site knows in "
+                                  "this data bundle, so the search does not ask for it");
+                continue;
+            }
+            StatFilter f;
+            f.id = s->trade_ids(data::ModType::Sanctum).front();
+            // The stat's own wording, which is what the site's filter is called. The item beside
+            // the panel is where minor and major are told apart.
+            f.text = s->ref;
+            f.type = data::ModType::Sanctum;
+            f.enabled = true;
+            p.stats.push_back(std::move(f));
+        }
+    }
+}
+
+/// An itemised sanctum: **how far this run has got, and what it is carrying**.
+///
+/// Everything a buyer of one is choosing between is on the item as a number or a name, and all
+/// of it is imposed, because none of it is a roll to be beaten — a run is bought to be finished
+/// and its state is the product:
+/// - **The floor**, which is the base type: an Archives run and a Vaults run are different items.
+/// - **The area level**, exact, the reading a chart's, an ultimatum's and a heist item's already
+///   get — a level 83 sanctum is a different product from a level 78 one, not a better copy.
+/// - **Resolve**, as a floor: it is the whole of how much run is left to survive.
+/// - **Inspiration** and **Aureus**, as floors, for the same reason. More of either is strictly
+///   more of what is being bought.
+/// - **Every boon and affliction**, each its own `sanctum.sanctum_effect_…` stat.
+/// - **The affixes** — "The Merchant has 10 additional Choices", "18 additional Rooms are
+///   revealed on the Sanctum Map" — through the ordinary mod path, which files them under the
+///   `sanctum` namespace because the parser typed them that way.
+///
+/// **Maximum Resolve is the one row left unticked**, seeded from the number beside the current
+/// one and open on the right. It is not a fact about the run's state so much as about the
+/// character that started it, and the item already says everything about resolve that a buyer
+/// is choosing on through the current value.
+void plan_sanctum(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    if (it.base) {
+        p.type = base_wire_name(it);
+        if (!it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+    } else {
+        p.notes.push_back("\"" + it.base_type +
+                          "\" is not a sanctum in this data bundle, so the search is for any "
+                          "research item rather than for this floor");
+    }
+
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
+        add_numeric(p, "area_level", lvl->label, *lvl->num, true, 0, {}, *lvl->num);
+
+    if (const Property* r = property_of(it, data::PropertyKey::Resolve)) {
+        // "299/300": what is left, and what the run started with. Only the first is a floor.
+        if (const std::optional<std::pair<double, double>> both = slashed_pair(*r)) {
+            add_numeric(p, "sanctum_resolve", r->label, both->first, true);
+            add_numeric(p, "sanctum_max_resolve", "Maximum Resolve", both->second, false);
+        } else if (r->num) {
+            add_numeric(p, "sanctum_resolve", r->label, *r->num, true);
+        }
+    }
+    if (const Property* i = property_of(it, data::PropertyKey::Inspiration); i && i->num)
+        add_numeric(p, "sanctum_inspiration", i->label, *i->num, true);
+    // `sanctum_gold` on the wire; "Aureus" is what both the item and the site's own row call it.
+    if (const Property* a = property_of(it, data::PropertyKey::Aureus); a && a->num)
+        add_numeric(p, "sanctum_gold", a->label, *a->num, true);
+
+    add_sanctum_effects(gd, it, p);
 }
 
 /// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
@@ -1021,6 +1484,26 @@ Strategy default_strategy(const Item& it) {
     // shares the strategy rather than getting one of its own; the extras it needs are three
     // filters inside `plan_map`.
     if (it.is_map() || it.is_chart()) return Strategy::Map;
+    // A beast reads as a rare — it has a title, an item level and rolled modifiers — and every
+    // one of those is the wrong thing to price it on. What a buyer of one wants is the species,
+    // because the species is what the crafting recipe names; the monster modifiers are the
+    // monster's own and no recipe asks for them. Ahead of the rarity switch below, which would
+    // otherwise plan a Wild Hellion Alpha as a rare and search "Extra Life" as an affix.
+    if (it.is_beast()) return Strategy::Beast;
+    // Ahead of the fragment rule below, which an ultimatum would otherwise fall into: it prints
+    // no item level, so it would be planned as a bulk good and handed to a reference price that
+    // does not exist. Two copies of one base differ in everything a buyer cares about.
+    if (it.is_ultimatum()) return Strategy::Ultimatum;
+    // A heist item **at any rarity but unique**. Its affixes are real, so the rarity switch
+    // below would plan a rare contract as a rare and search seven heist hazards as if they were
+    // what somebody was buying — and none of the reveal counts, job levels or objective values
+    // that are the whole of how the site indexes one. A *unique* contract is left to the unique
+    // strategy: it is bought for its name, and everything else about it is fixed by that name.
+    if (it.is_heist() && it.rarity != Rarity::Unique) return Strategy::Heist;
+    // A sanctum prints "Rarity: Normal" and would otherwise be planned as a base item — a search
+    // for an empty Sanctum Vaults Research at this item level, which is every run in the league
+    // and none of what tells two apart. Its affixes are real, and so is everything else on it.
+    if (it.is_sanctum()) return Strategy::Sanctum;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1047,7 +1530,11 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
     SearchPlan p;
     p.strategy = force.value_or(default_strategy(it));
     p.category = std::string(gd.trade_category_for(it.item_class));
-    if (p.category.empty() && !it.item_class.empty())
+    // Not for a beast or an ultimatum: both override the category outright — one to a category of
+    // its own, one to none — so a bundle that could not map their item class would leave a note
+    // about a gap that was about to be filled.
+    if (p.category.empty() && !it.item_class.empty() && p.strategy != Strategy::Beast &&
+        p.strategy != Strategy::Ultimatum)
         p.notes.push_back("item class \"" + it.item_class +
                           "\" maps to no trade category in this data bundle");
 
@@ -1099,6 +1586,15 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             break;
         case Strategy::Map: plan_map(gd, it, p); break;
         case Strategy::Gem: plan_gem(it, p); break;
+        case Strategy::Beast:
+            // The species and the item level, and deliberately nothing else. The title is one
+            // player's copy rather than a thing to search for, and the monster modifiers are
+            // not affixes — see `plan_beast`'s note and the skip below.
+            plan_beast(it, p);
+            break;
+        case Strategy::Ultimatum: plan_ultimatum(gd, it, p); break;
+        case Strategy::Heist: plan_heist(gd, it, p); break;
+        case Strategy::Sanctum: plan_sanctum(gd, it, p); break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
             // query — bulk is what it sells in, and a stat filter has nothing to say about a
@@ -1134,7 +1630,25 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // and "unrecognised modifier: Players have 25% less Accuracy Rating" would charge
             // the check with failing at something it deliberately did not attempt.
             if (p.strategy == Strategy::Map && !map_searched_mod(it.mods[i])) continue;
+            // A beast's monster modifiers, on the same argument and with the same silence: not
+            // affixes, not searched, and visible on the item beside the panel.
+            if (p.strategy == Strategy::Beast) continue;
+            // An ultimatum's hazards, likewise: only the two that scale the stake are searched,
+            // and the rest are the trial rather than the deal. See `ultimatum_stake_mod`.
+            if (p.strategy == Strategy::Ultimatum && !ultimatum_stake_mod(it.mods[i])) continue;
             if (std::optional<StatFilter> f = to_filter(it, i, p.strategy, ranges_printed, rm)) {
+                // Exact, and deliberately not what the range-match setting asked for: these two
+                // are the size of the deal, not a roll to be beaten. Set here rather than inside
+                // `to_filter` because it is the strategy that makes it true, and `to_filter`'s
+                // job is to read the modifier.
+                if (p.strategy == Strategy::Ultimatum) {
+                    if (const Roll roll = roll_for(*it.mods[i].match); roll.value) {
+                        f->min = *roll.value;
+                        f->max = *roll.value;
+                    }
+                    f->tiered = false;
+                    f->enabled = true;
+                }
                 p.stats.push_back(std::move(*f));
                 continue;
             }

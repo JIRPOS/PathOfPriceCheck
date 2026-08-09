@@ -1,0 +1,32 @@
+Item Class: Contracts
+Rarity: Rare
+Gloom Testament
+Contract: Tunnels
+--------
+Client: Remus Hestor
+Heist Target: Golden Matatl Idol (High Value)
+Area Level: 83
+Requires Agility (Level 3)
+Item Quantity: +74% (augmented)
+Item Rarity: +43% (augmented)
+Alert Level Reduction: +28% (augmented)
+Time Before Lockdown: +28% (augmented)
+Maximum Alive Reinforcements: +28% (augmented)
+--------
+Item Level: 83
+--------
+Players cannot inflict Exposure
+Monsters fire 2 additional Projectiles
+Players have 8% less Armour per 25% Alert Level
+Reinforcements have 25% increased Attack Speed
+Reinforcements have 24% increased Cast Speed
+Reinforcements have 17% increased Movement Speed
+Monsters have +60% chance to Suppress Spell Damage
+--------
+"One must, as one should, admire the lasting works of those who came before.
+The Vaal were the uncontested greatest architects until we,
+and Matatl soared above their best." 
+--------
+Give this Contract to Adiyah in the Rogue Harbour to embark on the Heist.
+--------
+Note: ~b/o 1 alch

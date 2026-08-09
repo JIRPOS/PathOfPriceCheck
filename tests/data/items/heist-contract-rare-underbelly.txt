@@ -1,0 +1,28 @@
+Item Class: Contracts
+Rarity: Rare
+Plague Covenant
+Contract: Underbelly
+--------
+Client: Kondor Larcius
+Heist Target: Ancient Seal (Precious)
+Area Level: 83
+Requires Deception (Level 1)
+Item Quantity: +52% (augmented)
+Item Rarity: +31% (augmented)
+Alert Level Reduction: +20% (augmented)
+Time Before Lockdown: +20% (augmented)
+Maximum Alive Reinforcements: +20% (augmented)
+--------
+Item Level: 83
+--------
+25% increased number of Rare Monsters
+Players cannot inflict Exposure
+Players are Cursed with Elemental Weakness
+-5% Player Cold Resistance per 25% Alert Level
+--------
+"At first glance, this seal seems no more than an ornament. But when one
+looks closer, one realizes the design is from no culture we yet know of."
+--------
+Give this Contract to Adiyah in the Rogue Harbour to embark on the Heist.
+--------
+Note: ~b/o 11 chaos

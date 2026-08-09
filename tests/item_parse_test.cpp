@@ -13,6 +13,7 @@
 namespace fs = std::filesystem;
 using namespace ppc::item;
 using ppc::data::ModType;
+using ppc::data::PropertyKey;
 
 namespace {
 
@@ -491,6 +492,62 @@ TEST_CASE("a map fragment describes itself in prose and has no modifiers at all"
     }
 }
 
+TEST_CASE("an itemised beast is a species with a title, not a rare with a base") {
+    // A beast prints "Item Class: Stackable Currency" — the class every orb in the game shares
+    // — and "Rarity: Rare", because it rolled monster modifiers. Neither says what it is. The
+    // taxonomy block does, and nothing else in the game prints one.
+    SUBCASE("the taxonomy is what identifies it, and the species is the base") {
+        const Item it = parse("items", "beast-croaker.txt");
+        CHECK(it.item_class == "Stackable Currency");
+        CHECK(it.rarity == Rarity::Rare);
+        CHECK(it.is_beast());
+        // The title the capture generated, and the species underneath it — the ordinary
+        // two-line rare header, with neither line meaning what it does on a rare.
+        CHECK(it.name == "Deathcrawl");
+        CHECK(it.base_type == "Chrome-touched Croaker");
+        CHECK(it.item_level == 76);
+
+        REQUIRE(it.properties.size() == 4);
+        CHECK(it.properties[0].key == PropertyKey::Genus);
+        CHECK(it.properties[0].value == "Gem Frogs");
+        CHECK(it.properties[1].key == PropertyKey::Group);
+        CHECK(it.properties[1].value == "Amphibians");
+        CHECK(it.properties[2].key == PropertyKey::Family);
+        CHECK(it.properties[2].value == "The Deep");
+        CHECK(it.properties[3].key == PropertyKey::ItemLevel);
+    }
+    SUBCASE("it is not gear, whatever the rarity line says") {
+        // The rules that tell a rare's mods from its prose all fire on the rarity line, and
+        // none of them applies: a monster modifier is the captured monster's own ability
+        // rather than a roll from an affix pool on a base.
+        CHECK_FALSE(parse("items", "beast-croaker.txt").is_gear());
+    }
+    SUBCASE("the bestiary line is a usage note, not a modifier") {
+        // "Right-click to add this to your bestiary." sits exactly where flavour text does and
+        // is told from it by wording alone — and the hyphenated spelling is not a variant of
+        // the "Right click" the rest of the game prints, so a needle matching that one never
+        // matched this. It came back as a fourth, unrecognised modifier.
+        const Item it = parse("items", "beast-croaker.txt");
+        CHECK(it.help_text == std::vector<std::string>{
+                                  "Right-click to add this to your bestiary."});
+        CHECK(it.flavour_text.empty());
+        CHECK(it.mods.size() == 3);
+    }
+    SUBCASE("the monster modifiers keep their tier and their info-line tags") {
+        // Parsed like any Advanced Mod Descriptions affix even though none of them is one:
+        // the info line is real, the tier is real, and the panel shows both. What they are
+        // not is searchable — that is `plan_beast`'s business, not the parser's.
+        const Item it = parse("items", "beast-farric-goliath.txt");
+        REQUIRE(it.mods.size() == 5);
+        CHECK(it.mods[0].lines == std::vector<std::string>{"Evasive"});
+        CHECK(it.mods[0].tier == 1);
+        CHECK(it.mods[0].advanced);
+        CHECK(it.mods[2].lines == std::vector<std::string>{"Spikes on Death"});
+        CHECK(it.mods[2].tier == 0); // "{ Monster Modifier }" — no tier printed
+        CHECK(it.mods[3].tags == std::vector<std::string>{"Life"});
+    }
+}
+
 TEST_CASE("a map's tier comes off the base line, which is otherwise the same on every one") {
     // Every ordinary map shares one base type now, so "Map (Tier 16)" is the whole of what
     // tells one from another — and the parenthetical is not part of a name any lookup knows.
@@ -556,4 +613,219 @@ TEST_CASE("\"Modifiable only with…\" is a note about the map, not a modifier o
     CHECK(it.help_text.size() == 2);
     for (const Modifier& m : it.mods)
         CHECK(m.lines.front().find("Modifiable only with") == std::string::npos);
+}
+
+TEST_CASE("an Inscribed Ultimatum is a contract, not a currency item with prose on it") {
+    // Nothing on the header says what it is. "Misc Map Items" is the class it shares with
+    // every invitation and "Currency" is the rarity line an orb prints — and unlike a beast,
+    // which at least resolves to a base of its own, two ultimatums differ in nothing the
+    // header states. The property block is the whole of what one is.
+    SUBCASE("the trial is what identifies it, and it is a property rather than a modifier") {
+        const Item it = parse("items", "ultimatum-currency-divine-x8.txt");
+        CHECK(it.item_class == "Misc Map Items");
+        CHECK(it.rarity == Rarity::Currency);
+        CHECK(it.is_ultimatum());
+        CHECK(it.base_type == "Inscribed Ultimatum");
+        CHECK(it.name.empty());
+        // No item level at all, which is what the fragment rule would otherwise read as
+        // "a bulk good with nothing to filter on".
+        CHECK_FALSE(it.item_level.has_value());
+
+        REQUIRE(it.properties.size() == 4);
+        CHECK(it.properties[0].key == PropertyKey::Challenge);
+        CHECK(it.properties[0].value == "Stand in the Stone Circles");
+        CHECK(it.properties[1].key == PropertyKey::AreaLevel);
+        CHECK(it.properties[1].num == 83);
+        CHECK(it.properties[2].key == PropertyKey::RequiresSacrifice);
+        CHECK(it.properties[2].value == "Divine Orb x8");
+        CHECK(it.properties[3].key == PropertyKey::Reward);
+        CHECK(it.properties[3].value == "Doubles sacrificed Currency");
+    }
+    SUBCASE("it is not gear, and its hazards are ordinary modifier lines") {
+        const Item it = parse("items", "ultimatum-currency-divine-x8.txt");
+        CHECK_FALSE(it.is_gear());
+        // Thirteen lines in one block: eleven hazards and the two numbers that scale the
+        // stake. Which of them is searched is `plan_ultimatum`'s business, not the parser's.
+        REQUIRE(it.mods.size() == 13);
+        CHECK(it.mods.front().lines == std::vector<std::string>{"Raging Dead"});
+        CHECK(it.mods.back().lines == std::vector<std::string>{"120% more Monster Life"});
+        CHECK(it.help_text.size() == 1);
+        CHECK(it.flavour_text.empty());
+    }
+    SUBCASE("the seller's note is read off it like any other listing's") {
+        // This capture came off a listing rather than out of a stash tab, which is what makes
+        // it the one that can say what an ultimatum of its shape was actually asked for.
+        CHECK(parse("items", "ultimatum-currency-divine-x8.txt").note == "~b/o 900 chaos");
+    }
+    SUBCASE("the reward is whatever the line says, including a unique's bare name") {
+        // Three of the four rewards are a wording; the fourth is the unique itself, and the
+        // parser is not the layer that knows the difference.
+        CHECK(parse("items", "ultimatum-mageblood.txt").properties[3].value == "Mageblood");
+        CHECK(parse("items", "ultimatum-mirror.txt").properties[3].value ==
+              "Item and Mirrored Copy");
+        CHECK(parse("items", "ultimatum-mirror.txt").properties[2].value ==
+              "Mirrorable, Rare Item");
+    }
+}
+
+TEST_CASE("a heist contract and blueprint are read off their property block") {
+    // The one item class here that says what it is on the header line. What it does *not* say is
+    // anything the site indexes it on: the reveal counts, the job levels and the objective's
+    // value are all in the property block, and one of them is not a "label: value" line at all.
+    SUBCASE("the area is the base, and a rare's own name is generated per copy") {
+        const Item it = parse("items", "heist-contract-rare-tunnels.txt");
+        CHECK(it.item_class == "Contracts");
+        CHECK(it.is_heist_contract());
+        CHECK(it.is_heist());
+        CHECK_FALSE(it.is_heist_blueprint());
+        CHECK(it.name == "Gloom Testament");
+        CHECK(it.base_type == "Contract: Tunnels");
+    }
+    SUBCASE("a unique contract carries the \"Contract: \" in its name, not in its base") {
+        // Which is how the trade site files it too, so nothing is stripped off either line.
+        const Item it = parse("items", "heist-contract-unique-slaver-king.txt");
+        CHECK(it.rarity == Rarity::Unique);
+        CHECK(it.name == "Contract: The Slaver King");
+        CHECK(it.base_type == "Vigilante Contract");
+    }
+    SUBCASE("a magic blueprint's affixes wrap the base line") {
+        const Item it = parse("items", "heist-blueprint-magic-records-office.txt");
+        CHECK(it.is_heist_blueprint());
+        CHECK(it.rarity == Rarity::Magic);
+        CHECK(it.name.empty());
+        CHECK(it.base_type == "Deployed Blueprint: Records Office of Spine-Chilling");
+    }
+    SUBCASE("a job requirement is a property, kept as the sentence the game wrote") {
+        // "Requires Brute Force (Level 4)" has no colon in it, so it used to come out as a
+        // label-less line with no key and no number — and the panel draws it whole, which is
+        // why the line survives verbatim rather than being taken apart into label and value.
+        const Item it = parse("items", "heist-blueprint-rare-underbelly.txt");
+        std::vector<std::pair<std::string, double>> jobs;
+        for (const Property& p : it.properties)
+            if (p.key == PropertyKey::HeistJob) jobs.emplace_back(p.value, p.num.value_or(-1));
+        REQUIRE(jobs.size() == 3);
+        CHECK(jobs[0] == std::pair<std::string, double>{"Requires Brute Force (Level 4)", 4});
+        CHECK(jobs[1] == std::pair<std::string, double>{"Requires Agility (Level 3)", 3});
+        CHECK(jobs[2] == std::pair<std::string, double>{"Requires Deception (Level 1)", 1});
+        for (const Property& p : it.properties)
+            if (p.key == PropertyKey::HeistJob) CHECK(p.label.empty());
+    }
+    SUBCASE("the reveal counts keep both numbers, and the target keeps its value") {
+        const Item it = parse("items", "heist-blueprint-rare-tunnels-full.txt");
+        const auto value_of = [&it](PropertyKey k) {
+            for (const Property& p : it.properties)
+                if (p.key == k) return p.value;
+            return std::string();
+        };
+        CHECK(value_of(PropertyKey::WingsRevealed) == "4/4");
+        CHECK(value_of(PropertyKey::EscapeRoutesRevealed) == "8/8");
+        CHECK(value_of(PropertyKey::RewardRoomsRevealed) == "28/28");
+        CHECK(parse("items", "heist-contract-rare-laboratory.txt")
+                  .properties[1]
+                  .value == "Sword of the Inverse Relic (Priceless)");
+    }
+    SUBCASE("handing the item to Adiyah is a usage note, not a modifier") {
+        // Two sentences, neither of them opening with a click instruction, sitting exactly
+        // where a mod block can. On a unique contract it was the only "modifier" on the item.
+        const Item it = parse("items", "heist-contract-unique-slaver-king.txt");
+        CHECK(it.mods.empty());
+        REQUIRE(it.help_text.size() == 1);
+        CHECK(it.help_text.front().find("Adiyah") != std::string::npos);
+        CHECK(it.flavour_text.size() == 2);
+
+        const Item bp = parse("items", "heist-blueprint-rare-tunnels-full.txt");
+        CHECK(bp.mods.size() == 8); // the enchant and seven hazards, and nothing else
+        CHECK(bp.help_text.size() == 1);
+    }
+    SUBCASE("the same item copied out of the game rather than off a listing") {
+        // These captures came from trade, so each ends with a separator and a "Note: ~b/o".
+        // In game there is neither, and nothing else about the item changes.
+        const std::string listed = capture("items", "heist-contract-rare-laboratory.txt");
+        const size_t note = listed.rfind("--------\nNote:");
+        REQUIRE(note != std::string::npos);
+        const std::optional<Item> stripped = parse_item_en(listed.substr(0, note));
+        REQUIRE(stripped.has_value());
+        const Item in_game = *stripped;
+        const Item off_trade = parse("items", "heist-contract-rare-laboratory.txt");
+        CHECK(in_game.note.empty());
+        CHECK(off_trade.note == "~b/o 1 chaos");
+        CHECK(in_game.name == off_trade.name);
+        CHECK(in_game.base_type == off_trade.base_type);
+        CHECK(in_game.properties.size() == off_trade.properties.size());
+        CHECK(in_game.mods.size() == off_trade.mods.size());
+        CHECK(in_game.flavour_text == off_trade.flavour_text);
+        CHECK(in_game.help_text == off_trade.help_text);
+    }
+}
+
+TEST_CASE("an itemised sanctum's state is properties, and its affixes are sanctum modifiers") {
+    SUBCASE("the floor is the base, and the class is what says this is a sanctum") {
+        const Item it = parse("items", "sanctum-vaults-rooms.txt");
+        CHECK(it.item_class == "Sanctum Research");
+        CHECK(it.is_sanctum());
+        CHECK(it.rarity == Rarity::Normal);
+        CHECK(it.name.empty());
+        CHECK(it.base_type == "Sanctum Vaults Research");
+    }
+    SUBCASE("resolve, inspiration and aureus get keys, and resolve keeps both numbers") {
+        const Item it = parse("items", "sanctum-vaults-partial-resolve.txt");
+        const auto value_of = [&it](PropertyKey k) {
+            for (const Property& p : it.properties)
+                if (p.key == k) return p.value;
+            return std::string();
+        };
+        CHECK(value_of(PropertyKey::Resolve) == "299/300");
+        CHECK(value_of(PropertyKey::Inspiration) == "0");
+        CHECK(value_of(PropertyKey::Aureus) == "399");
+        // The augment annotation comes off the value the way it does everywhere else, and
+        // the property records that it was there.
+        const Item full = parse("items", "sanctum-vaults-rooms.txt");
+        for (const Property& p : full.properties)
+            if (p.key == PropertyKey::Resolve) {
+                CHECK(p.value == "328/328");
+                CHECK(p.augmented);
+            }
+    }
+    SUBCASE("minor and major share a key each; the names stay in the value") {
+        const Item it = parse("items", "sanctum-vaults-major-boon.txt");
+        std::vector<std::pair<std::string, std::string>> effects;
+        for (const Property& p : it.properties)
+            if (p.key == PropertyKey::Boons || p.key == PropertyKey::Afflictions)
+                effects.emplace_back(p.label, p.value);
+        REQUIRE(effects.size() == 2);
+        CHECK(effects[0] == std::pair<std::string, std::string>{"Major Boons", "Gold Coin"});
+        CHECK(effects[1] == std::pair<std::string, std::string>{
+                                "Minor Afflictions", "Weakened Flesh, Sharpened Arrowhead"});
+    }
+    SUBCASE("the affixes are typed sanctum, and the prose under them is not one of them") {
+        // "The treasures within are tainted by a black spirit." sits between the affixes and
+        // the usage note, which is exactly where a rare's wordy modifier would be — it came
+        // out as a third modifier that matched nothing. And with the default mod type the two
+        // real ones matched nothing either: every sanctum stat lives in its own namespace.
+        const Item it = parse("items", "sanctum-vaults-major-boon.txt");
+        REQUIRE(it.mods.size() == 2);
+        CHECK(it.mods[0].type == ModType::Sanctum);
+        CHECK(it.mods[1].type == ModType::Sanctum);
+        CHECK(it.mods[0].lines.front() == "The Merchant has 10 additional Choices");
+        CHECK(it.mods[1].lines.front() == "40% reduced Merchant Prices");
+        REQUIRE(it.flavour_text.size() == 1);
+        CHECK(it.flavour_text.front().starts_with("The treasures within"));
+        REQUIRE(it.help_text.size() == 1);
+        CHECK(it.unmodifiable);
+    }
+    SUBCASE("a sanctum whose only affix is prose keeps it as a modifier") {
+        // The other half of the position rule: the affix block is not the last prose block,
+        // so a digitless affix stays a modifier rather than being read as the item's own line.
+        const std::string text = capture("items", "sanctum-vaults-rooms.txt");
+        const size_t at = text.find("18 additional Rooms are revealed on the Sanctum Map");
+        REQUIRE(at != std::string::npos);
+        std::string swapped = text;
+        swapped.replace(at, std::strlen("18 additional Rooms are revealed on the Sanctum Map"),
+                        "Cannot have Boons");
+        const std::optional<Item> it = parse_item_en(swapped);
+        REQUIRE(it.has_value());
+        REQUIRE(it->mods.size() == 1);
+        CHECK(it->mods.front().lines.front() == "Cannot have Boons");
+        CHECK(it->flavour_text.size() == 1);
+    }
 }

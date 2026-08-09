@@ -49,16 +49,53 @@ enum class PropertyKey : uint8_t {
     MemoryStrands,
     Intangibility,
     StoredExperience,
-    Reward, ///< a Valdo map's payout, and the only map that prints one
+    /// What an item pays out: a Valdo map's unique, and an Inscribed Ultimatum's reward. The
+    /// only map that prints one, and the two are told apart by the item rather than by the key.
+    Reward,
     AreaLevel,
     ChartShape,
     Sulphur,
+    /// An itemised beast's taxonomy. Only a beast prints them, which is what makes `Genus` the
+    /// marker for one: the item class it shares with every orb in the game says nothing.
+    Genus,
+    Group,
+    Family,
+    /// An Inscribed Ultimatum's trial. Only an ultimatum prints one, which is what makes
+    /// `Challenge` the marker for one: its item class is the "Misc Map Items" it shares with
+    /// every invitation and its rarity line says "Currency" like an orb's.
+    Challenge,
+    RequiresSacrifice,
+    /// What a heist contract sends the crew after. Its parenthetical is the objective's value
+    /// ("Ancient Seal (Precious)"), which is the one thing trade indexes about it.
+    HeistTarget,
+    /// A blueprint's reveal state, printed as "revealed/total" — two numbers in one value, and
+    /// trade takes each as a filter of its own.
+    WingsRevealed,
+    EscapeRoutesRevealed,
+    RewardRoomsRevealed,
+    /// One "Requires Brute Force (Level 4)" line. Deliberately kept label-less with the whole
+    /// line as its value, because that is how the game prints it and how the panel draws it;
+    /// which job it names is a lexicon lookup at the point of use.
+    HeistJob,
+    /// An itemised sanctum's state. `Resolve` is printed as "299/300" — what is left and what
+    /// the run started with, two numbers in one value, and trade takes each as a filter of its
+    /// own.
+    Resolve,
+    Inspiration,
+    Aureus,
+    /// The boons and afflictions the run has picked up, printed as a comma-separated list of
+    /// names. **One key each for minor and major**: the label says which, and what a search
+    /// needs is the name, because every one of them is its own trade stat.
+    Boons,
+    Afflictions,
     Count
 };
 
 /// The item classes the app branches on. Every other class is `Other` — the trade category
 /// comes from the bundle and needs no enum here.
-enum class ClassKind : uint8_t { Other, Flask, Map, MapFragment, Chart };
+enum class ClassKind : uint8_t {
+    Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint, SanctumResearch
+};
 
 /// A flag the game prints on a line of its own. Influence lines are not among them: they are
 /// a wording (`" Item"` on the end of an influence's name) rather than a fixed set.
@@ -105,6 +142,13 @@ enum class Term : uint8_t {
     ReqInt,
     CosmeticPrefix,   ///< "Has " … " Effect"
     CosmeticSuffix,
+    HeistJobPrefix,   ///< "Requires ", opening a heist item's job line
+    HeistJobLevel,    ///< " (Level ", closed by ')' — "Requires Brute Force (Level 4)"
+    /// "Has ", how a **stat** words a sanctum boon or affliction — `Has Rusted Chimes`, where
+    /// the item prints the name alone under a `Minor Boons:` label. The one entry here that is
+    /// a stat's wording rather than the client's, and it is here because a translated bundle
+    /// translates it just the same and the lookup is by exact wording.
+    SanctumEffectPrefix,
     Augmented,        ///< the "(augmented)" annotation, the one whose presence is recorded
     AddsPrefix,       ///< "Adds " — which added-damage mod coloured which elemental entry
     FireDamage,
@@ -129,6 +173,24 @@ enum class TermList : uint8_t {
     /// makes the join possible; sending that text answers "Invalid chart shape" and fails the
     /// whole search, so the id is never guessed from the words.
     ChartShapes,
+    /// An ultimatum's trial, in the order of the `ultimatum_challenge` option ids trade
+    /// publishes — entry `i` is `kUltimatumChallengeIds[i]`. Same join as the chart shapes: the
+    /// game prints the option's own words, so the English entries are the site's own text and
+    /// the comparison is case-insensitive, because the client prints "Defeat waves of enemies"
+    /// where the site prints "Defeat Waves of Enemies".
+    UltimatumChallenges,
+    /// An ultimatum's reward, in the order of the first three `ultimatum_reward` option ids.
+    /// **Three, not four**: the fourth reward is a unique, and the line the game prints for it
+    /// is that unique's name rather than a wording of its own.
+    UltimatumRewards,
+    /// The nine rogue jobs, in the order of the `heist_*` filter keys they map to. Searched
+    /// *inside* a job line rather than compared to it, because the line the game prints wraps
+    /// the name ("Requires Counter-Thaumaturgy (Level 4)") and the panel draws that line whole.
+    HeistJobs,
+    /// A heist objective's value, in the order of the `heist_objective_value` option ids. What
+    /// the game prints in the parenthetical after the target's name, so "Precious" and not
+    /// "(Precious)".
+    HeistObjectiveValues,
     Count
 };
 

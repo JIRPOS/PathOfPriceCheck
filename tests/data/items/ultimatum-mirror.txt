@@ -1,0 +1,27 @@
+Item Class: Misc Map Items
+Rarity: Currency
+Inscribed Ultimatum
+--------
+Challenge: Stand in the Stone Circles
+Area Level: 83
+Requires Sacrifice: Mirrorable, Rare Item
+Reward: Item and Mirrored Copy
+--------
+Choking Miasma III
+Raging Dead
+Blistering Cold
+Stalking Ruin
+Totem of Costly Might
+Buffs Expire Faster
+Drought
+Ailment and Curse Reflection
+Siphoned Charges
+Shattered Shield
+Precise Monsters
+Prismatic Monsters
+Resistant Monsters
+50% increased Monster Damage
+200% more Monster Life
+--------
+Can be used in a personal map device to open portals to the Trialmaster's Domain and attempt his challenge. Portals will close once the challenge begins. While viewing your Atlas, Right-click this item to pinpoint its location.
+--------

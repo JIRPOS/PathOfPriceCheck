@@ -1,0 +1,30 @@
+Item Class: Contracts
+Rarity: Rare
+Wrath Manifesto
+Contract: Laboratory
+--------
+Client: Administrator Qotra
+Heist Target: Sword of the Inverse Relic (Priceless)
+Area Level: 83
+Requires Demolition (Level 2)
+Item Quantity: +52% (augmented)
+Item Rarity: +31% (augmented)
+Alert Level Reduction: +20% (augmented)
+Time Before Lockdown: +20% (augmented)
+Maximum Alive Reinforcements: +20% (augmented)
+--------
+Item Level: 83
+--------
+Area has patches of Shocked Ground which increase Damage taken by 50%
+30% increased number of Rare Monsters
+Players are Cursed with Temporal Chains
+Reinforcements have 18% increased Attack Speed
+Reinforcements have 16% increased Cast Speed
+Reinforcements have 10% increased Movement Speed
+--------
+"By all accounts, the Sword of the Inverse Relic was found aged and rusted,
+but is becoming less weathered over time. We really must study its properties."
+--------
+Give this Contract to Adiyah in the Rogue Harbour to embark on the Heist.
+--------
+Note: ~b/o 1 chaos
