@@ -570,6 +570,12 @@ bool looks_like_mods(const Section& sec, const data::Lexicon& lex) {
 bool is_bottom_prose(const Item& it, const Section& sec, size_t index, size_t flavour_at) {
     if (sec.front().starts_with("\"")) return true;
     if (!it.is_gear()) return true;
+    // A sanctum prints one line of prose about the run between its affixes and the usage note —
+    // "The treasures within are tainted by a black spirit." — which is exactly where a rare's
+    // wordy modifier would be, so the *position* is what tells them apart. Only the last such
+    // block: several of its affixes carry no number ("Cannot have Boons"), and taking the first
+    // one would swallow them.
+    if (it.is_sanctum()) return index == flavour_at;
     return index == flavour_at && it.rarity == Rarity::Unique && !it.mods.empty();
 }
 
@@ -733,7 +739,13 @@ std::optional<Item> parse_item(std::string_view clipboard, const data::Lexicon& 
             if (!flags.empty()) parse_flags(flags, it, lex);
             if (mods.empty()) continue;
             mod_sections.push_back(it.mods.size());
-            parse_mod_section(mods, data::ModType::Explicit, it, lex);
+            // A sanctum's affixes carry no mod-type suffix and are not explicit: the trade site
+            // files every one of them in a `sanctum.` namespace of its own, and the matcher
+            // resolves a wording against one namespace at a time — so with the default fallback
+            // "The Merchant has 10 additional Choices" matched nothing at all.
+            parse_mod_section(mods,
+                              it.is_sanctum() ? data::ModType::Sanctum : data::ModType::Explicit,
+                              it, lex);
         }
     }
 

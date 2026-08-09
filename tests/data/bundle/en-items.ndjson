@@ -40,3 +40,4 @@
 {"craftable":{"category":"Blueprints"},"dropLevel":50,"h":1,"metadataId":"Metadata/Items/Heist/HeistBlueprintCourts","name":"Blueprint: Records Office","namespace":"ITEM","refName":"Blueprint: Records Office","w":1}
 {"craftable":{"category":"Contracts"},"dropLevel":80,"h":1,"metadataId":"Metadata/Items/Heist/QuestContracts/HeistContractQuestWhakanoRepeatable","name":"Vigilante Contract","namespace":"ITEM","refName":"Vigilante Contract","w":1}
 {"art":"Art/2DItems/Currency/Heist/SlaveMerchantFightContract.png","name":"Contract: The Slaver King","namespace":"UNIQUE","refName":"Contract: The Slaver King","unique":{"base":"Vigilante Contract"}}
+{"craftable":{"category":"Sanctum Research"},"dropLevel":68,"h":1,"metadataId":"Metadata/Items/Sanctum/SanctumFloor2","name":"Sanctum Vaults Research","namespace":"ITEM","refName":"Sanctum Vaults Research","w":1}

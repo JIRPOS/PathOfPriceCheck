@@ -34,6 +34,10 @@ std::string_view group_for(std::string_view key) {
     // The reveal counts and the nine rogue-job levels. `area_level` above is deliberately not
     // among them: a heist item asks about one, and the site still files it under Map/Chart.
     if (key.starts_with("heist_")) return "heist_filters";
+    // Resolve, Maximum Resolve, Inspiration and Aureus — the whole group, and `area_level` is
+    // the same exception it is for a heist item: a sanctum asks about one and it stays in
+    // Map/Chart. `sanctum_gold` is the site's own name for what the item calls Aureus.
+    if (key.starts_with("sanctum_")) return "sanctum_filters";
     return {};
 }
 
@@ -107,6 +111,10 @@ bool searchable(const item::SearchPlan& p) {
         // A gem is bought by name and has no modifiers to fall back on, so a plan that could
         // not name it has nothing left to ask: the search would be every gem in the game at
         // this level, and its cheapest listing would read as this gem's price.
+        // A sanctum, on the heist reading: the floor is the type term, and the category left
+        // when the bundle cannot name one is still a real question, because resolve, aureus and
+        // the boons are what tell two runs apart and none of them lives in the type.
+        case item::Strategy::Sanctum: return !p.type.empty() || !p.category.empty();
         case item::Strategy::Gem: return !p.type.empty();
         // Currency is bought in bulk and has nothing a stat query could ask about — except the
         // one kind that is not interchangeable, which the plan says so about by naming a type.
@@ -186,7 +194,8 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!p.rarity.empty()) type_filters["rarity"] = json{{"option", p.rarity}};
 
     json misc = json::object(), armour = json::object(), weapon = json::object(),
-         map = json::object(), ultimatum = json::object(), heist = json::object();
+         map = json::object(), ultimatum = json::object(), heist = json::object(),
+         sanctum = json::object();
     // Whether an option has a row in the panel is the plan's business; all that matters here is
     // that an unticked one is not asked for. `map_completion_reward` rides the same path and
     // takes a unique's own name rather than a boolean, which is why the value is a string all
@@ -211,9 +220,10 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
         if (v.empty()) continue;
         (g == "misc_filters"     ? misc
          : g == "armour_filters" ? armour
-         : g == "map_filters"    ? map
-         : g == "heist_filters"  ? heist
-                                 : weapon)[f.key] = std::move(v);
+         : g == "map_filters"     ? map
+         : g == "heist_filters"   ? heist
+         : g == "sanctum_filters" ? sanctum
+                                  : weapon)[f.key] = std::move(v);
     }
     json filters = json::object();
     filters["type_filters"] = json{{"filters", std::move(type_filters)}};
@@ -223,6 +233,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!map.empty()) filters["map_filters"] = json{{"filters", std::move(map)}};
     if (!ultimatum.empty()) filters["ultimatum_filters"] = json{{"filters", std::move(ultimatum)}};
     if (!heist.empty()) filters["heist_filters"] = json{{"filters", std::move(heist)}};
+    if (!sanctum.empty()) filters["sanctum_filters"] = json{{"filters", std::move(sanctum)}};
 
     json q = json::object();
     q["status"] = json{{"option", valid_status(status) ? status : kDefaultStatus}};

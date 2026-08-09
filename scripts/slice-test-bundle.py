@@ -97,6 +97,24 @@ STATS = [
     # Life" above is a hazard too — the same stat an ultimatum stakes on.
     "Heist Targets are always Enchanted Armaments",
     "Players are Cursed with Temporal Chains",
+    # A sanctum's two shapes of modifier, both of them only searchable in the `sanctum`
+    # namespace — which is what the parser has to type them as, and the reason they are here at
+    # all. The first pair is the ordinary affix; the boons and afflictions after it are stats
+    # too, one per effect, looked up by the name the item prints under a "Has ".
+    "The Merchant has # additional Choices",
+    "#% increased Merchant Prices",
+    "# additional Rooms are revealed on the Sanctum Map",
+    "Has Rusted Chimes",
+    "Has Sharpened Arrowhead",
+    "Has Gold Coin",
+    "Has Weakened Flesh",
+    "Has Scrying Crystal",
+    "Has Gold Mine",
+    "Has Enchanted Urn",
+    "Has Empty Trove",
+    # "Has Red Smoke" — the second affliction of the third capture — is deliberately **not**
+    # here, for the reason Porcupine Goliath and Dialla's Subjugation are not: an effect the
+    # bundle cannot name has to be left out of the search and said out loud.
 ]
 
 ITEMS = [
@@ -182,6 +200,9 @@ ITEMS = [
     "ITEM::Blueprint: Records Office",
     "ITEM::Vigilante Contract",
     "UNIQUE::Contract: The Slaver King",
+    # An itemised sanctum. One floor of the four is enough: they differ only by name, and the
+    # base is the whole of what a sanctum's identity is looked up for.
+    "ITEM::Sanctum Vaults Research",
 ]
 
 UNIQUE_MODS = [
@@ -192,7 +213,8 @@ UNIQUE_MODS = [
 
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
-                "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints"]
+                "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
+                "Sanctum Research"]
 
 LANG = "en"
 

@@ -50,6 +50,11 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   lets the client's own words be sent as the id the site wants), and the property and item-class
   tables are keyed the other way round, printed label to key, so a translated one replaces the
   English outright.
+  **One entry here is not the client's wording at all**: `Term::SanctumEffectPrefix`, the `Has `
+  a sanctum boon or affliction's *stat* is worded with, where the item prints the name alone
+  under a `Minor Boons:` label. It lives here because a translated bundle translates the stat
+  along with everything else and the lookup is by exact wording, so it is per-language in the
+  same way the rest of this table is.
   **An empty entry never matches**, deliberately: `starts_with("")` is true of every line, and
   `ModType::Explicit` has no generation word of its own.
   `parse_item` and `looks_like_item` **take a lexicon and have no default**. The language is

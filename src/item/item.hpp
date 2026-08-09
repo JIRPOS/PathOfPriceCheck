@@ -233,6 +233,10 @@ struct Item {
     bool is_heist_contract() const;
     bool is_heist_blueprint() const;
     bool is_heist() const;
+    /// An itemised sanctum — a Forbidden Sanctum run in progress, sold on how far it has got and
+    /// what it has picked up along the way. The item class ("Sanctum Research") is its own, as a
+    /// heist item's is.
+    bool is_sanctum() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is

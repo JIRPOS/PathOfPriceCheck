@@ -67,9 +67,22 @@ bundle, and only the third and fourth encode pricing judgement.
     numbers ("3/21") for the same reason. Its usage note is two sentences and neither opens with
     a click instruction, so **"Adiyah"** — the fence both are handed to — is the needle, and
     without it a unique contract's only "modifier" was the instruction to hand it in.
+    An **itemised sanctum** names itself on the header line too ("Sanctum Research", another
+    `ClassKind`), and what it hides is two things. Its state is properties — `Resolve`,
+    `Inspiration`, `Aureus`, and the boons and afflictions as comma-separated lists of names,
+    minor and major sharing a key each because the label is what says which and the *names* are
+    what a search needs. And **its affixes are not explicit**: every sanctum stat the site
+    publishes lives in a `sanctum.` namespace alone, and a wording is resolved against one
+    namespace at a time, so with the ordinary fallback "The Merchant has 10 additional Choices"
+    matched nothing at all — the mod section's fallback type is `ModType::Sanctum` on one.
+    It is also the one item where a prose block's **position** is what tells it from a modifier:
+    "The treasures within are tainted by a black spirit." sits between the affixes and the usage
+    note, exactly where a rare's wordy modifier would, so `is_bottom_prose` takes the *last*
+    prose block and only that one — several sanctum affixes carry no number ("Cannot have Boons")
+    and taking the first would swallow them.
   - Mod type comes from the ` (implicit)` / ` (crafted)` / … suffix, else from an Advanced Mod
-    Descriptions info line's generation words, else Explicit. A flask enchant carries no suffix, so
-    on a flask the earlier of two unsuffixed sections is the enchant.
+    Descriptions info line's generation words, else Explicit — except on a sanctum, above. A flask
+    enchant carries no suffix, so on a flask the earlier of two unsuffixed sections is the enchant.
   - The info line's em-dash segments are tags **and** "— 20% Increased", which is a catalyst saying
     it scaled this mod. The clipboard prints the *unscaled* roll and range in that case (`30(20-30)`
     where the tooltip reads 36%), so `roll_incr` is applied to both in `match_stat`. A plain `" - "`
@@ -416,6 +429,34 @@ bundle, and only the third and fourth encode pricing judgement.
   A **unique** contract is left to the unique strategy: it is bought for its name, and the name
   fixes everything else about it. Trade files it under the name the clipboard prints, `"Contract:
   The Slaver King"` — prefix and all — so nothing is stripped off either name line.
+- **`item/plan`'s sanctum strategy** (`plan_sanctum`) prices a **run in progress**, and it is the
+  one strategy here where nothing is left unticked on the argument that it is a roll. A sanctum
+  is "Unmodifiable" — no currency can be applied to it again — so its affixes are as much a part
+  of what is being bought as its resolve is, and there is no re-rollable half to hold back.
+  Imposed: the **floor**, which is the base type (an Archives run and a Vaults run are different
+  items); the **area level**, exact, the reading a chart's, an ultimatum's and a heist item's
+  already get; **Resolve**, **Inspiration** and **Aureus** as floors, since more of each is
+  strictly more of what is being finished; **every boon and affliction**; and the **affixes**,
+  through the ordinary mod path.
+  The boons and afflictions are the interesting join. They are printed as a **property** — a
+  comma-separated list of names under `Minor Boons:` / `Major Afflictions:` — and each of them is
+  a stat of its own, `sanctum.sanctum_effect_…`, whose wording is the name with a `Has ` in front
+  ("Has Rusted Chimes"). So the filters are built in `plan_sanctum` rather than by `to_filter`,
+  with no `mod_index` behind them, and the prefix is a lexicon entry (`Term::SanctumEffectPrefix`)
+  because a translated bundle translates the stat too. A name the bundle has no stat for is left
+  out and said out loud, the way an unknown beast species or ultimatum stake is: the effect list
+  grows with the league.
+  **Maximum Resolve is the one row seeded and left unticked.** Resolve is printed as `299/300` and
+  both numbers are read, but the second says more about the character that opened the sanctum than
+  about how much run is left to sell — so it is offered open on the right and the tick is the
+  reader's.
+  Everything here was verified live one filter at a time, with an impossible bound in place of the
+  item's own value: `sanctum_resolve`, `sanctum_max_resolve`, `sanctum_inspiration`, `sanctum_gold`
+  and `area_level` each took the result to **0**, and adding one effect stat the item does not
+  carry did the same — so all of them are indexed, `sanctum_max_resolve` included, and none of
+  them is a `heist_max_escape_routes`. What could **not** be measured is how narrow any of them
+  is: the whole `sanctum.research` category held **1** listing in the league at the time, so
+  every count from "type and category alone" up to the full eleven-filter plan was the same 1.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is

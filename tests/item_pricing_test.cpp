@@ -2144,3 +2144,101 @@ TEST_CASE("a heist item is searched on the run it opens, not on the danger it ro
         CHECK(p.notes.empty());
     }
 }
+
+TEST_CASE("an itemised sanctum is searched on the state of the run") {
+    auto gd = fixture();
+
+    SUBCASE("it gets its own strategy rather than being read as a white base item") {
+        // "Rarity: Normal" is all the game has to print on that line, and planning it as a base
+        // item searched for an empty Sanctum Vaults Research at this item level — every run in
+        // the league, and none of what tells two of them apart.
+        const Item it = resolved(*gd, capture("sanctum-vaults-rooms.txt"));
+        CHECK(it.rarity == Rarity::Normal);
+        CHECK(default_strategy(it) == Strategy::Sanctum);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Sanctum Vaults Research");
+        CHECK(p.category == "sanctum.research");
+        CHECK(numeric_for(p, "ilvl") == nullptr);
+    }
+
+    SUBCASE("resolve, inspiration and aureus are floors; the area level is exact") {
+        const Item it = resolved(*gd, capture("sanctum-vaults-rooms.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        const NumericFilter* lvl = numeric_for(p, "area_level");
+        REQUIRE(lvl != nullptr);
+        CHECK(lvl->enabled);
+        CHECK(lvl->min == 83);
+        CHECK(lvl->max == 83);
+
+        for (const auto& [key, min] : std::vector<std::pair<const char*, double>>{
+                 {"sanctum_resolve", 328}, {"sanctum_inspiration", 30}, {"sanctum_gold", 419}}) {
+            const NumericFilter* f = numeric_for(p, key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK_MESSAGE(f->enabled, key);
+            CHECK_MESSAGE(f->min == min, key);
+            CHECK_MESSAGE(!f->max.has_value(), key);
+        }
+    }
+
+    SUBCASE("resolve is two numbers, and only the current one is asked for") {
+        // "299/300" — what is left of the run, and what the character it started on could take.
+        // The maximum is offered open on the right and left unticked: it says more about the
+        // build that opened the sanctum than about how much run is left to sell.
+        const Item it = resolved(*gd, capture("sanctum-vaults-partial-resolve.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(numeric_for(p, "sanctum_resolve")->min == 299);
+        const NumericFilter* max = numeric_for(p, "sanctum_max_resolve");
+        REQUIRE(max != nullptr);
+        CHECK_FALSE(max->enabled);
+        CHECK(max->min == 300);
+        CHECK_FALSE(max->max.has_value());
+    }
+
+    SUBCASE("every boon and affliction is its own stat filter") {
+        const Item it = resolved(*gd, capture("sanctum-vaults-major-boon.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        // Major and minor alike: which of the two it is stays on the item beside the panel, and
+        // the stat the site indexes is the effect's own name either way.
+        for (const char* name : {"Has Gold Coin", "Has Weakened Flesh", "Has Sharpened Arrowhead"}) {
+            const StatFilter* f = filter_saying(p, name);
+            REQUIRE_MESSAGE(f != nullptr, name);
+            CHECK_MESSAGE(f->enabled, name);
+            CHECK_MESSAGE(f->type == ppc::data::ModType::Sanctum, name);
+            CHECK_MESSAGE(f->id.starts_with("sanctum.sanctum_effect_"), name);
+            // Not a modifier — the game prints these as a property — so nothing points back.
+            CHECK_MESSAGE(!f->mod_index.has_value(), name);
+        }
+    }
+
+    SUBCASE("the affixes are searched in the sanctum namespace and nowhere else") {
+        // Every one of these stats is indexed under `sanctum.` alone. With the parser's default
+        // mod type they resolved to nothing at all and came back as unrecognised modifiers.
+        const Item it = resolved(*gd, capture("sanctum-vaults-major-boon.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const StatFilter* choices = filter_saying(p, "The Merchant has 10 additional Choices");
+        REQUIRE(choices != nullptr);
+        CHECK(choices->enabled);
+        CHECK(choices->id == "sanctum.stat_290775436");
+        // The inverse wording: the stat is stored as an increase and the site indexes it that
+        // way, so 40% reduced is a bound on the negative side.
+        const StatFilter* prices = filter_saying(p, "40% reduced Merchant Prices");
+        REQUIRE(prices != nullptr);
+        CHECK(prices->id == "sanctum.stat_3096446459");
+        CHECK(prices->max.value_or(0) < 0);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a boon the bundle cannot name is left out and said out loud") {
+        // The effect list grows with the league, exactly as the beast list does. "Has Red
+        // Smoke" is deliberately absent from the test bundle so the degradation has a case.
+        const Item it = resolved(*gd, capture("sanctum-vaults-partial-resolve.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(filter_saying(p, "Has Red Smoke") == nullptr);
+        REQUIRE(filter_saying(p, "Has Empty Trove") != nullptr);
+        CHECK(std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+            return n.find("\"Red Smoke\" is not a sanctum boon or affliction") !=
+                   std::string::npos;
+        }));
+    }
+}

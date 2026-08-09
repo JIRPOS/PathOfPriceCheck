@@ -9,16 +9,18 @@
   the interval end for end as well as in sign: 77..90 as the game prints it is -90..-77 as the site
   indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
   contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
-  (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`, `heist_filters`) and rejects
-  one filed in the wrong place. `option_group_for` is the same contract for `SearchPlan::options`,
+  (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`, `heist_filters`,
+  `sanctum_filters`) and rejects one filed in the wrong place.
+  `option_group_for` is the same contract for `SearchPlan::options`,
   which go out as `{"option": …}` under `misc_filters`, `map_filters`, `ultimatum_filters` or
   `heist_filters`; an **unticked one is not sent at all** — whether an option has a row in the
-  panel is the plan's business, and this layer only reads `enabled`. The ultimatum and heist
-  groups are keyed off their `ultimatum_` and `heist_` prefixes, which is the whole rule: an
-  Inscribed Ultimatum's four options and a heist item's reveal counts, nine job levels and
-  objective value. **Area Level is in neither**, though both kinds of item ask about it — the site
-  files that one filter under Map/Chart whatever is asking, which is why `group_for` names it
-  explicitly instead of letting a prefix decide.
+  panel is the plan's business, and this layer only reads `enabled`. The ultimatum, heist and
+  sanctum groups are keyed off their `ultimatum_`, `heist_` and `sanctum_` prefixes, which is the
+  whole rule: an Inscribed Ultimatum's four options, a heist item's reveal counts, nine job levels
+  and objective value, and a sanctum's resolve, inspiration and aureus. **Area Level is in none of
+  them**, though all three kinds of item ask about it — the site files that one filter under
+  Map/Chart whatever is asking, which is why `group_for` names it explicitly instead of letting a
+  prefix decide.
   Whether the search names a `type` is the **plan's** call and this layer sends whatever it was
   given: a `Modifiers` plan leaves it empty (a rare is bought for its mods, and the category
   already says where those can live) **except on a flask**, where it names the base.

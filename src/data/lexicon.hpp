@@ -77,13 +77,24 @@ enum class PropertyKey : uint8_t {
     /// line as its value, because that is how the game prints it and how the panel draws it;
     /// which job it names is a lexicon lookup at the point of use.
     HeistJob,
+    /// An itemised sanctum's state. `Resolve` is printed as "299/300" — what is left and what
+    /// the run started with, two numbers in one value, and trade takes each as a filter of its
+    /// own.
+    Resolve,
+    Inspiration,
+    Aureus,
+    /// The boons and afflictions the run has picked up, printed as a comma-separated list of
+    /// names. **One key each for minor and major**: the label says which, and what a search
+    /// needs is the name, because every one of them is its own trade stat.
+    Boons,
+    Afflictions,
     Count
 };
 
 /// The item classes the app branches on. Every other class is `Other` — the trade category
 /// comes from the bundle and needs no enum here.
 enum class ClassKind : uint8_t {
-    Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint
+    Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint, SanctumResearch
 };
 
 /// A flag the game prints on a line of its own. Influence lines are not among them: they are
@@ -133,6 +144,11 @@ enum class Term : uint8_t {
     CosmeticSuffix,
     HeistJobPrefix,   ///< "Requires ", opening a heist item's job line
     HeistJobLevel,    ///< " (Level ", closed by ')' — "Requires Brute Force (Level 4)"
+    /// "Has ", how a **stat** words a sanctum boon or affliction — `Has Rusted Chimes`, where
+    /// the item prints the name alone under a `Minor Boons:` label. The one entry here that is
+    /// a stat's wording rather than the client's, and it is here because a translated bundle
+    /// translates it just the same and the lookup is by exact wording.
+    SanctumEffectPrefix,
     Augmented,        ///< the "(augmented)" annotation, the one whose presence is recorded
     AddsPrefix,       ///< "Adds " — which added-damage mod coloured which elemental entry
     FireDamage,

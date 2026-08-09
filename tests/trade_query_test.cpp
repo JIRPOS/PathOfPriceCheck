@@ -629,3 +629,35 @@ TEST_CASE("a heist item's filters go in heist_filters, and its area level does n
         CHECK_FALSE(searchable(p));
     }
 }
+
+TEST_CASE("a sanctum's filters go in sanctum_filters, and its area level does not") {
+    SearchPlan p;
+    p.strategy = Strategy::Sanctum;
+    p.category = "sanctum.research";
+    p.type = "Sanctum Vaults Research";
+    p.numerics = {{"area_level", "Area Level", 83, 83, true},
+                  {"sanctum_resolve", "Resolve", 299, std::nullopt, true},
+                  // Seeded open on the right and left unticked, so it must not be sent.
+                  {"sanctum_max_resolve", "Maximum Resolve", 300, std::nullopt, false},
+                  {"sanctum_inspiration", "Inspiration", 0, std::nullopt, true},
+                  {"sanctum_gold", "Aureus", 399, std::nullopt, true}};
+
+    const json q = query_of(p);
+    const json& s = q["filters"]["sanctum_filters"]["filters"];
+    CHECK(s["sanctum_resolve"]["min"] == 299);
+    CHECK_FALSE(s["sanctum_resolve"].contains("max"));
+    CHECK(s["sanctum_inspiration"]["min"] == 0);
+    CHECK(s["sanctum_gold"]["min"] == 399);
+    CHECK_FALSE(s.contains("sanctum_max_resolve"));
+    // The same exception a heist item's gets: the site files Area Level under Map/Chart
+    // whichever kind of item is asking.
+    CHECK(q["filters"]["map_filters"]["filters"]["area_level"]["max"] == 83);
+    CHECK_FALSE(s.contains("area_level"));
+
+    SUBCASE("the category alone is a search when the bundle could not name the floor") {
+        p.type.clear();
+        CHECK(searchable(p));
+        p.category.clear();
+        CHECK_FALSE(searchable(p));
+    }
+}

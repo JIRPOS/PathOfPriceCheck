@@ -19,8 +19,8 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
     "prefix_word",      "suffix_word",   "unique_word",        "increased_word",
     "reduced_word",     "req_level",     "req_str",            "req_dex",
     "req_int",          "cosmetic_prefix", "cosmetic_suffix",  "heist_job_prefix",
-    "heist_job_level",  "augmented",     "adds_prefix",        "fire_damage",
-    "cold_damage",      "lightning_damage"};
+    "heist_job_level",  "sanctum_effect_prefix", "augmented",  "adds_prefix",
+    "fire_damage",      "cold_damage",   "lightning_damage"};
 
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
     "rarities", "influences", "flags", "mod_suffixes", "generations", "value_annotations",
@@ -70,6 +70,11 @@ constexpr PropertyName kPropertyNames[]{
     {"wings_revealed", PropertyKey::WingsRevealed},
     {"escape_routes_revealed", PropertyKey::EscapeRoutesRevealed},
     {"reward_rooms_revealed", PropertyKey::RewardRoomsRevealed},
+    {"resolve", PropertyKey::Resolve},
+    {"inspiration", PropertyKey::Inspiration},
+    {"aureus", PropertyKey::Aureus},
+    {"boons", PropertyKey::Boons},
+    {"afflictions", PropertyKey::Afflictions},
 };
 
 struct ClassKindName {
@@ -83,6 +88,7 @@ constexpr ClassKindName kClassKindNames[]{
     {"chart", ClassKind::Chart},
     {"heist_contract", ClassKind::HeistContract},
     {"heist_blueprint", ClassKind::HeistBlueprint},
+    {"sanctum_research", ClassKind::SanctumResearch},
 };
 
 /// The mod-type suffix the game prints in a parenthetical, indexed by `ModType`. In English
@@ -138,6 +144,7 @@ void Lexicon::assign_english() {
     set(terms_, Term::CosmeticSuffix, " Effect");
     set(terms_, Term::HeistJobPrefix, "Requires ");
     set(terms_, Term::HeistJobLevel, " (Level ");
+    set(terms_, Term::SanctumEffectPrefix, "Has ");
     set(terms_, Term::Augmented, "augmented");
     set(terms_, Term::AddsPrefix, "Adds ");
     set(terms_, Term::FireDamage, "Fire Damage");
@@ -231,6 +238,15 @@ void Lexicon::assign_english() {
         {"Wings Revealed", PropertyKey::WingsRevealed},
         {"Escape Routes Revealed", PropertyKey::EscapeRoutesRevealed},
         {"Reward Rooms Revealed", PropertyKey::RewardRoomsRevealed},
+        {"Resolve", PropertyKey::Resolve},
+        {"Inspiration", PropertyKey::Inspiration},
+        {"Aureus", PropertyKey::Aureus},
+        // Minor and major share a key each: which one it is stays on the label, and what the
+        // search needs is the names in the value, one trade stat apiece.
+        {"Minor Boons", PropertyKey::Boons},
+        {"Major Boons", PropertyKey::Boons},
+        {"Minor Afflictions", PropertyKey::Afflictions},
+        {"Major Afflictions", PropertyKey::Afflictions},
     };
 
     class_kinds_ = {
@@ -243,6 +259,7 @@ void Lexicon::assign_english() {
         {"Chart", ClassKind::Chart},
         {"Contracts", ClassKind::HeistContract},
         {"Blueprints", ClassKind::HeistBlueprint},
+        {"Sanctum Research", ClassKind::SanctumResearch},
     };
 }
 

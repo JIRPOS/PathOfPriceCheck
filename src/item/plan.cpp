@@ -15,8 +15,8 @@ namespace ppc::item {
 namespace {
 
 constexpr std::array<std::string_view, static_cast<size_t>(Strategy::Unsupported) + 1>
-    kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",
-                "Map",       "Beast",     "Ultimatum", "Heist",    "Unsupported"};
+    kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",         "Map",
+                "Beast",     "Ultimatum", "Heist",     "Sanctum",  "Unsupported"};
 
 /// How many decimals `v` needs to survive being printed. Rolls are at most hundredths.
 int decimals_needed(double v) {
@@ -325,6 +325,12 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
             // modifiers are the danger it will hold, which is rolled and re-rollable, so they
             // are offered and not imposed — seven ticked hazards ask for one copy in the world.
             f.enabled = m.type == data::ModType::Enchant;
+            break;
+        case Strategy::Sanctum:
+            // A sanctum's affixes are not a roll somebody could redo — the run is already under
+            // way and nothing can be applied to it again, which is what "Unmodifiable" on the
+            // item means. They are as much a part of what is being bought as its resolve is.
+            f.enabled = true;
             break;
         default:
             f.enabled = false;
@@ -894,10 +900,11 @@ constexpr std::string_view kHeistJobKeys[]{
 /// the words the game prints for them.
 constexpr std::string_view kHeistObjectiveIds[]{"moderate", "high", "precious", "priceless"};
 
-/// A blueprint's "3/21" — what is revealed and what there is to reveal. Absent when the value
-/// is not that shape, which is how a client that words it differently degrades: no filter
+/// The two numbers of a "3/21" value — what there is now and what there is in all. A blueprint
+/// states each of its reveal counts this way and a sanctum states its resolve. Absent when the
+/// value is not that shape, which is how a client that words it differently degrades: no filter
 /// rather than a filter for a number that is not there.
-std::optional<std::pair<double, double>> revealed_of(const Property& p) {
+std::optional<std::pair<double, double>> slashed_pair(const Property& p) {
     const size_t slash = p.value.find('/');
     if (slash == std::string::npos || !p.num) return std::nullopt;
     const std::string_view rest = std::string_view(p.value).substr(slash + 1);
@@ -998,7 +1005,7 @@ void plan_heist(const data::GameData& gd, const Item& it, SearchPlan& p) {
     for (const Reveal& r : kReveals) {
         const Property* prop = property_of(it, r.property);
         if (!prop) continue;
-        const std::optional<std::pair<double, double>> both = revealed_of(*prop);
+        const std::optional<std::pair<double, double>> both = slashed_pair(*prop);
         if (!both) continue;
         // Revealed is a floor — more of the blueprint uncovered is strictly more of what is
         // being bought. The total is exact, because it is not an amount of anything: a Tunnels
@@ -1039,6 +1046,104 @@ void plan_heist(const data::GameData& gd, const Item& it, SearchPlan& p) {
             break;
         }
     }
+}
+
+std::string_view trim_spaces(std::string_view s) {
+    while (!s.empty() && s.front() == ' ') s.remove_prefix(1);
+    while (!s.empty() && s.back() == ' ') s.remove_suffix(1);
+    return s;
+}
+
+/// One boon or affliction, as the trade site indexes it: the stat whose wording is the name the
+/// item printed under a `Has `. Null when this bundle has no such stat, or has one it cannot
+/// search — which is what the caller says out loud rather than dropping.
+const data::Stat* sanctum_effect_stat(const data::GameData& gd, std::string_view name) {
+    const std::string_view prefix = gd.lexicon().term(data::Term::SanctumEffectPrefix);
+    if (prefix.empty() || name.empty()) return nullptr;
+    const data::Stat* s = gd.find_stat_by_ref(std::string(prefix) + std::string(name));
+    return s && s->has(data::ModType::Sanctum) ? s : nullptr;
+}
+
+/// Turn the comma-separated names under `Minor Boons:` and `Major Afflictions:` into one stat
+/// filter each. They are not modifiers — the game prints them as a property and the item's mod
+/// block holds the affixes instead — so they are built here rather than by `to_filter`.
+void add_sanctum_effects(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    for (const Property& prop : it.properties) {
+        if (prop.key != data::PropertyKey::Boons && prop.key != data::PropertyKey::Afflictions)
+            continue;
+        for (std::string_view rest = prop.value; !rest.empty();) {
+            const size_t comma = rest.find(',');
+            const std::string_view name = trim_spaces(rest.substr(0, comma));
+            rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+            if (name.empty()) continue;
+            const data::Stat* s = sanctum_effect_stat(gd, name);
+            if (!s) {
+                p.notes.push_back("\"" + std::string(name) +
+                                  "\" is not a sanctum boon or affliction the trade site knows in "
+                                  "this data bundle, so the search does not ask for it");
+                continue;
+            }
+            StatFilter f;
+            f.id = s->trade_ids(data::ModType::Sanctum).front();
+            // The stat's own wording, which is what the site's filter is called. The item beside
+            // the panel is where minor and major are told apart.
+            f.text = s->ref;
+            f.type = data::ModType::Sanctum;
+            f.enabled = true;
+            p.stats.push_back(std::move(f));
+        }
+    }
+}
+
+/// An itemised sanctum: **how far this run has got, and what it is carrying**.
+///
+/// Everything a buyer of one is choosing between is on the item as a number or a name, and all
+/// of it is imposed, because none of it is a roll to be beaten — a run is bought to be finished
+/// and its state is the product:
+/// - **The floor**, which is the base type: an Archives run and a Vaults run are different items.
+/// - **The area level**, exact, the reading a chart's, an ultimatum's and a heist item's already
+///   get — a level 83 sanctum is a different product from a level 78 one, not a better copy.
+/// - **Resolve**, as a floor: it is the whole of how much run is left to survive.
+/// - **Inspiration** and **Aureus**, as floors, for the same reason. More of either is strictly
+///   more of what is being bought.
+/// - **Every boon and affliction**, each its own `sanctum.sanctum_effect_…` stat.
+/// - **The affixes** — "The Merchant has 10 additional Choices", "18 additional Rooms are
+///   revealed on the Sanctum Map" — through the ordinary mod path, which files them under the
+///   `sanctum` namespace because the parser typed them that way.
+///
+/// **Maximum Resolve is the one row left unticked**, seeded from the number beside the current
+/// one and open on the right. It is not a fact about the run's state so much as about the
+/// character that started it, and the item already says everything about resolve that a buyer
+/// is choosing on through the current value.
+void plan_sanctum(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    if (it.base) {
+        p.type = base_wire_name(it);
+        if (!it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+    } else {
+        p.notes.push_back("\"" + it.base_type +
+                          "\" is not a sanctum in this data bundle, so the search is for any "
+                          "research item rather than for this floor");
+    }
+
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
+        add_numeric(p, "area_level", lvl->label, *lvl->num, true, 0, {}, *lvl->num);
+
+    if (const Property* r = property_of(it, data::PropertyKey::Resolve)) {
+        // "299/300": what is left, and what the run started with. Only the first is a floor.
+        if (const std::optional<std::pair<double, double>> both = slashed_pair(*r)) {
+            add_numeric(p, "sanctum_resolve", r->label, both->first, true);
+            add_numeric(p, "sanctum_max_resolve", "Maximum Resolve", both->second, false);
+        } else if (r->num) {
+            add_numeric(p, "sanctum_resolve", r->label, *r->num, true);
+        }
+    }
+    if (const Property* i = property_of(it, data::PropertyKey::Inspiration); i && i->num)
+        add_numeric(p, "sanctum_inspiration", i->label, *i->num, true);
+    // `sanctum_gold` on the wire; "Aureus" is what both the item and the site's own row call it.
+    if (const Property* a = property_of(it, data::PropertyKey::Aureus); a && a->num)
+        add_numeric(p, "sanctum_gold", a->label, *a->num, true);
+
+    add_sanctum_effects(gd, it, p);
 }
 
 /// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
@@ -1395,6 +1500,10 @@ Strategy default_strategy(const Item& it) {
     // that are the whole of how the site indexes one. A *unique* contract is left to the unique
     // strategy: it is bought for its name, and everything else about it is fixed by that name.
     if (it.is_heist() && it.rarity != Rarity::Unique) return Strategy::Heist;
+    // A sanctum prints "Rarity: Normal" and would otherwise be planned as a base item — a search
+    // for an empty Sanctum Vaults Research at this item level, which is every run in the league
+    // and none of what tells two apart. Its affixes are real, and so is everything else on it.
+    if (it.is_sanctum()) return Strategy::Sanctum;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1485,6 +1594,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             break;
         case Strategy::Ultimatum: plan_ultimatum(gd, it, p); break;
         case Strategy::Heist: plan_heist(gd, it, p); break;
+        case Strategy::Sanctum: plan_sanctum(gd, it, p); break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
             // query — bulk is what it sells in, and a stat filter has nothing to say about a

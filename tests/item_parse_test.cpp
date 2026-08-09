@@ -757,3 +757,75 @@ TEST_CASE("a heist contract and blueprint are read off their property block") {
         CHECK(in_game.help_text == off_trade.help_text);
     }
 }
+
+TEST_CASE("an itemised sanctum's state is properties, and its affixes are sanctum modifiers") {
+    SUBCASE("the floor is the base, and the class is what says this is a sanctum") {
+        const Item it = parse("items", "sanctum-vaults-rooms.txt");
+        CHECK(it.item_class == "Sanctum Research");
+        CHECK(it.is_sanctum());
+        CHECK(it.rarity == Rarity::Normal);
+        CHECK(it.name.empty());
+        CHECK(it.base_type == "Sanctum Vaults Research");
+    }
+    SUBCASE("resolve, inspiration and aureus get keys, and resolve keeps both numbers") {
+        const Item it = parse("items", "sanctum-vaults-partial-resolve.txt");
+        const auto value_of = [&it](PropertyKey k) {
+            for (const Property& p : it.properties)
+                if (p.key == k) return p.value;
+            return std::string();
+        };
+        CHECK(value_of(PropertyKey::Resolve) == "299/300");
+        CHECK(value_of(PropertyKey::Inspiration) == "0");
+        CHECK(value_of(PropertyKey::Aureus) == "399");
+        // The augment annotation comes off the value the way it does everywhere else, and
+        // the property records that it was there.
+        const Item full = parse("items", "sanctum-vaults-rooms.txt");
+        for (const Property& p : full.properties)
+            if (p.key == PropertyKey::Resolve) {
+                CHECK(p.value == "328/328");
+                CHECK(p.augmented);
+            }
+    }
+    SUBCASE("minor and major share a key each; the names stay in the value") {
+        const Item it = parse("items", "sanctum-vaults-major-boon.txt");
+        std::vector<std::pair<std::string, std::string>> effects;
+        for (const Property& p : it.properties)
+            if (p.key == PropertyKey::Boons || p.key == PropertyKey::Afflictions)
+                effects.emplace_back(p.label, p.value);
+        REQUIRE(effects.size() == 2);
+        CHECK(effects[0] == std::pair<std::string, std::string>{"Major Boons", "Gold Coin"});
+        CHECK(effects[1] == std::pair<std::string, std::string>{
+                                "Minor Afflictions", "Weakened Flesh, Sharpened Arrowhead"});
+    }
+    SUBCASE("the affixes are typed sanctum, and the prose under them is not one of them") {
+        // "The treasures within are tainted by a black spirit." sits between the affixes and
+        // the usage note, which is exactly where a rare's wordy modifier would be — it came
+        // out as a third modifier that matched nothing. And with the default mod type the two
+        // real ones matched nothing either: every sanctum stat lives in its own namespace.
+        const Item it = parse("items", "sanctum-vaults-major-boon.txt");
+        REQUIRE(it.mods.size() == 2);
+        CHECK(it.mods[0].type == ModType::Sanctum);
+        CHECK(it.mods[1].type == ModType::Sanctum);
+        CHECK(it.mods[0].lines.front() == "The Merchant has 10 additional Choices");
+        CHECK(it.mods[1].lines.front() == "40% reduced Merchant Prices");
+        REQUIRE(it.flavour_text.size() == 1);
+        CHECK(it.flavour_text.front().starts_with("The treasures within"));
+        REQUIRE(it.help_text.size() == 1);
+        CHECK(it.unmodifiable);
+    }
+    SUBCASE("a sanctum whose only affix is prose keeps it as a modifier") {
+        // The other half of the position rule: the affix block is not the last prose block,
+        // so a digitless affix stays a modifier rather than being read as the item's own line.
+        const std::string text = capture("items", "sanctum-vaults-rooms.txt");
+        const size_t at = text.find("18 additional Rooms are revealed on the Sanctum Map");
+        REQUIRE(at != std::string::npos);
+        std::string swapped = text;
+        swapped.replace(at, std::strlen("18 additional Rooms are revealed on the Sanctum Map"),
+                        "Cannot have Boons");
+        const std::optional<Item> it = parse_item_en(swapped);
+        REQUIRE(it.has_value());
+        REQUIRE(it->mods.size() == 1);
+        CHECK(it->mods.front().lines.front() == "Cannot have Boons");
+        CHECK(it->flavour_text.size() == 1);
+    }
+}
