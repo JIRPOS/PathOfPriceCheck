@@ -48,7 +48,7 @@ the game in the game's own typeface.
 | | |
 |---|---|
 | **Windows** | 10 or later. Single `.exe`, no runtime, no DLLs. |
-| **Linux** | **X11**, or a Wayland session through **Xwayland** — the binary asks SDL for the X11 backend outright, so it is an X11 client either way, and Xwayland is what it is developed on. There is no *native* Wayland backend and none is needed. |
+| **Linux** | **X11**, or a Wayland session through **Xwayland** — the binary asks SDL for the X11 backend outright, so it is an X11 client either way, and Xwayland is what it is developed on. There is no *native* Wayland backend and there will not be one; see [BUILDING.md](BUILDING.md#runtime-requirements) for why. |
 | **The game** | Native client, or Wine/Proton. |
 | **Game language** | **English only, today.** The whole tool works by matching the wordings the client prints. Other languages are wired for and waiting on published data — see below. |
 

@@ -56,8 +56,12 @@ std::string clipboard_owner_info();
 
 /// Diagnostics only: the formats the owner says it can supply, as a space-separated list.
 /// Unlike `clipboard_owner_info` this *is* a round trip to the owner and can therefore
-/// change what it does next; only ever call it from a debug path. Empty when the owner
-/// doesn't answer within `timeout_ms`, which is itself the interesting answer.
+/// change what it does next; only ever call it from a debug path.
+///
+/// **Every non-answer is parenthesised** — `(no owner)`, `(no reply)`, `(refused)`, `(none)`,
+/// `(no display)` — and a real list never is, so a leading `(` is the whole test for "the owner
+/// did not answer". That distinction carries weight: an owner that answers exists and responds,
+/// which is half of what tells the sticky clipboard wedge from an ordinary failed copy.
 std::string clipboard_targets(int timeout_ms);
 
 } // namespace ppc

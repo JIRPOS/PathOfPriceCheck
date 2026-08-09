@@ -19,6 +19,7 @@
 #include "platform/input_sim.hpp"
 #include "platform/overlay_native.hpp"
 #include "platform/platform.hpp"
+#include "platform/single_instance.hpp"
 #include "screens/pricecheck_screen.hpp"
 #include "screens/settings_screen.hpp"
 #include "trade/query.hpp"
@@ -61,6 +62,41 @@ std::string read_clipboard(const char* label) {
         }
     }
     return s;
+}
+
+/// True when the owner answered with a real format list rather than one of `clipboard_targets`'
+/// parenthesised non-answers ("(no owner)", "(no reply)", "(refused)", "(no display)"). The
+/// difference is the whole diagnosis below: an owner that replies exists and is responsive.
+bool owner_answered(const std::string& targets) {
+    return !targets.empty() && targets.front() != '(';
+}
+
+/// What a give-up means when the owner answered. Empty when it did not, because then the
+/// failure is a different one — nobody owns the selection, or the owner is wedged itself.
+///
+/// **No guess about who the owner is**, which is the point: two facts already in hand at the
+/// give-up line are conclusive together. Nothing asserted ownership during the entire check
+/// (that *is* the give-up condition), and the owner answered a format list (so it exists and
+/// responds). A live, responsive owner that never re-asserted is not the game's clipboard —
+/// the copy was never published and every poke went to somebody else's selection.
+///
+/// Two earlier attempts at this were built on identity and both were wrong, which is why it is
+/// worded this way. Comparing `_NET_WM_PID` cannot work: the owner in the captured failures is
+/// KWin's own selection window, which advertises no pid and no `WM_CLASS` at all. Fingerprinting
+/// the format list against Wine's would be a third guess — every capture of Wine's formats came
+/// through the Wayland bridge rather than from X, so there is nothing to match against.
+///
+/// The format list is still logged beside this, and it is usually self-describing about who *did*
+/// have it: `chromium/x-source-url` is the browser, `application/x-kde-onlyReplaceEmpty` is the
+/// clipboard manager. That is a hint for a reader, deliberately not a rule for the code.
+std::string clipboard_wedge_note(const std::string& targets) {
+    if (!owner_answered(targets)) return {};
+    return "the clipboard has an owner that answers, and it never re-asserted during this check —"
+           " so the selection belongs to something other than the game and the game's copy was"
+           " never published. Under Wayland this is the known wedge: a copy made in a Wayland"
+           " application takes the selection from Wine, which re-acquires it only when the window"
+           " manager activates the game again. Alt-tab out of the game and back to clear it."
+           " The format list above usually names who has it.";
 }
 
 void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
@@ -134,6 +170,23 @@ void draw_status_marker(App& app) {
 } // namespace
 
 int App::run() {
+    // Before the log, not after: a second instance opening its own log file would start a new
+    // one and prune the ten kept, so the run being diagnosed can be pushed out of the window by
+    // a stray double-click. A rejected launch is not this application's session and writes
+    // nothing at all.
+    InstanceLock instance("PathOfPriceCheck");
+    if (!instance.held()) {
+        // Said out loud, unlike a failed price check. That silence is a rule about the overlay,
+        // which is noise over a game; this is a launch the user just performed on their desktop
+        // and is owed an answer to, and the answer is that they already have what they asked
+        // for — the tray icon is right there. Exit 0 for the same reason: the intended state
+        // holds, so a desktop launcher has no error to report.
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "PathOfPriceCheck",
+                                 "PathOfPriceCheck is already running.\n\n"
+                                 "Look for the icon in the system tray.",
+                                 nullptr);
+        return 0;
+    }
     platform_init();
     // Before anything else touches the clipboard or the hotkeys: this session's log has to
     // start at the same instant the process does, since "the first price check after launch"
@@ -408,11 +461,19 @@ void App::poll_pending_copy() {
             nudge_clipboard_handover(elapsed);
             return;
         }
-        if (debug::enabled())
+        if (debug::enabled()) {
+            // Asked once and used twice: this is a real conversion request to the owner, so it
+            // belongs only here — on the path where there is nothing left to perturb.
+            const std::string targets = clipboard_targets(100);
             debug::log("[copy] gave up after %llums: the clipboard was never written. %s owner=%s"
                        " targets=%s",
                        (unsigned long long)elapsed, focus_info().c_str(),
-                       clipboard_owner_info().c_str(), clipboard_targets(100).c_str());
+                       clipboard_owner_info().c_str(), targets.c_str());
+            // On its own line: the line above says what was observed, this one says what it
+            // means, and only the second is worth pasting into a report.
+            const std::string why = clipboard_wedge_note(targets);
+            if (!why.empty()) debug::log("[copy]   diagnosis: %s", why.c_str());
+        }
         abandon_copy();
         return;
     }
@@ -705,6 +766,12 @@ void App::handle_action(Action a) {
         copy_nudged_ = false;
         copy_poked_ms_ = 0; // poke on the first poll, not one interval in
         copy_started_ms_ = SDL_GetTicks();
+        // The owner window id is worth recording here even though nothing can be *concluded*
+        // from it yet: across the captures it is the one field that predicts the outcome, and
+        // reading it costs no round trip. Diagnosing has to wait for the give-up line, because
+        // the evidence that settles it — whether the owner answers at all — is a real
+        // conversion request, and issuing one at injection would perturb the handover being
+        // measured.
         if (debug::enabled())
             debug::log("[copy] injected in %llums, stamp=%llu owner=%s",
                        (unsigned long long)(copy_started_ms_ - t0),

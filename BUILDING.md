@@ -129,14 +129,29 @@ MSVC is what CI builds and is therefore what is known to work; clang-cl is untes
 - **Linux: X11, or Xwayland.** Global hotkeys (`XGrabKey`), foreground-window detection, synthetic
   input (`XTest`) and clipboard ownership tracking (`XFixes`) are all X11, and the binary asks SDL
   for the X11 backend outright rather than letting it choose. So it is an X11 client either way: on
-  a Wayland session it runs through **Xwayland**, which is how it is developed daily. What does not
-  exist is a *native* Wayland backend, and it is a later stretch goal rather than something to work
-  around — Wayland blocks arbitrary global hotkeys and click-through overlays without compositor
-  portals or evdev access, all of which Xwayland already provides.
+  a Wayland session it runs through **Xwayland**, which is how it is developed daily.
+
+  **There is no native Wayland backend and there will not be one.** Not "not yet" — the reason is
+  the game, not the effort. Proton runs Path of Exile as an Xwayland client, and an X11 tool can
+  see every other Xwayland client: which window is in front, what it is called, where it is, and
+  where to send a synthetic keypress. None of that has a native-Wayland equivalent. A client cannot
+  learn another window's geometry on any compositor, cannot learn which window is focused on most
+  of them, and cannot inject a keypress at all without going through a portal that asks the user
+  for permission first. Global hotkeys would move from this application's Settings dialog into the
+  compositor's, because the portal that provides them owns the binding. GNOME refuses two of the
+  protocols involved as a matter of policy, so the result would not run there at all.
+
+  So going native would cost a windowing rewrite and a permanent three-compositor test matrix, and
+  buy a build that positions the panel *worse* than this one — for as long as the game itself is an
+  Xwayland client. This application's dependency on X11 is not stronger than Path of Exile's.
+
   One caveat worth knowing under Wayland: copying in a **Wayland-native** application while the game
   is running can leave the X selection with no owner at all, and only a window-manager-level focus
   change out of the game recovers it. That is KWin's Xwayland clipboard bridge and is not fixable
-  from here; see [CLAUDE.md](CLAUDE.md#architecture).
+  from here; see [CLAUDE.md](CLAUDE.md#architecture). Reading the selection with a native Wayland
+  protocol (`ext-data-control-v1`, the one a clipboard manager uses) was built and tried against
+  exactly this, and does not help: the copy is never published to *either* side, so there is
+  nothing to read. With the debug log on, the give-up line now names this case where it can.
 - **The release tarball is built on the CI Ubuntu image**, so it links that image's glibc and
   system libcurl. On an older distribution, build from source rather than fighting the loader.
   These are the libraries it needs present; they are library names rather than package names,
@@ -178,6 +193,14 @@ Development environment variables, for iterating without the game running:
 | `PPC_FONT_DIR=<dir>` | replaces the embedded Fontin faces with TTFs from a directory |
 
 Captures to feed `PPC_DEV_ITEM` live in [`tests/data/examples/`](tests/data/examples).
+
+**Only one copy runs at a time.** The first one to start takes a lock — `flock` on
+`<cache>/PathOfPriceCheck.lock`, a session-local named mutex on Windows — and a second launch says
+so and exits. Both are released by the operating system when the process dies, so a crash leaves
+nothing to clean up. This is not tidiness: two copies would both grab the global hotkeys (X11 hands
+a passive grab to whoever asked first, so the *newly launched* one silently does nothing, which
+looks exactly like a broken hotkey) and would keep two unsynchronised copies of the rate limiter's
+state, which is how a client walks into a lockout it never saw coming.
 
 ## Tests
 

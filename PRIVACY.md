@@ -82,6 +82,7 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 | `<cache>/exchange/` | cached currency-exchange digests, newest two hours kept |
 | `<cache>/icons/` | downloaded item and currency symbols, keyed by URL hash |
 | `<cache>/trade-ratelimit.json` | the rate limiter's state, so a restart cannot walk out of a restriction |
+| `<cache>/PathOfPriceCheck.lock` | an empty-but-for-a-process-number file the running copy holds a lock on, so a second one refuses to start. Linux only; Windows uses a named mutex, which is not a file |
 | `<cache>/logs/` | the debug log, **only if you turned it on** — see below |
 
 `<config>` is `$XDG_CONFIG_HOME/PathOfPriceCheck` (`~/.config/PathOfPriceCheck`) or `%APPDATA%\PathOfPriceCheck`.
