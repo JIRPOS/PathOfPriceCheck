@@ -123,6 +123,7 @@ screenshot.
 
 | | |
 |---|---|
+| [ROADMAP.md](ROADMAP.md) | what is planned between here and 1.0, one feature per minor version |
 | [BUILDING.md](BUILDING.md) | prerequisites per platform, build, test, run, sanitizers |
 | [PRIVACY.md](PRIVACY.md) | every request it makes, every file it writes. Nothing is collected. |
 | [ATTRIBUTION.md](ATTRIBUTION.md) | GGG, poe.ninja, poewiki, the libraries, the fonts |

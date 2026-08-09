@@ -45,7 +45,8 @@ read whole; each is one layer.
 | [docs/external-apis.md](docs/external-apis.md) | The endpoints themselves: trade, poe.ninja, currency exchange, and GGG's rate-limit policy. |
 | [docs/conventions.md](docs/conventions.md) | Comment style, commit and PR shape, the maintainer alias, which docs are public. |
 | [docs/testing.md](docs/testing.md) | Build prerequisites, sanitizers, and regenerating the test fixtures and bundle slice. |
-| [docs/roadmap.md](docs/roadmap.md) | What is deliberately not built, and what was decided against. Check before proposing work. |
+| [ROADMAP.md](ROADMAP.md) | The plan to 1.0 — one feature per minor, in order, and what 1.0 waits on. Public, and published on the site. |
+| [docs/roadmap.md](docs/roadmap.md) | The code-level constraints each planned version must respect, plus what is deliberately not built and what was decided against. Check before proposing work. |
 | [UNIQUE-MODS.md](UNIQUE-MODS.md) | The per-unique modifier dataset's contract, including what it does not cover. |
 
 Skills carry the recurring workflows: **commit-work** (commit and PR messages), **item-capture** (a

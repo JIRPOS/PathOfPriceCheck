@@ -1,14 +1,114 @@
-# Still to build
+# Implementation notes for the plan, and what is still to build
 
 <!-- Developer notes for PathOfPriceCheck. Loaded on demand; see ../CLAUDE.md for the map. -->
 
-- **A language other than English to actually select.** The application side above is built;
+**The plan itself is [../ROADMAP.md](../ROADMAP.md)** — public, published on the site, and the
+single statement of which version brings what and why it is in that order. Do not restate it
+here. What follows is what that page has no business carrying: the code-level constraints each
+version has to respect, and then the **backlog** — gaps that are known, argued and unscheduled.
+
+## Why that order
+
+The public page states the order and not the argument for it. Two of the choices are
+load-bearing and should not be reshuffled casually:
+
+- **The updater is first because its value compounds.** Shipped at 0.8 it reaches only the people
+  who already update by hand; at 0.3 it carries the rest of the list. It is also the riskiest item
+  here, which is an argument for going first rather than against: a bad updater is fixed in 0.3.x
+  builds before anything downstream depends on it.
+- **The paste list precedes the map check** because both need an overlay placed at the cursor,
+  which does not exist yet, and the paste list is much the simpler first consumer of it. 0.6 also
+  reads its regexes from what 0.5 stores.
+
+## Implementation notes, per planned version
+
+### 0.3, the binary updater
+
+- The check is a GitHub host, so it goes nowhere near `trade::request`; the limiter is GGG's.
+  → [external-apis.md](external-apis.md)
+- `util/sha256` already exists for the bundle and verifies the staged download too.
+- Staging then applying at startup is the same rule as **never write over a live bundle**, for
+  the same reason. → [data-layer.md](data-layer.md)
+- `$APPIMAGE` is overwritten at its own path — desktop integration keys on it.
+- A failed check is silent, per **failure is silent**. → [architecture.md](architecture.md)
+- Three notice surfaces, all passive: the idle marker, the panel, a Settings row with **Restart
+  now**. Nothing closes the app; a dismissed notice leaves the staged update where it is.
+- An install that is not writable (a zip unpacked into `Program Files`) stages nothing and points
+  at the release page — the update is offered, not half-applied.
+- New `Config` flag, one new endpoint, one new staged file: `PRIVACY.md` changes with it.
+  → [conventions.md](conventions.md)
+
+### 0.4, editable filter ranges
+
+- `StatFilter::min`/`max` become editable; `roll_min`/`roll_max` stay read-only beside them, and
+  the distance between the two pairs is the `RangeMatch` setting doing its job.
+  → [trade-layer.md](trade-layer.md)
+- `std::from_chars` for the typed number. A C-locale comma is a filter on a different number.
+  → [architecture.md](architecture.md)
+- An edit dirties the plan; only the Search button sends. Same argument as `auto_search`.
+- Per-row reset to the seeded value: the seed is the one number the app can defend, and it has to
+  be recoverable without re-copying the item.
+- No persistence: the plan is per-item.
+
+### 0.5, the paste list
+
+- Setting the clipboard goes through our own platform seam, never SDL's, and the X11 owner is a
+  window that has to outlive the popup. Wine renders on request, so it will ask.
+  → [platform.md](platform.md)
+- No injected Ctrl+V: **focus is a gate, never something to take**, and Wine's clipboard is the
+  one sanctioned exception. → [architecture.md](architecture.md)
+- Cursor placement is a new mode; everything placed today anchors to `stash_edge` /
+  `inventory_edge`. Clamp to the screen, dismiss on Escape, click-away and pick.
+- Number-key selection is not a nicety: the point of the feature is speed at a vendor window, and
+  a popup the mouse has to travel to has spent what it saved.
+
+### 0.6, map check
+
+- Reuse the price-check copy path whole, and the map strategy's existing parse and resolve.
+  → [strategy-map.md](strategy-map.md)
+- The verdict store keys on the stat record's id, never `placeholder_form` — 0.7 makes the
+  wording language-dependent and `find_stat` already refuses to guess between shared wordings.
+  → [data-layer.md](data-layer.md)
+- **Verdict per stat, not per roll** — the practice this copies (map regexes) has no notion of a
+  threshold and neither should the UI. The store still *parses* an optional roll bound from day
+  one, because a reader that accepts both shapes costs one branch and a format migration costs
+  everyone's file. Do not build UI for it.
+- **Importing a map regex is PoE's search syntax, not a regex**: quoted terms, a leading `!` for
+  negation, space-separated terms ANDed, and bare trailing terms
+  (`"!a|b|c" pte`). Tokenize that first, then hand each term to the engine — feeding the whole
+  string to one is how the `!` ends up matched literally.
+- **Match against a rendered wording, never `placeholder_form`.** A term like `\d+ e` was written
+  against printed item text and can never match a `#`. With a map in hand the printed lines are
+  right there; seeding from the full known-mod list needs the wording rendered with something in
+  the placeholder, and a term that can only match a number is one this cannot honestly resolve.
+- The import proposes and the user confirms. Nothing writes a verdict the user has not seen.
+- The store, the profiles and any `LatestClient.log` read are all `PRIVACY.md` entries.
+
+### 0.7, client languages
+
+- Blocked upstream: `<lang>-stats.ndjson`, `<lang>-items.ndjson` with `refName`, and
+  `<lang>-lexicon.json`. Nothing in the app's schema changes. → [localisation.md](localisation.md)
+- Re-keying `item/derive`'s local lists, `item/resolve`'s `kLocalWordings` and
+  `ninja::narrow_by_mods` onto `Stat::ref` needs the two upstream answers in the backlog below
+  answered first, **pinned to a real localised bundle**. → [item-layer.md](item-layer.md)
+- `chart_area_key` moves into the bundle.
+- `fonts.unicode`'s system fallback already covers the scripts Fontin does not.
+
+### 0.8, UI language
+
+- `ui::Msg` plus one table per language, `static_assert` on the length. Droppable.
+
+## Backlog
+
+Known, argued, and unscheduled — except where a planned version claims one, which is marked.
+
+- **A language other than English to actually select.** *(Claimed by 0.7.)* The application side is built;
   what is missing is upstream. The data build fetches only the English `stat_descriptions.txt`
   files and emits one language, so `manifest.json` declares `["en"]` and the Settings row has
   one entry. A second language needs the build to emit `<lang>-stats.ndjson`,
   `<lang>-items.ndjson` with `refName` filled in, and a `<lang>-lexicon.json`. Nothing in the
   app's schema has to change. **Say so in the README rather than letting it be discovered.**
-- **Two things still matched on English wordings**, both deliberately left alone rather than
+- **Two things still matched on English wordings** *(claimed by 0.7)*, both deliberately left alone rather than
   guessed at, because getting either wrong is a confident wrong price rather than a failure:
   `item/derive`'s local-modifier lists (`kLocalDefences` and the weapon wordings) and
   `item/resolve`'s `kLocalWordings` compare `placeholder_form` of the printed line, and
@@ -19,7 +119,7 @@
   localised matcher. **Pin it to a real localised bundle, not to a guess.**
   `ninja::kKeywords` is the same shape and already reads `ref_name`, which is why it is not on
   this list.
-- **`chart_area_key`'s convention is Latin-only** — it capitalises words and drops apostrophes
+- **`chart_area_key`'s convention is Latin-only** *(claimed by 0.7)* — it capitalises words and drops apostrophes
   to turn a printed area name into the internal id trade files a chart under. That cannot work
   for Russian, Korean or Thai, and the answer is for the bundle to carry the mapping rather
   than for the app to keep deriving it. A wrong key already costs breadth and never correctness
