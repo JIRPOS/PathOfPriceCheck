@@ -85,14 +85,17 @@ Type: files; Name: "{app}\{#AppExe}.old"
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Launch {#AppDisplayName}"; \
     Flags: nowait postinstall skipifsilent
-; A silent run is the in-app updater. It asks for /LAUNCH only when the user pressed Restart
+; A silent run is the in-app updater. It asks for /LAUNCH=1 only when the user pressed Restart
 ; now; an update applied as the application closes deliberately does not, because putting the
 ; app back up would be it deciding to run. --updated makes the new copy wait for the
 ; single-instance lock the old one is still dropping.
 Filename: "{app}\{#AppExe}"; Parameters: "--updated"; Flags: nowait; Check: RelaunchRequested
 
 [Code]
+// Read through the {param:} constant, which is the only documented way to get at the command
+// line here — Inno has no built-in for testing a bare switch, which is why /LAUNCH carries a
+// value it does not otherwise need.
 function RelaunchRequested: Boolean;
 begin
-  Result := CmdLineParamExists('/LAUNCH');
+  Result := ExpandConstant('{param:LAUNCH|0}') = '1';
 end;

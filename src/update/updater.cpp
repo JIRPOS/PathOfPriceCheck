@@ -55,7 +55,8 @@ bool Updater::hand_over_to_installer(bool relaunch) {
     std::vector<std::string> args{"/VERYSILENT", "/NORESTART"};
     // Only when the user pressed Restart now. An update applied because the application is
     // closing must not put it back up: that would be the app deciding to run.
-    if (relaunch) args.emplace_back("/LAUNCH");
+    // `=1` because Inno reads it through `{param:}`, which only sees name=value pairs.
+    if (relaunch) args.emplace_back("/LAUNCH=1");
     return spawn_detached(installer_path(), args);
 }
 

@@ -73,8 +73,10 @@ who took the recommended download.
 the start menu (`DisableProgramGroupPage`, one shortcut straight in the programs list), not in the
 registry. `PathOfPriceCheck` is the only name that appears.
 
-The updater runs it as `/VERYSILENT /NORESTART`, plus `/LAUNCH` only when the user pressed
-**Restart now**. Handing it over **renames `staged` to `installer.exe` first**, and that rename is
+The updater runs it as `/VERYSILENT /NORESTART`, plus `/LAUNCH=1` only when the user pressed
+**Restart now**. That switch carries a value it does not otherwise need because Inno's only
+documented route to the command line from `[Code]` is the `{param:}` constant, which sees
+name=value pairs and nothing else — there is no built-in for testing a bare switch. Handing it over **renames `staged` to `installer.exe` first**, and that rename is
 what marks the update consumed: a swap consumes the file by definition, but an installer runs
 *from* it, so without the rename every later exit would install it again. The leftover is deleted
 at the next `init()`, by which point nothing is running from it. `CloseApplications=yes` lets Restart Manager close the copy being replaced, and
