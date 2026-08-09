@@ -4,9 +4,10 @@ on:
   pull_request:
     branches: [master]
 
+# `pull_request`, never `pull_request_target`: a fork's code must run with a read-only token and
+# no access to secrets. Only `changes` needs to read the PR itself.
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   # A release PR carries nothing but the bumped VERSION, and the release it was cut for already
@@ -14,6 +15,8 @@ jobs:
   # is what keeps `ci-ok` reporting: a required check that never runs blocks the PR forever.
   changes:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       code: ${{ steps.f.outputs.code }}
     steps:
@@ -43,6 +46,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # This job compiles and runs code the PR supplies, so it must not leave a token
+          # sitting in `.git/config` for a build script to pick up.
+          persist-credentials: false
       - name: Install Linux deps
         if: runner.os == 'Linux'
         run: |
