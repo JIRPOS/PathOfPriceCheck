@@ -4,6 +4,9 @@ What is planned between here and a 1.0 release, in the order it is planned to ar
 of intent, not a contract: there are no dates, and anything here can be cut. What will not happen
 is a feature shipping half-finished to make a number go up.
 
+A version that has shipped stays on this page, marked **shipped** and written in the present tense,
+so the list reads as the whole road rather than only the part still ahead.
+
 **One feature per minor, no feature on a build.** `MAJOR.MINOR` is the [VERSION](VERSION) file and
 `BUILD` is the CI run counter, so `0.4.31` → `0.4.32` is a fix and `0.4` → `0.5` is the next thing
 on this list. A minor stays open as long as its fixes keep arriving.
@@ -15,14 +18,15 @@ up.
 
 For what is deliberately *not* planned, and why, see [docs/roadmap.md](docs/roadmap.md).
 
-## 0.3 — The application updates itself
+## 0.3 — The application updates itself — **shipped**
 
-The executable. The game data has updated itself from the start; the program has not. On Windows
-that also means shipping an installer, because where the tool lives decides whether it can.
+The executable. The game data had updated itself from the start; the program had not. On Windows
+that also meant shipping an installer, because where the tool lives decides whether it can.
 
-**Will:**
+**Does:**
 
-- Check this repository's releases at startup, download and verify in the background.
+- Check this repository's releases when it starts and again while you play, downloading and
+  verifying in the background.
 - Apply the update **as the tool closes**, so the next start is already the new version — never
   to a running program.
 - Tell you in three places: the idle status marker, the price-check panel, and a Settings row
@@ -31,18 +35,19 @@ that also means shipping an installer, because where the tool lives decides whet
   come back. Dismiss the notice and the update waits for whenever you next close the tool.
   Nothing closes while the game is running.
 - Update the AppImage in place, at its own path, so you do not end up with two launcher entries.
-- Offer, but not apply, an update where the install is not writable — a Windows zip unpacked into
-  `Program Files`. The notice points at the release page instead.
+- Offer, but not apply, an update it cannot install here — a Windows zip unpacked into
+  `Program Files`, a copy your package manager owns, a release with no download for your platform.
+  The notice says which of those it is and points at the release page.
 - Have a setting to turn it off, defaulting on.
 
-**And ship Windows an installer**, because the two are the same problem. Unpack a zip into
+**And Windows got an installer**, because the two are the same problem. Unpack a zip into
 `Program Files` and the tool cannot update itself there; a per-user install goes to
 `%LOCALAPPDATA%\Programs`, needs no administrator, and is writable by definition. It brings a
 start-menu shortcut, an optional desktop one and a proper uninstaller — and it is where any
 prerequisite would ever go, if one is ever needed. The portable `.zip` stays for anyone who wants
 a folder they can move.
 
-One new request and one new file, both listed in [PRIVACY.md](PRIVACY.md).
+One new request and two new files, all listed in [PRIVACY.md](PRIVACY.md).
 
 ## 0.4 — Ranges in the filter list become editable
 
