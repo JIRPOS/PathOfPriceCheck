@@ -105,6 +105,22 @@ TEST_CASE("only ticked filters are sent") {
     CHECK(query_of(p)["stats"][0]["filters"].empty());
 }
 
+TEST_CASE("a hidden filter is a row, not a search — the tick is the only gate") {
+    // `StatFilter::hidden` says where the panel draws the row (behind the expandable section
+    // at the foot of the list), and this layer must not read it at all: a hidden filter the
+    // user ticked is exactly as much a filter as any other, or the section would be decoration.
+    SearchPlan p = rare_plan();
+    p.stats[0].hidden = true;
+    p.stats[0].enabled = false;
+    CHECK(query_of(p)["stats"][0]["filters"].empty());
+
+    p.stats[0].enabled = true;
+    const json f = query_of(p)["stats"][0]["filters"];
+    REQUIRE(f.size() == 1);
+    CHECK(f[0]["id"] == "explicit.stat_3299347043");
+    CHECK(f[0]["value"]["min"] == 77);
+}
+
 TEST_CASE("an inverted stat flips sign and swaps its bounds") {
     SearchPlan p = rare_plan();
     p.stats[0].inverted = true;

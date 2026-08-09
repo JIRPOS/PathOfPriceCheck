@@ -183,6 +183,12 @@ public:
     /// Open the editor on a row spanning `top`..`bottom` in viewport coordinates.
     void edit_filter(FilterEdit::Kind kind, size_t index, float top, float bottom);
     void close_filter_edit() { filter_edit_ = {}; }
+    /// Whether the filters the strategy left out are expanded. **Collapsed for every price
+    /// check**, deliberately: they are the modifiers the strategy decided the item is not
+    /// bought for, and a list that opens with six map affixes on it buries the two rows that
+    /// price the map. Reset with the plan, like the editor above.
+    bool hidden_filters_shown() const { return hidden_filters_shown_; }
+    void show_hidden_filters(bool on) { hidden_filters_shown_ = on; }
     /// False while there is nothing to search — no bundle, a strategy with no query behind it
     /// (currency), or a gem the bundle could not name.
     bool can_search() const;
@@ -265,6 +271,7 @@ private:
     float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
     int settings_tab_ = 0;        ///< which Settings tab is open
     FilterEdit filter_edit_;      ///< which filter row has its range editor open
+    bool hidden_filters_shown_ = false; ///< the filters the strategy left out are expanded
     std::string clipboard_;
     bool running_ = true;
 

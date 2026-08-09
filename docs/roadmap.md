@@ -135,6 +135,19 @@ Known, argued, and unscheduled — except where a planned version claims one, wh
   and the build now reports `wordings_ambiguous_in_a_namespace` so a regression is visible.
   **Do not "fix" the app side by picking a record.** Two ids behind one wording is a filter on the
   wrong stat half the time, and a confident wrong price is the failure mode this whole layer avoids.
+- **No per-tier range for an affix, so the range editor's slider is the tier in hand.** Asked
+  for: a track spanning *every* tier — the lowest tier's floor to the highest tier's ceiling —
+  so a buyer can drag toward a roll better than the one they are holding. Nothing we have can
+  say what those are. `roll_min`/`roll_max` come from what the clipboard printed, which is the
+  rolled tier and only with Advanced Mod Descriptions on; `Stat` carries no tiers, and
+  `en-unique-mods.ndjson` is per-unique rather than per-affix. **Upstream**: the data build would
+  have to emit the mod table (GGG's `Mods.dat` joined to its tiers, keyed by item class and
+  domain, in displayed units the way `UniqueModFilter::ranges` already are). Until then the
+  slider's ends are the only range that can be defended, and `ui::range_slider` answers the need
+  the other way — the knobs carry on past the ends and two ticks mark where the known range was,
+  so the user reaches the number without the app claiming to know the tier it belongs to.
+  **Do not widen the track by a guessed factor.** A track is read as a statement about what the
+  affix rolls, and a wrong one is the confident wrong number this layer exists to avoid.
 - **Pseudo mods on gear** — trade's `pseudo.*` totals (total resistances, total life) are not built;
   mods are matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance`
   and the rest), so this is a plan-layer job, not a data one. A map's pseudo stats *are* built (see

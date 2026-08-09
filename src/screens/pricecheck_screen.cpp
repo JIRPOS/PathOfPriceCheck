@@ -62,12 +62,19 @@ std::string format_number(double v, int dp) {
 /// they used to paint nothing at all (see `kBorrowedGlyphs`). `glyphs` is false only where the
 /// OS shipped nothing to borrow from, and then they are spelled out: a floor whose `≥` went
 /// missing reads as an exact match, which is a different search.
+/// Two numbers as an interval. The separator is a hyphen — `46-48`, which is how a range is
+/// written and how the game writes one — **except where an end is negative**, and then it is the
+/// word: a map's "25% less Accuracy Rating" is stored as a negative increase, so its interval
+/// came out `-27--23`, which reads as neither a range nor two numbers.
+std::string interval_text(double lo, double hi, int dp) {
+    if (lo == hi) return format_number(lo, dp);
+    const char* join = lo < 0 || hi < 0 ? " to " : "-";
+    return format_number(lo, dp) + join + format_number(hi, dp);
+}
+
 std::string filter_text(const std::optional<double>& min, const std::optional<double>& max, int dp,
                         bool glyphs) {
-    if (min && max) {
-        if (*min == *max) return format_number(*min, dp);
-        return format_number(*min, dp) + "-" + format_number(*max, dp);
-    }
+    if (min && max) return interval_text(*min, *max, dp);
     if (min) return (glyphs ? "\xe2\x89\xa5" : ">=") + format_number(*min, dp);
     if (max) return (glyphs ? "\xe2\x89\xa4" : "<=") + format_number(*max, dp);
     return {};
@@ -78,8 +85,7 @@ std::string filter_text(const std::optional<double>& min, const std::optional<do
 std::string bracket_text(const std::optional<double>& min, const std::optional<double>& max,
                          int dp) {
     if (!min || !max) return {};
-    if (*min == *max) return "[" + format_number(*min, dp) + "]";
-    return "[" + format_number(*min, dp) + "-" + format_number(*max, dp) + "]";
+    return "[" + interval_text(*min, *max, dp) + "]";
 }
 
 /// The trade site's own colours for the two halves of the mod pool, which is where the user
@@ -531,6 +537,45 @@ bool has_interval(const item::StatFilter& f) {
     return !f.negated && (f.min || f.max || f.roll_min || f.roll_max);
 }
 
+/// The row that opens the filters the strategy left out, and whether they are showing.
+///
+/// **What is behind it is the strategy's judgement, not the matcher's.** A map's affixes, a
+/// beast's monster modifiers and an ultimatum's hazards are all matched, searchable and
+/// deliberately not part of what the item is bought for — so they used to get no row at all, and
+/// a user who wanted one had no way to ask for it short of the trade site. This is that way, and
+/// it costs one line of panel when there is nothing behind it and none when there is not.
+///
+/// **Collapsed for every price check.** Six map affixes opened by default would bury the two rows
+/// that actually price the map, and the whole argument for hiding them is that they are not
+/// usually the question. The state lives on `App` rather than in ImGui's own storage, which is
+/// keyed by id and would carry an open section from one item to the next.
+///
+/// `SetNextItemOpen` every frame and the return value read back is what makes an external bool
+/// the authority: the node applies our value, the click toggles it, and it returns the state it
+/// ends the frame in, which is what we store.
+bool draw_hidden_header(App& app, size_t n) {
+    ImGui::TableNextRow();
+    // In the wording column, so the arrow lines up with the modifiers rather than with the ticks.
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemOpen(app.hidden_filters_shown());
+    // ImGui's own header colours are a solid selection blue, which on a list of modifiers read
+    // over a game is the loudest thing on the panel — for a row that is a disclosure, not a
+    // selection. Dimmed to the same weight as the row-hover tint the filters already use.
+    ImGui::PushStyleColor(ImGuiCol_Text, kDim);
+    ImGui::PushStyleColor(ImGuiCol_Header, kRowHover);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(255, 255, 255, 34));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(255, 255, 255, 46));
+    const bool open = ImGui::TreeNodeEx(
+        "##hidden", ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_NoTreePushOnOpen,
+        "%zu more this search leaves out", n);
+    ImGui::PopStyleColor(4);
+    app.show_hidden_filters(open);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Matched, and left out because this search is not about them. "
+                          "Tick one to send it anyway.");
+    return open;
+}
+
 /// The filter list, as a table so that every row's numbers sit under the previous row's. What
 /// the search asks for is the **last** column and not part of the origin beside the code: it is
 /// the one thing here that the user will be editing.
@@ -578,7 +623,7 @@ void draw_filters(App& app, const item::Item& it, item::SearchPlan& plan) {
                 c.clicked)
                 app.edit_filter(FilterEdit::Kind::Numeric, i, c.top, c.bottom);
         }
-        for (size_t i = 0; i < plan.stats.size(); ++i) {
+        const auto stat_row = [&](size_t i) {
             item::StatFilter& f = plan.stats[i];
             // Why this one is ticked on a unique whose other modifiers are not: the item picked
             // it out of a pool, so it is what separates this copy from every other.
@@ -595,7 +640,15 @@ void draw_filters(App& app, const item::Item& it, item::SearchPlan& plan) {
                     rows_live && has_interval(f));
                 c.clicked)
                 app.edit_filter(FilterEdit::Kind::Stat, i, c.top, c.bottom);
+        };
+        size_t hidden = 0;
+        for (size_t i = 0; i < plan.stats.size(); ++i) {
+            if (plan.stats[i].hidden) ++hidden;
+            else stat_row(i);
         }
+        if (hidden > 0 && draw_hidden_header(app, hidden))
+            for (size_t i = 0; i < plan.stats.size(); ++i)
+                if (plan.stats[i].hidden) stat_row(i);
         ImGui::EndTable();
     }
     ImGui::PopStyleVar(2);

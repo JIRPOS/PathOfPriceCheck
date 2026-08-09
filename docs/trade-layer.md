@@ -309,6 +309,27 @@ whichever row it happened to be covering. Dragging a knob or clicking a box open
 row's editor. The rows are additionally dead while the editor is up, so the hover highlight agrees
 with ImGui about which presses can do anything.
 
+**What a strategy leaves out is a collapsed section at the foot of the list**, not nothing.
+`StatFilter::hidden` is the flag and `draw_hidden_header` the row that opens it. Three strategies
+set it, all for modifiers they match and then decide the item is not bought for: **a map's
+affixes**, re-rollable with one Chaos Orb and answered by the single copy in the league that
+rolled that set; **a beast's monster modifiers**, which are not affixes; and **an ultimatum's
+hazards** other than the two that scale the stake. Every one of those is occasionally the whole
+question, and before this there was no way to ask it short of the trade site itself.
+
+Three rules hold it together. **Hidden is about the row, not the search** — a hidden filter is
+unticked like any other and `build_query` reads `enabled` and knows nothing about the flag, so
+ticking one sends it and the default query is byte-for-byte what it was. **It is still not a
+note**: `to_filter` returning nothing for one of these produces no row *and* no complaint, because
+"unrecognised modifier: Players have 25% less Accuracy Rating" on a map charges the check with
+something it deliberately did not attempt. And `merge_same_stat` **never folds across the divide**,
+or a modifier the strategy left out would end up inside the total of one it did not, with the
+shown row's tick sending both.
+
+**Collapsed for every price check**, held on `App` rather than in ImGui's storage, which is keyed
+by id and would carry an open section from one item to the next. Six map affixes open by default
+would bury the two rows that actually price the map, which is the same argument that hid them.
+
 **Why a row is not ticked is a tooltip on the wording** (`StatFilter::caveat`), never a line
 under the list. The panel is competing with the game for the same screen, a note repeats a
 wording that is one row above it, and the row already carries the whole statement: this modifier,

@@ -52,6 +52,18 @@ struct StatFilter {
     bool tiered = false;
     /// The trade site indexes this stat with the opposite sign; the query builder flips it.
     bool inverted = false;
+    /// The strategy matched this modifier and then decided it is not part of what the item is
+    /// bought for, so it is kept off the filter list proper and offered under **the expandable
+    /// section at the foot of it** instead. A map's affixes are the case: re-rollable with one
+    /// Chaos Orb, and a query naming them returns the one copy in the league that rolled that
+    /// set — but "one copy in the league" is occasionally the exact question, and before this
+    /// there was no way to ask it short of the trade site itself.
+    ///
+    /// **Hidden is about the row, not the search.** A hidden filter is disabled like any other
+    /// unticked one, and ticking it sends it: `trade::build_query` reads `enabled` and knows
+    /// nothing about this flag. It is only ever set where the strategy used to drop the
+    /// modifier on the floor.
+    bool hidden = false;
     /// Ask for the modifier being **absent** rather than present — a `not` stat group instead
     /// of the `and` one. A filter for a modifier the item in hand does not have, which is only
     /// ever worth asking where its absence is itself the thing being bought: a Valdo map that
