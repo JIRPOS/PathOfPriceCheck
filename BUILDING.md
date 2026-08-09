@@ -148,7 +148,7 @@ MSVC is what CI builds and is therefore what is known to work; clang-cl is untes
   One caveat worth knowing under Wayland: copying in a **Wayland-native** application while the game
   is running can leave the X selection with no owner at all, and only a window-manager-level focus
   change out of the game recovers it. That is KWin's Xwayland clipboard bridge and is not fixable
-  from here; see [CLAUDE.md](CLAUDE.md#architecture). Reading the selection with a native Wayland
+  from here; see [docs/architecture.md](docs/architecture.md). Reading the selection with a native Wayland
   protocol (`ext-data-control-v1`, the one a clipboard manager uses) was built and tried against
   exactly this, and does not help: the copy is never published to *either* side, so there is
   nothing to read. With the debug log on, the give-up line now names this case where it can.
@@ -170,7 +170,7 @@ MSVC is what CI builds and is therefore what is known to work; clang-cl is untes
 - **Windows 10 or later.** No runtime dependencies beyond the OS.
 - **The game may be the native Windows client or Wine/Proton.** The copy path carries a good deal
   of hard-won handling for how Wine publishes the clipboard; that story is in
-  [CLAUDE.md](CLAUDE.md).
+  [docs/platform.md](docs/platform.md).
 - **First launch downloads the data bundle** (~4 MB) from
   [PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data). Nothing is baked into
   the binary, so a new league needs a data build rather than a new release. See

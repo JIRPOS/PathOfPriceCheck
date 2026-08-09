@@ -130,10 +130,10 @@ screenshot.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | what helps right now (issues), and why not PRs yet |
 | [CONTACT.md](CONTACT.md) | one route: issues. Takedowns included. |
 | [UNIQUE-MODS.md](UNIQUE-MODS.md) | the per-unique modifier dataset's contract, and its gaps |
-| [CLAUDE.md](CLAUDE.md) | the architecture, and the reasoning behind every decision in it |
+| [CLAUDE.md](CLAUDE.md) + [docs/](docs/) | the architecture, and the reasoning behind every decision in it |
 
-[CLAUDE.md](CLAUDE.md) is the real design document — it is written for an AI assistant working in
-this repository, but it is the only place the hard parts are explained: why the clipboard is read
+[CLAUDE.md](CLAUDE.md) and the [docs/](docs/) it maps are the real design document — written for an
+AI assistant working in this repository, but the only place the hard parts are explained: why the clipboard is read
 by hand instead of through SDL, what Wine does with the X selection and how it is coaxed out of it,
 why quality is inverted the way it is, and which mistakes were already made and reverted.
 

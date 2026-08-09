@@ -3,8 +3,8 @@
 Reference for the dataset behind `item/plan`'s `apply_unique_mods`. Points 1, 2, 4 and 6 below
 are **built**: pool membership decides what a unique's search asks for, and the app degrades to
 what a printed range can prove when a record is absent. Points 3 (offering the pool modifiers the
-item does *not* have) and 5 (unidentified uniques) are **not**, and stay listed under "Still to
-build" in [CLAUDE.md](CLAUDE.md). Produced by
+item does *not* have) and 5 (unidentified uniques) are **not**, and stay listed in
+[docs/roadmap.md](docs/roadmap.md). Produced by
 [PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data) —
 `builder/ppcdata/emit/unique_mods.py` and `builder/ppcdata/sources/wiki.py`.
 
