@@ -21,8 +21,8 @@ Exhaustively — this is every outbound request the binary can make.
 
 | host | when | what leaves your machine |
 |---|---|---|
-| `github.com` → `objects.githubusercontent.com` | at startup, and again only when a new data bundle exists | nothing but the request itself: the URL, and the `User-Agent` below |
-| `github.com` → `objects.githubusercontent.com` | at startup, for a newer version of the application itself, unless you turned **Update automatically** off; then once more to download it, only when there is one | nothing but the request. **This is a plain file fetch, not a version ping**: the same `latest.json` is served to everyone, the comparison happens on your machine, and nothing tells the other end which version you are on |
+| `github.com` → `objects.githubusercontent.com` | at startup, and then at most once every 30 minutes, when you press one of the hotkeys; again only when a new data bundle exists | nothing but the request itself: the URL, and the `User-Agent` below |
+| `github.com` → `objects.githubusercontent.com` | on the same occasions, for a newer version of the application itself, unless you turned **Update automatically** off; then once more to download it, only when there is one | nothing but the request. **This is a plain file fetch, not a version ping**: the same `latest.json` is served to everyone, the comparison happens on your machine, and nothing tells the other end which version you are on |
 | `www.pathofexile.com/api/trade/data/leagues` | when Settings is opened; cached 24 h | nothing but the request |
 | `www.pathofexile.com/api/trade/data/static` | before the first search; cached a week | nothing but the request |
 | `www.pathofexile.com/api/trade/search/<league>` | when you press **Search** (or on open, if you turned on `auto_search`) | the search query: trade stat identifiers and numeric bounds derived from the item under your cursor, plus the league and the listing-status filter |

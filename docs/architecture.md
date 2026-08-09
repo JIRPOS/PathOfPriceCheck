@@ -249,6 +249,18 @@ data-updater state, trade result, poe.ninja result, currency-exchange result, ap
 state. Async results are **not** routed through `Action` — `handle_action()` gates on
 the game being foreground and would silently swallow them whenever PoE is not in front.
 
+**Both updaters are re-checked from the hotkey, not from a timer.** `refresh_checks()` runs on
+every action that gets past that gate and starts a check for whichever of the bundle and the
+release was last checked more than `kRecheckIntervalMs` (30 minutes) ago — so the interval is a
+floor and not a schedule: a copy left running overnight asks for nothing, and every request it does
+make lands beside something the user was about to look at anyway. Whatever comes back is news for
+the *next* press, never for the one that triggered it, which is the only reason this can sit on the
+copy path at all. The two clocks are separate so that **Check now** on one Settings row does not
+postpone the other's re-check, and the release check is additionally skipped while
+`Status::has_news()` — re-checking there would find the same version and take the notice down for
+the length of it. A bundle that lands mid-price-check is handled where it always was, by
+`take_ready_bundle()` re-resolving the item in hand.
+
 ## The debug log (`src/util/debug_log.cpp`)
 
 The copy path's failures are rare, unreproducible on demand, and invisible after the fact — so

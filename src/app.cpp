@@ -293,10 +293,10 @@ int App::run(bool relaunched_after_update) {
     ui::set_language(config_.ui_language, config_.client_language);
     updater_.set_language(config_.client_language);
     data_ = updater_.load_installed();
-    updater_.start_check(); // background; the panel degrades gracefully until it lands
+    check_for_data(); // background; the panel degrades gracefully until it lands
 
     app_updater_.init(cache_dir() / "update", update_event_);
-    if (config_.auto_update) app_updater_.start_check();
+    if (config_.auto_update) check_for_update();
 
     hotkeys_ = HotkeyListener::create([this](Action a) { on_hotkey(a); });
     rebind_hotkeys();
@@ -799,6 +799,31 @@ void App::poll_click_away() {
     if (!on_panel && !on_card) set_screen(Screen::Hidden);
 }
 
+void App::check_for_data() {
+    data_checked_ms_ = SDL_GetTicks();
+    debug::log("[data]   check requested");
+    updater_.start_check();
+}
+
+void App::check_for_update() {
+    update_checked_ms_ = SDL_GetTicks();
+    debug::log("[update] check requested");
+    app_updater_.start_check();
+}
+
+void App::refresh_checks() {
+    // Riding on the user's own hotkey rather than on a timer, so a copy left running overnight
+    // asks for nothing and the requests only ever land beside something they were going to
+    // notice anyway. Both workers are off the main thread, so this returns immediately.
+    const uint64_t now = SDL_GetTicks();
+    if (now - data_checked_ms_ >= kRecheckIntervalMs) check_for_data();
+    // Nothing to gain from re-checking while a release is already staged or offered: the answer
+    // would be the same one, and the check would take the notice down for the length of it.
+    if (config_.auto_update && now - update_checked_ms_ >= kRecheckIntervalMs &&
+        !app_updater_.status().has_news())
+        check_for_update();
+}
+
 void App::handle_action(Action a) {
     // The hotkeys are grabbed system-wide, so they fire while the user is in a browser or a
     // terminal too. Gate every action on the game actually being in front rather than firing
@@ -812,6 +837,9 @@ void App::handle_action(Action a) {
         debug::trace("[copy] hotkey ignored: game not focused");
         return;
     }
+    // Past the gate, so this is the user reaching for *this* application and not a hotkey that
+    // fired into a browser. Whatever it finds is news for the next press, never for this one.
+    refresh_checks();
 
     if (a == Action::PriceCheck) {
         // Sample the cursor now, while it's still on the item — the user will have moved

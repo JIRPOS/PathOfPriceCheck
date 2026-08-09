@@ -18,6 +18,12 @@ overlay over a game that people play for hours; an application that decides for 
 is one that closes over a map. So the download is quiet, the notice is passive, and the swap
 happens either when the user presses **Restart now** or as the application is closing anyway.
 
+**Checked on the hotkey, not on a timer.** The check at startup is not the only one: `App::refresh_checks()`
+starts another whenever an action gets past the foreground gate and the last one is over half an hour
+old, so a session that runs for a day is not stuck on the release that existed when it started. It is
+skipped while `has_news()` — a check that can only find the version already staged, at the cost of
+taking the notice down while it runs. See [architecture.md](architecture.md).
+
 **Applied on the way out, not on the way in.** `apply_on_exit()` runs after the worker is joined.
 Doing it at startup instead would put the new file on disk while this process runs the old image,
 so the update would need a *second* restart to take effect — which is not what the promise says.

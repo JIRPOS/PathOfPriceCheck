@@ -104,7 +104,8 @@ constexpr const char* kEnglish[]{
     "Restart now",
     "Release page",
     "Update automatically",
-    "Checks GitHub at startup, downloads in the background, applies on your next start.",
+    "Checks GitHub at startup and while you play, downloads in the background, applies on your "
+    "next start.",
 
     "Debug logging",
     "could not open a log file",
