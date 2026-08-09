@@ -45,10 +45,11 @@ jobs:
         os: [ubuntu-22.04, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
-          # This job compiles and runs code the PR supplies, so it must not leave a token
-          # sitting in `.git/config` for a build script to pick up.
+          # This job compiles and runs code the PR supplies, so it must not leave a usable token
+          # behind for a build script to pick up. Checkout v6 moved that token out of
+          # `.git/config` and into `$RUNNER_TEMP`, which is still readable from the job.
           persist-credentials: false
       - name: Install Linux deps
         if: runner.os == 'Linux'
