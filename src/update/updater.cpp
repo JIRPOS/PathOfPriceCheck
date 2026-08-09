@@ -215,13 +215,21 @@ void Updater::run() {
     // release page. An unknown flavour is a distribution package or a build tree; an unwritable
     // directory is a .zip unpacked into Program Files; a missing asset is a release that did
     // not publish one for this platform.
-    if (method == Method::None || !asset || !install_dir_writable()) {
-        debug::log("[update] %s offered, not applied: flavour=%s asset=%s writable=%d",
+    const bool writable = install_dir_writable(target_);
+    // Ordered by how much it explains: an unmanaged copy has no install directory of ours to be
+    // writable or not, and a platform with no asset would not be updated even if it had one.
+    const Offered reason = method == Method::None ? Offered::Unmanaged
+                           : !asset               ? Offered::NoAsset
+                           : !writable            ? Offered::NotWritable
+                                                  : Offered::None;
+    if (reason != Offered::None) {
+        debug::log("[update] %s offered, not applied: flavour=%s asset=%s target=%s writable=%d",
                    rel.version.str().c_str(), std::string(to_string(flavour_)).c_str(),
-                   asset ? asset->name.c_str() : "none", install_dir_writable() ? 1 : 0);
+                   asset ? asset->name.c_str() : "none", target_.string().c_str(), writable ? 1 : 0);
         {
             std::lock_guard lock(mu_);
             status_.state = State::Offer;
+            status_.reason = reason;
         }
         busy_ = false;
         publish();

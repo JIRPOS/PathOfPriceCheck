@@ -37,10 +37,18 @@ done to it.
 
 Three ways to have news that cannot be acted on, and they are one answer to the user (the release
 page): an `Unknown` flavour, a release with no asset for this platform, and an install directory
-that is not writable — a `.zip` unpacked into `Program Files`. `install_dir_writable()` probes by
+that is not writable — a `.zip` unpacked into `Program Files`. One answer, but **three notices**:
+`Status::reason` records which it was, because a single sentence about permissions sent people
+inspecting a directory that was writable all along when the real reason was a build tree. `install_dir_writable()` probes by
 creating a file rather than by reading permission bits, because the bits are not the whole answer
 on either platform; a 64-bit process gets a clean refusal, with no UAC file virtualization to be
 fooled by.
+
+It probes the directory of **the target**, never of `exe_path()`. Inside a mounted AppImage those
+are two different files: the running binary lives on the read-only squashfs the runtime mounted
+under `/tmp`, so probing beside it answers *no* for every AppImage there has ever been, and the
+release page was offered to users whose install was perfectly writable. The target is the same
+path the swap writes to, which is the only directory whose writability is the question being asked.
 
 ## The swap
 

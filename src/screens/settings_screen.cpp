@@ -242,8 +242,13 @@ void update_row(App& app, Config& c) {
 
     row_gutter();
     if (st.state == State::Offer) {
+        using Offered = update::Updater::Offered;
         ImGui::PushTextWrapPos(0.0f);
-        ImGui::TextDisabled("%s", ui::text(ui::Msg::UpdateOfferHelp));
+        ImGui::TextDisabled("%s", ui::text(st.reason == Offered::Unmanaged
+                                               ? ui::Msg::UpdateOfferUnmanaged
+                                           : st.reason == Offered::NoAsset
+                                               ? ui::Msg::UpdateOfferNoAsset
+                                               : ui::Msg::UpdateOfferHelp));
         ImGui::PopTextWrapPos();
         row_gutter();
     }

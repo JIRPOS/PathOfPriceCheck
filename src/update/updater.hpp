@@ -33,6 +33,16 @@ public:
         Failed,
     };
 
+    /// Why an `Offer` could not be applied here. Three unrelated causes that the notice used to
+    /// state as one — "somewhere it may not write" — which sends anyone reading it to look at
+    /// permissions even when the directory is perfectly writable and the reason is a build tree.
+    enum class Offered {
+        None,        ///< not an offer
+        Unmanaged,   ///< a distribution package or a build tree: something else owns these files
+        NotWritable, ///< the install directory refuses a write — a `.zip` in `Program Files`
+        NoAsset,     ///< the release published no download for this platform
+    };
+
     struct Status {
         State state = State::Idle;
         std::string available;  ///< the newer version, when there is one
@@ -40,6 +50,7 @@ public:
         uint64_t bytes_done = 0, bytes_total = 0;
         std::string error;      ///< diagnostic; never shown over the game
         Flavour flavour = Flavour::Unknown;
+        Offered reason = Offered::None; ///< meaningful only while `state == Offer`
 
         /// True when there is something for the user to act on. The three notice surfaces all
         /// gate on this rather than on the state, so they cannot disagree about it.

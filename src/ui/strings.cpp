@@ -88,6 +88,9 @@ constexpr const char* kEnglish[]{
     "v%s is ready",
     "v%s is available",
     "This copy cannot update itself \xe2\x80\x94 it is installed somewhere it may not write.",
+    "This copy cannot update itself \xe2\x80\x94 it runs from a package or a build tree, which "
+    "something other than this application owns.",
+    "This release has no download for this platform.",
     "Restart now",
     "Release page",
     "Update automatically",

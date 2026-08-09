@@ -97,9 +97,13 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 `<cache>` is `$XDG_CACHE_HOME/PathOfPriceCheck` (`~/.cache/PathOfPriceCheck`) or `%LOCALAPPDATA%\PathOfPriceCheck`.
 Deleting either directory is safe; the application rebuilds what it needs.
 
-**One file outside those two directories:** applying an update replaces the application's own
-executable, at its own path, and briefly leaves the previous one beside it as `<name>.old` until
-the next start deletes it. Nothing else on your system is written to. On Windows the installer —
+**Two files outside those two directories, both beside the application's own executable and both
+short-lived.** Applying an update replaces that executable, at its own path, and briefly leaves the
+previous one beside it as `<name>.old` until the next start deletes it. And when a new version is
+offered, an empty `.ppc-write-probe` is created and immediately deleted there, which is how the
+application finds out whether it is allowed to update itself at all — asking the filesystem is the
+only reliable way, since the permission bits do not answer it on either platform. Nothing else on
+your system is written to. On Windows the installer —
 if you used it rather than the portable `.zip` — additionally creates its own program directory,
 its shortcuts, one registry value at `HKCU\Software\PathOfPriceCheck` recording where it
 installed, and the usual Add/Remove Programs entry; uninstalling removes them.
@@ -117,8 +121,9 @@ Those live in memory for as long as the panel is open and are dropped when the n
 and the X server fails in ways that are rare, unreproducible on demand and invisible afterwards.
 
 When you enable it (Settings → Diagnostics), `<cache>/logs/ppc-<date>-<time>.log` records the copy
-timeline, the trade query JSON, rate-limit decisions — and **the full contents of every clipboard
-read, base64-encoded**, because whitespace and text encoding are exactly what those bugs turn on.
+timeline, the trade query JSON, rate-limit decisions, the path this copy of the application runs
+from — and **the full contents of every clipboard read, base64-encoded**, because whitespace and
+text encoding are exactly what those bugs turn on.
 One file per run, the newest ten kept.
 
 So: while it is on, item text you price is written to disk, along with anything else that was on

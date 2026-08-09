@@ -93,7 +93,9 @@ enum class Msg : uint16_t {
     UpdateDownloading,  ///< "%.1f", "%.1f" — megabytes done and total
     UpdateReady,        ///< "%s" — the new version
     UpdateAvailable,    ///< "%s" — the new version
-    UpdateOfferHelp,
+    UpdateOfferHelp,      ///< the offer's reason, one per `update::Offered`
+    UpdateOfferUnmanaged,
+    UpdateOfferNoAsset,
     RestartNow,
     OpenReleasePage,
     AutoUpdate,
