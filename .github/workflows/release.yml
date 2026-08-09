@@ -121,21 +121,24 @@ jobs:
           fi
       # The recommended Windows download. A per-user install lands somewhere writable, which is
       # what keeps the updater working; the .zip above stays for whoever wants a movable folder.
+      # PowerShell, not bash: Git Bash rewrites any argument that starts with a '/' into a
+      # Windows path, so ISCC's own /D switches arrive as filenames and it refuses the lot.
+      # CI compiles this same script on every PR, so a break here is caught before a release.
       - name: Package installer
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         env:
           VER: ${{ needs.prepare.outputs.version }}
         run: |
-          set -euo pipefail
-          iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
-          if [ ! -f "$iscc" ]; then choco install innosetup -y --no-progress; fi
-          "$iscc" /Qp \
-            "/DAppVersion=${VER}" \
-            "/DSourceExe=..\\build\\Release\\PathOfPriceCheck.exe" \
-            "/DOutDir=..\\dist" \
-            "/DOutName=PathOfPriceCheck-${VER}-win64-setup" \
-            packaging/PathOfPriceCheck.iss
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc /Qp `
+            "/DAppVersion=${env:VER}" `
+            "/DSourceExe=..\build\Release\PathOfPriceCheck.exe" `
+            "/DOutDir=..\dist" `
+            "/DOutName=PathOfPriceCheck-${env:VER}-win64-setup" `
+            packaging\PathOfPriceCheck.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       # SDL3 is static but libcurl, OpenSSL and libstdc++ are the system's, so the bare binary
       # assumes a distribution close to this runner. The AppImage carries them; libX11 and libGL
       # stay the host's, as they must.
