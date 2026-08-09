@@ -145,8 +145,9 @@ ul.docs { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wra
 .shots h2 { font-size: 24px; margin: 0 0 20px; }
 
 /* One slide at a time, snapped. Everything that drives it — swipe, wheel, arrow keys, the
-   scrollbar — is the browser's; there is no script on this page. Every slide stays in the
-   document, so what a search engine indexes is all seven and not just the first. */
+   scrollbar — is the browser's, and stays the whole of it when `gallery.js` does not run. Every
+   slide stays in the document, so what a search engine indexes is all seven and not just the
+   first. What the script adds is under `.js` below. */
 .strip {
   display: flex;
   overflow-x: auto;
@@ -190,12 +191,58 @@ ul.docs { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wra
   color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums;
 }
 .dots a:hover { border-color: var(--accent-dim); color: var(--rare); text-decoration: none; }
+.dots a[aria-current="true"] { border-color: var(--accent); color: var(--rare); }
 
 @media (max-width: 760px) {
   .slide { grid-template-columns: 1fr; gap: 16px; justify-items: center; }
   .slide img { max-height: 420px; }
   .slide figcaption { justify-self: stretch; }
 }
+
+/* The strip is smooth because it is driven by jumps — a wheel or a swipe is the reader's own
+   speed either way — but a reader who asked for no motion gets neither that nor the rotation. */
+@media (prefers-reduced-motion: reduce) {
+  .strip { scroll-behavior: auto; }
+}
+
+/* ---- what the script adds ----
+   `js` is set on <html> before first paint, so nothing here appears late or shifts the page.
+   Without it the scrollbar is the only thing on the strip saying it scrolls, so it stays. */
+
+.js .strip { scrollbar-width: none; }
+.js .strip::-webkit-scrollbar { height: 0; }
+
+.stripwrap { position: relative; }
+.arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: rgba(20, 18, 15, .82); color: var(--head);
+  font: 26px/1 var(--font); cursor: pointer;
+  padding: 0 0 3px; /* the chevrons sit high in the line box */
+}
+.arrow:hover { border-color: var(--accent-dim); color: var(--rare); }
+.arrow:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; }
+.arrow.prev { left: 6px; }
+.arrow.next { right: 6px; }
+
+/* Backdrop and box are the element's own; what is set here is that the image decides the size,
+   up to the viewport it has to fit inside. */
+.lightbox {
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--raised); color: var(--text);
+  padding: 10px; max-width: 94vw; max-height: 94vh;
+}
+.lightbox::backdrop { background: rgba(10, 9, 7, .82); }
+.lightbox img { display: block; max-width: 100%; max-height: calc(94vh - 20px); width: auto; height: auto; }
+.lightbox .close {
+  position: absolute; top: 14px; right: 14px;
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: rgba(20, 18, 15, .9); color: var(--head);
+  font: 22px/1 var(--font); cursor: pointer; padding: 0 0 2px;
+}
+.lightbox .close:hover { border-color: var(--accent-dim); color: var(--rare); }
 
 /* ---- rendered documents ---- */
 
