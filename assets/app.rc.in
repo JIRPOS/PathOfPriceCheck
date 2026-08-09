@@ -1,3 +1,42 @@
 // Windows executable icon. Configured into the build tree so the path resolves
 // without adding an rc include directory.
 1 ICON "@PPC_ICO_PATH@"
+
+// The version resource. An unsigned binary that also declares no publisher, no product and no
+// version is a heuristic signal in its own right — and the Inno installer already states all
+// three, so the setup looked like a product and the thing it installed did not. The strings are
+// the installer's, letter for letter (packaging/PathOfPriceCheck.iss), because two spellings of
+// one publisher is worse than none.
+//
+// FILEVERSION takes four numbers and `APP_VERSION` is three (MAJOR.MINOR from the VERSION file,
+// BUILD from CI), so the fourth is a constant 0.
+1 VERSIONINFO
+FILEVERSION    @PPC_VERSION_COMMAS@,0
+PRODUCTVERSION @PPC_VERSION_COMMAS@,0
+FILEFLAGSMASK  0x3fL
+FILEFLAGS      0x0L
+FILEOS         0x40004L // VOS_NT_WINDOWS32
+FILETYPE       0x1L     // VFT_APP
+FILESUBTYPE    0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        // US English, Unicode — the pair repeated in VarFileInfo below, which is what makes the
+        // block findable at all.
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "JIRPOS"
+            VALUE "FileDescription",  "Path of Price Check"
+            VALUE "FileVersion",      "@APP_VERSION@"
+            VALUE "InternalName",     "PathOfPriceCheck"
+            VALUE "LegalCopyright",   "Copyright (c) 2026 JIRPOS. MIT licensed."
+            VALUE "OriginalFilename", "PathOfPriceCheck.exe"
+            VALUE "ProductName",      "Path of Price Check"
+            VALUE "ProductVersion",   "@APP_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

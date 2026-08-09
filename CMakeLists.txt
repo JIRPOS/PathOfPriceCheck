@@ -180,9 +180,13 @@ if(WIN32)
   list(APPEND APP_SOURCES
     src/platform/hotkeys_win.cpp src/platform/foreground_win.cpp src/platform/input_sim_win.cpp
     src/platform/overlay_native_win.cpp src/platform/clipboard_win.cpp)
-  # Explorer/taskbar icon for the .exe; the tray and window icons come from src/icon.cpp.
+  # Explorer/taskbar icon for the .exe, and the version resource beside it; the tray and window
+  # icons come from src/icon.cpp.
   enable_language(RC)
   set(PPC_ICO_PATH "${CMAKE_SOURCE_DIR}/assets/popc_icon.ico")
+  # FILEVERSION wants its numbers comma-separated. Split here rather than reading the
+  # PROJECT_VERSION_* triple, which every FetchContent dependency's own project() call rebinds.
+  string(REPLACE "." "," PPC_VERSION_COMMAS "${APP_VERSION}")
   configure_file(assets/app.rc.in "${CMAKE_BINARY_DIR}/app.rc" @ONLY)
   list(APPEND APP_SOURCES "${CMAKE_BINARY_DIR}/app.rc")
 else()
