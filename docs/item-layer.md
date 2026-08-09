@@ -48,6 +48,14 @@ bundle, and only the third and fourth encode pricing judgement.
     ("Right-click to add this to your bestiary."), and a usage needle is a substring, so the
     "Right click" every other item prints never matched it and the line came back as a fourth,
     unrecognised modifier. Both spellings are needles now.
+    An **Inscribed Ultimatum** is the third item whose header says nothing about it, and the one
+    where it says least: its class is the "Misc Map Items" every invitation shares and its rarity
+    line reads "Currency" exactly as an orb's does. `Item::is_ultimatum()` reads
+    `PropertyKey::Challenge` — the trial it names, which nothing else in the game prints — and the
+    `Requires Sacrifice` beside it is the second key this added. It needed no `is_gear()` rule:
+    its class already makes it a map fragment, so the prose heuristics were never reached, and its
+    thirteen hazard lines parse as ordinary modifiers. Which of them is *searched* is the plan's
+    business, not the parser's.
   - Mod type comes from the ` (implicit)` / ` (crafted)` / … suffix, else from an Advanced Mod
     Descriptions info line's generation words, else Explicit. A flask enchant carries no suffix, so
     on a flask the earlier of two unsuffixed sections is the enchant.
@@ -319,6 +327,47 @@ bundle, and only the third and fourth encode pricing judgement.
   either and a wrong category comes back as nobody selling one rather than as an error —
   `currency` returned **0 matches** for a Wild Hellion Alpha against **1602** for
   `monster.beast`, same type and same item level.
+- **`item/plan`'s ultimatum strategy** (`plan_ultimatum`) prices a **contract**, and the search
+  asks for the same contract rather than for a better one. An Inscribed Ultimatum is bought to
+  stake a thing and win a thing, so the plan is the four `ultimatum_filters` options — the trial,
+  the reward type, the item sacrificed and, where the reward is a unique, that unique — plus the
+  area level, plus exactly two of the thirteen modifiers.
+  **The two exact modifiers are the whole judgement here.** "#% increased Monster Damage" and
+  "#% more Monster Life" are not rolls to be beaten: they are the scale of the deal, and on a
+  currency or divination-card ultimatum they say how large the stake is. 200% more Monster Life
+  *is* the ultimatum that stakes eight Divine Orbs, so a filter reading "at least 120%" prices the
+  four-orb ones alongside it. They are pinned to their own value **whatever the range-match
+  setting says**, which is the one place a plan overrides that setting outright, and it is done in
+  `build_plan` rather than in `to_filter` because it is the strategy that makes it true.
+  Everything else the item prints — Choking Miasma, Drought, Shattered Shield — is left out, and
+  as silently as a map's affixes: those lines are the shape of the danger, they sit on the item
+  card beside the panel, and eleven notes would charge the check with failing at eleven things it
+  left out on purpose.
+  Three joins are tables rather than guesses. The **challenge** is matched against
+  `TermList::UltimatumChallenges` and sent as trade's own option id (`Conquer`), the same shape
+  as a chart's shape and for the same reason — the game prints the option's own words, so the
+  entries are the site's text and the comparison is **case-insensitive**, because the client
+  writes "Defeat waves of enemies" where the site writes "Defeat Waves of Enemies". The **reward**
+  is `TermList::UltimatumRewards`, which has three entries for four rewards: the fourth is a
+  unique, and the line the game prints for it is that unique's name, so a wording that matches
+  none of the three is looked up as a unique and becomes `ExchangeUnique` plus an
+  `ultimatum_output`. The **sacrifice** is looked up across uniques, cards and currency — the
+  three namespaces the site's own `knownItem` filter names — and only a confirmed name is ever
+  sent, because trade fails the whole search on a required item it does not know, exactly as it
+  does on a Valdo map's reward. The count after it (`Divine Orb x8`) is dropped: trade indexes no
+  such number, and the two modifiers above already imply it. The mirror reward is the one with no
+  nameable stake at all — "Mirrorable, Rare Item" is a class of items, and the reward type has
+  already said so — so nothing is asked and nothing is apologised for.
+  The **category is dropped outright**, which is the second override of the bundle's answer for
+  an item class and the first where the override is to send nothing. "Misc Map Items" maps to
+  `map.fragment`, right for the invitations and splinters sharing the class and wrong here.
+  Measured, for the same reason the beast's was: **0 matches** with it against **443** without,
+  everything else identical. Nothing is lost — an ultimatum is one base type, so the `type` term
+  already says everything a category could, and `trade::searchable` asks for that type **and** at
+  least one ultimatum filter, because the type alone is every ultimatum in the league.
+  All four options are `shown` and ticked. Unlike the booleans, none of them is the ordinary
+  answer that would be noise on a row: they are the terms of the deal, and which of them to relax
+  is exactly the question the reader is there to answer.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is

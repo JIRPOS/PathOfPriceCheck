@@ -85,6 +85,12 @@ STATS = [
     # most of them this promise of one is the whole of what an implicit search has to go on —
     # and it is a real stat with a real trade id, not prose.
     "Voyage Modifier will be revealed once Charted",
+    # The two modifiers an Inscribed Ultimatum is searched on, and the only two: they are the
+    # size of the deal rather than the shape of the danger. "#% more Monster Life" is also the
+    # case for a stat the builder emits with **two** trade ids for one mod type — the first is
+    # the one an ultimatum is indexed under, measured rather than assumed.
+    "#% increased Monster Damage",
+    "#% more Monster Life",
 ]
 
 ITEMS = [
@@ -147,6 +153,15 @@ ITEMS = [
     "CAPTURED_BEAST::Wild Hellion Alpha",
     "CAPTURED_BEAST::Chrome-touched Croaker",
     "CAPTURED_BEAST::Farric Goliath",
+    # An Inscribed Ultimatum, and the items two of the captures stake or pay out. All three are
+    # looked up to be *confirmed*, because the trade site fails a search outright on a required
+    # item or a reward unique it does not know. "Dialla's Subjugation" — the divination card the
+    # fourth capture stakes — is deliberately **not** here, for the reason Porcupine Goliath is
+    # not: a bundle that cannot confirm a name has to leave the filter off and say so.
+    "ITEM::Inscribed Ultimatum",
+    "ITEM::Divine Orb",
+    "UNIQUE::Martyr of Innocence",
+    "UNIQUE::Mageblood",
 ]
 
 UNIQUE_MODS = [
@@ -157,7 +172,7 @@ UNIQUE_MODS = [
 
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
-                "Support Gems", "Chart"]
+                "Support Gems", "Chart", "Misc Map Items"]
 
 LANG = "en"
 

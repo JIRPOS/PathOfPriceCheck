@@ -555,3 +555,41 @@ TEST_CASE("a chart's options and intervals go under map_filters, beside a map's"
     CHECK(q["filters"]["misc_filters"]["filters"]["corrupted"]["option"] == "false");
     CHECK_FALSE(map.contains("corrupted"));
 }
+
+TEST_CASE("an ultimatum's four options go in a group of their own, and it sends no category") {
+    SearchPlan p;
+    p.strategy = Strategy::Ultimatum;
+    p.type = "Inscribed Ultimatum";
+    // Deliberately empty: the plan drops the bundle's answer for "Misc Map Items" because
+    // `map.fragment` matched nothing, and the type term is the whole of what is left to say.
+    p.category.clear();
+    p.options = {{"corrupted", "Corrupted", "false", "no"},
+                 {"ultimatum_challenge", "Challenge", "Conquer", "Stand in the Stone Circles",
+                  true, true},
+                 {"ultimatum_reward", "Reward", "ExchangeUnique", "Mageblood", true, true},
+                 {"ultimatum_output", "Reward Unique", "Mageblood", "Mageblood", true, true},
+                 {"ultimatum_input", "Requires Sacrifice", "Martyr of Innocence",
+                  "Martyr of Innocence", true, true}};
+    p.numerics = {{"area_level", "Area Level", 83, 83, true}};
+
+    const json q = query_of(p);
+    CHECK(q["type"] == "Inscribed Ultimatum");
+    CHECK_FALSE(q["filters"]["type_filters"]["filters"].contains("category"));
+    const json& u = q["filters"]["ultimatum_filters"]["filters"];
+    CHECK(u["ultimatum_challenge"]["option"] == "Conquer");
+    CHECK(u["ultimatum_reward"]["option"] == "ExchangeUnique");
+    CHECK(u["ultimatum_output"]["option"] == "Mageblood");
+    CHECK(u["ultimatum_input"]["option"] == "Martyr of Innocence");
+    // The corruption boolean is not one of them, and the area level is the map group's — the
+    // site files "Area Level" under Map/Chart filters whatever kind of item asks about it.
+    CHECK(q["filters"]["misc_filters"]["filters"].contains("corrupted"));
+    CHECK(q["filters"]["map_filters"]["filters"]["area_level"]["min"] == 83);
+
+    SUBCASE("a plan that could fill none of them in is not a search") {
+        // One base type, so the type term alone is every ultimatum in the league — the cheapest
+        // listing among them would read as this contract's price.
+        p.options = {{"corrupted", "Corrupted", "false", "no"}};
+        CHECK_FALSE(searchable(p));
+    }
+    SUBCASE("and one that filled in any of them is") { CHECK(searchable(p)); }
+}

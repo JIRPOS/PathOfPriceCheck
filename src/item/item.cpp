@@ -117,6 +117,14 @@ bool Item::is_beast() const {
     });
 }
 
+bool Item::is_ultimatum() const {
+    // Its class is "Misc Map Items", shared with every invitation, and its rarity line says
+    // "Currency". The trial it names is the only thing on it that only it prints.
+    return std::any_of(properties.begin(), properties.end(), [](const Property& p) {
+        return p.key == data::PropertyKey::Challenge;
+    });
+}
+
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;
 }

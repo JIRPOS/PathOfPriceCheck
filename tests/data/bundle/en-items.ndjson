@@ -29,3 +29,7 @@
 {"name":"Wild Hellion Alpha","namespace":"CAPTURED_BEAST","refName":"Wild Hellion Alpha"}
 {"name":"Chrome-touched Croaker","namespace":"CAPTURED_BEAST","refName":"Chrome-touched Croaker"}
 {"name":"Farric Goliath","namespace":"CAPTURED_BEAST","refName":"Farric Goliath"}
+{"craftable":{"category":"Misc Map Items"},"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Ultimatum/ItemisedTrial","name":"Inscribed Ultimatum","namespace":"ITEM","refName":"Inscribed Ultimatum","w":1}
+{"craftable":{"category":"Stackable Currency"},"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyModValues","name":"Divine Orb","namespace":"ITEM","refName":"Divine Orb","w":1}
+{"art":"Art/2DItems/Weapons/TwoHandWeapons/Staves/MartyrInnocence.png","name":"Martyr of Innocence","namespace":"UNIQUE","refName":"Martyr of Innocence","unique":{"base":"Highborn Staff"}}
+{"art":"Art/2DItems/Belts/InjectorBelt.png","name":"Mageblood","namespace":"UNIQUE","refName":"Mageblood","unique":{"base":"Heavy Belt"}}

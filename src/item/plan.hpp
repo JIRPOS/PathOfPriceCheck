@@ -23,6 +23,7 @@ enum class Strategy : uint8_t {
     Gem,         ///< the skill's name, its level and its quality — never what the skill does
     Map,         ///< tier or area, the drop bonuses, implicits and enchants — never the affixes
     Beast,       ///< the species and its item level — never the monster modifiers or the title
+    Ultimatum,   ///< the trial, its stake and its payout, plus the two mods that scale the stake
     Unsupported
 };
 

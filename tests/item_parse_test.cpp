@@ -614,3 +614,56 @@ TEST_CASE("\"Modifiable only with…\" is a note about the map, not a modifier o
     for (const Modifier& m : it.mods)
         CHECK(m.lines.front().find("Modifiable only with") == std::string::npos);
 }
+
+TEST_CASE("an Inscribed Ultimatum is a contract, not a currency item with prose on it") {
+    // Nothing on the header says what it is. "Misc Map Items" is the class it shares with
+    // every invitation and "Currency" is the rarity line an orb prints — and unlike a beast,
+    // which at least resolves to a base of its own, two ultimatums differ in nothing the
+    // header states. The property block is the whole of what one is.
+    SUBCASE("the trial is what identifies it, and it is a property rather than a modifier") {
+        const Item it = parse("items", "ultimatum-currency-divine-x8.txt");
+        CHECK(it.item_class == "Misc Map Items");
+        CHECK(it.rarity == Rarity::Currency);
+        CHECK(it.is_ultimatum());
+        CHECK(it.base_type == "Inscribed Ultimatum");
+        CHECK(it.name.empty());
+        // No item level at all, which is what the fragment rule would otherwise read as
+        // "a bulk good with nothing to filter on".
+        CHECK_FALSE(it.item_level.has_value());
+
+        REQUIRE(it.properties.size() == 4);
+        CHECK(it.properties[0].key == PropertyKey::Challenge);
+        CHECK(it.properties[0].value == "Stand in the Stone Circles");
+        CHECK(it.properties[1].key == PropertyKey::AreaLevel);
+        CHECK(it.properties[1].num == 83);
+        CHECK(it.properties[2].key == PropertyKey::RequiresSacrifice);
+        CHECK(it.properties[2].value == "Divine Orb x8");
+        CHECK(it.properties[3].key == PropertyKey::Reward);
+        CHECK(it.properties[3].value == "Doubles sacrificed Currency");
+    }
+    SUBCASE("it is not gear, and its hazards are ordinary modifier lines") {
+        const Item it = parse("items", "ultimatum-currency-divine-x8.txt");
+        CHECK_FALSE(it.is_gear());
+        // Thirteen lines in one block: eleven hazards and the two numbers that scale the
+        // stake. Which of them is searched is `plan_ultimatum`'s business, not the parser's.
+        REQUIRE(it.mods.size() == 13);
+        CHECK(it.mods.front().lines == std::vector<std::string>{"Raging Dead"});
+        CHECK(it.mods.back().lines == std::vector<std::string>{"120% more Monster Life"});
+        CHECK(it.help_text.size() == 1);
+        CHECK(it.flavour_text.empty());
+    }
+    SUBCASE("the seller's note is read off it like any other listing's") {
+        // This capture came off a listing rather than out of a stash tab, which is what makes
+        // it the one that can say what an ultimatum of its shape was actually asked for.
+        CHECK(parse("items", "ultimatum-currency-divine-x8.txt").note == "~b/o 900 chaos");
+    }
+    SUBCASE("the reward is whatever the line says, including a unique's bare name") {
+        // Three of the four rewards are a wording; the fourth is the unique itself, and the
+        // parser is not the layer that knows the difference.
+        CHECK(parse("items", "ultimatum-mageblood.txt").properties[3].value == "Mageblood");
+        CHECK(parse("items", "ultimatum-mirror.txt").properties[3].value ==
+              "Item and Mirrored Copy");
+        CHECK(parse("items", "ultimatum-mirror.txt").properties[2].value ==
+              "Mirrorable, Rare Item");
+    }
+}

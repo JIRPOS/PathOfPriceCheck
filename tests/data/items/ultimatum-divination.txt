@@ -1,0 +1,19 @@
+Item Class: Misc Map Items
+Rarity: Currency
+Inscribed Ultimatum
+--------
+Challenge: Defeat waves of enemies
+Area Level: 83
+Requires Sacrifice: Dialla's Subjugation x4
+Reward: Doubles sacrificed Divination Cards
+--------
+Choking Miasma
+Razor Dance
+Totem of Costly Might
+Lethal Rare Monsters
+Shielding Monsters
+Deadly Monsters
+Siphoning Monsters
+--------
+Can be used in a personal map device to open portals to the Trialmaster's Domain and attempt his challenge. Portals will close once the challenge begins. While viewing your Atlas, Right-click this item to pinpoint its location.
+--------

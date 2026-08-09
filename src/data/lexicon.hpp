@@ -49,7 +49,9 @@ enum class PropertyKey : uint8_t {
     MemoryStrands,
     Intangibility,
     StoredExperience,
-    Reward, ///< a Valdo map's payout, and the only map that prints one
+    /// What an item pays out: a Valdo map's unique, and an Inscribed Ultimatum's reward. The
+    /// only map that prints one, and the two are told apart by the item rather than by the key.
+    Reward,
     AreaLevel,
     ChartShape,
     Sulphur,
@@ -58,6 +60,11 @@ enum class PropertyKey : uint8_t {
     Genus,
     Group,
     Family,
+    /// An Inscribed Ultimatum's trial. Only an ultimatum prints one, which is what makes
+    /// `Challenge` the marker for one: its item class is the "Misc Map Items" it shares with
+    /// every invitation and its rarity line says "Currency" like an orb's.
+    Challenge,
+    RequiresSacrifice,
     Count
 };
 
@@ -134,6 +141,16 @@ enum class TermList : uint8_t {
     /// makes the join possible; sending that text answers "Invalid chart shape" and fails the
     /// whole search, so the id is never guessed from the words.
     ChartShapes,
+    /// An ultimatum's trial, in the order of the `ultimatum_challenge` option ids trade
+    /// publishes — entry `i` is `kUltimatumChallengeIds[i]`. Same join as the chart shapes: the
+    /// game prints the option's own words, so the English entries are the site's own text and
+    /// the comparison is case-insensitive, because the client prints "Defeat waves of enemies"
+    /// where the site prints "Defeat Waves of Enemies".
+    UltimatumChallenges,
+    /// An ultimatum's reward, in the order of the first three `ultimatum_reward` option ids.
+    /// **Three, not four**: the fourth reward is a unique, and the line the game prints for it
+    /// is that unique's name rather than a wording of its own.
+    UltimatumRewards,
     Count
 };
 

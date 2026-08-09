@@ -219,6 +219,13 @@ struct Item {
     /// "Stackable Currency" every orb in the game shares, or the rarity line, which says
     /// "Rare" because the beast rolled monster modifiers and not because it is gear.
     bool is_beast() const;
+    /// An Inscribed Ultimatum — the trial itemised, bought for what it pays out and what it
+    /// costs to run.
+    ///
+    /// Off the "Challenge:" property, which nothing else prints. Neither of the other two lines
+    /// that look like an identity is one: the item class is the "Misc Map Items" it shares with
+    /// every invitation, and the rarity says "Currency" as an orb's does.
+    bool is_ultimatum() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is

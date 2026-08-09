@@ -23,7 +23,8 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
 
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
     "rarities", "influences", "flags", "mod_suffixes", "generations", "value_annotations",
-    "usage_needles", "quest_rarity", "chart_shapes"};
+    "usage_needles", "quest_rarity", "chart_shapes", "ultimatum_challenges",
+    "ultimatum_rewards"};
 
 struct PropertyName {
     std::string_view key;
@@ -59,6 +60,11 @@ constexpr PropertyName kPropertyNames[]{
     {"area_level", PropertyKey::AreaLevel},
     {"chart_shape", PropertyKey::ChartShape},
     {"sulphur", PropertyKey::Sulphur},
+    {"genus", PropertyKey::Genus},
+    {"group", PropertyKey::Group},
+    {"family", PropertyKey::Family},
+    {"challenge", PropertyKey::Challenge},
+    {"requires_sacrifice", PropertyKey::RequiresSacrifice},
 };
 
 struct ClassKindName {
@@ -159,6 +165,12 @@ void Lexicon::assign_english() {
     lists_[static_cast<size_t>(TermList::QuestRarity)] = {"Quest"};
     lists_[static_cast<size_t>(TermList::ChartShapes)] = {"End", "Corner", "Straight",
                                                          "Junction", "Crossing"};
+    lists_[static_cast<size_t>(TermList::UltimatumChallenges)] = {
+        "Defeat Waves of Enemies", "Survive", "Protect the Altar",
+        "Stand in the Stone Circles"};
+    lists_[static_cast<size_t>(TermList::UltimatumRewards)] = {
+        "Doubles sacrificed Currency", "Doubles sacrificed Divination Cards",
+        "Item and Mirrored Copy"};
 
     quality_prefix_ = "Quality (";
     properties_ = {
@@ -195,6 +207,8 @@ void Lexicon::assign_english() {
         {"Genus", PropertyKey::Genus},
         {"Group", PropertyKey::Group},
         {"Family", PropertyKey::Family},
+        {"Challenge", PropertyKey::Challenge},
+        {"Requires Sacrifice", PropertyKey::RequiresSacrifice},
     };
 
     class_kinds_ = {

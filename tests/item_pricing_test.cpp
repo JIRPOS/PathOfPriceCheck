@@ -1833,3 +1833,130 @@ TEST_CASE("a chart is a map: the area it covers, its shape, and its voyage modif
         CHECK(p.notes.front().find("Trench Of Nowhere") != std::string::npos);
     }
 }
+
+TEST_CASE("an ultimatum is searched on the deal it offers, not on the danger it describes") {
+    auto gd = fixture();
+
+    /// What the search asks an `ultimatum_filters` option for, or nothing when it does not ask.
+    const auto asked = [](const SearchPlan& p, std::string_view key) {
+        const OptionFilter* f = p.option(key);
+        return f && f->enabled ? f->option : std::string();
+    };
+
+    SUBCASE("the challenge picks the strategy, and the trade category is dropped outright") {
+        const Item it = resolved(*gd, capture("ultimatum-currency-divine-x8.txt"));
+        CHECK(default_strategy(it) == Strategy::Ultimatum);
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Inscribed Ultimatum");
+        CHECK(p.name.empty());
+        // The bundle *does* map "Misc Map Items", and to `map.fragment`, which is right for the
+        // invitations and splinters sharing the class. Measured on this capture: 0 matches with
+        // it and 443 without, everything else identical. The type term says the rest.
+        CHECK(gd->trade_category_for(it.item_class) == "map.fragment");
+        CHECK(p.category.empty());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("the challenge and the reward are sent as trade's own option ids") {
+        // The game prints the option's own text for the challenge and its own wording for the
+        // reward; neither id can be derived from either, so both are joined through a table.
+        const Item it = resolved(*gd, capture("ultimatum-mirror.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_challenge") == "Conquer");
+        CHECK(asked(p, "ultimatum_reward") == "MirrorRare");
+        // "Mirrorable, Rare Item" names a class of items rather than one, and the reward type
+        // has already said so — so there is nothing to ask and nothing to apologise for.
+        CHECK(p.option("ultimatum_input") == nullptr);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a lower-case challenge still joins to its option") {
+        // The trade site titles the option "Defeat Waves of Enemies" and the client prints
+        // "Defeat waves of enemies". The case is the only thing that differs, and matching on
+        // it exactly would leave the search asking for every trial at this area level.
+        const Item it = resolved(*gd, capture("ultimatum-divination.txt"));
+        CHECK(it.properties.front().value == "Defeat waves of enemies");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_challenge") == "Exterminate");
+        CHECK(asked(p, "ultimatum_reward") == "DoubleDivCards");
+    }
+
+    SUBCASE("a unique reward is a reward type and the unique's own name") {
+        const Item it = resolved(*gd, capture("ultimatum-mageblood.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_reward") == "ExchangeUnique");
+        CHECK(asked(p, "ultimatum_output") == "Mageblood");
+        // A unique can be staked as readily as paid out, so the stake is looked up across the
+        // three namespaces the site's own filter names rather than in the currency alone.
+        CHECK(asked(p, "ultimatum_input") == "Martyr of Innocence");
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("the stake is the item, never how many of it") {
+        // Trade indexes no count, and the count is already implied by the two modifiers below:
+        // an ultimatum staking eight Divine Orbs is the one at 200% more Monster Life.
+        const Item it = resolved(*gd, capture("ultimatum-currency-divine-x8.txt"));
+        CHECK(it.properties[2].value == "Divine Orb x8");
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_input") == "Divine Orb");
+    }
+
+    SUBCASE("the area level is exact, and so are the two modifiers that scale the stake") {
+        const Item it = resolved(*gd, capture("ultimatum-currency-divine-x8.txt"));
+        // Wide enough that anything not forced exact would come out as a window.
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), std::nullopt, kWholeTier);
+
+        const NumericFilter* lvl = numeric_for(p, "area_level");
+        REQUIRE(lvl != nullptr);
+        CHECK(lvl->enabled);
+        CHECK(lvl->min == 83);
+        CHECK(lvl->max == 83);
+
+        REQUIRE(p.stats.size() == 2);
+        for (const StatFilter& f : p.stats) {
+            CHECK(f.enabled);
+            REQUIRE(f.min.has_value());
+            CHECK(f.min == f.max);
+        }
+        CHECK(p.stats[0].min == 30);
+        CHECK(p.stats[1].min == 120);
+    }
+
+    SUBCASE("the hazards are left out silently, exactly as a map's affixes are") {
+        // Eleven of the thirteen lines are the shape of the danger rather than a term of the
+        // deal, the bundle has no stat for "Shattered Shield", and a note apiece would charge
+        // the check with failing at eleven things it left out on purpose.
+        const Item it = resolved(*gd, capture("ultimatum-mageblood.txt"));
+        REQUIRE(it.mods.size() == 13);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.stats.size() == 2);
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a stake the bundle cannot confirm is left off, and said out loud") {
+        // The trade site fails the whole search on a required item it does not know, so an
+        // unconfirmed name is never sent — the rest of the contract is still a real search.
+        const Item it = resolved(*gd, capture("ultimatum-divination.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.option("ultimatum_input") == nullptr);
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes.front().find("Dialla's Subjugation") != std::string::npos);
+        // Still a real search: the trial, the payout and the area level are the rest of it.
+        CHECK(p.option("ultimatum_challenge") != nullptr);
+    }
+
+    SUBCASE("every filter it does ask for is offered rather than imposed") {
+        // The user is choosing which half of the contract to relax, so all of them have a row.
+        const Item it = resolved(*gd, capture("ultimatum-mageblood.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        int shown = 0;
+        for (const OptionFilter& f : p.options)
+            if (f.key.starts_with("ultimatum_")) {
+                CHECK(f.enabled);
+                CHECK(f.shown);
+                ++shown;
+            }
+        CHECK(shown == 4);
+    }
+}

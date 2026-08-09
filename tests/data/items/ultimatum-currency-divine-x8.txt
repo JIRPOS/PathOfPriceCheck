@@ -1,0 +1,26 @@
+Item Class: Misc Map Items
+Rarity: Currency
+Inscribed Ultimatum
+--------
+Challenge: Stand in the Stone Circles
+Area Level: 83
+Requires Sacrifice: Divine Orb x8
+Reward: Doubles sacrificed Currency
+--------
+Raging Dead
+Stalking Ruin III
+Totem of Costly Might
+Buffs Expire Faster
+Less Cooldown Recovery
+Escalating Damage Taken
+Drought
+Shattered Shield
+Lethal Rare Monsters
+Shielding Monsters
+Precise Monsters
+30% increased Monster Damage
+120% more Monster Life
+--------
+Can be used in a personal map device to open portals to the Trialmaster's Domain and attempt his challenge. Portals will close once the challenge begins. While viewing your Atlas, Right-click this item to pinpoint its location.
+--------
+Note: ~b/o 900 chaos

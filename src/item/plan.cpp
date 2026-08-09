@@ -14,8 +14,8 @@ namespace ppc::item {
 namespace {
 
 constexpr std::array<std::string_view, static_cast<size_t>(Strategy::Unsupported) + 1>
-    kStrategies{"Base item", "Modifiers", "Unique", "Currency",
-                "Gem",       "Map",       "Beast",  "Unsupported"};
+    kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",
+                "Map",       "Beast",     "Ultimatum", "Unsupported"};
 
 /// How many decimals `v` needs to survive being printed. Rolls are at most hundredths.
 int decimals_needed(double v) {
@@ -719,6 +719,145 @@ void plan_beast(const Item& it, SearchPlan& p) {
                 it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
 }
 
+/// The `ultimatum_challenge` option ids, in the order `TermList::UltimatumChallenges` lists the
+/// wordings the game prints for them. Same shape as the chart shapes and for the same reason:
+/// a closed vocabulary from `/api/trade/data/filters`, joined to the client's text, and the id
+/// is never derived from the words.
+constexpr std::string_view kUltimatumChallengeIds[]{"Exterminate", "Survival", "Defense",
+                                                    "Conquer"};
+/// The `ultimatum_reward` ids for the three rewards the game states as a wording. The fourth,
+/// below, has none: an ultimatum that pays out a unique prints that unique's name on the line.
+constexpr std::string_view kUltimatumRewardIds[]{"DoubleCurrency", "DoubleDivCards", "MirrorRare"};
+constexpr std::string_view kUltimatumUniqueRewardId = "ExchangeUnique";
+
+/// `Lexicon::index_of`, ignoring case. Only the challenge list needs it: the trade site titles
+/// its option "Defeat Waves of Enemies" and the client prints "Defeat waves of enemies", so the
+/// English entries are the site's own text and the case is the one thing that differs.
+int index_of_ci(const data::Lexicon& lex, data::TermList l, std::string_view s) {
+    const std::vector<std::string>& v = lex.list(l);
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (v[i].size() != s.size() || v[i].empty()) continue;
+        if (std::equal(v[i].begin(), v[i].end(), s.begin(), [](char a, char b) {
+                return std::tolower(static_cast<unsigned char>(a)) ==
+                       std::tolower(static_cast<unsigned char>(b));
+            }))
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+/// The item an ultimatum's stake names, without the count the game prints after it: "Divine Orb
+/// x8" is a search for Divine Orbs, and how many of them is not something trade indexes.
+std::string_view strip_stack_count(std::string_view v) {
+    const size_t x = v.rfind(" x");
+    if (x == std::string_view::npos || x + 2 >= v.size()) return v;
+    for (size_t i = x + 2; i < v.size(); ++i)
+        if (!std::isdigit(static_cast<unsigned char>(v[i]))) return v;
+    return v.substr(0, x);
+}
+
+/// The name trade files an ultimatum's stake under, or "" when this bundle does not know it.
+///
+/// The site takes a **known item** here, across the three namespaces its own filter names —
+/// uniques, divination cards and currency — and a name it does not know fails the whole search
+/// rather than widening it, exactly as a Valdo map's reward does. So nothing unconfirmed is sent.
+std::string find_sacrifice(const data::GameData& gd, std::string_view printed) {
+    static constexpr data::Namespace kNs[]{data::Namespace::Unique, data::Namespace::DivinationCard,
+                                           data::Namespace::Item};
+    for (const data::Namespace ns : kNs)
+        for (const data::BaseType* b : gd.find_bases(ns, printed))
+            return std::string(wire_name(b));
+    return {};
+}
+
+/// The two modifiers an ultimatum is searched on, and the only two: they are what the trial's
+/// difficulty *is*, and on a currency or divination-card ultimatum they are also what says how
+/// much is at stake — the sacrificed stack grows with them. Every other line is the shape of the
+/// danger rather than a term of the deal, which is what the user is choosing to run or not.
+bool ultimatum_stake_mod(const Modifier& m) {
+    if (!m.match || !m.match->stat) return false;
+    const std::string& ref = m.match->stat->ref;
+    return ref == "#% increased Monster Damage" || ref == "#% more Monster Life";
+}
+
+/// An Inscribed Ultimatum is a contract, and a search for one asks for the same contract: the
+/// trial, the stake, the payout, and the two numbers that say how large the stake is.
+///
+/// - **The challenge and the reward type** are what the trial is and what it pays, and trade has
+///   an option for each. The reward that is a unique has no wording of its own — the line is the
+///   unique's name — so that name goes into `ultimatum_output` and the type is `ExchangeUnique`.
+/// - **The sacrificed item**, which is the price of entry. Not its count: trade indexes no such
+///   number, and the count is already implied by the two modifiers below. The one reward with no
+///   nameable stake is the mirror, whose line reads "Mirrorable, Rare Item" — a class of items
+///   rather than one, and already fully said by the reward type.
+/// - **The area level**, exact rather than a floor, for the same reason a chart's is: an 83 is a
+///   different trial from a 78, not a better one.
+/// - **Increased Monster Damage and more Monster Life**, exact rather than windowed *whatever the
+///   range-match setting says*, because these two are the scale of the deal and not a roll to be
+///   beaten: 200% more Monster Life is the ultimatum that stakes eight Divine Orbs, and asking
+///   for "at least 120%" prices four of them alongside it.
+///
+/// Everything else it prints — Choking Miasma, Drought, Shattered Shield — is left out, and
+/// silently: they are the trial's hazards, they sit on the item beside the panel, and a note per
+/// line would charge the check with failing at something it deliberately did not attempt.
+void plan_ultimatum(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    const data::Lexicon& lex = gd.lexicon();
+    // **No category at all**, which is the second place the bundle's answer for the item class is
+    // overridden and the first where the override is to send nothing. "Misc Map Items" maps to
+    // `map.fragment`, and that is right for the invitations and splinters that share the class but
+    // not for an ultimatum: measured, the same query returned **0 matches** with it and **443**
+    // without, everything else identical. Nothing is lost by dropping it — an ultimatum is one
+    // base type, so the type term below already says everything a category could.
+    p.category.clear();
+    p.type = base_wire_name(it);
+    if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+
+    if (const Property* c = property_of(it, data::PropertyKey::Challenge); c && !c->value.empty()) {
+        const int i = index_of_ci(lex, data::TermList::UltimatumChallenges, c->value);
+        if (i >= 0 && static_cast<size_t>(i) < std::size(kUltimatumChallengeIds))
+            add_option(p, "ultimatum_challenge", c->label,
+                       std::string(kUltimatumChallengeIds[i]), c->value, true);
+        else
+            p.notes.push_back("\"" + c->value +
+                              "\" is not a challenge the trade site knows, so the search does not "
+                              "ask which trial this is");
+    }
+
+    const Property* reward = property_of(it, data::PropertyKey::Reward);
+    bool mirror_reward = false;
+    if (reward && !reward->value.empty()) {
+        const int i = lex.index_of(data::TermList::UltimatumRewards, reward->value);
+        if (i >= 0 && static_cast<size_t>(i) < std::size(kUltimatumRewardIds)) {
+            mirror_reward = kUltimatumRewardIds[i] == "MirrorRare";
+            add_option(p, "ultimatum_reward", reward->label,
+                       std::string(kUltimatumRewardIds[i]), reward->value, true);
+        } else if (const std::string named = find_unique_in(gd, reward->value); !named.empty()) {
+            add_option(p, "ultimatum_reward", reward->label,
+                       std::string(kUltimatumUniqueRewardId), reward->value, true);
+            add_option(p, "ultimatum_output", "Reward Unique", named, named, true);
+        } else {
+            p.notes.push_back("\"" + reward->value +
+                              "\" is neither a reward wording nor a unique in this data bundle, "
+                              "so the search does not ask what this ultimatum pays out");
+        }
+    }
+
+    if (const Property* s = property_of(it, data::PropertyKey::RequiresSacrifice);
+        s && !s->value.empty() && !mirror_reward) {
+        const std::string_view stake = strip_stack_count(s->value);
+        if (const std::string named = find_sacrifice(gd, stake); !named.empty())
+            add_option(p, "ultimatum_input", s->label, named, std::string(stake), true);
+        else
+            p.notes.push_back("\"" + std::string(stake) +
+                              "\" is not an item in this data bundle, and the trade site rejects a "
+                              "required item it does not know, so the search does not ask what "
+                              "this ultimatum costs to run");
+    }
+
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
+        add_numeric(p, "area_level", lvl->label, *lvl->num, true, 0, {}, *lvl->num);
+}
+
 /// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
 /// other map prints one, which is what makes it the marker as well as the thing searched for.
 const Property* reward_property(const Item& it) {
@@ -1063,6 +1202,10 @@ Strategy default_strategy(const Item& it) {
     // monster's own and no recipe asks for them. Ahead of the rarity switch below, which would
     // otherwise plan a Wild Hellion Alpha as a rare and search "Extra Life" as an affix.
     if (it.is_beast()) return Strategy::Beast;
+    // Ahead of the fragment rule below, which an ultimatum would otherwise fall into: it prints
+    // no item level, so it would be planned as a bulk good and handed to a reference price that
+    // does not exist. Two copies of one base differ in everything a buyer cares about.
+    if (it.is_ultimatum()) return Strategy::Ultimatum;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1089,9 +1232,11 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
     SearchPlan p;
     p.strategy = force.value_or(default_strategy(it));
     p.category = std::string(gd.trade_category_for(it.item_class));
-    // Not for a beast: `plan_beast` overrides the category outright, so a bundle that could not
-    // map "Stackable Currency" would leave a note about a gap that was about to be filled.
-    if (p.category.empty() && !it.item_class.empty() && p.strategy != Strategy::Beast)
+    // Not for a beast or an ultimatum: both override the category outright — one to a category of
+    // its own, one to none — so a bundle that could not map their item class would leave a note
+    // about a gap that was about to be filled.
+    if (p.category.empty() && !it.item_class.empty() && p.strategy != Strategy::Beast &&
+        p.strategy != Strategy::Ultimatum)
         p.notes.push_back("item class \"" + it.item_class +
                           "\" maps to no trade category in this data bundle");
 
@@ -1149,6 +1294,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // not affixes — see `plan_beast`'s note and the skip below.
             plan_beast(it, p);
             break;
+        case Strategy::Ultimatum: plan_ultimatum(gd, it, p); break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
             // query — bulk is what it sells in, and a stat filter has nothing to say about a
@@ -1187,7 +1333,22 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // A beast's monster modifiers, on the same argument and with the same silence: not
             // affixes, not searched, and visible on the item beside the panel.
             if (p.strategy == Strategy::Beast) continue;
+            // An ultimatum's hazards, likewise: only the two that scale the stake are searched,
+            // and the rest are the trial rather than the deal. See `ultimatum_stake_mod`.
+            if (p.strategy == Strategy::Ultimatum && !ultimatum_stake_mod(it.mods[i])) continue;
             if (std::optional<StatFilter> f = to_filter(it, i, p.strategy, ranges_printed, rm)) {
+                // Exact, and deliberately not what the range-match setting asked for: these two
+                // are the size of the deal, not a roll to be beaten. Set here rather than inside
+                // `to_filter` because it is the strategy that makes it true, and `to_filter`'s
+                // job is to read the modifier.
+                if (p.strategy == Strategy::Ultimatum) {
+                    if (const Roll roll = roll_for(*it.mods[i].match); roll.value) {
+                        f->min = *roll.value;
+                        f->max = *roll.value;
+                    }
+                    f->tiered = false;
+                    f->enabled = true;
+                }
                 p.stats.push_back(std::move(*f));
                 continue;
             }

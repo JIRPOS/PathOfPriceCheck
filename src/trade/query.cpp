@@ -34,9 +34,11 @@ std::string_view group_for(std::string_view key) {
     return {};
 }
 
-/// The same contract for an option filter. Only two groups take any: the `misc_filters`
-/// booleans about the item itself, and the `map_filters` ones about where a map or a chart goes.
+/// The same contract for an option filter. Three groups take any: the `misc_filters` booleans
+/// about the item itself, the `map_filters` ones about where a map or a chart goes, and the
+/// `ultimatum_filters` four, which are the whole of what an Inscribed Ultimatum is.
 std::string_view option_group_for(std::string_view key) {
+    if (key.starts_with("ultimatum_")) return "ultimatum_filters";
     if (key.starts_with("map_") || key == "chart_shape") return "map_filters";
     return "misc_filters";
 }
@@ -85,6 +87,14 @@ bool searchable(const item::SearchPlan& p) {
         // A beast is its species, and a plan that could not name one has nothing left: the
         // search would be every beast in the league at this item level. Same shape as a gem.
         case item::Strategy::Beast: return !p.type.empty();
+        // An ultimatum is one base type, so the type term alone is every ultimatum in the league
+        // — but the whole of what tells two apart is the ultimatum filters, and a plan that could
+        // fill none of them in is that useless search. Type *and* something asked about it.
+        case item::Strategy::Ultimatum:
+            return !p.type.empty() &&
+                   std::any_of(p.options.begin(), p.options.end(), [](const item::OptionFilter& f) {
+                       return f.enabled && f.key.starts_with("ultimatum_");
+                   });
         // A gem is bought by name and has no modifiers to fall back on, so a plan that could
         // not name it has nothing left to ask: the search would be every gem in the game at
         // this level, and its cheapest listing would read as this gem's price.
@@ -167,16 +177,18 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!p.rarity.empty()) type_filters["rarity"] = json{{"option", p.rarity}};
 
     json misc = json::object(), armour = json::object(), weapon = json::object(),
-         map = json::object();
+         map = json::object(), ultimatum = json::object();
     // Whether an option has a row in the panel is the plan's business; all that matters here is
     // that an unticked one is not asked for. `map_completion_reward` rides the same path and
     // takes a unique's own name rather than a boolean, which is why the value is a string all
     // the way through — the site errors the whole search on a reward it does not know, so the
     // plan only ever fills one in from a name the bundle confirmed.
-    for (const item::OptionFilter& f : p.options)
-        if (f.enabled)
-            (option_group_for(f.key) == "map_filters" ? map : misc)[f.key] =
-                json{{"option", f.option}};
+    for (const item::OptionFilter& f : p.options) {
+        if (!f.enabled) continue;
+        const std::string_view g = option_group_for(f.key);
+        (g == "map_filters" ? map : g == "ultimatum_filters" ? ultimatum : misc)[f.key] =
+            json{{"option", f.option}};
+    }
     for (const item::Influence i : p.influences)
         if (const std::string_view k = influence_key(i); !k.empty()) misc[std::string(k)] = option(true);
 
@@ -197,6 +209,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!armour.empty()) filters["armour_filters"] = json{{"filters", std::move(armour)}};
     if (!weapon.empty()) filters["weapon_filters"] = json{{"filters", std::move(weapon)}};
     if (!map.empty()) filters["map_filters"] = json{{"filters", std::move(map)}};
+    if (!ultimatum.empty()) filters["ultimatum_filters"] = json{{"filters", std::move(ultimatum)}};
 
     json q = json::object();
     q["status"] = json{{"option", valid_status(status) ? status : kDefaultStatus}};
