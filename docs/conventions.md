@@ -14,8 +14,9 @@
   published. The legal name goes in no file, here or in the data repo. Git's own `user.name` is a
   separate matter and is **not** to be changed: the commits are GPG-signed, the key is bound to
   that identity, and GitHub renders the commits under the alias anyway.
-- **The repo is public.** The public-facing docs are `README.md`, `BUILDING.md`, `PRIVACY.md`,
-  `ATTRIBUTION.md`, `EULA.md`, `CONTRIBUTING.md`, `CONTACT.md` and `LICENSE` (MIT), and the
+- **The repo is public.** The public-facing docs are `README.md`, `ROADMAP.md`, `BUILDING.md`,
+  `PRIVACY.md`, `ATTRIBUTION.md`, `EULA.md`, `CONTRIBUTING.md`, `CONTACT.md` and `LICENSE` (MIT),
+  each of which `scripts/build-site.sh` publishes as a page; nothing under `docs/` is, and the
   `User-Agent`'s contact URL points here rather than at the data repo. **`PRIVACY.md` enumerates
   every outbound request and every file written**, so a new host, a new cache file or anything new
   in the debug log is a change to that document as much as to the code — it is the one doc that

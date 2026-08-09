@@ -26,6 +26,7 @@ OUT="${1:-_site}"
 # source | output | nav title
 PAGES=(
     "README.md|about.html|About"
+    "ROADMAP.md|roadmap.html|Roadmap"
     "PRIVACY.md|privacy.html|Privacy"
     "ATTRIBUTION.md|attribution.html|Attribution"
     "EULA.md|eula.html|Terms of use"
@@ -108,7 +109,7 @@ inject() {
 nav=""
 for p in "${PAGES[@]}"; do
     IFS='|' read -r _ out title <<<"$p"
-    case $out in about.html|privacy.html|attribution.html|contact.html) ;; *) continue ;; esac
+    case $out in about.html|roadmap.html|privacy.html|attribution.html|contact.html) ;; *) continue ;; esac
     nav+="<a href=\"$out\">$title</a>"
 done
 nav+="<a href=\"https://github.com/$REPO\">GitHub</a>"

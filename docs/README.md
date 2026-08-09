@@ -22,4 +22,4 @@ whoever — or whatever — is about to change that layer. New detail belongs he
 | [external-apis.md](external-apis.md) | The endpoints, their shapes and their rate limits. |
 | [conventions.md](conventions.md) | Comment style, the maintainer alias, which docs are public. |
 | [testing.md](testing.md) | Build prerequisites, sanitizers, fixtures and the bundle slice. |
-| [roadmap.md](roadmap.md) | What is deliberately not built, and what was decided against. |
+| [roadmap.md](roadmap.md) | Constraints on the planned versions in [../ROADMAP.md](../ROADMAP.md), and what is deliberately not built. |
