@@ -32,6 +32,7 @@ enum class Msg : uint16_t {
     SectionHotkeys,
     SectionPricePanel,
     SectionGameData,
+    SectionUpdates,
     SectionDiagnostics,
 
     League,
@@ -85,6 +86,18 @@ enum class Msg : uint16_t {
     ParsingWorksWithout,
     StatWordings,       ///< "%zu"
     UniqueModsCredit,   ///< "%s" — the credit the bundle states
+
+    Application,
+    UpToDate,
+    UpdateChecking,
+    UpdateDownloading,  ///< "%.1f", "%.1f" — megabytes done and total
+    UpdateReady,        ///< "%s" — the new version
+    UpdateAvailable,    ///< "%s" — the new version
+    UpdateOfferHelp,
+    RestartNow,
+    OpenReleasePage,
+    AutoUpdate,
+    AutoUpdateHelp,
 
     DebugLogging,
     LogOpenFailed,

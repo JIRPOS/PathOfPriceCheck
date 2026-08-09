@@ -80,11 +80,19 @@ Root: HKCU; Subkey: "Software\PathOfPriceCheck"; ValueType: string; ValueName: "
 [UninstallDelete]
 ; The updater renames the running .exe aside before swapping; a copy uninstalled between that
 ; rename and the next launch would otherwise leave it behind.
-Type: files; Name: "{app}\PathOfPriceCheck.old.exe"
+Type: files; Name: "{app}\{#AppExe}.old"
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Launch {#AppDisplayName}"; \
     Flags: nowait postinstall skipifsilent
-; A silent run is the in-app updater applying a release, so put back what it closed. --updated
-; makes the new copy wait for the single-instance lock the old one is still dropping.
-Filename: "{app}\{#AppExe}"; Parameters: "--updated"; Flags: nowait; Check: WizardSilent
+; A silent run is the in-app updater. It asks for /LAUNCH only when the user pressed Restart
+; now; an update applied as the application closes deliberately does not, because putting the
+; app back up would be it deciding to run. --updated makes the new copy wait for the
+; single-instance lock the old one is still dropping.
+Filename: "{app}\{#AppExe}"; Parameters: "--updated"; Flags: nowait; Check: RelaunchRequested
+
+[Code]
+function RelaunchRequested: Boolean;
+begin
+  Result := CmdLineParamExists('/LAUNCH');
+end;

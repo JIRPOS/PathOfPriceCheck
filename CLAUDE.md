@@ -20,7 +20,8 @@ Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price 
 
 The overlay, Settings, the league list, the static game-data layer, the item layer (parse →
 resolve → price-relevant numbers → search plan, plus the game-styled tooltip), the trade search,
-poe.ninja reference pricing and the in-game currency exchange feed are all **built and tested**.
+poe.ninja reference pricing, the in-game currency exchange feed and the binary updater (with the
+Windows installer it depends on) are all **built and tested**.
 What is not built is [docs/roadmap.md](docs/roadmap.md) — including the fact that a language other
 than English cannot yet be selected, because the data build emits only English.
 
@@ -36,6 +37,7 @@ read whole; each is one layer.
 | [docs/platform.md](docs/platform.md) | Hotkeys, foreground detection, input injection, clipboard, single-instance — the per-OS seams in `src/platform/`, and the clipboard failures they exist for. |
 | [docs/architecture.md](docs/architecture.md) | `App`, the SDL loop, the copy path, focus rules, overlay placement, Settings, fonts, the icon, `ppc_core`, the debug log. |
 | [docs/data-layer.md](docs/data-layer.md) | `src/data/` — the runtime bundle, the updater, the lexicon, stat normalization and matching. |
+| [docs/updater.md](docs/updater.md) | `src/update/` and `packaging/` — how a copy arrives and how it replaces itself: the install flavours, the swap, `latest.json`, and the Windows installer. |
 | [docs/item-layer.md](docs/item-layer.md) | `src/item/` — parse, resolve, derive, range matching, and the plan rules every strategy shares. Where most pricing judgement lives. |
 | [docs/strategy-unique.md](docs/strategy-unique.md), [strategy-map.md](docs/strategy-map.md), [strategy-gem.md](docs/strategy-gem.md) | One per search strategy that has more to say than the shared rules: uniques (including unidentified), maps (with charts and Valdo maps), gems. |
 | [docs/trade-layer.md](docs/trade-layer.md) | `src/trade/` — query building, the two-step client, the rate limiter, and how results and the filter list are drawn. |
@@ -101,6 +103,8 @@ violate one of these on the strength of not having read it.
   not crash, it silently misprices. → data-layer
 - **Never write over a live bundle.** Install writes a fresh directory and flips `current` by
   rename; Windows will not replace a memory-mapped file. → data-layer
+- **The program replaces itself on the way out, never on the way in**, and never restarts unasked.
+  Applying at startup would need a second restart to take effect. → updater
 - **`ppc_core` links no SDL3, no ImGui, no X11 and no libcurl.** The parser and every pricing layer
   must stay testable headless. → architecture
 - **Failure is silent.** Past the copy timeout, or when what was copied does not parse, the check is

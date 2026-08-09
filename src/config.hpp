@@ -78,6 +78,11 @@ struct Config {
     float status_right = 0.098f;  ///< globe centre's distance from the right edge, ÷ game height
     float status_bottom = 0.080f; ///< globe centre's distance from the bottom edge, ÷ game height
 
+    /// Check GitHub for a newer release at startup, and download it in the background. On by
+    /// default, and the only thing it decides is whether the check happens: nothing is ever
+    /// applied to a running program, and nothing closes on its own.
+    bool auto_update = true;
+
     /// Write the copy-path diagnostic log (see util/debug_log). Off for everyone by default:
     /// it records the whole clipboard, item text included.
     bool debug_log = false;

@@ -111,9 +111,13 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp build/Release/PathOfPriceCheck.exe dist/
             (cd dist && 7z a "PathOfPriceCheck-${ver}-${{ matrix.name }}.zip" PathOfPriceCheck.exe)
+            # The same executable, unwrapped. The updater applies a *file*, and nothing in the
+            # binary reads a .zip or a .tar.gz container — see docs/updater.md.
+            mv "dist/PathOfPriceCheck.exe" "dist/PathOfPriceCheck-${ver}-${{ matrix.name }}.exe"
           else
             cp build/PathOfPriceCheck dist/
             (cd dist && tar czf "PathOfPriceCheck-${ver}-${{ matrix.name }}.tar.gz" PathOfPriceCheck)
+            mv "dist/PathOfPriceCheck" "dist/PathOfPriceCheck-${ver}-${{ matrix.name }}"
           fi
       # The recommended Windows download. A per-user install lands somewhere writable, which is
       # what keeps the updater working; the .zip above stays for whoever wants a movable folder.
@@ -166,6 +170,28 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      # What the running application checks. Published as a release asset rather than read out
+      # of the API, so the client can use the fixed `releases/latest/download/` URL and never
+      # spend one of the 60 unauthenticated API calls an hour a shared address gets.
+      - name: Build latest.json
+        env:
+          VER: ${{ needs.prepare.outputs.version }}
+          BASE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for f in artifacts/*; do
+            n=$(basename "$f")
+            jq -n --arg name "$n" \
+                  --arg url "${BASE}/releases/download/v${VER}/${n}" \
+                  --arg sha "$(sha256sum "$f" | cut -d' ' -f1)" \
+                  --argjson size "$(stat -c%s "$f")" \
+                  '{name: $name, url: $url, sha256: $sha, size: $size}'
+          done | jq -s --arg ver "$VER" --arg notes "${BASE}/releases/tag/v${VER}" \
+            '{schema_version: 1, version: $ver, notes_url: $notes, assets: .}' \
+            > latest.json
+          mv latest.json artifacts/
+          cat artifacts/latest.json
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

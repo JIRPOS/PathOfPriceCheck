@@ -218,8 +218,9 @@ happens to be picked. The size is `kSettingsW × kSettingsH` **capped at the gam
 dialog taller than the screen scrolls whatever that constant says; measure the content against the
 window before adding a section rather than guessing at the new number.
 
-Five SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
-data-updater state, trade result, poe.ninja result, currency-exchange result. Async results are **not** routed through `Action` — `handle_action()` gates on
+Seven SDL user event types are registered as one contiguous block: hotkey `Action`, league result,
+data-updater state, trade result, poe.ninja result, currency-exchange result, application-updater
+state. Async results are **not** routed through `Action` — `handle_action()` gates on
 the game being foreground and would silently swallow them whenever PoE is not in front.
 
 ## The debug log (`src/util/debug_log.cpp`)
@@ -255,7 +256,9 @@ the life of the process, so an application that sits in the tray all day stopped
 sleeping. The game does its own inhibiting; we are a desktop app. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check panel on a captured
 clipboard instead, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
-appears while the game is the window in front).
+appears while the game is the window in front). `PPC_DEV_UPDATE_URL=<url>` points the update check
+at a `latest.json` of your own, which is the only way to see its three notice surfaces before a
+release publishes one — see [updater.md](updater.md).
 
 The Windows binary is **GUI-subsystem** (`WIN32_EXECUTABLE`, entered at `WinMain` in `src/main.cpp`):
 a console-subsystem build pops a console window beside an application whose whole UI is an overlay

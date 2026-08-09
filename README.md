@@ -39,6 +39,10 @@ the game in the game's own typeface.
 - **Listings you can read.** Account, listing age and price, with the seller's own item drawn
   beside the list when you hover a row — through the same renderer as the item in your hand, so the
   comparison is like-for-like.
+- **Keeps itself up to date, on your terms.** It checks for a new release in the background and
+  applies it **as you close the tool**, so the next start is already the new version. It never
+  restarts itself unasked and never closes over a running game — and the check is a static file
+  download, not a phone-home. Turn it off in Settings.
 - **Polite to the APIs.** GGG publishes its rate limits in every response header; those are parsed,
   tracked and waited on proactively, and the state survives a restart. Searching is a button, not
   something that fires on every hotkey press.

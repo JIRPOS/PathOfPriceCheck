@@ -17,20 +17,30 @@ For what is deliberately *not* planned, and why, see [docs/roadmap.md](docs/road
 
 ## 0.3 — The application updates itself
 
-The executable. The game data has updated itself from the start; the program has not.
+The executable. The game data has updated itself from the start; the program has not. On Windows
+that also means shipping an installer, because where the tool lives decides whether it can.
 
 **Will:**
 
 - Check this repository's releases at startup, download and verify in the background.
-- Apply the update **on the next start**, never to a running program.
+- Apply the update **as the tool closes**, so the next start is already the new version — never
+  to a running program.
 - Tell you in three places: the idle status marker, the price-check panel, and a Settings row
   with **Restart now**.
-- **Never restart itself.** Dismiss the notice and the update waits for whenever you next start
-  the tool. Nothing closes while the game is running.
+- **Never restart itself unasked.** **Restart now** is you asking, and only then does it close and
+  come back. Dismiss the notice and the update waits for whenever you next close the tool.
+  Nothing closes while the game is running.
 - Update the AppImage in place, at its own path, so you do not end up with two launcher entries.
 - Offer, but not apply, an update where the install is not writable — a Windows zip unpacked into
   `Program Files`. The notice points at the release page instead.
 - Have a setting to turn it off, defaulting on.
+
+**And ship Windows an installer**, because the two are the same problem. Unpack a zip into
+`Program Files` and the tool cannot update itself there; a per-user install goes to
+`%LOCALAPPDATA%\Programs`, needs no administrator, and is writable by definition. It brings a
+start-menu shortcut, an optional desktop one and a proper uninstaller — and it is where any
+prerequisite would ever go, if one is ever needed. The portable `.zip` stays for anyone who wants
+a folder they can move.
 
 One new request and one new file, both listed in [PRIVACY.md](PRIVACY.md).
 

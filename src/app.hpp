@@ -9,6 +9,7 @@
 #include "config.hpp"
 #include "data/game_data.hpp"
 #include "data/updater.hpp"
+#include "update/updater.hpp"
 #include "item/derive.hpp"
 #include "item/plan.hpp"
 #include "icon_cache.hpp"
@@ -67,7 +68,10 @@ struct ListingItem {
 
 class App {
 public:
-    int run();
+    /// `relaunched_after_update` is the `--updated` switch: the process we are replacing may
+    /// still be exiting, so the single-instance claim waits for it instead of reporting that
+    /// the application is already running.
+    int run(bool relaunched_after_update = false);
 
     // Accessors used by the screen renderers.
     Config& config() { return config_; }
@@ -80,6 +84,18 @@ public:
     std::shared_ptr<data::GameData> game_data() const { return data_; }
     data::DataUpdater::Status data_status() const { return updater_.status(); }
     void check_for_data() { updater_.start_check(); }
+
+    update::Updater::Status update_status() const { return app_updater_.status(); }
+    void check_for_update() { app_updater_.start_check(); }
+    /// True once the user has waved the notice away. Settings keeps showing the update either
+    /// way — this only silences the two surfaces that sit over the game.
+    bool update_dismissed() const { return update_dismissed_; }
+    void dismiss_update_notice() { update_dismissed_ = true; }
+    /// Applies the staged update and starts its replacement, then closes this one. Only ever
+    /// from the Settings button: nothing here decides on its own to close over a running game.
+    void restart_for_update() {
+        if (app_updater_.restart_now()) quit();
+    }
 
     /// The item the current price check is about, or null while there is none. Valid until
     /// the next price check: it points into the bundle snapshot `item_data_` pins.
@@ -181,6 +197,10 @@ private:
     ExchangeService currency_exchange_;
     IconCache icons_;
     data::DataUpdater updater_;
+    update::Updater app_updater_;
+    /// Waved away for this session only. Deliberately not persisted: the staged update is
+    /// still there next launch, and so is the notice.
+    bool update_dismissed_ = false;
     std::shared_ptr<data::GameData> data_;
     /// The snapshot the item in hand was resolved against. Held separately from `data_`
     /// because the updater can swap that out mid-price-check, and the item points into the
@@ -227,6 +247,7 @@ private:
     uint32_t hotkey_event_ = 0; ///< carries an Action, pushed from the hotkey thread
     uint32_t league_event_ = 0; ///< carries a LeagueService::Result*
     uint32_t data_event_ = 0;   ///< the data updater changed state
+    uint32_t update_event_ = 0; ///< the application updater changed state
     uint32_t trade_event_ = 0;  ///< carries a TradeService::Result*
     uint32_t ninja_event_ = 0;  ///< carries a NinjaService::Result*
     uint32_t exchange_event_ = 0; ///< carries an ExchangeService::Result*
