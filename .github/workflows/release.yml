@@ -28,7 +28,7 @@ jobs:
       branch: ${{ steps.v.outputs.branch }}
       bumped: ${{ steps.v.outputs.bumped }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: v
         name: Compute version
         env:
@@ -89,11 +89,11 @@ jobs:
             name: win64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.branch }}
-          # Nothing here talks to git again, and checkout otherwise leaves the token in
-          # `.git/config` where anything running in the workspace can read it.
+          # Nothing here talks to git again, and checkout otherwise leaves a usable token on
+          # disk (under `$RUNNER_TEMP` since v6) for anything running in the job to read.
           persist-credentials: false
       - name: Install Linux deps
         if: runner.os == 'Linux'
@@ -177,7 +177,7 @@ jobs:
             -i assets/popc_icon.png \
             --output appimage
           mv "$OUTPUT" dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           path: dist/PathOfPriceCheck-*
@@ -189,7 +189,7 @@ jobs:
     permissions:
       contents: write # creates the release
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
@@ -269,7 +269,7 @@ jobs:
       contents: write # deletes the release branch
       pull-requests: write # opens the version PR
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Open version PR
         if: needs.release.result == 'success' && needs.prepare.outputs.bumped == 'true'
         env:
