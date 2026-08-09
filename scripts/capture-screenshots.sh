@@ -6,7 +6,7 @@
 # system-wide hotkey grabs land on `:99` where they bother nobody, and the background is black
 # everywhere the overlay did not paint, so trimming gives the panel and the item beside it and
 # nothing else. `PPC_DEV_ITEM` is what opens the panel on a captured clipboard with no game
-# running — see the dev environment variables in CLAUDE.md.
+# running — see the dev environment variables in docs/architecture.md.
 #
 # **It runs real trade searches**, one per item, against the account's own rate limit — that is
 # the point, since a screenshot of an empty results table sells nothing. `auto_search` and
