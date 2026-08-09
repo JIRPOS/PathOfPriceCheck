@@ -118,6 +118,55 @@ TEST_CASE("influence, quality and crafted mods") {
     CHECK(it.elemental.empty());
 }
 
+TEST_CASE("\"Superior\" decorates the base line at every rarity, not only a white item's") {
+    // The game prints it whenever nothing else has named the item, which is a white one and
+    // every unidentified one — so an unidentified unique, whose single line *is* its base,
+    // wears it exactly as a white item does and the word sat where the base name should be.
+    auto base_of = [](const std::string& text) {
+        std::optional<Item> it = parse_item_en(text);
+        REQUIRE(it.has_value());
+        return it->base_type;
+    };
+
+    CHECK(base_of(R"(Item Class: Gloves
+Rarity: Unique
+Superior Goathide Gloves
+--------
+Quality: +20% (augmented)
+Evasion Rating: 36
+--------
+Item Level: 84
+--------
+Unidentified
+)") == "Goathide Gloves");
+
+    CHECK(base_of(R"(Item Class: Body Armours
+Rarity: Rare
+Superior Twilight Regalia
+--------
+Quality: +12% (augmented)
+Energy Shield: 302
+--------
+Item Level: 84
+--------
+Unidentified
+)") == "Twilight Regalia");
+
+    CHECK(base_of(R"(Item Class: Boots
+Rarity: Normal
+Superior Riveted Boots
+--------
+Quality: +20% (augmented)
+Evasion Rating: 36
+)") == "Riveted Boots");
+
+    // Identified items name themselves and print no such word, so there is nothing to take off
+    // — a 20% quality rare, unique and magic between them.
+    CHECK(example("item_6.txt").base_type == "Twilight Regalia");
+    CHECK(example("item_5.txt").base_type == "Riveted Boots");
+    CHECK(example("item_2.txt").base_type == "Surgeon's Quicksilver Flask of the Cheetah");
+}
+
 TEST_CASE("Advanced Mod Descriptions group hybrid mods and name their affix") {
     const Item it = example("item_6.txt");
 

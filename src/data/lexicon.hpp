@@ -82,7 +82,8 @@ enum class Term : uint8_t {
     RequirementsLabel,///< "Requirements"
     SocketsLabel,     ///< "Sockets"
     NoteLabel,        ///< "Note"
-    SuperiorPrefix,   ///< "Superior ", which a quality white item wears and no lookup knows
+    SuperiorPrefix,   ///< "Superior ", worn by a quality item nothing else has named — a white
+                      ///< one or any unidentified one — and known to no lookup
     MapTierPrefix,    ///< " (Tier ", closed by ')' — "Map (Tier 16)"
     BlightedMap,      ///< the whole base line of a blighted map
     BlightRavagedMap,
