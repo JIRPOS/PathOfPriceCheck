@@ -17,10 +17,9 @@ on:
   workflow_dispatch:
   workflow_call:
 
+# Only `deploy` may write a deployment or mint an OIDC token; `build` just renders markdown.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Deployments serialise; a queued one must wait rather than be dropped, or a release could
 # publish the site as it stood before its own assets existed.
@@ -45,6 +44,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
