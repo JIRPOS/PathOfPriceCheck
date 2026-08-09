@@ -62,6 +62,12 @@ Ctx& ctx() {
 
 /// Who a window belongs to, from server-side properties only — no round trip to the client,
 /// so this is safe to call about an owner we are in the middle of waiting on.
+///
+/// **Expect all of it to be missing.** The window that owns the selection during the sticky
+/// wedge is KWin's own, which advertises neither `WM_CLASS` nor `_NET_WM_PID`; Wine's clipboard
+/// window advertises no more. So this identifies the owner on a good day and is not something to
+/// build a decision on — see `clipboard_wedge_note` in `App`, which deliberately concludes from
+/// the owner's *behaviour* instead.
 std::string window_desc(Display* d, Window w) {
     if (!w) return "none";
     char buf[64];
@@ -259,7 +265,7 @@ std::string clipboard_owner_info() {
 
 std::string clipboard_targets(int timeout_ms) {
     Ctx& c = ctx();
-    if (!c.d) return "no display";
+    if (!c.d) return "(no display)";
     if (XGetSelectionOwner(c.d, c.clipboard) == None) return "(no owner)";
     return targets_list(c, timeout_ms);
 }

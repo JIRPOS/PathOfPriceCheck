@@ -53,9 +53,24 @@ text to the clipboard; the tool parses it, queries prices, and draws an overlay 
   machine that happens to lack the library. Do not re-add a `CURL::libcurl` alias: curl declares
   that name itself. **JSON:** nlohmann/json. **Tests:** doctest. **Clipboard:** a platform seam of our own
   (`platform/clipboard.hpp`) — SDL3's `SDL_GetClipboardText()` was tried and abandoned, see below.
-- **Cross-platform target:** Windows + Linux **X11 first**. Wayland is a later stretch goal — it
-  blocks arbitrary global hotkeys and click-through overlays without compositor portals / evdev
-  access, so do not gate v1 on it.
+- **Cross-platform target:** Windows + Linux **X11**. A native Wayland backend is **won't
+  implement**, decided rather than deferred, and the reason is the game rather than the effort.
+  Proton runs PoE as an **Xwayland** client, and an X11 tool can see every other Xwayland client —
+  `_NET_ACTIVE_WINDOW`, `_NET_WM_NAME`, geometry, a passive `XGrabKey` on the root, `XTestFakeKeyEvent`
+  into the focused X client. **This application's X11 dependency is therefore not stronger than the
+  game's**, and going native would trade capability away rather than gain it: no protocol on any
+  compositor tells a client another window's geometry, so `place_overlay`'s stash-edge docking
+  degrades to assuming the game is fullscreen; `ext-foreign-toplevel-list-v1` carries a title but
+  no focus state and no rectangle; injection needs the RemoteDesktop portal's consent dialog and a
+  restore token; and the GlobalShortcuts portal moves hotkey binding out of Settings and into the
+  compositor's own UI. Mutter rejects both layer-shell and data-control as policy, so the result
+  would not run on GNOME at all. The one thing Wayland does *better* is click-through
+  (`wl_surface.set_input_region`, unprivileged and universal) and that is not worth a windowing
+  rewrite plus a permanent three-compositor test matrix. **Revisit only if PoE itself stops being
+  an Xwayland client** — and note that on that day Wine's clipboard goes straight to
+  `wl_data_device` and the whole poke/handover pathology below evaporates, while the geometry
+  problem becomes permanent. One native-Wayland clipboard backend *was* built and tried against
+  the KWin bridge bug, and removed once it answered — see the sticky failure under Architecture.
 
 ## Where the real difficulty is
 
@@ -122,6 +137,31 @@ The seams (windowing still comes free from SDL3; the clipboard did not — see b
   arrives as a plain hyphen (1277 bytes against 1291 for the same item). Polling therefore sees the
   two forms alternate, which is why one press of the hotkey used to show affixes and the next did
   not. `parse_info_line` accepts either separator; **do not "fix" that by trusting the encoding.**
+- **`clipboard_wedge_note` in `App` concludes from the owner's behaviour, never from its
+  identity** — and that is the second attempt, the first two having been wrong in ways worth
+  recording so nobody rebuilds them. It says the one thing the app can state truthfully about
+  the sticky wedge: the selection belongs to something other than the game and the copy was
+  never published, so alt-tab out and back. It fires **only on the give-up line**, from two
+  facts already in hand there: nothing asserted ownership during the whole check (that *is* the
+  give-up condition) and the owner answered a format list, so it exists and responds. A live,
+  responsive owner that never re-asserted is not the game's clipboard. Naming this in the log is
+  what stops the next report of it starting from scratch.
+  **Comparing `_NET_WM_PID` cannot work, measured**: the owner during the captured failures is
+  KWin's own selection window, which advertises no pid and no `WM_CLASS` at all (`xprop` on it
+  returns one KDE-private property), so an owner-vs-game pid check silently never fires. That
+  is why `window_desc` warns that everything it prints may be missing.
+  **Fingerprinting the format list against Wine's would be a third guess**: every capture of
+  Wine's own formats came through the Wayland bridge rather than off the X selection, so there
+  is nothing verified to match. The list is logged beside the note and is usually
+  self-describing about who *did* have it — `chromium/x-source-url` is the browser,
+  `application/x-kde-onlyReplaceEmpty` the clipboard manager — which is a hint for a reader and
+  deliberately not a rule for the code.
+  It cannot fire earlier than give-up, and an attempt to log it at injection was reverted: the
+  evidence that settles it is `clipboard_targets`, a **real conversion request**, and issuing
+  one at injection would perturb the handover being measured. The owner window id is still
+  logged there, because across every capture it is the field that predicts the outcome and it
+  costs no round trip — but nothing may be concluded from it, since neither Wine's clipboard
+  window nor KWin's identifies itself.
 - **`platform/single_instance.hpp` — `InstanceLock`:** one running copy per user. `flock` on
   `<cache>/PathOfPriceCheck.lock`; a session-local named mutex (`Local\`, not `Global\`) on
   Windows. A **kernel lock and not a pid file**, because the operating system releases it when the
@@ -247,6 +287,35 @@ stopped being `_NET_ACTIVE_WINDOW`. Captured in `ppc-20260805-162746.log`, check
 and `3NDN` (the stuck state). A drop to no owner is deliberately **not** counted by
 `clipboard_stamp()`: it is the opposite of a write, and counting it made an empty read look like a
 successful copy of something that "is not an item".
+
+**Reading the Wayland side instead does not fix it — measured, so do not try again.** A second
+clipboard backend on `ext-data-control-v1` (the protocol a Wayland clipboard manager uses, and the
+only way for an unfocused client to read the selection at all) was built to find out, and the
+answer is no: the wedge reproduces step for step (start → check works → copy a URL in a Wayland
+browser → the next check gets nothing → focus out of the game and back → it works again).
+The reason is that **the bug is upstream of both readers**. The Wayland application's copy makes
+KWin's bridge take the X selection on its behalf; Wine loses it, still believes it owns it, and so
+never publishes the in-game copy to X at all. There is nothing on either side to read, and the poke
+reaches the bridge — which serves the browser's URL, not the item. Nothing is read wrongly (the
+stamp gate is why the symptom is silence rather than a price check of a URL); the item is simply
+never published. **Only Wine re-acquiring the selection recovers it, and only a WM-level activation
+change makes Wine do that** — which is the same conclusion `nudge_clipboard_handover` reached from
+the X11 side, now confirmed from a second, independent protocol. The backend was **removed** once
+it had answered: it read the selection correctly and cost a `libwayland-client` dependency to tell
+us nothing the X11 path did not already say. Two things it did establish are worth keeping. The
+poke is a fact about the **owner** and not about the reading protocol — with it skipped on the
+theory that a pushed selection needs no asking, nothing worked at all, because the party that has
+to be woken is Wine and Wine only listens over X11. And every in-game copy reaches the compositor
+as **clear-then-offer**, not as one change, which is why `clipboard_stamp()` not counting a
+cleared selection is load-bearing rather than a corner case.
+
+What is left in its place is the **diagnosis**: `clipboard_wedge_note` says so on the give-up line
+whenever the owner answered a format list, since a live, responsive owner that never re-asserted
+during the whole check is by definition not the game's clipboard. That is the one thing about this
+failure the app can state truthfully, and it is what saves the next investigation from starting
+over. Captured in `ppc-20260809-011007.log`: check `S36Q` gave up at 2014ms with the owner serving
+`application/x-kde-onlyReplaceEmpty`, and `GM54` — the very next check, after the user alt-tabbed
+by hand — read the item in 3ms.
 
 Everything else follows: no fallback to the previous clipboard (that's whatever the user last copied
 anywhere, and showing it reads as a successful but wrong price check), and **failure is silent**.

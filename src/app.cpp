@@ -64,6 +64,41 @@ std::string read_clipboard(const char* label) {
     return s;
 }
 
+/// True when the owner answered with a real format list rather than one of `clipboard_targets`'
+/// parenthesised non-answers ("(no owner)", "(no reply)", "(refused)", "(no display)"). The
+/// difference is the whole diagnosis below: an owner that replies exists and is responsive.
+bool owner_answered(const std::string& targets) {
+    return !targets.empty() && targets.front() != '(';
+}
+
+/// What a give-up means when the owner answered. Empty when it did not, because then the
+/// failure is a different one — nobody owns the selection, or the owner is wedged itself.
+///
+/// **No guess about who the owner is**, which is the point: two facts already in hand at the
+/// give-up line are conclusive together. Nothing asserted ownership during the entire check
+/// (that *is* the give-up condition), and the owner answered a format list (so it exists and
+/// responds). A live, responsive owner that never re-asserted is not the game's clipboard —
+/// the copy was never published and every poke went to somebody else's selection.
+///
+/// Two earlier attempts at this were built on identity and both were wrong, which is why it is
+/// worded this way. Comparing `_NET_WM_PID` cannot work: the owner in the captured failures is
+/// KWin's own selection window, which advertises no pid and no `WM_CLASS` at all. Fingerprinting
+/// the format list against Wine's would be a third guess — every capture of Wine's formats came
+/// through the Wayland bridge rather than from X, so there is nothing to match against.
+///
+/// The format list is still logged beside this, and it is usually self-describing about who *did*
+/// have it: `chromium/x-source-url` is the browser, `application/x-kde-onlyReplaceEmpty` is the
+/// clipboard manager. That is a hint for a reader, deliberately not a rule for the code.
+std::string clipboard_wedge_note(const std::string& targets) {
+    if (!owner_answered(targets)) return {};
+    return "the clipboard has an owner that answers, and it never re-asserted during this check —"
+           " so the selection belongs to something other than the game and the game's copy was"
+           " never published. Under Wayland this is the known wedge: a copy made in a Wayland"
+           " application takes the selection from Wine, which re-acquires it only when the window"
+           " manager activates the game again. Alt-tab out of the game and back to clear it."
+           " The format list above usually names who has it.";
+}
+
 void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
     static_cast<App*>(userdata)->quit();
 }
@@ -426,11 +461,19 @@ void App::poll_pending_copy() {
             nudge_clipboard_handover(elapsed);
             return;
         }
-        if (debug::enabled())
+        if (debug::enabled()) {
+            // Asked once and used twice: this is a real conversion request to the owner, so it
+            // belongs only here — on the path where there is nothing left to perturb.
+            const std::string targets = clipboard_targets(100);
             debug::log("[copy] gave up after %llums: the clipboard was never written. %s owner=%s"
                        " targets=%s",
                        (unsigned long long)elapsed, focus_info().c_str(),
-                       clipboard_owner_info().c_str(), clipboard_targets(100).c_str());
+                       clipboard_owner_info().c_str(), targets.c_str());
+            // On its own line: the line above says what was observed, this one says what it
+            // means, and only the second is worth pasting into a report.
+            const std::string why = clipboard_wedge_note(targets);
+            if (!why.empty()) debug::log("[copy]   diagnosis: %s", why.c_str());
+        }
         abandon_copy();
         return;
     }
@@ -723,6 +766,12 @@ void App::handle_action(Action a) {
         copy_nudged_ = false;
         copy_poked_ms_ = 0; // poke on the first poll, not one interval in
         copy_started_ms_ = SDL_GetTicks();
+        // The owner window id is worth recording here even though nothing can be *concluded*
+        // from it yet: across the captures it is the one field that predicts the outcome, and
+        // reading it costs no round trip. Diagnosing has to wait for the give-up line, because
+        // the evidence that settles it — whether the owner answers at all — is a real
+        // conversion request, and issuing one at injection would perturb the handover being
+        // measured.
         if (debug::enabled())
             debug::log("[copy] injected in %llums, stamp=%llu owner=%s",
                        (unsigned long long)(copy_started_ms_ - t0),
