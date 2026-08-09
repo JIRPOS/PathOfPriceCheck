@@ -264,29 +264,39 @@ the height it drew at last frame. Over it is the one place it may not go. Nor do
 `Min`/`Max` labels: left is the floor and right is the ceiling, in the order the slider beside
 them is drawn, and two words there cost the track its width.
 
-Five things about it are decided rather than incidental:
+Six things about it are decided rather than incidental:
 
 - **The edit is live and Confirm only closes.** An ImGui popup closes on any click outside itself,
   which over a game is constant, so a scratch copy applied on Confirm would throw away a drag the
   moment the mouse strayed. There is nothing to lose by writing through.
 - **`ui::range_slider` is ours** because ImGui has none. `DragFloatRange2` is two drag boxes side
-  by side, and the picture this needs is *the interval against what the affix can actually roll* —
-  the track is `roll_min`..`roll_max` and the lit span is what would be accepted. So the slider
-  appears **only when that range is known**; with Advanced Mod Descriptions off most rolls have
-  none, and a numeric filter (item level, quality, the derived damage and defence numbers) never
-  does, since those are facts about the item rather than an affix's tier. Then the two boxes are
-  the whole editor. An **absent bound parks its knob at that end and draws it hollow**, because
-  "no ceiling" and "a ceiling at the top of the range" are different searches that look identical
-  otherwise.
-- **The track is not a cage.** Its ends are the tier in hand, which is the only range anything
-  here can defend — **the bundle carries no per-tier affix table**, so what a *different* tier of
-  the same modifier rolls is not known and a wider track would be a picture of a guess. But a
-  buyer is entitled to ask for a better roll than the one they are holding, so a knob pushed past
-  an end keeps going (to `kOvershoot` ranges out, with the boxes for anything beyond), the domain
-  widens to hold it, and **two ticks mark where the known range was** — without them the widened
-  track would read as the affix's own range, which is exactly the claim nothing here may make.
-  The domain is frozen in the widget's storage for the duration of a drag, or rescaling the track
-  under a moving knob makes the number race away from the cursor.
+  by side, and the picture this needs is *the interval against a range* — a track with the lit span
+  being what would be accepted. An **absent bound parks its knob at that end and draws it hollow**,
+  because "no ceiling" and "a ceiling at the top of the range" are different searches that look
+  identical otherwise.
+- **Every row with a number gets one, and `track_for` decides what it is drawn over.** Where the
+  game printed a range, `roll_min`..`roll_max` is the track and `published` is set. Most rows are
+  not that: item level, quality, total energy shield and the derived damage numbers are facts about
+  the item rather than an affix's tier, and with Advanced Mod Descriptions off a modifier prints no
+  range either. Those get a track derived from the number in hand, **half of it either side**.
+  Withholding the slider there was worse than deriving one — an editor that is two boxes on one row
+  and a slider on the next reads as a slider that failed to load, and the numbers people most want
+  to loosen are exactly the ones with no published range. **The distinction is kept where it
+  belongs**: a derived track gets no ticks and says so on hover, so nothing draws it as what the
+  affix rolls.
+- **The track is not a cage, and it grows.** Even a published range is only the tier in hand —
+  **the bundle carries no per-tier affix table**, so what a *different* tier of the same modifier
+  rolls is not known and a wider track drawn as fact would be a picture of a guess. But a buyer is
+  entitled to ask for a better roll than the one they are holding, so: a knob pushed past an end
+  keeps going (to `kOvershoot` ranges out, with the boxes for anything beyond); a knob **released
+  hard against an end grows the track by a fifth of the range it started with**, at least 1, so the
+  next drag has somewhere to go and repeated pegging walks outwards; and **two ticks mark where the
+  known range was** on a published track — without them the widened track would read as the affix's
+  own range, which is exactly the claim nothing here may make. The domain lives in the widget's
+  storage, frozen for the duration of a drag (rescaling the track under a moving knob makes the
+  number race away from the cursor) and reset by `RangeTrack::reset` when the editor opens on a new
+  row, since one popup id serves every row. `ui::kRangeLimit` (INT32_MAX) is where all of it stops,
+  typed bounds included.
 - **The boxes are `InputTextWithHint`, not `InputDouble`.** Empty has to be sayable — it is how a
   bound is taken off, and "both, a floor, a ceiling, or neither" is the whole promise — so the box
   holds text, hints `min`/`max` when empty, and is parsed with **`std::from_chars`**: `strtod` and
@@ -300,6 +310,16 @@ Five things about it are decided rather than incidental:
   the panel the first time it was used. It is also begun **outside** `BeginTable`, which pushes an
   id of its own, so an `OpenPopup` inside the table and a `BeginPopup` outside it would be two
   different popups under one name.
+
+**The editor claims the keyboard, and it is the only thing on a price check that does.** A price
+check is drawn on an override-redirect window the window manager will not focus, so without
+`App::edit_filter`'s `overlay_take_keyboard_focus` the boxes activate on a click and then receive
+nothing — every keystroke goes to the game. That is the server's input focus and not the WM's
+activation, the same call Settings has always made for its own text fields, and it is **not handed
+back when the editor closes**: the game regaining focus is what dismisses a price check, so
+returning it would close the panel out from under the edit. `set_screen(Hidden)` returns it when
+the check ends. Escape then reaches a price check for the first time, so it closes the editor
+before it closes the check.
 
 **`ImGuiHoveredFlags_NoPopupHierarchy` on the row test is load-bearing**, and its absence was a
 bug worth remembering: `IsWindowHovered` counts a popup as part of the window that opened it

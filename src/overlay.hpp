@@ -26,6 +26,8 @@ public:
     const Fonts& fonts() const { return fonts_; }
 
 private:
+    void sync_held_mouse();
+
     SDL_Window* window_ = nullptr;
     void* gl_ = nullptr; // SDL_GLContext
     bool visible_ = false;

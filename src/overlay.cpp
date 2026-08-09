@@ -1,5 +1,7 @@
 #include "overlay.hpp"
 
+#include <iterator>
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
 #include <imgui.h>
@@ -52,9 +54,47 @@ void Overlay::shutdown() {
 
 void Overlay::process_event(const SDL_Event& e) { ImGui_ImplSDL3_ProcessEvent(&e); }
 
+/// While a mouse button is held, the **physical** button and pointer are the authority.
+///
+/// A drag that leaves this window is ordinary here: the overlay is never wider than it needs to be
+/// (there is no click-through yet), and the range slider is deliberately draggable past its own
+/// ends. What is not guaranteed is that the release comes back to us. The overlay is an
+/// override-redirect window, and SDL's X11 capture — the thing that is supposed to keep the events
+/// coming while the pointer is elsewhere — does nothing at all when XInput2 owns the pointer
+/// (`X11_CaptureMouse` returns early unless the window also holds a grab). The button-up is then
+/// delivered to whatever is under the cursor, ImGui never hears it, and the widget stays grabbed:
+/// the reported symptom was a slider knob that kept following the mouse after the button was long
+/// since released.
+///
+/// So: read the global state each frame that a button is down, feed the position in as window
+/// coordinates — which is also what keeps a drag tracking while the cursor is outside — and
+/// release any button the OS says is up. Costs an `SDL_GetGlobalMouseState` only during drags,
+/// and `poll_click_away` already makes that call unconditionally.
+void Overlay::sync_held_mouse() {
+    ImGuiIO& io = ImGui::GetIO();
+    // `io.MouseDown` is last frame's state: this frame's events are queued and applied by
+    // NewFrame below, which is exactly the ordering wanted — a press that has only just arrived
+    // was made inside the window and needs no reconciling.
+    const bool held = io.MouseDown[ImGuiMouseButton_Left] || io.MouseDown[ImGuiMouseButton_Right] ||
+                      io.MouseDown[ImGuiMouseButton_Middle];
+    if (!held) return;
+
+    float gx = 0, gy = 0;
+    const SDL_MouseButtonFlags down = SDL_GetGlobalMouseState(&gx, &gy);
+    int wx = 0, wy = 0;
+    SDL_GetWindowPosition(window_, &wx, &wy);
+    io.AddMousePosEvent(gx - float(wx), gy - float(wy));
+
+    static constexpr SDL_MouseButtonFlags kMask[]{SDL_BUTTON_LMASK, SDL_BUTTON_RMASK,
+                                                  SDL_BUTTON_MMASK};
+    for (int b = 0; b < int(std::size(kMask)); ++b)
+        if (io.MouseDown[b] && !(down & kMask[b])) io.AddMouseButtonEvent(b, false);
+}
+
 void Overlay::begin_frame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
+    sync_held_mouse(); // after the backend has queued its events, before NewFrame applies them
     ImGui::NewFrame();
 }
 

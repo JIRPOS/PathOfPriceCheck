@@ -26,8 +26,9 @@ load-bearing and should not be reshuffled casually:
 ### 0.4, editable filter ranges — **built**
 
 Every constraint below held; the layer is [trade-layer.md](trade-layer.md) now, not a plan.
-`StatFilter::min`/`max` are edited in a popover on the row, `roll_min`/`roll_max` are the slider's
-track beside them, `seed_min`/`seed_max` are what reset restores, the typed number goes through
+`StatFilter::min`/`max` are edited in a popover on the row, the slider's track beside them is
+`roll_min`..`roll_max` where the game published one and derived from the number in hand where it
+did not, `seed_min`/`seed_max` are what reset restores, the typed number goes through
 `std::from_chars`, only the Search button sends, and nothing survives the item.
 
 ### 0.5, the paste list
@@ -135,19 +136,23 @@ Known, argued, and unscheduled — except where a planned version claims one, wh
   and the build now reports `wordings_ambiguous_in_a_namespace` so a regression is visible.
   **Do not "fix" the app side by picking a record.** Two ids behind one wording is a filter on the
   wrong stat half the time, and a confident wrong price is the failure mode this whole layer avoids.
-- **No per-tier range for an affix, so the range editor's slider is the tier in hand.** Asked
-  for: a track spanning *every* tier — the lowest tier's floor to the highest tier's ceiling —
-  so a buyer can drag toward a roll better than the one they are holding. Nothing we have can
+- **No per-tier range for an affix, so no track can state what one rolls beyond the tier in hand.**
+  Asked for: a track spanning *every* tier — the lowest tier's floor to the highest tier's ceiling
+  — so a buyer can drag toward a roll better than the one they are holding. Nothing we have can
   say what those are. `roll_min`/`roll_max` come from what the clipboard printed, which is the
   rolled tier and only with Advanced Mod Descriptions on; `Stat` carries no tiers, and
   `en-unique-mods.ndjson` is per-unique rather than per-affix. **Upstream**: the data build would
   have to emit the mod table (GGG's `Mods.dat` joined to its tiers, keyed by item class and
-  domain, in displayed units the way `UniqueModFilter::ranges` already are). Until then the
-  slider's ends are the only range that can be defended, and `ui::range_slider` answers the need
-  the other way — the knobs carry on past the ends and two ticks mark where the known range was,
-  so the user reaches the number without the app claiming to know the tier it belongs to.
-  **Do not widen the track by a guessed factor.** A track is read as a statement about what the
-  affix rolls, and a wrong one is the confident wrong number this layer exists to avoid.
+  domain, in displayed units the way `UniqueModFilter::ranges` already are).
+  Until then `ui::range_slider` answers the need without the claim — the knobs carry on past the
+  ends, a knob released against an end grows the track, and the numbers can be typed. **The line
+  that must hold is the one between a track and a statement**: a *published* track is drawn as
+  `roll_min`..`roll_max` and marked with ticks once it has been widened, and every other row gets a
+  track derived from the number in hand (`track_for`, half either side) that is deliberately given
+  no ticks and says on hover that it is not a published range. **Do not promote a derived track to
+  a published one, and do not widen a published one by a guessed factor.** A track with ticks is
+  read as a statement about what the affix rolls, and a wrong one is the confident wrong number
+  this layer exists to avoid.
 - **Pseudo mods on gear** — trade's `pseudo.*` totals (total resistances, total life) are not built;
   mods are matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance`
   and the rest), so this is a plan-layer job, not a data one. A map's pseudo stats *are* built (see

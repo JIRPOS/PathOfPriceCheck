@@ -458,7 +458,11 @@ void App::handle_event(const SDL_Event& e) {
             end_capture();
         }
     } else if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) {
-        set_screen(Screen::Hidden);
+        // An open range editor takes Escape first. The key only reaches a price check because the
+        // editor claimed the keyboard, and closing the whole check on it would throw away the row
+        // the user was aiming at. ImGui closes its popup on the same press, so both agree.
+        if (filter_edit_.open()) close_filter_edit();
+        else set_screen(Screen::Hidden);
     } else if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
         had_focus_ = true;
         debug::log("[app]    overlay focus gained");
@@ -725,8 +729,24 @@ void App::rebuild_plan() {
     need_redraw_ = true;
 }
 
+/// Open the range editor on a row — and **claim the keyboard**, or its two boxes cannot be typed
+/// into at all.
+///
+/// A price check is drawn on an override-redirect window, which the window manager will not focus,
+/// so the X input focus stays on the game and every keystroke goes there. The boxes still *look*
+/// live, because the caret follows the mouse and the pointer works regardless: clicking one
+/// activates it and then nothing arrives. Settings has always claimed the focus for the same
+/// reason, one line down.
+///
+/// This does not violate the focus rule. What it takes is the **server's** input focus and not the
+/// window manager's activation — `active=` stays on the game, which is the whole point of the note
+/// on `nudge_clipboard_handover` — and it is taken on a deliberate click on our own text field
+/// rather than to make the game do something. It is not handed back when the editor closes: the
+/// game regaining focus is what dismisses a price check, so returning it would close the panel out
+/// from under the edit. `set_screen(Hidden)` gives it back when the check itself ends.
 void App::edit_filter(FilterEdit::Kind kind, size_t index, float top, float bottom) {
     filter_edit_ = FilterEdit{kind, index, bottom, top, /*opening=*/true};
+    if (!overlay_.has_focus()) overlay_take_keyboard_focus(overlay_.window());
     need_redraw_ = true;
 }
 
@@ -1081,8 +1101,9 @@ void App::set_screen(Screen s) {
         had_focus_ = false; // wait for the (re)focused window to report focus
         SDL_RaiseWindow(overlay_.window());
     }
-    // Settings needs keyboard focus immediately (text fields); price-check takes it only if
-    // the copy stalls (nudge_clipboard_handover). Closing hands focus back to the game.
+    // Settings needs keyboard focus immediately (text fields); a price check takes it only when
+    // something on it has to be typed into (edit_filter) or the copy stalls
+    // (nudge_clipboard_handover). Closing hands focus back to the game.
     if (s == Screen::Settings) {
         overlay_take_keyboard_focus(overlay_.window());
         // TTL-gated, so a warm cache makes this a no-op. A user who never opens Settings
