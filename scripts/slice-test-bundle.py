@@ -140,6 +140,13 @@ ITEMS = [
     # internal id, with the "chart" discriminator and no display name anywhere on it.
     "ITEM::Coral Reef Chart",
     "ITEM::SeafloorRidges",
+    # Itemised beasts, which live in a namespace of their own — the species is the base and the
+    # rare title above it is not looked up at all. Porcupine Goliath is captured too and is
+    # deliberately **not** here: the beast list grows every league, so a bundle that does not
+    # know a species is the ordinary case and needs a fixture of its own.
+    "CAPTURED_BEAST::Wild Hellion Alpha",
+    "CAPTURED_BEAST::Chrome-touched Croaker",
+    "CAPTURED_BEAST::Farric Goliath",
 ]
 
 UNIQUE_MODS = [

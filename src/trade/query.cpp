@@ -82,6 +82,9 @@ bool searchable(const item::SearchPlan& p) {
         case item::Strategy::Modifiers:
         case item::Strategy::Unique:
         case item::Strategy::Map: return true;
+        // A beast is its species, and a plan that could not name one has nothing left: the
+        // search would be every beast in the league at this item level. Same shape as a gem.
+        case item::Strategy::Beast: return !p.type.empty();
         // A gem is bought by name and has no modifiers to fall back on, so a plan that could
         // not name it has nothing left to ask: the search would be every gem in the game at
         // this level, and its cheapest listing would read as this gem's price.

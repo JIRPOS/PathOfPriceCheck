@@ -26,3 +26,6 @@
 {"name":"Raise Zombie of Falling","namespace":"GEM","refName":"Raise Zombie of Falling","tradeDisc":"alt_y","tradeName":"Raise Zombie"}
 {"craftable":{"category":"Chart"},"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Deepwater/ChartCoralReef","name":"Coral Reef Chart","namespace":"ITEM","refName":"Coral Reef Chart","w":1}
 {"name":"SeafloorRidges","namespace":"ITEM","refName":"SeafloorRidges","tradeDisc":"chart"}
+{"name":"Wild Hellion Alpha","namespace":"CAPTURED_BEAST","refName":"Wild Hellion Alpha"}
+{"name":"Chrome-touched Croaker","namespace":"CAPTURED_BEAST","refName":"Chrome-touched Croaker"}
+{"name":"Farric Goliath","namespace":"CAPTURED_BEAST","refName":"Farric Goliath"}

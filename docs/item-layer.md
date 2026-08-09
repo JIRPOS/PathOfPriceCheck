@@ -38,6 +38,16 @@ bundle, and only the third and fourth encode pricing judgement.
     effect and its verse both used to come back as unrecognised ones. Its first prose block is the
     description and anything after it is flavour — the Maven's Writ prints only a verse and there
     is nothing to tell the two apart, so that one is read as the description.
+    It is false for an **itemised beast** on the same argument from the other direction: a beast
+    prints "Rarity: Rare" because it rolled monster modifiers, and those come from the captured
+    monster's own pool rather than from an affix pool on a base — nothing to tier, to bound or to
+    match. What says an item is one is neither the rarity nor the class ("Stackable Currency",
+    shared with every orb in the game) but the **taxonomy block**, `Genus` / `Group` / `Family`,
+    which nothing else in the game prints — hence `Item::is_beast()` reading `PropertyKey::Genus`.
+    A beast's usage note is also the one place the game writes the instruction **hyphenated**
+    ("Right-click to add this to your bestiary."), and a usage needle is a substring, so the
+    "Right click" every other item prints never matched it and the line came back as a fourth,
+    unrecognised modifier. Both spellings are needles now.
   - Mod type comes from the ` (implicit)` / ` (crafted)` / … suffix, else from an Advanced Mod
     Descriptions info line's generation words, else Explicit. A flask enchant carries no suffix, so
     on a flask the earlier of two unsuffixed sections is the enchant.
@@ -81,6 +91,13 @@ bundle, and only the third and fourth encode pricing judgement.
     the display names existed has: three "Vaal Blight" rows, only one of them the plain gem. A
     transfigured gem is exactly the one with a discriminator, so nothing falls back to
     "whichever came first".
+  - **A beast's species** (`Namespace::CapturedBeast`). An itemised beast prints two name lines
+    and neither means what it does on a rare: the first is a title the capture generated
+    ("Banebite the Malignant") that no two copies share, and the second is the **species** —
+    a Wild Hellion Alpha — which is the base and the whole of what one copy has in common with
+    another. The bundle files them in a namespace of their own, so looking one up among the
+    ordinary bases finds nothing at all; the species is also the only thing a beastcrafting
+    recipe names, which is why it is what gets searched.
   - **A card's own record** (`Namespace::DivinationCard`). Nothing about a card is *searched* — it
     is `Strategy::Currency` and the in-game exchange is the whole answer — but that answer is
     keyed on `BaseType::metadata_id`, which only a resolved base carries, so a card that fell
@@ -284,6 +301,24 @@ bundle, and only the third and fourth encode pricing judgement.
   other copy of it does. The strategy stays `Currency` (poe.ninja still prices it in the currency
   market, which is the floor under the search) and `trade::searchable` reads the `type` the plan
   filled in, exactly as it does for a gem.
+- **`item/plan`'s beast strategy** (`plan_beast`) is the shortest one here, and every line of it
+  is a thing not asked for. An itemised beast is bought to be released into the menagerie and
+  spent on a beastcrafting recipe, and a recipe names the **species** and nothing else — so the
+  plan is the species as the `type`, the item level as a floor, and that is all.
+  The title above the species is left out because no two copies share one. The **monster
+  modifiers** are left out for the same reason a map's affixes are, and just as silently: they
+  are the captured monster's own abilities rather than rolls on a base, the bundle has no stat
+  for "Satyr Storm" to match, and no recipe asks for one — so "unrecognised modifier: Evasive",
+  five times over, would charge the check with failing at what it did on purpose. The item level
+  is a **floor** rather than a window: a recipe wanting one wants at least that much, and a
+  higher beast still answers.
+  The one thing that is not a matter of judgement is the **category**, and it is the single
+  place a category is not the bundle's answer for the item class. A beast's class is "Stackable
+  Currency" and the bundle maps that to `currency`, which is right for every orb that prints it
+  and wrong here: trade files beasts under `monster.beast`. Measured, because the site accepts
+  either and a wrong category comes back as nobody selling one rather than as an error —
+  `currency` returned **0 matches** for a Wild Hellion Alpha against **1602** for
+  `monster.beast`, same type and same item level.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is

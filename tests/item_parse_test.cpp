@@ -13,6 +13,7 @@
 namespace fs = std::filesystem;
 using namespace ppc::item;
 using ppc::data::ModType;
+using ppc::data::PropertyKey;
 
 namespace {
 
@@ -488,6 +489,62 @@ TEST_CASE("a map fragment describes itself in prose and has no modifiers at all"
         CHECK(it.mods.empty());
         CHECK(it.description.size() == 1);
         CHECK(it.flavour_text.size() == 2);
+    }
+}
+
+TEST_CASE("an itemised beast is a species with a title, not a rare with a base") {
+    // A beast prints "Item Class: Stackable Currency" — the class every orb in the game shares
+    // — and "Rarity: Rare", because it rolled monster modifiers. Neither says what it is. The
+    // taxonomy block does, and nothing else in the game prints one.
+    SUBCASE("the taxonomy is what identifies it, and the species is the base") {
+        const Item it = parse("items", "beast-croaker.txt");
+        CHECK(it.item_class == "Stackable Currency");
+        CHECK(it.rarity == Rarity::Rare);
+        CHECK(it.is_beast());
+        // The title the capture generated, and the species underneath it — the ordinary
+        // two-line rare header, with neither line meaning what it does on a rare.
+        CHECK(it.name == "Deathcrawl");
+        CHECK(it.base_type == "Chrome-touched Croaker");
+        CHECK(it.item_level == 76);
+
+        REQUIRE(it.properties.size() == 4);
+        CHECK(it.properties[0].key == PropertyKey::Genus);
+        CHECK(it.properties[0].value == "Gem Frogs");
+        CHECK(it.properties[1].key == PropertyKey::Group);
+        CHECK(it.properties[1].value == "Amphibians");
+        CHECK(it.properties[2].key == PropertyKey::Family);
+        CHECK(it.properties[2].value == "The Deep");
+        CHECK(it.properties[3].key == PropertyKey::ItemLevel);
+    }
+    SUBCASE("it is not gear, whatever the rarity line says") {
+        // The rules that tell a rare's mods from its prose all fire on the rarity line, and
+        // none of them applies: a monster modifier is the captured monster's own ability
+        // rather than a roll from an affix pool on a base.
+        CHECK_FALSE(parse("items", "beast-croaker.txt").is_gear());
+    }
+    SUBCASE("the bestiary line is a usage note, not a modifier") {
+        // "Right-click to add this to your bestiary." sits exactly where flavour text does and
+        // is told from it by wording alone — and the hyphenated spelling is not a variant of
+        // the "Right click" the rest of the game prints, so a needle matching that one never
+        // matched this. It came back as a fourth, unrecognised modifier.
+        const Item it = parse("items", "beast-croaker.txt");
+        CHECK(it.help_text == std::vector<std::string>{
+                                  "Right-click to add this to your bestiary."});
+        CHECK(it.flavour_text.empty());
+        CHECK(it.mods.size() == 3);
+    }
+    SUBCASE("the monster modifiers keep their tier and their info-line tags") {
+        // Parsed like any Advanced Mod Descriptions affix even though none of them is one:
+        // the info line is real, the tier is real, and the panel shows both. What they are
+        // not is searchable — that is `plan_beast`'s business, not the parser's.
+        const Item it = parse("items", "beast-farric-goliath.txt");
+        REQUIRE(it.mods.size() == 5);
+        CHECK(it.mods[0].lines == std::vector<std::string>{"Evasive"});
+        CHECK(it.mods[0].tier == 1);
+        CHECK(it.mods[0].advanced);
+        CHECK(it.mods[2].lines == std::vector<std::string>{"Spikes on Death"});
+        CHECK(it.mods[2].tier == 0); // "{ Monster Modifier }" — no tier printed
+        CHECK(it.mods[3].tags == std::vector<std::string>{"Life"});
     }
 }
 

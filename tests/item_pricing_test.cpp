@@ -1151,6 +1151,69 @@ TEST_CASE("a map item is a bulk good or an item, and the item level is what says
     CHECK(default_strategy(rare) == Strategy::Currency);
 }
 
+TEST_CASE("a beast is bought for its species and its item level, and for nothing else") {
+    auto gd = fixture();
+
+    SUBCASE("the species is the base, and it lives in a namespace of its own") {
+        // Looking one up among the ordinary bases finds nothing at all, so before this the
+        // plan had no type and the search would have been every beast in the league.
+        const Item it = resolved(*gd, capture("beast-hellion-alpha.txt"));
+        REQUIRE(it.base != nullptr);
+        CHECK(it.base->name == "Wild Hellion Alpha");
+        CHECK(it.base->ns == ppc::data::Namespace::CapturedBeast);
+    }
+
+    SUBCASE("the strategy is decided by the taxonomy, not by the rarity or the class") {
+        // "Stackable Currency" is the class every orb shares and "Rare" is what the monster
+        // modifiers made it. Planned as a rare, a Wild Hellion Alpha would search "Extra Life"
+        // as an affix on a currency item, which matches nothing.
+        const Item it = resolved(*gd, capture("beast-hellion-alpha.txt"));
+        CHECK(default_strategy(it) == Strategy::Beast);
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Beast);
+        CHECK(p.type == "Wild Hellion Alpha");
+        // The title is one capture's own and no two copies share it, so it is not asked for.
+        CHECK(p.name.empty());
+        // Not the bundle's answer for "Stackable Currency", which is `currency` and is right
+        // for every orb printing that class. Measured on this capture: `currency` returned 0
+        // matches and `monster.beast` returned 1602, same type and same item level.
+        CHECK(p.category == "monster.beast");
+
+        const NumericFilter* ilvl = numeric_for(p, "ilvl");
+        REQUIRE(ilvl != nullptr);
+        CHECK(ilvl->enabled);
+        CHECK(ilvl->min == 83);
+        // A floor, not a window: a recipe wanting an item level wants at least that much, and
+        // a higher beast still answers.
+        CHECK_FALSE(ilvl->max.has_value());
+    }
+
+    SUBCASE("the monster modifiers are left out silently, exactly as a map's affixes are") {
+        // They are the captured monster's own abilities rather than rolls on a base, the
+        // bundle has no stat for "Satyr Storm" to match, and no beastcrafting recipe asks for
+        // one. Leaving them out is the decision, so "unrecognised modifier: Evasive" — five of
+        // them on this capture — would charge the check with failing at what it did on purpose.
+        const Item it = resolved(*gd, capture("beast-farric-goliath.txt"));
+        REQUIRE(it.mods.size() == 5);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.stats.empty());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("a species the bundle does not know still searches, and says what it did") {
+        // The beast list grows every league and a bundle behind the game is the ordinary case.
+        // The clipboard's own spelling is the best term left, unlike a magic item's base line,
+        // which carries affixes and would match nothing — so the search goes ahead with a note.
+        const Item it = resolved(*gd, capture("beast-porcupine-goliath.txt"));
+        CHECK(it.base == nullptr);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Porcupine Goliath");
+        REQUIRE(p.notes.size() == 1);
+        CHECK(p.notes.front().find("is not a beast in this data bundle") != std::string::npos);
+    }
+}
+
 TEST_CASE("what the in-game exchange trades in bulk has to resolve to a base to be found") {
     auto gd = fixture();
     // The exchange states every item by its metadata path and carries no names at all, so the

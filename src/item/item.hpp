@@ -212,6 +212,13 @@ struct Item {
     /// rolled rewards, priced on where it goes rather than on which affixes it got. Trade puts
     /// it in the same `map_filters` group, which is titled "Map/Chart Filters" for that reason.
     bool is_chart() const;
+    /// An itemised beast — a captured monster in a menagerie item, sold on its species and
+    /// its item level and on nothing else it prints.
+    ///
+    /// Off the taxonomy block ("Genus: Gem Frogs") rather than the item class, which is the
+    /// "Stackable Currency" every orb in the game shares, or the rarity line, which says
+    /// "Rare" because the beast rolled monster modifiers and not because it is gear.
+    bool is_beast() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is

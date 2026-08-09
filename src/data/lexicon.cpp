@@ -148,7 +148,12 @@ void Lexicon::assign_english() {
         "Right click", "Shift click", "Place into an item socket", "Map Device",
         "Can be used in a personal Map Device", "Modifiable only with",
         // A chart's, which is where a map prints its Map Device line.
-        "Take this item to Valerie"};
+        "Take this item to Valerie",
+        // The game writes the same instruction both ways and the hyphen is not a variant of
+        // the phrase above — a needle is a substring, so "Right click" never matches it. An
+        // itemised beast prints only this one, and without it "Right-click to add this to
+        // your bestiary." came back as an unrecognised modifier.
+        "Right-click"};
     // "Quest Item" and "Divination Card" are printed with a trailing noun on some items, so
     // the rarity line is matched on a prefix as well as whole.
     lists_[static_cast<size_t>(TermList::QuestRarity)] = {"Quest"};
@@ -187,6 +192,9 @@ void Lexicon::assign_english() {
         {"Area Level", PropertyKey::AreaLevel},
         {"Chart Shape", PropertyKey::ChartShape},
         {"Dead Man's Sulphur", PropertyKey::Sulphur},
+        {"Genus", PropertyKey::Genus},
+        {"Group", PropertyKey::Group},
+        {"Family", PropertyKey::Family},
     };
 
     class_kinds_ = {

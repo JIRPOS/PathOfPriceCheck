@@ -53,6 +53,11 @@ enum class PropertyKey : uint8_t {
     AreaLevel,
     ChartShape,
     Sulphur,
+    /// An itemised beast's taxonomy. Only a beast prints them, which is what makes `Genus` the
+    /// marker for one: the item class it shares with every orb in the game says nothing.
+    Genus,
+    Group,
+    Family,
     Count
 };
 

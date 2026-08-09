@@ -183,8 +183,10 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     // A rolled item can be worth more as a base than as the sum of its mods — a fractured
     // mod, a good influence, a high item level — and only the user knows which they meant.
     // Not a map or a chart: neither reading is what either is bought for, and the strategy the
-    // two share covers every rarity they print.
-    if (!it.is_map() && !it.is_chart() &&
+    // two share covers every rarity they print. Nor a beast, which prints "Rare" without being
+    // gear — its species is the only thing about it either reading could name, and both would
+    // search the wrong market for it.
+    if (!it.is_map() && !it.is_chart() && !it.is_beast() &&
         (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare)) {
         for (const item::Strategy s : {item::Strategy::Modifiers, item::Strategy::BaseItem}) {
             const bool on = plan.strategy == s;

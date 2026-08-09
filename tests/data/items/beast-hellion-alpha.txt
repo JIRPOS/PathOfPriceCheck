@@ -1,0 +1,21 @@
+Item Class: Stackable Currency
+Rarity: Rare
+Banebite the Malignant
+Wild Hellion Alpha
+--------
+Genus: Hellions
+Group: Felines
+Family: The Wilds
+--------
+Item Level: 83
+--------
+{ Monster Modifier (Tier: 1) }
+Extra Life
+{ Monster Modifier (Tier: 1) }
+Extra Fire Damage and Exposure
+{ Monster Modifier — Life }
+Spectral Swipe
+{ Monster Modifier — Life }
+Tiger Prey
+--------
+Right-click to add this to your bestiary.

@@ -13,8 +13,9 @@
 namespace ppc::item {
 namespace {
 
-constexpr std::array<std::string_view, 7> kStrategies{
-    "Base item", "Modifiers", "Unique", "Currency", "Gem", "Map", "Unsupported"};
+constexpr std::array<std::string_view, static_cast<size_t>(Strategy::Unsupported) + 1>
+    kStrategies{"Base item", "Modifiers", "Unique", "Currency",
+                "Gem",       "Map",       "Beast",  "Unsupported"};
 
 /// How many decimals `v` needs to survive being printed. Rolls are at most hundredths.
 int decimals_needed(double v) {
@@ -683,6 +684,41 @@ void plan_gem(const Item& it, SearchPlan& p) {
     exact("quality", "Quality", it.quality.value_or(0));
 }
 
+/// An itemised beast: the species and the item level, and nothing else the item prints.
+///
+/// A beast is bought to be released into the menagerie and spent on a beastcrafting recipe, and
+/// a recipe names the **species** — a Wild Hellion Alpha — so that is the whole of what one
+/// copy has in common with another. The two lines above it are a rare title the game generated
+/// for this capture ("Banebite the Malignant"), which no two copies share and no buyer asks
+/// for, so the `name` term is deliberately left empty and the species goes in `type`.
+///
+/// The **monster modifiers** are skipped for the same reason a map's affixes are (`build_plan`):
+/// they are the captured monster's own abilities rather than rolls on a base, the bundle has no
+/// stat for "Crushing Claws" to match, and a recipe cares about none of them. Left out silently
+/// — with no unrecognised-modifier note — because leaving them out is the decision, not a
+/// failure to read them.
+///
+/// The item level is a floor rather than a window: the recipes that care about it want a beast
+/// at least that high, and a higher one still answers.
+void plan_beast(const Item& it, SearchPlan& p) {
+    // The one place a category is not the bundle's answer for the item class. A beast's class is
+    // "Stackable Currency", which maps to `currency` and is right for every orb that prints it —
+    // but trade files beasts in a category of their own. Measured: `category: currency` returned
+    // **0 matches** for a Wild Hellion Alpha and `monster.beast` returned **1602**, with the same
+    // type and the same item level. The site accepts either, so the wrong one reads as nobody
+    // selling one rather than as an error, which is what made this worth measuring rather than
+    // reasoning about.
+    p.category = "monster.beast";
+    p.type = base_wire_name(it);
+    if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+    else if (!it.base)
+        p.notes.push_back("\"" + it.base_name +
+                          "\" is not a beast in this data bundle, so the search asks for the "
+                          "species as the clipboard spelled it");
+    add_numeric(p, "ilvl", "Item Level",
+                it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
+}
+
 /// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
 /// other map prints one, which is what makes it the marker as well as the thing searched for.
 const Property* reward_property(const Item& it) {
@@ -1021,6 +1057,12 @@ Strategy default_strategy(const Item& it) {
     // shares the strategy rather than getting one of its own; the extras it needs are three
     // filters inside `plan_map`.
     if (it.is_map() || it.is_chart()) return Strategy::Map;
+    // A beast reads as a rare — it has a title, an item level and rolled modifiers — and every
+    // one of those is the wrong thing to price it on. What a buyer of one wants is the species,
+    // because the species is what the crafting recipe names; the monster modifiers are the
+    // monster's own and no recipe asks for them. Ahead of the rarity switch below, which would
+    // otherwise plan a Wild Hellion Alpha as a rare and search "Extra Life" as an affix.
+    if (it.is_beast()) return Strategy::Beast;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1047,7 +1089,9 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
     SearchPlan p;
     p.strategy = force.value_or(default_strategy(it));
     p.category = std::string(gd.trade_category_for(it.item_class));
-    if (p.category.empty() && !it.item_class.empty())
+    // Not for a beast: `plan_beast` overrides the category outright, so a bundle that could not
+    // map "Stackable Currency" would leave a note about a gap that was about to be filled.
+    if (p.category.empty() && !it.item_class.empty() && p.strategy != Strategy::Beast)
         p.notes.push_back("item class \"" + it.item_class +
                           "\" maps to no trade category in this data bundle");
 
@@ -1099,6 +1143,12 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             break;
         case Strategy::Map: plan_map(gd, it, p); break;
         case Strategy::Gem: plan_gem(it, p); break;
+        case Strategy::Beast:
+            // The species and the item level, and deliberately nothing else. The title is one
+            // player's copy rather than a thing to search for, and the monster modifiers are
+            // not affixes — see `plan_beast`'s note and the skip below.
+            plan_beast(it, p);
+            break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
             // query — bulk is what it sells in, and a stat filter has nothing to say about a
@@ -1134,6 +1184,9 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // and "unrecognised modifier: Players have 25% less Accuracy Rating" would charge
             // the check with failing at something it deliberately did not attempt.
             if (p.strategy == Strategy::Map && !map_searched_mod(it.mods[i])) continue;
+            // A beast's monster modifiers, on the same argument and with the same silence: not
+            // affixes, not searched, and visible on the item beside the panel.
+            if (p.strategy == Strategy::Beast) continue;
             if (std::optional<StatFilter> f = to_filter(it, i, p.strategy, ranges_printed, rm)) {
                 p.stats.push_back(std::move(*f));
                 continue;

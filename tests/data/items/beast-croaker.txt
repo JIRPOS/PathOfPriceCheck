@@ -1,0 +1,19 @@
+Item Class: Stackable Currency
+Rarity: Rare
+Deathcrawl
+Chrome-touched Croaker
+--------
+Genus: Gem Frogs
+Group: Amphibians
+Family: The Deep
+--------
+Item Level: 76
+--------
+{ Monster Modifier (Tier: 1) }
+Charge Removal
+{ Monster Modifier }
+Chance to Freeze
+{ Monster Modifier — Life }
+Crushing Claws
+--------
+Right-click to add this to your bestiary.
