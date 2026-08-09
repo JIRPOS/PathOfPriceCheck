@@ -83,12 +83,20 @@ bool range_slider(const char* id, std::optional<double>& min, std::optional<doub
     // A track with no width is not a slider; a domain with no width would divide by zero
     // mapping a value onto it. Both are real — a modifier that can only roll one number — and
     // the honest answer to the second is a track the knobs sit in the middle of.
-    if (min && max && *min > *max) std::swap(min, max);
-    // Only while nothing is being dragged: this is what lets a number typed into the boxes pull
-    // the track out to meet it, and doing it mid-drag is the rescaling the frozen domain avoids.
-    if (store->GetInt(wid, kNone) == kNone) {
-        if (min) lo = std::min(lo, *min);
-        if (max) hi = std::max(hi, *max);
+    //
+    // **A crossed interval is drawn, not corrected.** This widget is drawn every frame, including
+    // the frames in the middle of a number being typed into the boxes beside it, and `200` typed
+    // over a floor of `192` is `2` for two keystrokes. Reordering the caller's bounds as a side
+    // effect of drawing would make those two keystrokes permanent. So the domain is widened by
+    // both bounds whichever way round they are, and the knobs simply cross; the drag below keeps
+    // them in order because there a crossing *is* the gesture, and the editor puts a typed one
+    // back in order when the box is left.
+    if (store->GetInt(wid, kNone) == kNone) { // not mid-drag, where the frozen domain is the point
+        for (const std::optional<double>& v : {min, max})
+            if (v) {
+                lo = std::min(lo, *v);
+                hi = std::max(hi, *v);
+            }
     }
     lo = std::max(lo, -kRangeLimit);
     hi = std::min(hi, kRangeLimit);

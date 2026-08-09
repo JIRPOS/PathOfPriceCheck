@@ -51,9 +51,12 @@ struct RangeTrack {
 /// is how a slider reads as broken. Repeated, this walks outwards a fifth at a time, and
 /// `kRangeLimit` is where it stops.
 ///
-/// Values are rounded to `dp` decimals, and `min` is never left above `max` — pushing one
-/// knob past the other carries the other along, which is what makes an interval collapsible to
-/// a point without having to aim.
+/// Values are rounded to `dp` decimals. **A drag** never leaves `min` above `max` — pushing one
+/// knob past the other carries the other along, which is what makes an interval collapsible to a
+/// point without having to aim. A crossed interval arriving from anywhere else is **drawn as it
+/// is**, not quietly put back in order: this is called every frame, including the ones in the
+/// middle of a number being typed into the boxes beside it, and correcting there would make a
+/// half-typed number permanent.
 ///
 /// Returns true on the frames it changed something.
 bool range_slider(const char* id, std::optional<double>& min, std::optional<double>& max,

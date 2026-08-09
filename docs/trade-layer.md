@@ -305,6 +305,16 @@ Six things about it are decided rather than incidental:
   bound alone rather than clearing it, or a filter on the way to `-12` would be unusable. The text
   is the authority while the editor is open and is only rewritten when something *else* moved the
   numbers — a box reformatted under the caret refills itself before the user lets go of backspace.
+- **A half-typed number is not a gesture, so nothing reorders the interval per keystroke.** A knob
+  dragged past the other carries it along, and applying that rule to typing was a bug: `290` typed
+  over a floor of `280` arrives as `2`, `29`, `290`, and the first of those took the floor down to
+  `2` and left it there — the keystrokes that would have justified it come after the damage.
+  So the boxes write through live (the row follows the typing, which is the point), the crossing is
+  simply *drawn* — `range_slider` widens its track by both bounds whichever way round they are and
+  never reorders the caller's, since it is redrawn on every one of those frames — and `order_bounds`
+  carries the other bound once, on `IsItemDeactivatedAfterEdit`. A number abandoned by closing the
+  popup gets the same treatment on the way out, since a box that is never submitted never reports
+  being left.
 - **It is placed by hand inside the panel column**, because `App::poll_click_away` dismisses the
   whole price check on a press outside it: a popover ImGui had drifted into the gutter would close
   the panel the first time it was used. It is also begun **outside** `BeginTable`, which pushes an

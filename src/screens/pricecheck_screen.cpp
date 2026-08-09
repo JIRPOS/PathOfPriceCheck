@@ -399,6 +399,9 @@ constexpr const char* kRangePopup = "##range_edit";
 struct BoundText {
     char min[24]{};
     char max[24]{};
+    /// Which box the last typing went into, so a reconcile that happens after the editor is
+    /// already gone still knows which bound was the one being asked for.
+    bool typed_max = false;
 };
 
 void put_bound(char (&buf)[24], const std::optional<double>& v, int dp) {
@@ -448,6 +451,30 @@ bool bound_input(const char* id, const char* hint, char (&buf)[24], std::optiona
     return true;
 }
 
+/// Put a crossed-over interval back in order, carrying the bound that was **not** being typed —
+/// the same rule the slider's knobs follow, since an interval collapsed to a point is a legitimate
+/// search and a box that silently refuses what was typed into it says nothing about why.
+///
+/// **Once the box is left, and never per keystroke.** A drag past the other knob is unmistakably a
+/// request to take it along; a keystroke is not. Applied on every character, `200` typed over a
+/// floor of `192` arrives as `2`, `20`, `200` — and the first of those pulls the floor down to 2,
+/// where it stays, because the two keystrokes that would have justified it come after the damage
+/// is done. So the boxes write through live (the row follows the typing, which is the point) and
+/// the ordering waits for `IsItemDeactivatedAfterEdit`. A crossed interval on screen for as long
+/// as it takes to type the rest of a number is the honest picture of a half-typed number.
+void order_bounds(const Interval& iv, BoundText& t, bool typed_max) {
+    if (!*iv.min || !*iv.max || **iv.min <= **iv.max) return;
+    // Only the carried box is rewritten: reformatting the one under the caret is the fight
+    // `BoundText` exists to avoid.
+    if (typed_max) {
+        *iv.min = *iv.max;
+        put_bound(t.min, *iv.min, iv.dp);
+    } else {
+        *iv.max = *iv.min;
+        put_bound(t.max, *iv.max, iv.dp);
+    }
+}
+
 /// The range editor: a two-knob slider over what the modifier can roll, the two bounds as typed
 /// numbers, and the pair of glyph buttons — **all on one line**, the width of the panel it hangs
 /// under.
@@ -475,6 +502,7 @@ void draw_range_editor(App& app, const Interval& iv, bool glyphs) {
     if (e.opening) {
         ImGui::OpenPopup(kRangePopup);
         sync_bounds(text, iv);
+        text.typed_max = false;
         e.opening = false;
     }
 
@@ -495,7 +523,10 @@ void draw_range_editor(App& app, const Interval& iv, bool glyphs) {
     ImGui::SetNextWindowSize(ImVec2(w, 0.0f));
     if (!ImGui::BeginPopup(kRangePopup)) {
         // ImGui closed it — a click away, or Escape. Our own state is what says a row is being
-        // edited, so it has to follow rather than reopen the popup next frame.
+        // edited, so it has to follow rather than reopen the popup next frame. The boxes are not
+        // submitted on a frame the popup does not open, so this is the only place a number
+        // abandoned mid-typing gets its ordering: the box it was typed into never reports leaving.
+        order_bounds(iv, text, text.typed_max);
         app.close_filter_edit();
         return;
     }
@@ -536,21 +567,12 @@ void draw_range_editor(App& app, const Interval& iv, bool glyphs) {
 
     // No labels on the boxes. Left is the floor and right is the ceiling, which is the order the
     // slider beside them is already drawn in, and two words here cost the track its width.
-    // A typed bound carries the other one with it rather than being refused, for the same reason
-    // the slider's knobs do: an interval collapsed to a point is a legitimate search, and a box
-    // that rejects what was typed into it says nothing about why. Only the box that was *carried*
-    // is rewritten — reformatting the one under the caret is the fight `BoundText` exists to avoid.
-    if (bound_input("##min", "min", text.min, *iv.min, kBoundField) && *iv.min && *iv.max &&
-        **iv.min > **iv.max) {
-        *iv.max = *iv.min;
-        put_bound(text.max, *iv.max, iv.dp);
-    }
+    // The reconcile is deliberately **not** applied per keystroke — see `order_bounds`.
+    if (bound_input("##min", "min", text.min, *iv.min, kBoundField)) text.typed_max = false;
+    if (ImGui::IsItemDeactivatedAfterEdit()) order_bounds(iv, text, /*typed_max=*/false);
     ImGui::SameLine();
-    if (bound_input("##max", "max", text.max, *iv.max, kBoundField) && *iv.min && *iv.max &&
-        **iv.min > **iv.max) {
-        *iv.min = *iv.max;
-        put_bound(text.min, *iv.min, iv.dp);
-    }
+    if (bound_input("##max", "max", text.max, *iv.max, kBoundField)) text.typed_max = true;
+    if (ImGui::IsItemDeactivatedAfterEdit()) order_bounds(iv, text, /*typed_max=*/true);
 
     // Glyphs rather than words: two buttons reading "Reset" and "Confirm" would take the width
     // the track needs, and what each does is one hover away.
