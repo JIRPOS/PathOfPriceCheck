@@ -162,6 +162,10 @@ ITEMS = [
     "ITEM::Divine Orb",
     "UNIQUE::Martyr of Innocence",
     "UNIQUE::Mageblood",
+    # A card that *is* here, alongside the one that is not: a stake is looked up across all three
+    # namespaces the site's own filter names, and the card half of that had no positive case.
+    "DIVINATION_CARD::Blind Venture",
+    "ITEM::Ancient Orb",
 ]
 
 UNIQUE_MODS = [

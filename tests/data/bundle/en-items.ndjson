@@ -33,3 +33,5 @@
 {"craftable":{"category":"Stackable Currency"},"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyModValues","name":"Divine Orb","namespace":"ITEM","refName":"Divine Orb","w":1}
 {"art":"Art/2DItems/Weapons/TwoHandWeapons/Staves/MartyrInnocence.png","name":"Martyr of Innocence","namespace":"UNIQUE","refName":"Martyr of Innocence","unique":{"base":"Highborn Staff"}}
 {"art":"Art/2DItems/Belts/InjectorBelt.png","name":"Mageblood","namespace":"UNIQUE","refName":"Mageblood","unique":{"base":"Heavy Belt"}}
+{"craftable":{"category":"Divination Cards"},"dropLevel":23,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardBlindVenture","name":"Blind Venture","namespace":"DIVINATION_CARD","refName":"Blind Venture","w":1}
+{"craftable":{"category":"Stackable Currency"},"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollUnique","name":"Ancient Orb","namespace":"ITEM","refName":"Ancient Orb","w":1}

@@ -1871,6 +1871,35 @@ TEST_CASE("an ultimatum is searched on the deal it offers, not on the danger it 
         CHECK(p.notes.empty());
     }
 
+    SUBCASE("all four trials join, and each to the id trade publishes for it") {
+        // The whole vocabulary, one capture apiece, because the ids are nothing like the words
+        // and a table with an entry out of order fails as a search for the wrong trial rather
+        // than as an error. "Defense" is the altar and "Survival" is the bare "Survive".
+        const std::pair<const char*, const char*> kTrials[]{
+            {"ultimatum-divination.txt", "Exterminate"},
+            {"ultimatum-challenge-survive.txt", "Survival"},
+            {"ultimatum-challenge-altar.txt", "Defense"},
+            {"ultimatum-mirror.txt", "Conquer"}};
+        for (const auto& [file, id] : kTrials) {
+            const Item it = resolved(*gd, capture(file));
+            const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+            CHECK_MESSAGE(asked(p, "ultimatum_challenge") == id, file);
+        }
+    }
+
+    SUBCASE("a divination card is as nameable a stake as an orb or a unique") {
+        // The third of the namespaces the site's `knownItem` filter names, and the one whose
+        // positive case the deliberately-absent Dialla's Subjugation cannot cover.
+        const Item it = resolved(*gd, capture("ultimatum-challenge-altar.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(asked(p, "ultimatum_input") == "Blind Venture");
+        CHECK(asked(p, "ultimatum_reward") == "DoubleDivCards");
+        // No stake-scaling modifiers on this one at all, which is an ordinary ultimatum and
+        // not a plan that failed to read them.
+        CHECK(p.stats.empty());
+        CHECK(p.notes.empty());
+    }
+
     SUBCASE("a lower-case challenge still joins to its option") {
         // The trade site titles the option "Defeat Waves of Enemies" and the client prints
         // "Defeat waves of enemies". The case is the only thing that differs, and matching on

@@ -347,7 +347,10 @@ bundle, and only the third and fourth encode pricing judgement.
   `TermList::UltimatumChallenges` and sent as trade's own option id (`Conquer`), the same shape
   as a chart's shape and for the same reason — the game prints the option's own words, so the
   entries are the site's text and the comparison is **case-insensitive**, because the client
-  writes "Defeat waves of enemies" where the site writes "Defeat Waves of Enemies". The **reward**
+  writes "Defeat waves of enemies" where the site writes "Defeat Waves of Enemies". All four
+  trials are pinned to a capture, which is what the case rule rests on: the ids (`Defense`,
+  `Survival`) resemble the wordings ("Protect the Altar", "Survive") closely enough to guess from
+  and not closely enough to derive. The **reward**
   is `TermList::UltimatumRewards`, which has three entries for four rewards: the fourth is a
   unique, and the line the game prints for it is that unique's name, so a wording that matches
   none of the three is looked up as a unique and becomes `ExchangeUnique` plus an
