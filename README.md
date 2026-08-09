@@ -80,14 +80,19 @@ two are not one switch.
 
 ## Install
 
-Grab the latest [release](https://github.com/JIRPOS/PathOfPriceCheck/releases). There is no
-installer — unpack it and run it.
+Grab the latest [release](https://github.com/JIRPOS/PathOfPriceCheck/releases).
 
 | | |
 |---|---|
-| **Windows** | `.zip` — one `.exe`, no DLLs beside it |
+| **Windows** | `-setup.exe` — **recommended.** Installs for you alone into `%LOCALAPPDATA%\Programs\PathOfPriceCheck`, so it never asks for an administrator, and it lands somewhere the tool can update itself |
+| **Windows** | `.zip` — the portable `.exe`, no DLLs beside it. Unpack it and run it. It updates itself only if you unpack it somewhere writable, which `Program Files` is not |
 | **Linux** | `.AppImage` — bundles libcurl and OpenSSL, so it does not care which ones your distribution ships |
 | **Linux** | `.tar.gz` — the bare binary, for anyone who would rather use their own libraries |
+
+Neither Windows download is code-signed, so SmartScreen says "Windows protected your PC" the first
+time you run one — *More info* → *Run anyway*. A certificate is a yearly fee, and this project
+charges nobody anything; what it offers instead is that every release is built in public by GitHub
+Actions from the source here, with a SHA-256 for each asset published beside it.
 
 Both Linux builds are compiled against glibc 2.35 (Ubuntu 22.04, Debian 12) and neither can bundle
 glibc itself, so an older distribution than that needs a build from source. If the AppImage refuses
@@ -151,8 +156,8 @@ debug log, which records clipboard contents, is off by default. Full detail in
 
 `MAJOR.MINOR.BUILD` — `MAJOR.MINOR` lives in [VERSION](VERSION), `BUILD` is the cumulative CI run
 counter. A push to `master` is not a release: the **Release** workflow is run by hand, optionally
-carrying the `MAJOR.MINOR` bump with it, and publishes the Windows zip, the Linux tarball and the
-AppImage together.
+carrying the `MAJOR.MINOR` bump with it, and publishes the Windows installer and zip, the Linux
+tarball and the AppImage together.
 
 ## License
 

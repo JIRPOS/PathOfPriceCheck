@@ -115,6 +115,23 @@ jobs:
             cp build/PathOfPriceCheck dist/
             (cd dist && tar czf "PathOfPriceCheck-${ver}-${{ matrix.name }}.tar.gz" PathOfPriceCheck)
           fi
+      # The recommended Windows download. A per-user install lands somewhere writable, which is
+      # what keeps the updater working; the .zip above stays for whoever wants a movable folder.
+      - name: Package installer
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          VER: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          if [ ! -f "$iscc" ]; then choco install innosetup -y --no-progress; fi
+          "$iscc" /Qp \
+            "/DAppVersion=${VER}" \
+            "/DSourceExe=..\\build\\Release\\PathOfPriceCheck.exe" \
+            "/DOutDir=..\\dist" \
+            "/DOutName=PathOfPriceCheck-${VER}-win64-setup" \
+            packaging/PathOfPriceCheck.iss
       # SDL3 is static but libcurl, OpenSSL and libstdc++ are the system's, so the bare binary
       # assumes a distribution close to this runner. The AppImage carries them; libX11 and libGL
       # stay the host's, as they must.

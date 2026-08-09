@@ -35,9 +35,14 @@
   <p class="fineprint"><sup>*</sup> Results may vary, not tested on a potato.<br><sup>**</sup> Windows and Linux, see below.</p>
 
   <div class="downloads">
+    <div class="dl rec">
+      <a class="primary" href="{{DL_WIN_SETUP}}">Windows · installer</a>
+      <span>Recommended. Installs for you alone, so it needs no administrator, and lands somewhere the tool can update itself.</span>
+      <span class="size">{{DL_WIN_SETUP_SIZE}}</span>
+    </div>
     <div class="dl">
-      <a class="primary" href="{{DL_WIN}}">Windows</a>
-      <span>.zip archive with portable .exe</span>
+      <a class="primary" href="{{DL_WIN}}">Windows · portable</a>
+      <span>.zip with the bare .exe. Updates itself only if you unpack it somewhere writable — which <code>Program Files</code> is not.</span>
       <span class="size">{{DL_WIN_SIZE}}</span>
     </div>
     <div class="dl">
@@ -88,7 +93,9 @@
         <ul>
           <li>Windows 10 or newer, 64-bit</li>
           <li>Nothing else — no runtime, no DLLs beside the .exe</li>
+          <li>The installer puts the tool in <code>%LOCALAPPDATA%\Programs\PathOfPriceCheck</code> and asks for no administrator rights. The portable .zip goes wherever you put it.</li>
         </ul>
+        <p class="aside"><strong>Both downloads are unsigned</strong>, so Windows shows “Windows protected your PC” the first time you run them — a code-signing certificate is a yearly fee this project does not charge anyone for. Choose <em>More info</em> → <em>Run anyway</em>. Every release is built in public by <a href="https://github.com/JIRPOS/PathOfPriceCheck/actions">GitHub Actions</a> from the source in this repository, and the checksums are published with it.</p>
       </dd>
       <dt>Linux</dt>
       <dd>

@@ -124,6 +124,21 @@ and a tray icon. Diagnostics go to the debug log instead (see below).
 
 MSVC is what CI builds and is therefore what is known to work; clang-cl is untested.
 
+### The installer
+
+The published `-setup.exe` is [Inno Setup 6](https://jrsoftware.org/isinfo.php) driven by
+[packaging/PathOfPriceCheck.iss](packaging/PathOfPriceCheck.iss). Building it is not part of the
+CMake build and is not needed to run what you just compiled; the release workflow does it. To
+produce one locally, after the Release build above:
+
+```powershell
+winget install JRSoftware.InnoSetup
+iscc /DAppVersion=0.0.0 packaging\PathOfPriceCheck.iss
+```
+
+It installs per-user and unelevated, which is a decision rather than a convenience — see
+[docs/updater.md](docs/updater.md) for what the updater does with it.
+
 ## Runtime requirements
 
 - **Linux: X11, or Xwayland.** Global hotkeys (`XGrabKey`), foreground-window detection, synthetic

@@ -83,6 +83,7 @@ RELEASED=$(jq -r '.publishedAt' "$rel" | cut -dT -f1)
 RELEASES_URL="https://github.com/$REPO/releases"
 [ -n "$VERSION" ] || VERSION="unreleased"
 
+DL_WIN_SETUP=$(asset_url 'win64-setup\.exe$'); [ -n "$DL_WIN_SETUP" ] || DL_WIN_SETUP=$RELEASES_URL
 DL_WIN=$(asset_url 'win64\.zip$');           [ -n "$DL_WIN" ] || DL_WIN=$RELEASES_URL
 DL_APPIMAGE=$(asset_url '\.AppImage$');      [ -n "$DL_APPIMAGE" ] || DL_APPIMAGE=$RELEASES_URL
 DL_TAR=$(asset_url 'linux-x64\.tar\.gz$');   [ -n "$DL_TAR" ] || DL_TAR=$RELEASES_URL
@@ -223,6 +224,7 @@ tpl site/index.html \
     NAV "$nav" DOCS "$docs_list" REPO "$REPO" BASE_URL "$BASE_URL" \
     VERSION "$VERSION" RELEASED "$RELEASED" RELEASES_URL "$RELEASES_URL" \
     OG_IMAGE "$og_image" \
+    DL_WIN_SETUP "$DL_WIN_SETUP" DL_WIN_SETUP_SIZE "$(asset_size 'win64-setup\.exe$')" \
     DL_WIN "$DL_WIN" DL_WIN_SIZE "$(asset_size 'win64\.zip$')" \
     DL_APPIMAGE "$DL_APPIMAGE" DL_APPIMAGE_SIZE "$(asset_size '\.AppImage$')" \
     DL_TAR "$DL_TAR" DL_TAR_SIZE "$(asset_size 'linux-x64\.tar\.gz$')" \
