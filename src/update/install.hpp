@@ -20,11 +20,15 @@ std::filesystem::path exe_path();
 /// applied to one — a package manager owns those files.
 Flavour detect_flavour();
 
-/// True when the directory holding the running executable can be written. Probed by creating
-/// and deleting a file rather than by reading permissions, because the permission bits are not
-/// the whole answer on either platform. A 64-bit process gets a clean refusal from
-/// `Program Files`; there is no UAC file virtualization to be fooled by.
-bool install_dir_writable();
+/// True when the directory holding `target` can be written. Probed by creating and deleting a
+/// file rather than by reading permissions, because the permission bits are not the whole answer
+/// on either platform. A 64-bit process gets a clean refusal from `Program Files`; there is no
+/// UAC file virtualization to be fooled by.
+///
+/// `target` is the file an update would replace, never `exe_path()` — inside a mounted AppImage
+/// those are different files, and the running binary's directory is a read-only squashfs that
+/// answers no for every AppImage there is.
+bool install_dir_writable(const std::filesystem::path& target);
 
 /// What a flavour needs done to it, decided once so the worker and the UI cannot disagree.
 enum class Method {

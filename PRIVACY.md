@@ -21,8 +21,8 @@ Exhaustively — this is every outbound request the binary can make.
 
 | host | when | what leaves your machine |
 |---|---|---|
-| `github.com` → `objects.githubusercontent.com` | at startup, and again only when a new data bundle exists | nothing but the request itself: the URL, and the `User-Agent` below |
-| `github.com` → `objects.githubusercontent.com` | at startup, for a newer version of the application itself, unless you turned **Update automatically** off; then once more to download it, only when there is one | nothing but the request. **This is a plain file fetch, not a version ping**: the same `latest.json` is served to everyone, the comparison happens on your machine, and nothing tells the other end which version you are on |
+| `github.com` → `objects.githubusercontent.com` | at startup, and then at most once every 30 minutes, when you press one of the hotkeys; again only when a new data bundle exists | nothing but the request itself: the URL, and the `User-Agent` below |
+| `github.com` → `objects.githubusercontent.com` | on the same occasions, for a newer version of the application itself, unless you turned **Update automatically** off; then once more to download it, only when there is one | nothing but the request. **This is a plain file fetch, not a version ping**: the same `latest.json` is served to everyone, the comparison happens on your machine, and nothing tells the other end which version you are on |
 | `www.pathofexile.com/api/trade/data/leagues` | when Settings is opened; cached 24 h | nothing but the request |
 | `www.pathofexile.com/api/trade/data/static` | before the first search; cached a week | nothing but the request |
 | `www.pathofexile.com/api/trade/search/<league>` | when you press **Search** (or on open, if you turned on `auto_search`) | the search query: trade stat identifiers and numeric bounds derived from the item under your cursor, plus the league and the listing-status filter |
@@ -81,7 +81,7 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 
 | path | what |
 |---|---|
-| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, whether to update automatically |
+| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, panel opacity, whether to update automatically |
 | `<config>/cookies.txt` | the cookie jar above |
 | `<cache>/data/<version>/` | the downloaded game-data bundle, plus a `current` pointer |
 | `<cache>/update/` | a downloaded release of the application, waiting for the restart that applies it. One file, consumed as it is applied; absent whenever no update is pending |
@@ -97,9 +97,13 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 `<cache>` is `$XDG_CACHE_HOME/PathOfPriceCheck` (`~/.cache/PathOfPriceCheck`) or `%LOCALAPPDATA%\PathOfPriceCheck`.
 Deleting either directory is safe; the application rebuilds what it needs.
 
-**One file outside those two directories:** applying an update replaces the application's own
-executable, at its own path, and briefly leaves the previous one beside it as `<name>.old` until
-the next start deletes it. Nothing else on your system is written to. On Windows the installer —
+**Two files outside those two directories, both beside the application's own executable and both
+short-lived.** Applying an update replaces that executable, at its own path, and briefly leaves the
+previous one beside it as `<name>.old` until the next start deletes it. And when a new version is
+offered, an empty `.ppc-write-probe` is created and immediately deleted there, which is how the
+application finds out whether it is allowed to update itself at all — asking the filesystem is the
+only reliable way, since the permission bits do not answer it on either platform. Nothing else on
+your system is written to. On Windows the installer —
 if you used it rather than the portable `.zip` — additionally creates its own program directory,
 its shortcuts, one registry value at `HKCU\Software\PathOfPriceCheck` recording where it
 installed, and the usual Add/Remove Programs entry; uninstalling removes them.
@@ -117,8 +121,9 @@ Those live in memory for as long as the panel is open and are dropped when the n
 and the X server fails in ways that are rare, unreproducible on demand and invisible afterwards.
 
 When you enable it (Settings → Diagnostics), `<cache>/logs/ppc-<date>-<time>.log` records the copy
-timeline, the trade query JSON, rate-limit decisions — and **the full contents of every clipboard
-read, base64-encoded**, because whitespace and text encoding are exactly what those bugs turn on.
+timeline, the trade query JSON, rate-limit decisions, the path this copy of the application runs
+from — and **the full contents of every clipboard read, base64-encoded**, because whitespace and
+text encoding are exactly what those bugs turn on.
 One file per run, the newest ten kept.
 
 So: while it is on, item text you price is written to disk, along with anything else that was on

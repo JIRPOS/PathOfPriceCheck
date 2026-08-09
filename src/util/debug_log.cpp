@@ -134,7 +134,7 @@ void set_enabled(bool on) {
         if (!file.is_open()) return;
         file_path = p.string();
     }
-    log("debug log opened %s \xe2\x80\x94 PathOfPriceCheck %s (%s)", stamp(true).c_str(),
+    log("debug log opened %s \xe2\x80\x94 Path of Price Check %s (%s)", stamp(true).c_str(),
         APP_VERSION,
 #ifdef _WIN32
         "windows"

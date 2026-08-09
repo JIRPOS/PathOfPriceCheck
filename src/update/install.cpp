@@ -78,10 +78,9 @@ Flavour detect_flavour() {
 #endif
 }
 
-bool install_dir_writable() {
-    const fs::path self = exe_path();
-    if (self.empty()) return false;
-    const fs::path probe = self.parent_path() / ".ppc-write-probe";
+bool install_dir_writable(const fs::path& target) {
+    if (target.empty()) return false;
+    const fs::path probe = target.parent_path() / ".ppc-write-probe";
     std::error_code ec;
     fs::remove(probe, ec); // a leftover from a killed run would otherwise answer for us
     const bool ok = std::ofstream(probe, std::ios::binary).good();

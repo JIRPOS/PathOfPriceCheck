@@ -36,6 +36,11 @@ inline constexpr uint64_t kCopyTimeoutMs = 2000;
 /// what makes Wine publish at all; asking every frame would be hammering it mid-handover.
 inline constexpr uint64_t kPokeIntervalMs = 100;
 
+/// How long a check for a newer bundle or release stays fresh. A re-check rides on the next
+/// thing the user does rather than on a timer, so this is a floor on the interval and not the
+/// interval itself: a session nobody touches makes no request after the one at startup.
+inline constexpr uint64_t kRecheckIntervalMs = 30 * 60 * 1000;
+
 /// Which of the game's two item panels the price check came from. Decides which side
 /// the overlay docks against so it never covers the item being priced.
 enum class Side { Stash, Inventory };
@@ -83,10 +88,12 @@ public:
     /// shared_ptr once per frame — a mid-frame swap would otherwise dangle.
     std::shared_ptr<data::GameData> game_data() const { return data_; }
     data::DataUpdater::Status data_status() const { return updater_.status(); }
-    void check_for_data() { updater_.start_check(); }
+    /// Also restarts the freshness clock `refresh_checks()` keeps, so a check asked for by hand
+    /// is not followed by one riding on the next hotkey.
+    void check_for_data();
 
     update::Updater::Status update_status() const { return app_updater_.status(); }
-    void check_for_update() { app_updater_.start_check(); }
+    void check_for_update(); ///< as `check_for_data()`, for the application itself
     /// True once the user has waved the notice away. Settings keeps showing the update either
     /// way — this only silences the two surfaces that sit over the game.
     bool update_dismissed() const { return update_dismissed_; }
@@ -144,6 +151,10 @@ public:
     /// How far down the gutter the item card reached this frame — opaque UI of ours over the
     /// game, so `poll_click_away` has to spare it. 0 when it was drawn in the panel instead.
     void set_card_height(float h) { card_h_ = h; }
+    /// Which Settings tab is open. Held here rather than in the screen because the screen is a
+    /// free function redrawn from scratch every frame.
+    int settings_tab() const { return settings_tab_; }
+    void set_settings_tab(int i) { settings_tab_ = i; }
     /// False while there is nothing to search — no bundle, a strategy with no query behind it
     /// (currency), or a gem the bundle could not name.
     bool can_search() const;
@@ -171,6 +182,7 @@ private:
     void on_hotkey(Action a);                ///< fired from the hotkey thread
     void handle_event(const SDL_Event& e);   ///< process one SDL event on the main thread
     void handle_action(Action a);            ///< handled on the main thread
+    void refresh_checks();                   ///< re-check for a bundle and a release, if stale
     void end_capture();                      ///< stop capturing and re-grab hotkeys
     void poll_pending_copy();                ///< show the item once the clipboard is written
     void abandon_copy();                     ///< drop the copy in flight, showing nothing
@@ -223,6 +235,7 @@ private:
     Side side_ = Side::Inventory; ///< side the current price check docked to
     PanelLayout layout_;          ///< set by place_overlay, read by the price-check renderer
     float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
+    int settings_tab_ = 0;        ///< which Settings tab is open
     std::string clipboard_;
     bool running_ = true;
 
@@ -255,6 +268,9 @@ private:
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry
     uint64_t last_detect_ms_ = 0;                           ///< throttles the game-window poll
+    /// When each updater last started a check, for `refresh_checks()`. Two clocks and not one:
+    /// **Check now** on either Settings row must not postpone the other's re-check.
+    uint64_t data_checked_ms_ = 0, update_checked_ms_ = 0;
     int game_state_logged_ = -1; ///< last (present, focused) pair written to the debug log
     bool need_redraw_ = true;   ///< repaint requested (event, state change, or reposition)
 };

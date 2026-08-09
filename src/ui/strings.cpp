@@ -15,9 +15,16 @@ using Table = const char* const*;
 /// them on an array, so the order here is the contract and `kEnglish` is the one place it is
 /// stated.
 constexpr const char* kEnglish[]{
-    "PathOfPriceCheck \xe2\x80\x94 Settings",
+    "Path of Price Check \xe2\x80\x94 Settings",
+    "Close",
+
     "General",
+    "Price check",
+    "Application",
+
+    "League and account",
     "Language",
+    "Appearance",
     "Trade search",
     "Filter ranges",
     "Hotkeys",
@@ -64,6 +71,9 @@ constexpr const char* kEnglish[]{
     "Settings",
     "press keys\xe2\x80\xa6",
 
+    "Reduce transparency",
+    "Draws the panels solid instead of letting the game show through them.",
+
     "Docks beside whichever game panel the cursor was over.",
     "Width",
     "Stash edge",
@@ -88,10 +98,14 @@ constexpr const char* kEnglish[]{
     "v%s is ready",
     "v%s is available",
     "This copy cannot update itself \xe2\x80\x94 it is installed somewhere it may not write.",
+    "This copy cannot update itself \xe2\x80\x94 it runs from a package or a build tree, which "
+    "something other than this application owns.",
+    "This release has no download for this platform.",
     "Restart now",
     "Release page",
     "Update automatically",
-    "Checks GitHub at startup, downloads in the background, applies on your next start.",
+    "Checks GitHub at startup and while you play, downloads in the background, applies on your "
+    "next start.",
 
     "Debug logging",
     "could not open a log file",

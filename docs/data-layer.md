@@ -8,7 +8,9 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
 
 - **`data/updater`** fetches `releases/latest/download/manifest.json` at startup on a worker thread,
   downloads and sha256-verifies each asset, installs, and maps it. Deliberately *not* the GitHub
-  API: unauthenticated `api.github.com` allows 60 requests an hour per IP.
+  API: unauthenticated `api.github.com` allows 60 requests an hour per IP. It is re-checked while
+  the application runs; **when** is `App::refresh_checks`, in
+  [architecture.md](architecture.md).
 - **`data/install`** writes a fresh `<cache>/data/<version>/` directory and flips a one-line
   `current` file by rename. **Never write over a live bundle** — Windows will not replace or delete
   a memory-mapped file. Superseded directories are reclaimed by `prune()` at the next startup,

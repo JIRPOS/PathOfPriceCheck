@@ -18,6 +18,12 @@ overlay over a game that people play for hours; an application that decides for 
 is one that closes over a map. So the download is quiet, the notice is passive, and the swap
 happens either when the user presses **Restart now** or as the application is closing anyway.
 
+**Checked on the hotkey, not on a timer.** The check at startup is not the only one: `App::refresh_checks()`
+starts another whenever an action gets past the foreground gate and the last one is over half an hour
+old, so a session that runs for a day is not stuck on the release that existed when it started. It is
+skipped while `has_news()` — a check that can only find the version already staged, at the cost of
+taking the notice down while it runs. See [architecture.md](architecture.md).
+
 **Applied on the way out, not on the way in.** `apply_on_exit()` runs after the worker is joined.
 Doing it at startup instead would put the new file on disk while this process runs the old image,
 so the update would need a *second* restart to take effect — which is not what the promise says.
@@ -37,10 +43,18 @@ done to it.
 
 Three ways to have news that cannot be acted on, and they are one answer to the user (the release
 page): an `Unknown` flavour, a release with no asset for this platform, and an install directory
-that is not writable — a `.zip` unpacked into `Program Files`. `install_dir_writable()` probes by
+that is not writable — a `.zip` unpacked into `Program Files`. One answer, but **three notices**:
+`Status::reason` records which it was, because a single sentence about permissions sent people
+inspecting a directory that was writable all along when the real reason was a build tree. `install_dir_writable()` probes by
 creating a file rather than by reading permission bits, because the bits are not the whole answer
 on either platform; a 64-bit process gets a clean refusal, with no UAC file virtualization to be
 fooled by.
+
+It probes the directory of **the target**, never of `exe_path()`. Inside a mounted AppImage those
+are two different files: the running binary lives on the read-only squashfs the runtime mounted
+under `/tmp`, so probing beside it answers *no* for every AppImage there has ever been, and the
+release page was offered to users whose install was perfectly writable. The target is the same
+path the swap writes to, which is the only directory whose writability is the question being asked.
 
 ## The swap
 

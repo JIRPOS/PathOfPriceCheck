@@ -24,6 +24,7 @@
 #include "screens/settings_screen.hpp"
 #include "trade/query.hpp"
 #include "ui/strings.hpp"
+#include "ui/theme.hpp"
 #include "util/debug_log.hpp"
 
 namespace ppc {
@@ -103,11 +104,12 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
     static_cast<App*>(userdata)->quit();
 }
 
-// Settings is a free-floating dialog, centered over the game; only price-check docks. Sized to
-// hold every section without scrolling — the panel is a form, and a form that scrolls hides the
-// Save button under whatever the user was just reading. Capped at the game's own height, since
-// a dialog taller than the screen scrolls whatever this says.
-constexpr int kSettingsW = 640, kSettingsH = 980;
+// Settings is a free-floating dialog, centered over the game; only price-check docks. One fixed
+// size for every tab: the height used to be measured from whichever tab was open, and a dialog
+// that resized itself under the pointer on every tab click was worse than the scrollbar it was
+// avoiding. 720 fits the tallest tab and still fits inside a 768-tall game window. The cap is the
+// game's own height, which is the one thing that can force that scrollbar.
+constexpr int kSettingsW = 640, kSettingsH = 720;
 
 // The idle status: two short lines over the middle of the mana globe. Wide enough for a long
 // data version at the size below, and no wider — the window is what swallows mouse input, and
@@ -207,8 +209,8 @@ int App::run(bool relaunched_after_update) {
         // and is owed an answer to, and the answer is that they already have what they asked
         // for — the tray icon is right there. Exit 0 for the same reason: the intended state
         // holds, so a desktop launcher has no error to report.
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "PathOfPriceCheck",
-                                 "PathOfPriceCheck is already running.\n\n"
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Path of Price Check",
+                                 "Path of Price Check is already running.\n\n"
                                  "Look for the icon in the system tray.",
                                  nullptr);
         return 0;
@@ -256,7 +258,7 @@ int App::run(bool relaunched_after_update) {
     exchange_event_ = event_base + 5;
     update_event_ = event_base + 6;
 
-    if (!overlay_.init("PathOfPriceCheck Overlay")) {
+    if (!overlay_.init("Path of Price Check Overlay")) {
         SDL_Log("overlay init failed");
         SDL_Quit();
         return 1;
@@ -291,10 +293,10 @@ int App::run(bool relaunched_after_update) {
     ui::set_language(config_.ui_language, config_.client_language);
     updater_.set_language(config_.client_language);
     data_ = updater_.load_installed();
-    updater_.start_check(); // background; the panel degrades gracefully until it lands
+    check_for_data(); // background; the panel degrades gracefully until it lands
 
     app_updater_.init(cache_dir() / "update", update_event_);
-    if (config_.auto_update) app_updater_.start_check();
+    if (config_.auto_update) check_for_update();
 
     hotkeys_ = HotkeyListener::create([this](Action a) { on_hotkey(a); });
     rebind_hotkeys();
@@ -359,6 +361,10 @@ int App::run(bool relaunched_after_update) {
         if (icons_.pump()) need_redraw_ = true;
         if (overlay_.visible() && (active || need_redraw_)) {
             overlay_.begin_frame();
+            // Per frame, and outside every screen: a screen that pushes its own window colour
+            // pops the base value back on the way out, so a one-shot write from a checkbox
+            // would not survive the frame it was made in.
+            ui::set_opaque_windows(config_.reduce_transparency);
             if (screen_ == Screen::Settings)
                 draw_settings_screen(*this);
             else if (screen_ == Screen::PriceCheck)
@@ -390,7 +396,7 @@ int App::run(bool relaunched_after_update) {
 }
 
 bool App::init_tray(SDL_Surface* icon) {
-    tray_ = SDL_CreateTray(icon, "PathOfPriceCheck");
+    tray_ = SDL_CreateTray(icon, "Path of Price Check");
     if (!tray_) {
         SDL_Log("tray unavailable (no system tray host?)");
         return false;
@@ -793,6 +799,31 @@ void App::poll_click_away() {
     if (!on_panel && !on_card) set_screen(Screen::Hidden);
 }
 
+void App::check_for_data() {
+    data_checked_ms_ = SDL_GetTicks();
+    debug::log("[data]   check requested");
+    updater_.start_check();
+}
+
+void App::check_for_update() {
+    update_checked_ms_ = SDL_GetTicks();
+    debug::log("[update] check requested");
+    app_updater_.start_check();
+}
+
+void App::refresh_checks() {
+    // Riding on the user's own hotkey rather than on a timer, so a copy left running overnight
+    // asks for nothing and the requests only ever land beside something they were going to
+    // notice anyway. Both workers are off the main thread, so this returns immediately.
+    const uint64_t now = SDL_GetTicks();
+    if (now - data_checked_ms_ >= kRecheckIntervalMs) check_for_data();
+    // Nothing to gain from re-checking while a release is already staged or offered: the answer
+    // would be the same one, and the check would take the notice down for the length of it.
+    if (config_.auto_update && now - update_checked_ms_ >= kRecheckIntervalMs &&
+        !app_updater_.status().has_news())
+        check_for_update();
+}
+
 void App::handle_action(Action a) {
     // The hotkeys are grabbed system-wide, so they fire while the user is in a browser or a
     // terminal too. Gate every action on the game actually being in front rather than firing
@@ -806,6 +837,9 @@ void App::handle_action(Action a) {
         debug::trace("[copy] hotkey ignored: game not focused");
         return;
     }
+    // Past the gate, so this is the user reaching for *this* application and not a hotkey that
+    // fired into a browser. Whatever it finds is news for the next press, never for this one.
+    refresh_checks();
 
     if (a == Action::PriceCheck) {
         // Sample the cursor now, while it's still on the item — the user will have moved

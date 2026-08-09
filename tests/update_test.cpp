@@ -228,5 +228,9 @@ TEST_CASE("the running executable is locatable and its directory is writable") {
     const fs::path self = exe_path();
     REQUIRE_FALSE(self.empty());
     CHECK(fs::exists(self));
-    CHECK(install_dir_writable()); // the test binary's own build directory
+    CHECK(install_dir_writable(self)); // the test binary's own build directory
+    // The probe answers for the target's directory, not the running binary's — which is the
+    // whole point of passing one: for an AppImage they are different files.
+    CHECK_FALSE(install_dir_writable({}));
+    CHECK_FALSE(install_dir_writable("/proc/ppc-nonexistent/PathOfPriceCheck"));
 }
