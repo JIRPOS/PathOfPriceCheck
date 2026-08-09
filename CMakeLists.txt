@@ -146,6 +146,7 @@ add_library(ppc_core STATIC
   src/trade/ratelimit.cpp
   src/trade/ratelimit_store.cpp
   $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
+  $<IF:$<BOOL:${WIN32}>,src/platform/single_instance_win.cpp,src/platform/single_instance_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
 target_compile_definitions(ppc_core PUBLIC APP_VERSION="${APP_VERSION}")
@@ -235,6 +236,7 @@ function(ppc_add_test name)
 endfunction()
 
 ppc_add_test(paths_test)
+ppc_add_test(single_instance_test)
 ppc_add_test(account_name_test)
 ppc_add_test(leagues_test)
 ppc_add_test(hash_test)

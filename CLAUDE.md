@@ -122,6 +122,24 @@ The seams (windowing still comes free from SDL3; the clipboard did not — see b
   arrives as a plain hyphen (1277 bytes against 1291 for the same item). Polling therefore sees the
   two forms alternate, which is why one press of the hotkey used to show affixes and the next did
   not. `parse_info_line` accepts either separator; **do not "fix" that by trusting the encoding.**
+- **`platform/single_instance.hpp` — `InstanceLock`:** one running copy per user. `flock` on
+  `<cache>/PathOfPriceCheck.lock`; a session-local named mutex (`Local\`, not `Global\`) on
+  Windows. A **kernel lock and not a pid file**, because the operating system releases it when the
+  process dies — a pid file has to be removed by the process that died, and the recovery ("is 4711
+  still us?") races pid reuse in the one direction that matters, refusing to start. flock belongs
+  to the open file description rather than to the process, which is also what makes it testable
+  in-process: two claims collide without spawning anything. **"Could not evaluate" counts as
+  held** — an unwritable cache directory or a filesystem with no locking must not turn a rare
+  annoyance into an app that will not launch with nothing on screen saying why; only a lock
+  positively observed to be somebody else's refuses. Claimed in `App::run` **before the debug log
+  is opened**, or a stray second launch would start a log file and prune the ten kept, pushing the
+  run being diagnosed out of the window. The rejection is the one launch failure said **out loud**
+  (`SDL_ShowSimpleMessageBox`, exit 0): silence is a rule about the overlay, which is noise over a
+  game, while this is something the user just did on their desktop and the answer is that they
+  already have what they asked for. What makes it worth having is that two copies both grab the
+  global hotkeys — X11 gives a passive grab to whoever asked first, so the *newly launched* copy
+  silently does nothing, which reads as a broken hotkey — and keep two unsynchronised copies of the
+  rate limiter's state, which is how a client walks into a lockout.
 - **`platform/platform.hpp` — `platform_init()`:** one-time init (X11 calls `XInitThreads`).
 
 Key naming is canonical strings ("D", "Space", "F5"); `key_name_from_sdl` (capture), the X11 keysym
@@ -430,7 +448,8 @@ search. `×` (U+00D7) is the same argument and is left alone only because nothin
 absent from Fontin's cmap outright, so adding it to `kBorrowedGlyphs` is all it would take.
 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
-so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`, `util/` (including
+so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`,
+`platform/single_instance` (a kernel lock needs neither), `util/` (including
 the debug log, which every platform seam writes into), all of `item/`, all of `data/` except the
 updater, `ui/strings` (our own text is a table, not a widget), and all of `trade/`, `ninja/` and
 `exchange/` except their clients. The rule is that `ppc_core` links

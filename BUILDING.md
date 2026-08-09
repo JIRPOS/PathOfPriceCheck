@@ -179,6 +179,14 @@ Development environment variables, for iterating without the game running:
 
 Captures to feed `PPC_DEV_ITEM` live in [`tests/data/examples/`](tests/data/examples).
 
+**Only one copy runs at a time.** The first one to start takes a lock — `flock` on
+`<cache>/PathOfPriceCheck.lock`, a session-local named mutex on Windows — and a second launch says
+so and exits. Both are released by the operating system when the process dies, so a crash leaves
+nothing to clean up. This is not tidiness: two copies would both grab the global hotkeys (X11 hands
+a passive grab to whoever asked first, so the *newly launched* one silently does nothing, which
+looks exactly like a broken hotkey) and would keep two unsynchronised copies of the rate limiter's
+state, which is how a client walks into a lockout it never saw coming.
+
 ## Tests
 
 ```sh

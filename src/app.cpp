@@ -19,6 +19,7 @@
 #include "platform/input_sim.hpp"
 #include "platform/overlay_native.hpp"
 #include "platform/platform.hpp"
+#include "platform/single_instance.hpp"
 #include "screens/pricecheck_screen.hpp"
 #include "screens/settings_screen.hpp"
 #include "trade/query.hpp"
@@ -134,6 +135,23 @@ void draw_status_marker(App& app) {
 } // namespace
 
 int App::run() {
+    // Before the log, not after: a second instance opening its own log file would start a new
+    // one and prune the ten kept, so the run being diagnosed can be pushed out of the window by
+    // a stray double-click. A rejected launch is not this application's session and writes
+    // nothing at all.
+    InstanceLock instance("PathOfPriceCheck");
+    if (!instance.held()) {
+        // Said out loud, unlike a failed price check. That silence is a rule about the overlay,
+        // which is noise over a game; this is a launch the user just performed on their desktop
+        // and is owed an answer to, and the answer is that they already have what they asked
+        // for — the tray icon is right there. Exit 0 for the same reason: the intended state
+        // holds, so a desktop launcher has no error to report.
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "PathOfPriceCheck",
+                                 "PathOfPriceCheck is already running.\n\n"
+                                 "Look for the icon in the system tray.",
+                                 nullptr);
+        return 0;
+    }
     platform_init();
     // Before anything else touches the clipboard or the hotkeys: this session's log has to
     // start at the same instant the process does, since "the first price check after launch"
