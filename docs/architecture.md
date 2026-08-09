@@ -356,6 +356,24 @@ it is false, because a floor of 46 that loses its `≥` reads as an exact match,
 search. `×` (U+00D7) is the same argument and is left alone only because nothing draws one — it is
 absent from Fontin's cmap outright, so adding it to `kBorrowedGlyphs` is all it would take.
 
+**A handful of UI glyphs are embedded too**, for the buttons a word does not fit on: a subset of
+**Font Awesome Free Solid**, merged over every Fontin face out of the generated
+`src/glyph_data.inc`. They are named in `ui/glyphs.hpp` and are ordinary text — they take the text
+colour, scale with the font size and sit in a `Button` label like any other string. Three things
+make this cheap enough to be worth doing rather than drawing the shapes by hand: they live in the
+**Private Use Area**, which Fontin does not claim, so there is nothing to exclude on Fontin's side;
+the subset is **two codepoints and 1.4KB**, because `scripts/fetch-glyphs.sh` runs `pyftsubset` over
+the release rather than bundling the 416KB face; and the same file makes adding a third glyph a
+one-line change. Two things follow from the `≤`/`≥` lesson above and are not optional: the subset
+carries `kOnlyGlyphs`, the complement of what it holds, because it still ships a `.notdef` that
+would otherwise answer for every codepoint nothing else has; and the result is **asked** —
+`Fonts::has_glyphs` is `FindGlyphNoFallback` over `ui::kGlyphCodepoints`, so a subset that has
+drifted from the header logs and falls back to a letter instead of drawing an empty button. Font
+Awesome is scaled to `kGlyphScale` and nudged by `kGlyphNudgeY`, both fractions of the size: it
+draws on a square em against a face with descenders, and at parity it stands a touch tall against
+the words beside it. Its license, unlike Fontin's, permits redistribution — see
+`assets/fonts/README.md`.
+
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
 so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`,
 `platform/single_instance` (a kernel lock needs neither), `util/` (including

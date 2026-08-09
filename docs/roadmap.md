@@ -23,17 +23,12 @@ load-bearing and should not be reshuffled casually:
 
 ## Implementation notes, per planned version
 
-### 0.4, editable filter ranges
+### 0.4, editable filter ranges — **built**
 
-- `StatFilter::min`/`max` become editable; `roll_min`/`roll_max` stay read-only beside them, and
-  the distance between the two pairs is the `RangeMatch` setting doing its job.
-  → [trade-layer.md](trade-layer.md)
-- `std::from_chars` for the typed number. A C-locale comma is a filter on a different number.
-  → [architecture.md](architecture.md)
-- An edit dirties the plan; only the Search button sends. Same argument as `auto_search`.
-- Per-row reset to the seeded value: the seed is the one number the app can defend, and it has to
-  be recoverable without re-copying the item.
-- No persistence: the plan is per-item.
+Every constraint below held; the layer is [trade-layer.md](trade-layer.md) now, not a plan.
+`StatFilter::min`/`max` are edited in a popover on the row, `roll_min`/`roll_max` are the slider's
+track beside them, `seed_min`/`seed_max` are what reset restores, the typed number goes through
+`std::from_chars`, only the Search button sends, and nothing survives the item.
 
 ### 0.5, the paste list
 

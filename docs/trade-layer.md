@@ -217,7 +217,7 @@ four characters: a fractured prefix is a red `Frac`, and what a buyer needs to k
 is that it is fractured.
 
 Column four is **what the search asks for**, and it is last rather than beside the code because it
-is the one thing here that becomes editable: `46-48` between two bounds, `≥46` for a floor, `≤50`
+is the one thing here that is editable: `46-48` between two bounds, `≥46` for a floor, `≤50`
 for a ceiling (**borrowed** glyphs — Fontin's own are blank outlines, see Fonts above — spelled out
 as `>=` and `<=` where there was nothing to borrow from), **nothing at all** for a
 filter that only asks the modifier to be present, and **`absent`** for one asking that it not be
@@ -236,6 +236,78 @@ list. Rows are told apart by **alternating background** (`ImGuiTableFlags_RowBg`
 separators: a modifier can wrap onto three lines and its origin onto two, so what the reader needs
 is to see where one row ends — and a rule between every pair would spend a line of height per
 filter to say it.
+
+**Clicking a row anywhere but its checkbox opens the range editor** (`draw_range_editor`), a
+popover over what that row asks for. **The whole row is the target** and not a widget in column
+four: the two things a filter can be told are whether to search it and what to search it for, and
+the second on a control of its own would spend the width of a button per row on every list. The hit
+test is **done by hand against the row's rectangle**, not with a `Selectable`: a `Selectable` is one
+line tall and a modifier wrapping onto three would be clickable only on its first, because a
+table row's height is not known until its four cells have been drawn. So `draw_filter_row` tracks
+the lowest y its cells reached, tests `IsMouseHoveringRect` against that, and tints the row
+(`RowBg1`) while the cursor is on it. The checkbox is excluded by its own rect — it already means
+something, and the two would fight over every press.
+
+Inside, **on one line the width of the panel**: a two-knob slider, the two bounds as typed
+numbers, and a reset and a confirm. `StatFilter::min`/`max` are what it writes, so column four
+follows the drag; `seed_min`/`seed_max` are what reset restores, recorded **once at the end of
+`build_plan`** rather than at each of the dozen sites that set a bound, so the seed cannot
+disagree with the plan it came from. Nothing is sent on an edit — the Search button sends, which
+is `auto_search`'s argument again — and nothing survives the item: every path that rebuilds the
+plan calls `App::close_filter_edit`, because the row index only means anything against the plan it
+was opened on.
+
+**It repeats nothing the row says.** The wording, the modifier's own range and what the search
+currently asks for are all one line up, so the editor carries none of them — and it is placed to
+keep that row readable: under it, or above it when the row is near the foot of the panel, using
+the height it drew at last frame. Over it is the one place it may not go. Nor do the boxes carry
+`Min`/`Max` labels: left is the floor and right is the ceiling, in the order the slider beside
+them is drawn, and two words there cost the track its width.
+
+Five things about it are decided rather than incidental:
+
+- **The edit is live and Confirm only closes.** An ImGui popup closes on any click outside itself,
+  which over a game is constant, so a scratch copy applied on Confirm would throw away a drag the
+  moment the mouse strayed. There is nothing to lose by writing through.
+- **`ui::range_slider` is ours** because ImGui has none. `DragFloatRange2` is two drag boxes side
+  by side, and the picture this needs is *the interval against what the affix can actually roll* —
+  the track is `roll_min`..`roll_max` and the lit span is what would be accepted. So the slider
+  appears **only when that range is known**; with Advanced Mod Descriptions off most rolls have
+  none, and a numeric filter (item level, quality, the derived damage and defence numbers) never
+  does, since those are facts about the item rather than an affix's tier. Then the two boxes are
+  the whole editor. An **absent bound parks its knob at that end and draws it hollow**, because
+  "no ceiling" and "a ceiling at the top of the range" are different searches that look identical
+  otherwise.
+- **The track is not a cage.** Its ends are the tier in hand, which is the only range anything
+  here can defend — **the bundle carries no per-tier affix table**, so what a *different* tier of
+  the same modifier rolls is not known and a wider track would be a picture of a guess. But a
+  buyer is entitled to ask for a better roll than the one they are holding, so a knob pushed past
+  an end keeps going (to `kOvershoot` ranges out, with the boxes for anything beyond), the domain
+  widens to hold it, and **two ticks mark where the known range was** — without them the widened
+  track would read as the affix's own range, which is exactly the claim nothing here may make.
+  The domain is frozen in the widget's storage for the duration of a drag, or rescaling the track
+  under a moving knob makes the number race away from the cursor.
+- **The boxes are `InputTextWithHint`, not `InputDouble`.** Empty has to be sayable — it is how a
+  bound is taken off, and "both, a floor, a ceiling, or neither" is the whole promise — so the box
+  holds text, hints `min`/`max` when empty, and is parsed with **`std::from_chars`**: `strtod` and
+  `sscanf` read the separator through `LC_NUMERIC`, and the same `1.79` is the integer `1` under a
+  Czech locale, which is a filter on a different number. Text that is not yet a number leaves the
+  bound alone rather than clearing it, or a filter on the way to `-12` would be unusable. The text
+  is the authority while the editor is open and is only rewritten when something *else* moved the
+  numbers — a box reformatted under the caret refills itself before the user lets go of backspace.
+- **It is placed by hand inside the panel column**, because `App::poll_click_away` dismisses the
+  whole price check on a press outside it: a popover ImGui had drifted into the gutter would close
+  the panel the first time it was used. It is also begun **outside** `BeginTable`, which pushes an
+  id of its own, so an `OpenPopup` inside the table and a `BeginPopup` outside it would be two
+  different popups under one name.
+
+**`ImGuiHoveredFlags_NoPopupHierarchy` on the row test is load-bearing**, and its absence was a
+bug worth remembering: `IsWindowHovered` counts a popup as part of the window that opened it
+unless told otherwise, so the editor's own window read as the panel being hovered — and since the
+row test deliberately ignores the clip rect, every press inside the editor *also* landed on
+whichever row it happened to be covering. Dragging a knob or clicking a box opened a different
+row's editor. The rows are additionally dead while the editor is up, so the hover highlight agrees
+with ImGui about which presses can do anything.
 
 **Why a row is not ticked is a tooltip on the wording** (`StatFilter::caveat`), never a line
 under the list. The panel is competing with the game for the same screen, a note repeats a

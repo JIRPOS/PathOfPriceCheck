@@ -65,6 +65,11 @@ struct StatFilter {
     /// two are only equal until the asking is something the user can edit.
     std::optional<double> roll_min, roll_max;
 
+    /// What the plan seeded `min`/`max` with, kept so an edit can be taken back. The seed is
+    /// the one interval the application can defend — the roll widened by the **Range matching**
+    /// setting — and it has to be recoverable without re-copying the item.
+    std::optional<double> seed_min, seed_max;
+
     // From the bundle's per-unique modifier data, on a unique it has a record of.
     /// The unique picks this modifier from a pool rather than always having it, so not every
     /// copy carries it. The one thing worth searching a unique on that a printed range can
@@ -88,6 +93,9 @@ struct NumericFilter {
     bool enabled = false;
     int dp = 0;
     std::string note;  ///< why the value is what it is, e.g. "at 20% quality"
+    /// What the plan seeded the interval with, so an edit can be taken back. See
+    /// `StatFilter::seed_min`.
+    std::optional<double> seed_min, seed_max;
 };
 
 /// A filter the trade site takes as an **option** rather than as an interval: the booleans

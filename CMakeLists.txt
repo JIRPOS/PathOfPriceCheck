@@ -174,6 +174,7 @@ set(APP_SOURCES
   src/net/http.cpp
   src/platform/keymap_sdl.cpp
   src/ui/theme.cpp
+  src/ui/range_slider.cpp
   src/screens/settings_screen.cpp
   src/screens/pricecheck_screen.cpp
   src/screens/item_view.cpp)

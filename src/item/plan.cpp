@@ -1690,6 +1690,18 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
     // A gem is nothing but its own effect, so saying this about one is noise.
     if (!it.inherent_lines.empty() && it.rarity != Rarity::Gem)
         p.notes.emplace_back("the base's own effect is not part of the search");
+
+    // Last of all, and in one place rather than at each of the dozen sites that set a bound:
+    // the seed is *whatever this function came out with*, so a per-row reset can only ever
+    // disagree with the plan if it is recorded somewhere the plan can still be changed after.
+    for (StatFilter& f : p.stats) {
+        f.seed_min = f.min;
+        f.seed_max = f.max;
+    }
+    for (NumericFilter& f : p.numerics) {
+        f.seed_min = f.min;
+        f.seed_max = f.max;
+    }
     return p;
 }
 

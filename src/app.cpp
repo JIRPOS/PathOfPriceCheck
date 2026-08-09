@@ -692,6 +692,9 @@ void App::rebuild_plan() {
     item_ = item::parse_item(clipboard_, item_lexicon());
     plan_ = {};
     derived_ = {};
+    // The editor addresses a row of the plan that is about to stop existing. Bounds belong to
+    // the item in hand and nothing about them survives to the next one.
+    close_filter_edit();
     if (!item_) {
         if (!clipboard_.empty())
             debug::log("[item]   %zu bytes on the clipboard did not parse as an item",
@@ -720,8 +723,14 @@ void App::rebuild_plan() {
     need_redraw_ = true;
 }
 
+void App::edit_filter(FilterEdit::Kind kind, size_t index, float top, float bottom) {
+    filter_edit_ = FilterEdit{kind, index, bottom, top, /*opening=*/true};
+    need_redraw_ = true;
+}
+
 void App::set_strategy(item::Strategy s) {
     strategy_override_ = s;
+    close_filter_edit(); // a different strategy is a different set of rows
     if (item_ && item_data_) {
         plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
                                  config_.range_match);
@@ -741,6 +750,7 @@ void App::set_unique(const data::BaseType* u) {
     // a different unique.
     trade_.clear();
     listing_items_.clear();
+    close_filter_edit(); // and so are the rows: a different unique is a different mod pool
     plan_ = item::build_plan(*item_data_, *item_, derived_, strategy_override_,
                              config_.range_match);
     // The name is what poe.ninja prices a unique by, so this is the first ask that can find one.

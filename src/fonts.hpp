@@ -23,6 +23,11 @@ struct Fonts {
     /// face to borrow them from, and then whatever wanted them has to spell them "<=" and ">=":
     /// Fontin's own are blank, and a floor of 46 losing its `≥` reads as an exact match.
     bool has_comparison_glyphs = false;
+
+    /// `ui::kGlyph*` will actually draw. These are embedded rather than borrowed, so this can
+    /// only be false if the bundled subset and `ui/glyphs.hpp` have drifted apart — which is
+    /// exactly the case worth catching, since the symptom is a button with nothing on it.
+    bool has_glyphs = false;
 };
 
 /// Loads Fontin into the current ImGui context and makes Regular the default. Uses

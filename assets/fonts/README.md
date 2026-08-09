@@ -1,5 +1,11 @@
 # Fonts
 
+Two typefaces are embedded: **Fontin**, which everything is written in, and a two-glyph subset of
+**Font Awesome Free**, which is what the buttons too small for a word are drawn with. They are
+unrelated problems with unrelated licenses and are kept in separate blobs and separate scripts.
+
+## Fontin
+
 The overlay renders in **Fontin** — the typeface Path of Exile itself uses — by Jos Buivenga
 (exljbris). Homepage: <https://www.exljbris.com/fontin.html>
 
@@ -15,7 +21,7 @@ We use the **TrueType** release, not the OpenType one: ImGui rasterizes with stb
 TrueType path is far better tested than its CFF/OTF path. Proper OTF handling would mean adding the
 FreeType backend as a dependency.
 
-## License
+### License
 
 From the `ReadMe.txt` in the upstream archive (fetched to `Fontin-LICENSE.txt`):
 
@@ -31,7 +37,7 @@ to anyone who extracts it, the typeface is ~20 years old, and permission can be 
 can't be reached, swapping the typeface means regenerating one file — see below — with no code
 change. Users can already override at runtime via `$PPC_FONT_DIR`.
 
-## Regenerating
+### Regenerating
 
 ```sh
 ./scripts/fetch-fonts.sh     # downloads the TTFs here (gitignored)
@@ -41,8 +47,44 @@ change. Users can already override at runtime via `$PPC_FONT_DIR`.
 `gen-font-data.sh` calls `fetch-fonts.sh` itself if the TTFs are missing, and needs a configured
 build tree for ImGui's `binary_to_compressed_c.cpp` (or `IMGUI_SOURCE_DIR` pointing at one).
 
-## Runtime override
+### Runtime override
 
 Set `PPC_FONT_DIR` to a directory containing `Fontin-{Regular,Bold,Italic,SmallCaps}.ttf` (or any
 four TTFs under those names) and they replace the embedded faces. Missing non-Regular faces fall
-back to Regular; a directory without `Fontin-Regular.ttf` is ignored with a log line.
+back to Regular; a directory without `Fontin-Regular.ttf` is ignored with a log line. The glyph
+subset below is merged over whichever of the two is in use, so an override does not lose the
+buttons.
+
+## Font Awesome Free
+
+The glyphs on the buttons a word does not fit on — today the range editor's reset and confirm.
+Homepage: <https://fontawesome.com>
+
+**Only the codepoints actually used are bundled.** `scripts/fetch-glyphs.sh` runs `pyftsubset` over
+the release's `fa-solid-900.ttf` and keeps the two named in it, which is 1.4KB against the 416KB
+face; the result is base85'd into [`src/glyph_data.inc`](../../src/glyph_data.inc) exactly as
+Fontin is. **That codepoint list is the contract with [`src/ui/glyphs.hpp`](../../src/ui/glyphs.hpp)
+— a glyph named there and missing here draws nothing at all**, which is the same silent blank
+Fontin's `≤` and `≥` produce; `Fonts::has_glyphs` is the check that catches it. Adding a glyph means
+editing both files and rerunning both scripts below.
+
+The **web** release's TrueType build, not the desktop release's OTF — the same stb_truetype
+reasoning as Fontin.
+
+### License (CC BY 4.0 and OFL)
+
+Font Awesome Free, fetched to `FontAwesome-LICENSE.txt`. Icons are **CC BY 4.0** and the fonts are
+**SIL OFL 1.1**; both permit redistribution, including in a binary, with attribution — which this
+section is, alongside the notice in the generated blob. Unlike Fontin, nothing here is a judgement
+call.
+
+### Regenerating the subset
+
+```sh
+./scripts/fetch-glyphs.sh     # downloads + subsets PPCGlyphs.ttf here (gitignored)
+./scripts/gen-glyph-data.sh   # rewrites src/glyph_data.inc
+```
+
+`fetch-glyphs.sh` needs `fonttools` (`pip install fonttools`) for `pyftsubset`;
+`gen-glyph-data.sh` calls it itself if the subset is missing, and needs the same configured build
+tree `gen-font-data.sh` does.
