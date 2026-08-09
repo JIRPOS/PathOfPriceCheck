@@ -309,10 +309,16 @@ void parse_header(const Section& sec, Item& it, const data::Lexicon& lex) {
             it.unparsed.push_back(line);
         }
     }
-    // A normal item with quality is printed as "Superior <base>"; the affix is not part of
-    // the base's name and would fail every lookup.
+    // Quality decorates the base line as "Superior <base>", and no base is named for it, so it
+    // comes off whatever the rarity. It rides on the *line* and not on the rarity: the game
+    // prints it whenever nothing else has named the item — a white item, and every
+    // unidentified one. An unidentified unique's single line is its base, so a quality copy
+    // arrives as "Superior Goathide Gloves"; gated on Normal that left the word in place, and
+    // with it went the base, the candidate uniques and every price. Identified items wear it at
+    // no rarity — captures `item_2`, `item_5` and `item_6` are a magic, a unique and a rare at
+    // 20% quality, and none of them prints it.
     const std::string_view superior = lex.term(data::Term::SuperiorPrefix);
-    if (it.rarity == Rarity::Normal && !superior.empty() && it.base_type.starts_with(superior))
+    if (!superior.empty() && it.base_type.starts_with(superior))
         it.base_type.erase(0, superior.size());
     // A map prints its tier on the base line — "Map (Tier 16)", and on a magic one after the
     // affixes, "Map of Impedance (Tier 16)". It is the thing the map is searched on and it is

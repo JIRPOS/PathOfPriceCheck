@@ -939,6 +939,33 @@ Unidentified
     }));
 }
 
+TEST_CASE("a quality unidentified unique is still read off its base") {
+    auto gd = fixture();
+    // Quality prints the base line as "Superior Riveted Boots", because nothing else has named
+    // the item yet. Stripped only at Normal rarity, that word reached every lookup: no base, no
+    // candidate uniques, no name to search for and no reference price either.
+    const Item it = resolved(*gd, R"(Item Class: Boots
+Rarity: Unique
+Superior Riveted Boots
+--------
+Quality: +20% (augmented)
+Evasion Rating: 36
+--------
+Item Level: 84
+--------
+Unidentified
+)");
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(it.quality == 20);
+    CHECK(it.base_type == "Riveted Boots");
+    REQUIRE(it.base != nullptr);
+    REQUIRE(it.unique_entry != nullptr);
+    CHECK(p.name == "Ralakesh's Impatience");
+    CHECK(p.type == "Riveted Boots");
+}
+
 TEST_CASE("an unidentified unique on a base with several is a question, not a search") {
     auto gd = fixture();
     // Goathide Gloves roll into both Hrimsorrow and Hrimburn, which share nothing but the base.
