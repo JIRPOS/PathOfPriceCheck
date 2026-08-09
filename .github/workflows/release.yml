@@ -117,10 +117,34 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp build/Release/PathOfPriceCheck.exe dist/
             (cd dist && 7z a "PathOfPriceCheck-${ver}-${{ matrix.name }}.zip" PathOfPriceCheck.exe)
+            # The same executable, unwrapped. The updater applies a *file*, and nothing in the
+            # binary reads a .zip or a .tar.gz container — see docs/updater.md.
+            mv "dist/PathOfPriceCheck.exe" "dist/PathOfPriceCheck-${ver}-${{ matrix.name }}.exe"
           else
             cp build/PathOfPriceCheck dist/
             (cd dist && tar czf "PathOfPriceCheck-${ver}-${{ matrix.name }}.tar.gz" PathOfPriceCheck)
+            mv "dist/PathOfPriceCheck" "dist/PathOfPriceCheck-${ver}-${{ matrix.name }}"
           fi
+      # The recommended Windows download. A per-user install lands somewhere writable, which is
+      # what keeps the updater working; the .zip above stays for whoever wants a movable folder.
+      # PowerShell, not bash: Git Bash rewrites any argument that starts with a '/' into a
+      # Windows path, so ISCC's own /D switches arrive as filenames and it refuses the lot.
+      # CI compiles this same script on every PR, so a break here is caught before a release.
+      - name: Package installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VER: ${{ needs.prepare.outputs.version }}
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc /Qp `
+            "/DAppVersion=${env:VER}" `
+            "/DSourceExe=..\build\Release\PathOfPriceCheck.exe" `
+            "/DOutDir=..\dist" `
+            "/DOutName=PathOfPriceCheck-${env:VER}-win64-setup" `
+            packaging\PathOfPriceCheck.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       # SDL3 is static but libcurl, OpenSSL and libstdc++ are the system's, so the bare binary
       # assumes a distribution close to this runner. The AppImage carries them; libX11 and libGL
       # stay the host's, as they must.
@@ -169,6 +193,28 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      # What the running application checks. Published as a release asset rather than read out
+      # of the API, so the client can use the fixed `releases/latest/download/` URL and never
+      # spend one of the 60 unauthenticated API calls an hour a shared address gets.
+      - name: Build latest.json
+        env:
+          VER: ${{ needs.prepare.outputs.version }}
+          BASE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for f in artifacts/*; do
+            n=$(basename "$f")
+            jq -n --arg name "$n" \
+                  --arg url "${BASE}/releases/download/v${VER}/${n}" \
+                  --arg sha "$(sha256sum "$f" | cut -d' ' -f1)" \
+                  --argjson size "$(stat -c%s "$f")" \
+                  '{name: $name, url: $url, sha256: $sha, size: $size}'
+          done | jq -s --arg ver "$VER" --arg notes "${BASE}/releases/tag/v${VER}" \
+            '{schema_version: 1, version: $ver, notes_url: $notes, assets: .}' \
+            > latest.json
+          mv latest.json artifacts/
+          cat artifacts/latest.json
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

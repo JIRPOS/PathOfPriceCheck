@@ -23,6 +23,7 @@ constexpr const char* kEnglish[]{
     "Hotkeys",
     "Price-check panel",
     "Game data",
+    "Updates",
     "Diagnostics",
 
     "League",
@@ -79,6 +80,18 @@ constexpr const char* kEnglish[]{
     "Item parsing works without this; pricing needs it.",
     "%zu stat wordings indexed",
     "Unique modifier data from %s",
+
+    "Application",
+    "Up to date",
+    "Checking for updates\xe2\x80\xa6",
+    "Downloading %.1f / %.1f MB",
+    "v%s is ready",
+    "v%s is available",
+    "This copy cannot update itself \xe2\x80\x94 it is installed somewhere it may not write.",
+    "Restart now",
+    "Release page",
+    "Update automatically",
+    "Checks GitHub at startup, downloads in the background, applies on your next start.",
 
     "Debug logging",
     "could not open a log file",

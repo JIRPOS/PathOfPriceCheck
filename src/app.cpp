@@ -113,6 +113,7 @@ constexpr int kSettingsW = 640, kSettingsH = 980;
 // data version at the size below, and no wider — the window is what swallows mouse input, and
 // while idle it is only click-through because nothing else is open.
 constexpr int kStatusW = 200, kStatusH = 48;
+constexpr int kStatusUpdateH = 68; ///< one line taller while an update is waiting
 constexpr float kStatusFontSize = 15.0f;
 constexpr float kStatusAlpha = 0.5f; ///< it sits on top of the game's own HUD
 
@@ -125,6 +126,16 @@ std::string data_status_line(const data::DataUpdater::Status& st) {
     case data::DataUpdater::State::Idle:
     case data::DataUpdater::State::Failed: return "no data";
     default: return "updating\xe2\x80\xa6";
+    }
+}
+
+/// The third status line, or empty when there is nothing waiting. Short on purpose: the marker
+/// is 200px of text over the mana globe, and the place to read the detail is Settings.
+std::string update_status_line(const update::Updater::Status& st) {
+    switch (st.state) {
+    case update::Updater::State::Ready: return "v" + st.available + " ready";
+    case update::Updater::State::Offer: return "v" + st.available + " available";
+    default: return {};
     }
 }
 
@@ -159,22 +170,37 @@ void draw_status_marker(App& app) {
     ImGui::PushFont(app.fonts().small_caps, kStatusFontSize);
     const std::string version = "PoPC v" APP_VERSION;
     const std::string data = data_status_line(app.data_status());
+    const std::string news =
+        app.update_dismissed() ? std::string() : update_status_line(app.update_status());
     const float line_h = ImGui::GetTextLineHeightWithSpacing();
-    const float top = (io.DisplaySize.y - line_h * 2) * 0.5f;
+    const int lines = news.empty() ? 2 : 3;
+    const float top = (io.DisplaySize.y - line_h * lines) * 0.5f;
     draw_outlined_line(version.c_str(), io.DisplaySize.x * 0.5f, top, kStatusAlpha);
     draw_outlined_line(data.c_str(), io.DisplaySize.x * 0.5f, top + line_h, kStatusAlpha);
+    // Fully opaque where the other two are half: this one is the only line here that is asking
+    // for something rather than reporting state.
+    if (!news.empty())
+        draw_outlined_line(news.c_str(), io.DisplaySize.x * 0.5f, top + line_h * 2, 1.0f);
     ImGui::PopFont();
     ImGui::End();
 }
 
 } // namespace
 
-int App::run() {
+int App::run(bool relaunched_after_update) {
     // Before the log, not after: a second instance opening its own log file would start a new
     // one and prune the ten kept, so the run being diagnosed can be pushed out of the window by
     // a stray double-click. A rejected launch is not this application's session and writes
     // nothing at all.
     InstanceLock instance("PathOfPriceCheck");
+    // Started by the copy it is replacing, which is still on its way out and still holding the
+    // lock. Waiting is the whole difference between an update that lands and one that looks
+    // like it broke the application: the replacement would otherwise report that the tool is
+    // already running, and the tray icon it points at is the one that is about to disappear.
+    for (int i = 0; relaunched_after_update && !instance.held() && i < 30; ++i) {
+        SDL_Delay(100);
+        instance = InstanceLock("PathOfPriceCheck");
+    }
     if (!instance.held()) {
         // Said out loud, unlike a failed price check. That silence is a rule about the overlay,
         // which is noise over a game; this is a launch the user just performed on their desktop
@@ -216,7 +242,7 @@ int App::run() {
         return 1;
     }
     // SDL hands back a contiguous range, so the offsets are guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(6);
+    const uint32_t event_base = SDL_RegisterEvents(7);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -228,6 +254,7 @@ int App::run() {
     trade_event_ = event_base + 3;
     ninja_event_ = event_base + 4;
     exchange_event_ = event_base + 5;
+    update_event_ = event_base + 6;
 
     if (!overlay_.init("PathOfPriceCheck Overlay")) {
         SDL_Log("overlay init failed");
@@ -265,6 +292,9 @@ int App::run() {
     updater_.set_language(config_.client_language);
     data_ = updater_.load_installed();
     updater_.start_check(); // background; the panel degrades gracefully until it lands
+
+    app_updater_.init(cache_dir() / "update", update_event_);
+    if (config_.auto_update) app_updater_.start_check();
 
     hotkeys_ = HotkeyListener::create([this](Action a) { on_hotkey(a); });
     rebind_hotkeys();
@@ -348,6 +378,11 @@ int App::run() {
     currency_exchange_.shutdown();
     icons_.shutdown(); // frees GL textures, so before the context goes with the overlay
     updater_.shutdown();
+    app_updater_.shutdown();
+    // Last, and after the worker is joined: this is the moment a downloaded release becomes
+    // the one that starts next time. On Windows it hands the job to the installer, which needs
+    // this process gone — so nothing may be added below that expects to still be running.
+    app_updater_.apply_on_exit();
     net::shutdown();
     overlay_.shutdown();
     SDL_Quit();
@@ -400,6 +435,8 @@ void App::handle_event(const SDL_Event& e) {
             // on screen was parsed without one and is not priceable until it is re-resolved.
             if (item_ && item_data_ != data_) rebuild_plan();
         }
+    } else if (e.type == update_event_) {
+        need_redraw_ = true;
     } else if (e.type == SDL_EVENT_KEY_DOWN && capturing_) {
         if (e.key.key == SDLK_ESCAPE) {
             end_capture(); // cancel capture, don't bind Escape
@@ -895,12 +932,16 @@ void App::place_overlay() {
         // but it is also what the compositor has to composite every time the game redraws.
         const int cx = gx + gw - static_cast<int>(gh * config_.status_right);
         const int cy = gy + gh - static_cast<int>(gh * config_.status_bottom);
-        SDL_SetWindowSize(overlay_.window(), kStatusW, kStatusH);
+        // Room for the update line when there is one, and not a pixel of it otherwise: this
+        // window is what the compositor redraws every time the game does.
+        const int mh = (app_updater_.status().has_news() && !update_dismissed_) ? kStatusUpdateH
+                                                                               : kStatusH;
+        SDL_SetWindowSize(overlay_.window(), kStatusW, mh);
         // max(min()), not clamp: a game window narrower than the marker puts the low bound above
         // the high one, and clamp is not defined for that.
         SDL_SetWindowPosition(overlay_.window(),
                               std::max(gx, std::min(cx - kStatusW / 2, gx + gw - kStatusW)),
-                              std::max(gy, std::min(cy - kStatusH / 2, gy + gh - kStatusH)));
+                              std::max(gy, std::min(cy - mh / 2, gy + gh - mh)));
         layout_ = PanelLayout{0, kStatusW, 0, 0};
         return;
     }

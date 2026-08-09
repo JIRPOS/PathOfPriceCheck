@@ -131,6 +131,8 @@ add_library(ppc_core STATIC
   src/data/stat_matcher.cpp
   src/data/manifest.cpp
   src/data/install.cpp
+  src/update/release.cpp
+  src/update/install.cpp
   src/item/item.cpp
   src/item/parse.cpp
   src/item/resolve.cpp
@@ -147,6 +149,7 @@ add_library(ppc_core STATIC
   src/trade/ratelimit_store.cpp
   $<IF:$<BOOL:${WIN32}>,src/data/mapped_file_win.cpp,src/data/mapped_file_posix.cpp>
   $<IF:$<BOOL:${WIN32}>,src/platform/single_instance_win.cpp,src/platform/single_instance_posix.cpp>
+  $<IF:$<BOOL:${WIN32}>,src/platform/process_win.cpp,src/platform/process_posix.cpp>
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
 target_compile_definitions(ppc_core PUBLIC APP_VERSION="${APP_VERSION}")
@@ -167,6 +170,7 @@ set(APP_SOURCES
   src/exchange/client.cpp
   src/icon_cache.cpp
   src/data/updater.cpp
+  src/update/updater.cpp
   src/net/http.cpp
   src/platform/keymap_sdl.cpp
   src/screens/settings_screen.cpp
@@ -246,6 +250,7 @@ ppc_add_test(normalize_test)
 ppc_add_test(game_data_test)
 ppc_add_test(stat_matcher_test)
 ppc_add_test(install_test)
+ppc_add_test(update_test)
 ppc_add_test(lexicon_test)
 ppc_add_test(item_parse_test)
 ppc_add_test(item_pricing_test)

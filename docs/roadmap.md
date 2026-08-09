@@ -12,31 +12,16 @@ version has to respect, and then the **backlog** — gaps that are known, argued
 The public page states the order and not the argument for it. Two of the choices are
 load-bearing and should not be reshuffled casually:
 
-- **The updater is first because its value compounds.** Shipped at 0.8 it reaches only the people
-  who already update by hand; at 0.3 it carries the rest of the list. It is also the riskiest item
-  here, which is an argument for going first rather than against: a bad updater is fixed in 0.3.x
-  builds before anything downstream depends on it.
+- **The updater went first because its value compounds.** Shipped at 0.8 it would have reached
+  only the people who already update by hand; at 0.3 it carries the rest of the list. It is also
+  the riskiest item here, which was an argument for going first rather than against: a bad updater
+  is fixed in 0.3.x builds before anything downstream depends on it. Built — it and the Windows
+  installer are [updater.md](updater.md) now, not a plan.
 - **The paste list precedes the map check** because both need an overlay placed at the cursor,
   which does not exist yet, and the paste list is much the simpler first consumer of it. 0.6 also
   reads its regexes from what 0.5 stores.
 
 ## Implementation notes, per planned version
-
-### 0.3, the binary updater
-
-- The check is a GitHub host, so it goes nowhere near `trade::request`; the limiter is GGG's.
-  → [external-apis.md](external-apis.md)
-- `util/sha256` already exists for the bundle and verifies the staged download too.
-- Staging then applying at startup is the same rule as **never write over a live bundle**, for
-  the same reason. → [data-layer.md](data-layer.md)
-- `$APPIMAGE` is overwritten at its own path — desktop integration keys on it.
-- A failed check is silent, per **failure is silent**. → [architecture.md](architecture.md)
-- Three notice surfaces, all passive: the idle marker, the panel, a Settings row with **Restart
-  now**. Nothing closes the app; a dismissed notice leaves the staged update where it is.
-- An install that is not writable (a zip unpacked into `Program Files`) stages nothing and points
-  at the release page — the update is offered, not half-applied.
-- New `Config` flag, one new endpoint, one new staged file: `PRIVACY.md` changes with it.
-  → [conventions.md](conventions.md)
 
 ### 0.4, editable filter ranges
 

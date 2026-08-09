@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 
+#include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
@@ -177,6 +178,78 @@ void data_row(App& app) {
                             std::string(gd->unique_mods_attribution()).c_str());
         ImGui::PopTextWrapPos();
     }
+}
+
+/// The application's own version, and whatever the updater has to say about it.
+///
+/// This is the one place an update can be acted on. The two surfaces over the game only ever
+/// mention it — a panel drawn on top of Path of Exile is not where anyone should be given a
+/// button that closes the application.
+void update_row(App& app, Config& c) {
+    using State = update::Updater::State;
+    const update::Updater::Status st = app.update_status();
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(ui::text(ui::Msg::Application));
+    ImGui::SameLine(kLabelW);
+
+    const bool busy = st.state == State::Checking || st.state == State::Downloading ||
+                      st.state == State::Verifying;
+    switch (st.state) {
+    case State::Downloading:
+        if (st.bytes_total)
+            ImGui::Text(ui::text(ui::Msg::UpdateDownloading), st.bytes_done / 1e6,
+                        st.bytes_total / 1e6);
+        else
+            ImGui::TextUnformatted(ui::text(ui::Msg::DownloadingPlain));
+        break;
+    case State::Checking:
+    case State::Verifying:
+        ImGui::TextUnformatted(ui::text(ui::Msg::UpdateChecking));
+        break;
+    case State::Ready:
+        ImGui::TextColored(kWarn, ui::text(ui::Msg::UpdateReady), st.available.c_str());
+        break;
+    case State::Offer:
+        ImGui::TextColored(kWarn, ui::text(ui::Msg::UpdateAvailable), st.available.c_str());
+        break;
+    case State::UpToDate:
+        ImGui::Text("%s \xe2\x80\x94 %s", APP_VERSION, ui::text(ui::Msg::UpToDate));
+        break;
+    default:
+        // Idle and Failed both. A failed check is not worth a warning colour: the answer is
+        // the same either way, and the reason is in the debug log.
+        ImGui::Text("%s", APP_VERSION);
+        break;
+    }
+
+    // Right-aligned, for the same reason the bundle's button is: the text left of it changes
+    // width every frame while something is downloading.
+    constexpr float kActionW = 110.0f;
+    ImGui::SameLine(ImGui::GetWindowWidth() - kActionW - 18.0f);
+    if (st.state == State::Ready) {
+        if (ImGui::Button(ui::text(ui::Msg::RestartNow), ImVec2(kActionW, 0)))
+            app.restart_for_update();
+    } else if (st.state == State::Offer) {
+        if (ImGui::Button(ui::text(ui::Msg::OpenReleasePage), ImVec2(kActionW, 0)))
+            SDL_OpenURL(st.notes_url.empty() ? update::kReleasesUrl : st.notes_url.c_str());
+    } else {
+        ImGui::BeginDisabled(busy);
+        if (ImGui::Button(ui::text(ui::Msg::CheckNow), ImVec2(kActionW, 0)))
+            app.check_for_update();
+        ImGui::EndDisabled();
+    }
+
+    row_gutter();
+    if (st.state == State::Offer) {
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::UpdateOfferHelp));
+        ImGui::PopTextWrapPos();
+        row_gutter();
+    }
+    ImGui::Checkbox(row(ui::text(ui::Msg::AutoUpdate)), &c.auto_update);
+    row_gutter();
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::AutoUpdateHelp));
 }
 
 /// The two languages, which answer to different things and are therefore two rows.
@@ -379,6 +452,9 @@ void draw_settings_screen(App& app) {
 
     section(app, ui::text(ui::Msg::SectionGameData));
     data_row(app);
+
+    section(app, ui::text(ui::Msg::SectionUpdates));
+    update_row(app, c);
 
     section(app, ui::text(ui::Msg::SectionDiagnostics));
     if (ImGui::Checkbox(row(ui::text(ui::Msg::DebugLogging)), &c.debug_log))

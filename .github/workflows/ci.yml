@@ -66,6 +66,25 @@ jobs:
         run: cmake --build build --config Debug
       - name: Test
         run: ctest --test-dir build -C Debug --output-on-failure
+      # The installer is otherwise compiled only by the release workflow, which is run by hand —
+      # so a typo in the script would first surface halfway through cutting a release, after the
+      # release branch has already been pushed. Compiling it here makes that a failed check
+      # instead. The output is thrown away; that it compiles at all is the whole test.
+      # PowerShell, not bash: Git Bash rewrites any argument that starts with a '/' into a
+      # Windows path, so ISCC's own /D switches arrive as filenames and it refuses the lot.
+      - name: Compile the installer script
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc /Qp `
+            "/DAppVersion=0.0.0" `
+            "/DSourceExe=..\build\Debug\PathOfPriceCheck.exe" `
+            "/DOutDir=..\build\installer-check" `
+            "/DOutName=ci-check" `
+            packaging\PathOfPriceCheck.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
   # The one check master requires. It runs on every PR whatever the matrix did, because a
   # required check that is skipped never reports and leaves the PR unmergeable.

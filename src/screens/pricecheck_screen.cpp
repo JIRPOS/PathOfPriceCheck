@@ -1143,6 +1143,20 @@ void draw_pricecheck_screen(App& app) {
         ImGui::Separator();
     }
 
+    // One line, and nothing that closes anything. The panel is open because the user asked
+    // what an item is worth; an update notice here is allowed to be seen and then ignored,
+    // which is what the dismiss is for.
+    if (const update::Updater::Status ust = app.update_status();
+        ust.has_news() && !app.update_dismissed()) {
+        if (ust.state == update::Updater::State::Ready)
+            ImGui::TextColored(kWarn, "v%s is ready — restart to update", ust.available.c_str());
+        else
+            ImGui::TextColored(kWarn, "v%s is out", ust.available.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Later")) app.dismiss_update_notice();
+        ImGui::Separator();
+    }
+
     // The body is a child filling everything above the footer, which keeps the footer pinned to
     // the bottom without seeking the cursor past the content.
     const float footer_h =

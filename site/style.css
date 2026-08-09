@@ -86,6 +86,9 @@ footer p { max-width: 70ch; margin: 10px auto; }
   color: var(--text);
 }
 .dl:hover { border-color: var(--accent-dim); }
+/* Windows ships two ways and they are not equal: the installer is the one where the tool can
+   update itself, so it carries the weight and the portable .zip sits beside it. */
+.dl.rec { border-color: var(--accent-dim); }
 .dl .primary {
   display: block; color: var(--accent); font-size: 17px; font-weight: 600;
 }

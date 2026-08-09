@@ -1,10 +1,16 @@
 # Privacy
 
 **This project collects nothing.** There is no account, no telemetry, no analytics, no crash
-reporting, no update ping and no usage counter — and, more to the point, **there is no server on
-the other end to collect anything with.** The project operates no backend of any kind. Everything
-the application does happens on the machine it runs on, against third-party APIs that are the same
-ones a browser would talk to.
+reporting and no usage counter — and, more to the point, **there is no server on the other end to
+collect anything with.** The project operates no backend of any kind. Everything the application
+does happens on the machine it runs on, against third-party APIs that are the same ones a browser
+would talk to.
+
+The one thing that might sound like a phone-home is the update check, so it is worth being exact:
+it downloads a small **static file** from the GitHub release page — the same bytes served to
+everyone — and compares versions **on your machine**. It sends no version, no identifier and no
+count; GitHub sees a file being fetched, exactly as it would if you clicked the releases page
+yourself. It can be turned off in Settings.
 
 No personally identifiable information is gathered, stored remotely, sold, or shared. The
 maintainer cannot see that you ran this, what you priced, or that you exist.
@@ -16,6 +22,7 @@ Exhaustively — this is every outbound request the binary can make.
 | host | when | what leaves your machine |
 |---|---|---|
 | `github.com` → `objects.githubusercontent.com` | at startup, and again only when a new data bundle exists | nothing but the request itself: the URL, and the `User-Agent` below |
+| `github.com` → `objects.githubusercontent.com` | at startup, for a newer version of the application itself, unless you turned **Update automatically** off; then once more to download it, only when there is one | nothing but the request. **This is a plain file fetch, not a version ping**: the same `latest.json` is served to everyone, the comparison happens on your machine, and nothing tells the other end which version you are on |
 | `www.pathofexile.com/api/trade/data/leagues` | when Settings is opened; cached 24 h | nothing but the request |
 | `www.pathofexile.com/api/trade/data/static` | before the first search; cached a week | nothing but the request |
 | `www.pathofexile.com/api/trade/search/<league>` | when you press **Search** (or on open, if you turned on `auto_search`) | the search query: trade stat identifiers and numeric bounds derived from the item under your cursor, plus the league and the listing-status filter |
@@ -74,9 +81,10 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 
 | path | what |
 |---|---|
-| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language |
+| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, whether to update automatically |
 | `<config>/cookies.txt` | the cookie jar above |
 | `<cache>/data/<version>/` | the downloaded game-data bundle, plus a `current` pointer |
+| `<cache>/update/` | a downloaded release of the application, waiting for the restart that applies it. One file, consumed as it is applied; absent whenever no update is pending |
 | `<cache>/leagues.json`, `<cache>/trade-static.json` | cached trade static data |
 | `<cache>/ninja/` | cached poe.ninja overviews, pruned after a week unread |
 | `<cache>/exchange/` | cached currency-exchange digests, newest two hours kept |
@@ -88,6 +96,13 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 `<config>` is `$XDG_CONFIG_HOME/PathOfPriceCheck` (`~/.config/PathOfPriceCheck`) or `%APPDATA%\PathOfPriceCheck`.
 `<cache>` is `$XDG_CACHE_HOME/PathOfPriceCheck` (`~/.cache/PathOfPriceCheck`) or `%LOCALAPPDATA%\PathOfPriceCheck`.
 Deleting either directory is safe; the application rebuilds what it needs.
+
+**One file outside those two directories:** applying an update replaces the application's own
+executable, at its own path, and briefly leaves the previous one beside it as `<name>.old` until
+the next start deletes it. Nothing else on your system is written to. On Windows the installer —
+if you used it rather than the portable `.zip` — additionally creates its own program directory,
+its shortcuts, one registry value at `HKCU\Software\PathOfPriceCheck` recording where it
+installed, and the usual Add/Remove Programs entry; uninstalling removes them.
 
 One optional setting is personal information you may type in yourself: **Account** in Settings
 (`Name#1234`). It is stored in `config.json` and, as of today, is **not sent anywhere** — nothing
