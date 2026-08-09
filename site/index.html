@@ -14,6 +14,11 @@
 <meta property="og:url" content="{{BASE_URL}}/">
 <meta property="og:image" content="{{BASE_URL}}/{{OG_IMAGE}}">
 <meta name="twitter:card" content="summary_large_image">
+<!-- Inline and in the head on purpose: the stylesheet hides the strip's scrollbar only when the
+     gallery script can run, and hiding it shortens the strip — decided after first paint, that
+     is a scrollbar flashing and the page shifting under the reader. -->
+<script>document.documentElement.classList.add('js')</script>
+<script src="gallery.js" defer></script>
 </head>
 <body>
 

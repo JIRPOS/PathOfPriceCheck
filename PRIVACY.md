@@ -115,7 +115,10 @@ attaching it to an issue.** Nothing sends it anywhere for you.
 Everything above is about the **application**. The project's website is a set of static pages
 served by GitHub Pages, and it carries no analytics, no cookies, no trackers and no fonts or
 scripts fetched from anywhere else — a visit is a request for the pages themselves and nothing
-more. GitHub serves them and logs the request as any web host does; that is between you and
+more. The landing page serves one script of its own, which drives the screenshot gallery's
+arrows, its rotation and the pop-out an image opens in; it reads nothing about you, stores
+nothing and requests nothing, and the gallery works without it. GitHub serves the pages and logs
+the request as any web host does; that is between you and
 [GitHub](https://docs.github.com/site-policy). The application never visits it, and downloads
 go to the same `github.com` release assets listed above.
 

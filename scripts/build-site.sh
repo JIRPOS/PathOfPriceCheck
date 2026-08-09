@@ -169,10 +169,11 @@ page "License" "$work/body.html" license.html
 # --- the landing page ----------------------------------------------------------------------
 
 # A scroll-snap strip rather than a stack: the captures are portraits, and a page is wider than
-# it is tall — the same argument the panel itself makes about docking beside an item. No script:
-# swiping, scrolling, arrow keys and the numbered links all come from the browser. Prev/next
-# arrows are the one thing that cannot work without JavaScript, since nothing on the page knows
-# which slide is showing, so the numbers jump directly instead.
+# it is tall — the same argument the panel itself makes about docking beside an item. Swiping,
+# scrolling, arrow keys and the numbered links all come from the browser, and are the whole of
+# it when `site/gallery.js` does not run — which is why nothing that script adds is emitted
+# here: prev/next arrows, the rotation and the pop-out all need to know which slide is showing,
+# and the markup cannot.
 gallery=""
 dots=""
 og_image="popc_icon.png"
@@ -228,7 +229,7 @@ tpl site/index.html \
 
 # --- static ---------------------------------------------------------------------------------
 
-cp site/style.css "$OUT/"
+cp site/style.css site/gallery.js "$OUT/"
 cp assets/popc_icon.ico "$OUT/favicon.ico"
 cp assets/popc_icon.png "$OUT/popc_icon.png"
 for f in site/img/*.png site/img/*.jpg; do
