@@ -268,7 +268,13 @@ there, which is what the debug log is for.
 **Icon** (`src/icon.cpp`): `assets/popc_icon.png` embedded as a base85 blob in the generated
 `src/icon_data.inc` and decoded at startup with SDL3's own `SDL_LoadPNG_IO` — no image library, no
 runtime asset. One surface feeds both the tray and `SDL_SetWindowIcon`. The Windows executable icon
-is separate: `assets/popc_icon.ico` via an `.rc` resource configured from `assets/app.rc.in`.
+is separate: `assets/popc_icon.ico` via an `.rc` resource configured from `assets/app.rc.in`. That
+script also carries the executable's **`VERSIONINFO`** — publisher, product, description and both
+version strings, spelled exactly as [packaging/PathOfPriceCheck.iss](../packaging/PathOfPriceCheck.iss)
+spells them. It is there for the antivirus heuristics rather than for the properties dialog: an
+unsigned binary that declares no publisher and no version is a signal in itself, and until the
+release is code-signed it is the cheap half of the answer. `FILEVERSION` wants four numbers where
+`APP_VERSION` has three, so the fourth is a constant 0.
 
 **Fonts** (`src/fonts.cpp`): the UI renders in **Fontin**, the typeface the game itself uses. Four
 faces (Regular/Bold/Italic/SmallCaps) are embedded in the executable as base85 blobs in the generated
