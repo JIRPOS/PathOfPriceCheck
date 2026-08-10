@@ -52,11 +52,15 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   lets the client's own words be sent as the id the site wants), and the property and item-class
   tables are keyed the other way round, printed label to key, so a translated one replaces the
   English outright.
-  **One entry here is not the client's wording at all**: `Term::SanctumEffectPrefix`, the `Has `
-  a sanctum boon or affliction's *stat* is worded with, where the item prints the name alone
-  under a `Minor Boons:` label. It lives here because a translated bundle translates the stat
-  along with everything else and the lookup is by exact wording, so it is per-language in the
-  same way the rest of this table is.
+  **Three entries here are not the client's wording at all**: `Term::SanctumEffectPrefix`, the
+  `Has ` a sanctum boon or affliction's *stat* is worded with, where the item prints the name
+  alone under a `Minor Boons:` label; and `LogbookFactionPrefix` / `LogbookAreaPrefix`, the
+  `Has Logbook Faction: ` and `Has Logbook Area: ` an Expedition Logbook's destination is
+  searched under, where the item prints the two as bare names in a block of their own. They live
+  here because a translated bundle translates the stat along with everything else and the lookup
+  is by exact wording, so they are per-language in the same way the rest of this table is — and
+  because keeping the join in the lexicon is what keeps a compiled-in list of the four expedition
+  factions out of the parser. See [strategy-logbook.md](strategy-logbook.md).
   **An empty entry never matches**, deliberately: `starts_with("")` is true of every line, and
   `ModType::Explicit` has no generation word of its own.
   `parse_item` and `looks_like_item` **take a lexicon and have no default**. The language is

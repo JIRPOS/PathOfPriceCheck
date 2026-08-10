@@ -19,7 +19,8 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
     "prefix_word",      "suffix_word",   "unique_word",        "increased_word",
     "reduced_word",     "req_level",     "req_str",            "req_dex",
     "req_int",          "cosmetic_prefix", "cosmetic_suffix",  "heist_job_prefix",
-    "heist_job_level",  "sanctum_effect_prefix", "augmented",  "adds_prefix",
+    "heist_job_level",  "sanctum_effect_prefix", "logbook_faction_prefix",
+    "logbook_area_prefix", "augmented",  "adds_prefix",
     "fire_damage",      "cold_damage",   "lightning_damage"};
 
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
@@ -89,6 +90,7 @@ constexpr ClassKindName kClassKindNames[]{
     {"heist_contract", ClassKind::HeistContract},
     {"heist_blueprint", ClassKind::HeistBlueprint},
     {"sanctum_research", ClassKind::SanctumResearch},
+    {"expedition_logbook", ClassKind::ExpeditionLogbook},
 };
 
 /// The mod-type suffix the game prints in a parenthetical, indexed by `ModType`. In English
@@ -145,6 +147,8 @@ void Lexicon::assign_english() {
     set(terms_, Term::HeistJobPrefix, "Requires ");
     set(terms_, Term::HeistJobLevel, " (Level ");
     set(terms_, Term::SanctumEffectPrefix, "Has ");
+    set(terms_, Term::LogbookFactionPrefix, "Has Logbook Faction: ");
+    set(terms_, Term::LogbookAreaPrefix, "Has Logbook Area: ");
     set(terms_, Term::Augmented, "augmented");
     set(terms_, Term::AddsPrefix, "Adds ");
     set(terms_, Term::FireDamage, "Fire Damage");
@@ -179,7 +183,12 @@ void Lexicon::assign_english() {
         // The fence at the Rogue Harbour, whom every contract and blueprint is handed to. Their
         // usage note is two sentences and neither opens with a click instruction, so it came
         // back as a modifier — and on a unique contract it was the *only* one.
-        "Adiyah"};
+        "Adiyah",
+        // The runesmith every Expedition Logbook is handed to. Its usage note is one sentence
+        // opening with "Take this item", the same shape a chart's does — and without a needle
+        // of its own it came back as a fourth unrecognised modifier, since a logbook is gear
+        // and gear needs a positive signal before prose is read as anything but a mod.
+        "Dannig"};
     // "Quest Item" and "Divination Card" are printed with a trailing noun on some items, so
     // the rarity line is matched on a prefix as well as whole.
     lists_[static_cast<size_t>(TermList::QuestRarity)] = {"Quest"};
@@ -260,6 +269,7 @@ void Lexicon::assign_english() {
         {"Contracts", ClassKind::HeistContract},
         {"Blueprints", ClassKind::HeistBlueprint},
         {"Sanctum Research", ClassKind::SanctumResearch},
+        {"Expedition Logbooks", ClassKind::ExpeditionLogbook},
     };
 }
 

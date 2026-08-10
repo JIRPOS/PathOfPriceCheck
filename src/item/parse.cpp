@@ -586,6 +586,41 @@ bool is_bottom_prose(const Item& it, const Section& sec, size_t index, size_t fl
     return index == flavour_at && it.rarity == Rarity::Unique && !it.mods.empty();
 }
 
+/// A line with nothing on it that could be a modifier: no digit anywhere, no `Label: value`
+/// colon, and none of the markers a mod line carries. What an area's name and a faction's name
+/// have in common, and what tells them from the roll every affix opens with.
+bool is_bare_name(const std::string& line, const data::Lexicon& lex) {
+    if (line.empty() || is_info_line(line) || line.find(':') != std::string::npos) return false;
+    std::string_view v = line;
+    if (take_mod_suffix(v, lex)) return false;
+    return std::none_of(line.begin(), line.end(),
+                        [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; });
+}
+
+/// A logbook's destination block — an area, the faction whose land it is, and the implicits
+/// that apply there:
+///
+///     Scrublands
+///     Druids of the Broken Circle
+///     32% increased quantity of Artifacts dropped by Monsters (implicit)
+///     Area contains 39% increased number of Monster Markers (implicit)
+///
+/// **Recognised by shape, not by a table of factions.** There are four of them today and the
+/// areas run to dozens, both are game data that a league can add to, and neither is a closed
+/// vocabulary this layer could keep honest — so the two leading lines are matched on being
+/// *bare names*, which nothing else the item prints in a section of its own is.
+///
+/// Two things are checked and both are load-bearing. The **leading pair** keeps the block of
+/// affixes every rare logbook prints below its destinations out: those open with a roll. And
+/// the **tail** has to read as modifiers, which keeps a stray pair of prose lines out and is
+/// what still holds with Advanced Mod Descriptions on, where each implicit gains an info line
+/// above it. The number of implicits is deliberately not fixed — captures show two and three.
+bool is_logbook_destination(const Section& sec, const data::Lexicon& lex) {
+    if (sec.size() < 3) return false;
+    if (!is_bare_name(sec[0], lex) || !is_bare_name(sec[1], lex)) return false;
+    return looks_like_mods(Section(sec.begin() + 2, sec.end()), lex);
+}
+
 void parse_mod_section(const Section& sec, data::ModType fallback, Item& it,
                        const data::Lexicon& lex) {
     // The mod an info line opened, so its continuation lines land on the same Modifier.
@@ -619,6 +654,23 @@ void parse_mod_section(const Section& sec, data::ModType fallback, Item& it,
         m.lines.emplace_back(text);
         it.mods.push_back(std::move(m));
     }
+}
+
+/// Take a destination apart. The two names are the destination's own and go nowhere near the
+/// mod list; the implicits under them do, so that the item card draws the logbook exactly as
+/// the game printed it and every layer above keeps one list of modifiers to walk.
+void parse_logbook_destination(const Section& sec, Item& it, const data::Lexicon& lex) {
+    LogbookArea dest;
+    dest.area = sec[0];
+    dest.faction = sec[1];
+    const size_t first = it.mods.size();
+    // Implicit as the fallback rather than Explicit: every line here carries the game's own
+    // " (implicit)" suffix today, and where an info line has grouped them instead the
+    // generation word says the same thing — but a destination has no other kind of modifier,
+    // and falling back to Explicit would file one in the wrong trade namespace if it ever did.
+    parse_mod_section(Section(sec.begin() + 2, sec.end()), data::ModType::Implicit, it, lex);
+    for (size_t i = first; i < it.mods.size(); ++i) dest.mods.push_back(i);
+    it.logbook_areas.push_back(std::move(dest));
 }
 
 /// Colour the elemental damage entries. The property line lists them in the game's fixed
@@ -710,6 +762,11 @@ std::optional<Item> parse_item(std::string_view clipboard, const data::Lexicon& 
             // Consumes 40 of 60 Charges on use / Onslaught" read as modifiers instead.
             parse_properties(sec, it, lex);
             props_seen = true;
+        } else if (it.is_logbook() && is_logbook_destination(sec, lex)) {
+            // Where this logbook can go. Ahead of the mod branch below, which read the area and
+            // the faction as two unmatchable modifiers apiece and lost which implicits belonged
+            // to which destination — the one thing a logbook is priced on.
+            parse_logbook_destination(sec, it, lex);
         } else if (it.rarity == Rarity::Gem && it.vaal_name.empty() && sec.size() == 1 &&
                    first.starts_with(lex.term(data::Term::VaalPrefix))) {
             // A Vaal gem is two skills in one, and the game heads the second half with its own

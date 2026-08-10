@@ -78,6 +78,34 @@ STATS = [
     "Map's Item Quantity Modifiers also affect Blight Chest count at #% value\n"
     "Can be Anointed up to # times",
     "Natural inhabitants of this area have been removed",
+    # An Expedition Logbook's destinations. The faction and the area are `pseudo.*` stats and
+    # nothing else in the game is searched this way — the item prints the two as bare names and
+    # the join back to a trade id is by the stat's own wording, so the slice needs both halves
+    # of every destination the captures name. Two factions and five areas covers all three.
+    "Has Logbook Faction: Druids of the Broken Circle",
+    "Has Logbook Faction: Order of the Chalice",
+    "Has Logbook Area: Scrublands",
+    "Has Logbook Area: Volcanic Island",
+    "Has Logbook Area: Sarn Slums",
+    "Has Logbook Area: Battleground Graves",
+    "Has Logbook Area: Bluffs",
+    # A destination's implicits. Explosives is the one that matters most: the rare capture
+    # grants it from two different destinations, which is the case for both the merge refusing
+    # to fold two alternatives together and the bound being a floor only.
+    "#% increased number of Explosives",
+    "#% increased quantity of Artifacts dropped by Monsters",
+    "#% increased Explosive Radius",
+    "#% increased Explosive Placement Range",
+    "Area contains #% increased number of Monster Markers",
+    "Area contains #% increased number of Runic Monster Markers",
+    "Remnants have #% chance to have an additional Suffix Modifier",
+    # And the affixes a rare logbook prints below its destinations, which the plan must leave
+    # out as a map's are — without them the case would pass by resolving nothing at all.
+    "Players have #% to all maximum Resistances",
+    "Monsters' skills Chain # additional times",
+    "+#% Monster Chaos Resistance",
+    "+#% Monster Elemental Resistances",
+    "Monsters gain #% of Maximum Life as Extra Maximum Energy Shield",
     # The one modifier a Valdo map is searched on, and the only one anything is searched on in
     # **both** directions: absent, it becomes a `not` group rather than being left open.
     "Players who Die in area are sent to the Void",
@@ -203,6 +231,10 @@ ITEMS = [
     # An itemised sanctum. One floor of the four is enough: they differ only by name, and the
     # base is the whole of what a sanctum's identity is looked up for.
     "ITEM::Sanctum Vaults Research",
+    # An Expedition Logbook. One base for the whole category, which is why the type term says
+    # nothing a logbook's category does not — and why a magic one arriving as "Buffered
+    # Expedition Logbook" has to resolve back to this record before anything is sent.
+    "ITEM::Expedition Logbook",
 ]
 
 UNIQUE_MODS = [
@@ -214,7 +246,7 @@ UNIQUE_MODS = [
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
-                "Sanctum Research"]
+                "Sanctum Research", "Expedition Logbooks"]
 
 LANG = "en"
 

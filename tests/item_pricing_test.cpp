@@ -2342,3 +2342,152 @@ TEST_CASE("an itemised sanctum is searched on the state of the run") {
         }));
     }
 }
+
+TEST_CASE("an Expedition Logbook is priced on one of its destinations at a time") {
+    const std::shared_ptr<GameData> gd = fixture();
+
+    SUBCASE("the strategy, the category and the type the category already implies") {
+        const Item it = resolved(*gd, capture("logbook-normal-three-areas.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.strategy == Strategy::Logbook);
+        CHECK(p.category == "logbook");
+        CHECK(p.type == "Expedition Logbook");
+        CHECK(p.rarity == "nonunique");
+    }
+
+    SUBCASE("one group per destination, and exactly one of them live") {
+        const Item it = resolved(*gd, capture("logbook-normal-three-areas.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        REQUIRE(p.choices.size() == 3);
+        CHECK(p.choices[0].label == "Druids of the Broken Circle");
+        CHECK(p.choices[0].note == "Scrublands");
+        CHECK(p.choices[2].label == "Order of the Chalice");
+        CHECK(p.choice == 0);
+        // Every stat on this plan belongs to a destination — a Normal logbook has no affixes —
+        // and the only ticked one is the live group's faction.
+        std::vector<std::string> enabled;
+        for (const StatFilter& f : p.stats) {
+            REQUIRE(f.choice.has_value());
+            if (f.enabled) enabled.push_back(f.id);
+        }
+        CHECK(enabled == std::vector<std::string>{"pseudo.pseudo_logbook_faction_druids"});
+    }
+
+    SUBCASE("the faction is ticked; where it goes and what it grants there are offered") {
+        const Item it = resolved(*gd, capture("logbook-normal-three-areas.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        std::vector<std::pair<std::string, bool>> live;
+        for (const StatFilter& f : p.stats)
+            if (f.choice == 0) live.emplace_back(f.text, f.enabled);
+        REQUIRE(live.size() == 4);
+        CHECK(live[0] == std::pair<std::string, bool>{
+                             "Has Logbook Faction: Druids of the Broken Circle", true});
+        CHECK(live[1] ==
+              std::pair<std::string, bool>{"Has Logbook Area: Scrublands", false});
+        CHECK(live[2].first == "32% increased quantity of Artifacts dropped by Monsters");
+        CHECK_FALSE(live[2].second);
+    }
+
+    SUBCASE("the faction filter is presence, never a count") {
+        // The pseudo stat takes one — how many destinations belong to that faction — and it is
+        // not what decides the price. A logbook with two Druids destinations is still bought
+        // for a Druids run, and bounding it drops every single-destination copy of the same
+        // thing. The rare capture has exactly that pair.
+        const Item it = resolved(*gd, capture("logbook-rare-ancient-lands.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        for (const StatFilter& f : p.stats)
+            if (f.id.starts_with("pseudo.pseudo_logbook_faction")) {
+                CHECK_FALSE(f.min.has_value());
+                CHECK_FALSE(f.max.has_value());
+            }
+    }
+
+    SUBCASE("two destinations of one faction stay two alternatives") {
+        // Both are Druids, so both rows carry the same trade id — and `merge_same_stat` would
+        // fold them into one row standing for a choice that is not a choice.
+        const Item it = resolved(*gd, capture("logbook-rare-ancient-lands.txt"));
+        SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        REQUIRE(p.choices.size() == 3);
+        CHECK(p.choices[0].note == "Volcanic Island");
+        CHECK(p.choices[1].note == "Battleground Graves");
+        CHECK(p.choices[0].label == p.choices[1].label);
+        size_t druids = 0;
+        for (const StatFilter& f : p.stats)
+            if (f.id == "pseudo.pseudo_logbook_faction_druids") ++druids;
+        CHECK(druids == 2);
+
+        // And switching group ticks the new faction and unticks everything of the old one.
+        p.select_choice(1);
+        CHECK(p.choice == 1);
+        for (const StatFilter& f : p.stats)
+            CHECK(f.enabled == (f.choice == 1 && f.choice_primary));
+    }
+
+    SUBCASE("a destination's implicit is a floor, because trade totals them across the book") {
+        // Volcanic Island grants 14% increased number of Explosives and Battleground Graves
+        // grants 16%, and the site indexes the item's implicits as one total per stat — so a
+        // ceiling seeded from one destination's roll asks the other two not to exist.
+        const Item it = resolved(*gd, capture("logbook-rare-ancient-lands.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        std::vector<double> explosives;
+        for (const StatFilter& f : p.stats)
+            if (f.text.find("increased number of Explosives") != std::string::npos) {
+                REQUIRE(f.min.has_value());
+                CHECK_FALSE(f.max.has_value());
+                explosives.push_back(*f.min);
+            }
+        REQUIRE(explosives.size() == 2);
+        CHECK(explosives[0] < explosives[1]);
+    }
+
+    SUBCASE("the book's own affixes are hidden, exactly as a map's are") {
+        const Item it = resolved(*gd, capture("logbook-rare-ancient-lands.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        for (const StatFilter& f : p.stats) CHECK(f.hidden != f.choice.has_value());
+        size_t hidden = 0;
+        for (const StatFilter& f : p.stats)
+            if (f.hidden) {
+                CHECK_FALSE(f.enabled);
+                ++hidden;
+            }
+        // Three of the five, and the two missing ones are a data gap rather than this rule:
+        // "+25% Monster Chaos Resistance" and "+40% Monster Elemental Resistances" are
+        // published with the leading sign inside the matcher ("+#% Monster Chaos Resistance"),
+        // and `placeholder_form` replaces the sign along with the digits — so nothing the
+        // clipboard prints can reach them. 34 of the bundle's 15,148 matchers are shaped that
+        // way and none of them is a logbook's. Fix that and this becomes 5.
+        CHECK(hidden == 3);
+        // And not one of them is a note: they were left out on purpose, and the reader has
+        // them on the item card beside the panel.
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("the area level is a floor and ticked; everything else about the book is offered") {
+        const Item it = resolved(*gd, capture("logbook-rare-ancient-lands.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const NumericFilter* lvl = numeric_for(p, "area_level");
+        REQUIRE(lvl != nullptr);
+        CHECK(lvl->min == 80);
+        CHECK_FALSE(lvl->max.has_value()); // an 83 answers a search for an 80
+        CHECK(lvl->enabled);
+        for (const char* key : {"ilvl", "map_iiq", "map_packsize", "map_iir"}) {
+            const NumericFilter* f = numeric_for(p, key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK_FALSE(f->enabled);
+        }
+        CHECK(numeric_for(p, "map_iiq")->min == 61);
+    }
+
+    SUBCASE("a magic logbook is searched as the base, never as the name the affix decorated") {
+        const Item it = resolved(*gd, capture("logbook-magic-buffered.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Expedition Logbook");
+        REQUIRE(p.choices.size() == 2);
+        CHECK(p.choices[0].note == "Bluffs");
+        // Three implicits on that destination, not the two the other captures print.
+        size_t rows = 0;
+        for (const StatFilter& f : p.stats)
+            if (f.choice == 0) ++rows;
+        CHECK(rows == 5); // the faction, the area, and three implicits
+    }
+}

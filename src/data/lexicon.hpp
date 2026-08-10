@@ -94,7 +94,8 @@ enum class PropertyKey : uint8_t {
 /// The item classes the app branches on. Every other class is `Other` — the trade category
 /// comes from the bundle and needs no enum here.
 enum class ClassKind : uint8_t {
-    Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint, SanctumResearch
+    Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint, SanctumResearch,
+    ExpeditionLogbook
 };
 
 /// A flag the game prints on a line of its own. Influence lines are not among them: they are
@@ -149,6 +150,14 @@ enum class Term : uint8_t {
     /// a stat's wording rather than the client's, and it is here because a translated bundle
     /// translates it just the same and the lookup is by exact wording.
     SanctumEffectPrefix,
+    /// "Has Logbook Faction: " and "Has Logbook Area: ", how the **pseudo stats** an Expedition
+    /// Logbook is searched on word a destination. Here for the reason `SanctumEffectPrefix` is:
+    /// the item prints the faction and the area as bare names in a block of their own, the join
+    /// back to a trade id is by exact stat wording, and a translated bundle translates the stat.
+    /// Keeping them here is also what avoids a compiled-in list of the four factions — the
+    /// parser recognises a destination by its shape and the *name* is only ever a lookup key.
+    LogbookFactionPrefix,
+    LogbookAreaPrefix,
     Augmented,        ///< the "(augmented)" annotation, the one whose presence is recorded
     AddsPrefix,       ///< "Adds " — which added-damage mod coloured which elemental entry
     FireDamage,
