@@ -15,3 +15,6 @@
 {"id":"HeistBlueprint","itemClass":"Blueprints","tradeCategory":"heistmission.blueprint"}
 {"id":"ItemisedSanctum","itemClass":"Sanctum Research","tradeCategory":"sanctum.research"}
 {"id":"ExpeditionLogbook","itemClass":"Expedition Logbooks","tradeCategory":"logbook"}
+{"id":"Helmet","itemClass":"Helmets","tradeCategory":"armour.helmet"}
+{"id":"Amulet","itemClass":"Amulets","tradeCategory":"accessory.amulet"}
+{"id":"Belt","itemClass":"Belts","tradeCategory":"accessory.belt"}

@@ -56,6 +56,15 @@ is built from, so the lookup is by the name the clipboard already gave us.
 - **`unlisted[]`** — a pool stated in prose but not enumerated, e.g. the general Synthesis
   implicit pool. Nothing to search; it exists so the app can say what it is leaving out instead
   of implying the item has nothing more.
+- **A pool of one modifier** is not a mistake. Some modifiers roll a **name** rather than a
+  number — The Dark Monarch doubles the limit of one of sixteen minion types, Replica
+  Dragonfang's Flight raises one of 287 skill gems, Forbidden Shako supports one of 164 support
+  gems in one of four slots. The source calls these fixed, and it is right that every copy has
+  the modifier; what varies is *which wording* it rendered as, which is the whole of what the
+  copy in hand is worth searching for. They arrive as a pool with `count: [1, 1]` whose `mods`
+  all share one `mod` id and differ by wording and `tradeId`. This is why a pool can be 656
+  entries long, and why a single filter would have been worse than none: it would have claimed
+  this copy rolled whichever option the game's own data happens to list first.
 - **entry `mod`** — GGG's own mod id. Stable across patches, useful for debugging and for
   deduplicating; not needed to build a query.
 - **entry `implicit: true`** — the mod is an implicit, so its trade id is in the `implicit.`
@@ -112,18 +121,18 @@ a user. Never a wrong filter.
 
 ## Limitations, stated plainly
 
-- **No `tradeId` on some filters.** 470 wordings resolve to two different trade ids (the known
-  ambiguous-wording problem) and 695 to none at all. Both are emitted with `ref` and `range` and
-  no id, so a pool list still matches the count its `hint` states. Display them; do not search
-  them.
-- **393 mods are dropped entirely** because every stat they grant is unsearchable — cosmetic
+- **No `tradeId` on some filters.** Of 11,327 filters, 793 carry no id: 434 wordings resolve to
+  two different trade ids (the known ambiguous-wording problem) and 359 to none at all. Both are
+  emitted with `ref` and `range` and no id, so a pool list still matches the count its `hint`
+  states. Display them; do not search them.
+- **394 mods are dropped entirely** because every stat they grant is unsearchable — cosmetic
   footprints, hidden behaviour. A pool list can therefore be shorter than the pool the game rolls.
 - **Foulborn is not here.** It is Chayula currency, absent from both the client tables and the
   wiki's pools. Identification already works off the clipboard's `{ Foulborn Unique Modifier }`
   info line; only the roll's range stays unknown.
-- **Forbidden Flame / Forbidden Flesh** get a record with no mods: their one mod grants a hidden
-  stat and trade searches them through an *option* stat this join does not reach. Needs the
-  option-stat work, same as pseudo mods.
+- **Forbidden Flame / Forbidden Flesh** get a filter with a wording but no `tradeId`: trade
+  searches them through an option stat over ascendancy notables, which is not one of the two
+  name tables the expansion above reads. The same shape, a third table.
 - **Counts can be missing or coarse.** Precursor's Emblem describes several sub-pools in one hint
   and the source gives no way to tell which mod belongs to which, so it gets pool groups without
   counts.

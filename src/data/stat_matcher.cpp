@@ -8,9 +8,15 @@
 namespace ppc::data {
 namespace {
 
-/// How many clipboard lines one modifier may span. Hybrids are two; the cap only bounds how
-/// far a failed match will keep reaching forward.
-constexpr size_t kMaxModLines = 4;
+/// How many clipboard lines one modifier may span. Hybrids are two, but a modifier that
+/// enumerates its alternatives is as long as the list: Bound Fate's "Every # seconds, gain
+/// one of the following" is seven lines and the class-connection jewel is eight, which is
+/// the longest wording in the data. Below that the join can never be built and every line of
+/// the modifier comes back unrecognised on its own.
+///
+/// The cap only bounds how far a *failed* match keeps reaching forward — a shorter join
+/// always wins, because the loop returns at the first `end` that resolves.
+constexpr size_t kMaxModLines = 8;
 
 /// The game appends this to a roll that item level cannot scale.
 constexpr std::string_view kUnscalableSuffix = " (unscalable value)";

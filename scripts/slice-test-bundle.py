@@ -68,14 +68,16 @@ STATS = [
     "Area is influenced by The Shaper",
     # A two-line implicit, which is one stat and therefore one filter — the map's affixes are
     # printed in exactly the same shape and must still come out as none.
+    # The game hardcodes the 20 that trade placeholds, and the record's ref is the game's
+    # wording — which is what the clipboard prints and what the fixture must key on.
     "Map contains Baran's Citadel\n"
-    "Item Quantity increases amount of Rewards Baran drops by #% of its value",
+    "Item Quantity increases amount of Rewards Baran drops by 20% of its value",
     # And a map affix, which that plan must leave out without calling it unrecognised.
     "Monsters have #% chance to Hinder on Hit with Spells",
     # A blighted map's implicit, both halves of it — the plan searches every implicit a map
     # has, so leaving one out of the fixture would show up as an unrecognised modifier.
     "Area is infested with Fungal Growths\n"
-    "Map's Item Quantity Modifiers also affect Blight Chest count at #% value\n"
+    "Map's Item Quantity Modifiers also affect Blight Chest count at 50% value\n"
     "Can be Anointed up to # times",
     "Natural inhabitants of this area have been removed",
     # An Expedition Logbook's destinations. The faction and the area are `pseudo.*` stats and
@@ -143,6 +145,37 @@ STATS = [
     # "Has Red Smoke" — the second affliction of the third capture — is deliberately **not**
     # here, for the reason Porcupine Goliath and Dialla's Subjugation are not: an effect the
     # bundle cannot name has to be left out of the search and said out loud.
+    # The Dark Monarch's four modifiers. The last of them is the only shape in the game whose
+    # roll is a *name*: one stat per minion skill gem, of which the item printed the range as
+    # "(Animated Weapons-Holy Armaments)" and the roll as the gem in the wording itself.
+    "# to maximum Energy Shield",
+    "# to maximum Energy Shield (Local)",
+    "# to Level of all Minion Skill Gems",
+    "#% increased Light Radius",
+    "Maximum number of Sentinels of Purity is Doubled\n"
+    "Cannot have Minions other than Sentinels of Purity",
+    # Replica Dragonfang's Flight, the other shape of a named range: the pool is every skill
+    # gem, so the wording carries the roll *and* a number, and the parenthesis follows a word
+    # with no space in front of it.
+    "#% increased Dexterity",
+    "#% increased Intelligence",
+    "# to Level of all Storm Burst Gems",
+    "#% to all Elemental Resistances",
+    "#% increased Reservation Efficiency of Skills",
+    "Items and Gems have #% increased Attribute Requirements",
+    "# to all Attributes",
+    # Bound Fate. A modifier that enumerates its alternatives is as long as the list — seven
+    # lines here — which is what the join has to be able to reach.
+    "Every 5 seconds, gain one of the following for 5 seconds:\n"
+    "Your Hits are always Critical Strikes\n"
+    "Hits against you are always Critical Strikes\n"
+    "Attacks cannot Hit you\n"
+    "Attacks against you always Hit\n"
+    "Your Damage with Hits is Lucky\n"
+    "Damage of Hits against you is Lucky",
+    "# to Dexterity",
+    "# to Intelligence",
+    "#% increased Stun and Block Recovery",
 ]
 
 ITEMS = [
@@ -235,18 +268,30 @@ ITEMS = [
     # nothing a logbook's category does not — and why a magic one arriving as "Buffered
     # Expedition Logbook" has to resolve back to this record before anything is sent.
     "ITEM::Expedition Logbook",
+    # A unique whose per-unique record states one modifier as a *pool of names* — the minion
+    # skill gems — rather than as a numeric range, which is the case for a printed range the
+    # normalizer has to drop before the wording resolves at all.
+    "UNIQUE::The Dark Monarch",
+    "ITEM::Lich's Circlet",
+    "UNIQUE::Replica Dragonfang's Flight",
+    "ITEM::Onyx Amulet",
+    "UNIQUE::Bound Fate",
+    "ITEM::Cloth Belt",
 ]
 
 UNIQUE_MODS = [
     "Ralakesh's Impatience",
     "That Which Was Taken",
     "Rumi's Concoction",
+    "The Dark Monarch",
+    "Replica Dragonfang's Flight",
+    "Bound Fate",
 ]
 
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
-                "Sanctum Research", "Expedition Logbooks"]
+                "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts"]
 
 LANG = "en"
 

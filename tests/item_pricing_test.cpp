@@ -2496,3 +2496,113 @@ TEST_CASE("an Expedition Logbook is priced on one of its destinations at a time"
         CHECK(rows == 5); // the faction, the area, and three implicits
     }
 }
+
+TEST_CASE("a modifier that rolls over a list of names resolves as one modifier") {
+    auto gd = fixture();
+    // The Dark Monarch doubles the limit of one minion skill gem out of sixteen, and with
+    // Advanced Mod Descriptions on the game prints that pool the way it prints a numeric
+    // range: the roll is the gem named in the wording, the parenthesis is the first and last
+    // of the list. Left in, neither line matched anything and both came back unrecognised.
+    const Item it = resolved(*gd, capture("unique-dark-monarch.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.strategy == Strategy::Unique);
+    CHECK(p.name == "The Dark Monarch");
+    for (const std::string& n : p.notes)
+        CHECK(n.find("unrecognised modifier") == std::string::npos);
+
+    // Two clipboard lines, one stat, and the option the item rolled is in the trade id.
+    const StatFilter* doubled = filter_for(p, "explicit.stat_56473917|10");
+    REQUIRE(doubled != nullptr);
+    CHECK(doubled->text.find("(Animated Weapons-Holy Armaments)") != std::string::npos);
+    CHECK(doubled->text.find("Cannot have Minions other than") != std::string::npos);
+
+    // The range is the pool, not a number: nothing about it is a bound.
+    CHECK_FALSE(doubled->min.has_value());
+    CHECK_FALSE(doubled->max.has_value());
+    CHECK_FALSE(doubled->roll_min.has_value());
+    CHECK_FALSE(doubled->roll_max.has_value());
+
+    // And it is the one thing about this copy worth searching for: sixteen minion types roll
+    // here, so the modifier is pooled, ticked, and carries no "not in the modifier data".
+    CHECK(doubled->pooled);
+    CHECK(doubled->enabled);
+    CHECK(doubled->caveat.empty());
+
+    // And the numeric range on the same item is untouched by the stripping.
+    const StatFilter* es = filter_for(p, "explicit.stat_4052037485");
+    REQUIRE(es != nullptr);
+    CHECK(es->roll_min == doctest::Approx(50));
+    CHECK(es->roll_max == doctest::Approx(100));
+}
+
+TEST_CASE("a named range needs no space in front of it, and the pool can be every gem") {
+    auto gd = fixture();
+    // The other shape of the same thing: Replica Dragonfang's Flight raises one skill gem out
+    // of every skill gem there is, so the wording carries a number *and* a name, and the game
+    // prints the pool tight against the name — "Storm Burst(Fireball-Mana-Infused Staff)".
+    const Item it = resolved(*gd, capture("unique-replica-dragonfangs-flight.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.name == "Replica Dragonfang's Flight");
+    for (const std::string& n : p.notes)
+        CHECK(n.find("unrecognised modifier") == std::string::npos);
+
+    // The gem the copy rolled is the trade filter; the "+3" is not a bound, because the game
+    // printed no range for it — the parenthesis belongs to the gem, not to the level.
+    const StatFilter* gem = filter_for(p, "explicit.indexable_skill_160");
+    REQUIRE(gem != nullptr);
+    CHECK(gem->text.find("Storm Burst(Fireball-Mana-Infused Staff)") != std::string::npos);
+    CHECK_FALSE(gem->min.has_value());
+    CHECK_FALSE(gem->max.has_value());
+    // 287 gems can roll here, and which one it is is the item's whole price.
+    CHECK(gem->pooled);
+    CHECK(gem->enabled);
+    CHECK(gem->caveat.empty());
+
+    // The numeric ranges on the same item are untouched, the descending one included: the
+    // wording is the inverse, so the roll is stored negative and the window follows it down.
+    const StatFilter* attr = filter_for(p, "explicit.stat_752930724");
+    REQUIRE(attr != nullptr);
+    CHECK(attr->min == doctest::Approx(-6));
+    CHECK(attr->max == doctest::Approx(-5));
+
+    // And both corruption implicits under the one marker are still two modifiers.
+    CHECK(filter_for(p, "implicit.stat_4139681126") != nullptr);
+    CHECK(filter_for(p, "implicit.stat_656461285") != nullptr);
+}
+
+TEST_CASE("a modifier that enumerates its alternatives is one modifier, however long") {
+    auto gd = fixture();
+    // Bound Fate's modifier is seven clipboard lines: the promise, then the six things it
+    // can be. The join cap was four, so it could never be built, and all seven lines came
+    // back as unrecognised modifiers of their own.
+    const Item it = resolved(*gd, capture("unique-bound-fate.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.name == "Bound Fate");
+    for (const std::string& n : p.notes)
+        CHECK(n.find("unrecognised modifier") == std::string::npos);
+
+    const StatFilter* fate = filter_for(p, "explicit.stat_2501671832");
+    REQUIRE(fate != nullptr);
+    CHECK(fate->text.find("Every 5 seconds") != std::string::npos);
+    CHECK(fate->text.find("Damage of Hits against you is Lucky") != std::string::npos);
+
+    // Every copy has it and it rolls 1..1, so it is correctly left unticked — and, unlike
+    // before, without claiming the unique's own modifier data has never heard of it.
+    CHECK_FALSE(fate->enabled);
+    CHECK_FALSE(fate->pooled);
+    CHECK(fate->caveat.empty());
+
+    // Four filters and no more: the six alternatives are inside the one above, not beside it.
+    CHECK(p.stats.size() == 5);
+    CHECK(filter_for(p, "explicit.stat_3261801346") != nullptr); // Dexterity
+    CHECK(filter_for(p, "explicit.stat_328541901") != nullptr);  // Intelligence
+    CHECK(filter_for(p, "explicit.stat_3299347043") != nullptr); // maximum Life
+    CHECK(filter_for(p, "implicit.stat_2511217560") != nullptr); // the belt's implicit
+}
+
