@@ -29,16 +29,9 @@ NameCheck check_account_name(std::string_view s) {
 
 std::string Config::path() { return (config_dir() / "config.json").string(); }
 
-Config Config::load() {
-    Config c;
-    std::ifstream in(path());
-    if (!in) return c;
-    json j;
-    try {
-        in >> j;
-    } catch (...) {
-        return c; // keep defaults on malformed config
-    }
+namespace {
+
+void read_into(Config& c, const json& j) {
     c.league = j.value("league", c.league);
     c.account_name = j.value("account_name", c.account_name);
     c.client_language = j.value("client_language", c.client_language);
@@ -48,6 +41,18 @@ Config Config::load() {
         const auto& h = j["hotkeys"];
         if (h.contains("price_check")) c.price_check = parse_hotkey(h["price_check"].get<std::string>());
         if (h.contains("settings")) c.settings = parse_hotkey(h["settings"].get<std::string>());
+        if (h.contains("quick_paste"))
+            c.quick_paste = parse_hotkey(h["quick_paste"].get<std::string>());
+    }
+    if (j.contains("pastes") && j["pastes"].is_array()) {
+        for (const auto& p : j["pastes"]) {
+            if (!p.is_object()) continue;
+            c.pastes.push_back(Paste{p.value("heading", std::string()),
+                                     p.value("body", std::string()), p.value("enabled", true)});
+        }
+        // Clamped rather than taken, like the range percentages above: a hand-edited file
+        // claiming twelve active pastes would otherwise draw slots with no key to press.
+        limit_enabled(c.pastes);
     }
     c.auto_search = j.value("auto_search", c.auto_search);
     if (const std::string s = j.value("listing_status", c.listing_status); trade::valid_status(s))
@@ -72,6 +77,24 @@ Config Config::load() {
     c.reduce_transparency = j.value("reduce_transparency", c.reduce_transparency);
     c.auto_update = j.value("auto_update", c.auto_update);
     c.debug_log = j.value("debug_log", c.debug_log);
+}
+
+} // namespace
+
+Config Config::load() {
+    Config c;
+    std::ifstream in(path());
+    if (!in) return c;
+    try {
+        json j;
+        in >> j;
+        read_into(c, j);
+    } catch (...) {
+        // Malformed, or a field holding a type this does not expect — an object where a string
+        // belongs throws as surely as a truncated file does. This file is hand-editable, so
+        // neither may be the reason the program will not start. What was read before the throw
+        // stands; everything after it keeps its default.
+    }
     return c;
 }
 
@@ -85,6 +108,11 @@ bool Config::save() const {
     j["poe_window_title"] = poe_window_title;
     j["hotkeys"]["price_check"] = to_string(price_check);
     j["hotkeys"]["settings"] = to_string(settings);
+    j["hotkeys"]["quick_paste"] = to_string(quick_paste);
+    // Written even when empty, so the file says the feature exists and where its entries go.
+    j["pastes"] = json::array();
+    for (const Paste& p : pastes)
+        j["pastes"].push_back({{"heading", p.heading}, {"body", p.body}, {"enabled", p.enabled}});
     j["auto_search"] = auto_search;
     j["listing_status"] = listing_status;
     j["result_count"] = result_count;

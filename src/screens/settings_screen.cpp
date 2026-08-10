@@ -2,14 +2,19 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
 #include "app.hpp"
+#include "platform/clipboard.hpp"
+#include "quickpaste.hpp"
+#include "ui/glyphs.hpp"
 #include "ui/strings.hpp"
 #include "ui/theme.hpp"
 #include "util/debug_log.hpp"
@@ -411,6 +416,7 @@ void general_tab(App& app, Config& c) {
     section(app, ui::text(ui::Msg::SectionHotkeys));
     hotkey_row(app, ui::text(ui::Msg::HotkeyPriceCheck), Action::PriceCheck, c.price_check);
     hotkey_row(app, ui::text(ui::Msg::HotkeySettings), Action::ToggleSettings, c.settings);
+    hotkey_row(app, ui::text(ui::Msg::HotkeyQuickPaste), Action::QuickPaste, c.quick_paste);
 
     section(app, ui::text(ui::Msg::SectionAppearance));
     // Nothing to apply: the dialog's own theme reads this every frame, and App hands it to the
@@ -486,6 +492,265 @@ void price_check_tab(App& app, Config& c) {
                        "%.3f");
 }
 
+/// A square icon button, or the word behind it when the glyph subset and `ui/glyphs.hpp` have
+/// drifted apart. `tip` is what it does, since an icon cannot say so itself.
+bool icon_button(App& app, const char* glyph, const char* word, const char* tip, float w) {
+    const bool pressed = ImGui::Button(app.fonts().has_glyphs ? glyph : word, ImVec2(w, 0));
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
+    return pressed;
+}
+
+constexpr float kPasteIconW = 30.0f;
+constexpr float kPasteGripW = 24.0f;
+constexpr float kPasteSlotW = 18.0f;
+
+/// What the popup will do with the list, said in the list: the number key this entry answers
+/// to, or an empty column where there is no key to press. A column of its own either way, or
+/// the headings of the enabled and the disabled entries would not line up.
+void paste_slot_number(const Config& c, size_t index) {
+    const float x = ImGui::GetCursorPosX();
+    const std::vector<size_t> active = active_pastes(c.pastes);
+    for (size_t slot = 0; slot < active.size(); ++slot) {
+        if (active[slot] != index) continue;
+        ImGui::AlignTextToFramePadding();
+        ImGui::PushStyleColor(ImGuiCol_Text, ui::col::kAccent);
+        ImGui::Text("%zu", slot + 1);
+        ImGui::PopStyleColor();
+        ImGui::SameLine(0.0f, 0.0f); // back onto the row; the width is set below
+        break;
+    }
+    // Set rather than advanced: `SameLine(offset)` measures from the window's left edge, not
+    // from the cursor, which puts the whole row on top of itself.
+    ImGui::SetCursorPosX(x + kPasteSlotW + ImGui::GetStyle().ItemSpacing.x);
+}
+
+/// What a row asked for, to be done once the loop drawing the list has finished: a delete changes
+/// the vector being walked, and a reorder needs the height of a row that has not been drawn yet.
+struct PasteAction {
+    size_t removed = 0;
+    bool removing = false;
+    size_t grabbed = 0;
+    bool grabbing = false;         // a handle was pressed this frame
+    std::vector<float> heights;    // each row's, in list order, as drawn this frame
+};
+
+/// A reorder in progress. Tracked by us and not by ImGui's held-item id, because a row's id is
+/// its position in the list: the moment a move lands, ImGui is holding the handle of the row that
+/// slid into the old place, and the drag would carry on shoving whatever kept arriving there.
+/// What has to survive a move is the paste's identity, so that is what is kept.
+struct PasteDrag {
+    bool active = false;
+    size_t index = 0; // where the dragged paste is *now*
+    float paid = 0.0f; // pixels of the pointer's travel already spent on moves
+};
+PasteDrag paste_drag;
+
+/// Turn the pointer's travel into moves. A row is picked up only once the pointer has covered the
+/// whole height of the neighbour it is heading for, and that height is then taken off the tally —
+/// which is both the hysteresis and the reason the row stays under the hand.
+///
+/// Asking instead which row the pointer is *over* reverses itself whenever two rows differ in
+/// height, and these do: a move drops the pointer back over the row it just came from, that reads
+/// as a move the other way, and the list flickers between the two until the button comes up.
+void resolve_paste_drag(Config& c, const PasteAction& act) {
+    if (act.grabbing) paste_drag = PasteDrag{true, act.grabbed, 0.0f};
+    if (!paste_drag.active) return;
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || paste_drag.index >= act.heights.size()) {
+        paste_drag = PasteDrag{};
+        return;
+    }
+    // Raw: the default threshold would hold the delta at zero for the first few pixels and then
+    // hand over all of them at once, which is a jump the tally cannot account for.
+    const float travel = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left, 0.0f).y - paste_drag.paid;
+    const bool down = travel > 0.0f;
+    if (down ? paste_drag.index + 1 >= act.heights.size() : paste_drag.index == 0) {
+        // Travel off the end of the list is forgotten rather than banked: banked, the hand would
+        // owe that distance back before the row it is still holding would move again.
+        paste_drag.paid += travel;
+        return;
+    }
+    const size_t to = down ? paste_drag.index + 1 : paste_drag.index - 1;
+    // One move per frame: the heights were measured in the order the list had when it was drawn,
+    // and a second move would be reading them for an order that no longer exists. A flick that
+    // outruns this is not lost — it stays on the tally and is paid off over the next frames.
+    const float step = act.heights[to];
+    if (std::abs(travel) < step) return;
+    if (!move_paste(c.pastes, paste_drag.index, to)) return;
+    paste_drag.index = to;
+    paste_drag.paid += down ? step : -step;
+}
+
+/// One entry: what the popup would show of it, plus what can be done to it here. The heading and
+/// the text are **read-only** — this list is for arranging, and a field that is typed into is a
+/// field that has to be finished before anything else can be clicked. Writing is the dialog.
+void paste_row(App& app, Config& c, size_t i, PasteAction& act) {
+    Paste& p = c.pastes[i];
+    ImGui::PushID(static_cast<int>(i));
+    const float top = ImGui::GetCursorScreenPos().y;
+
+    // The handle. Pressing it starts a reorder; the drag itself is resolved after the loop, which
+    // needs the heights of rows this one has not reached yet. ImGui has no drag-and-drop for a
+    // list this small, and the two-button version costs a row of chrome per entry.
+    //
+    // While a drag runs, the held look is painted on the row being moved rather than on the id
+    // ImGui is holding — those part company on the first move, and the pressed handle left behind
+    // on a row standing still is the drag appearing to have gone somewhere it has not.
+    const bool held = paste_drag.active && paste_drag.index == i;
+    const ImVec4 grip = ImGui::GetStyleColorVec4(held ? ImGuiCol_ButtonActive : ImGuiCol_Button);
+    ImGui::PushStyleColor(ImGuiCol_Button, grip);
+    if (paste_drag.active) {
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, grip);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, grip);
+    }
+    icon_button(app, ui::kGlyphGrip, "=", ui::text(ui::Msg::PasteReorder), kPasteGripW);
+    ImGui::PopStyleColor(paste_drag.active ? 3 : 1);
+    if (ImGui::IsItemActivated()) {
+        act.grabbed = i;
+        act.grabbing = true;
+    }
+    ImGui::SameLine();
+
+    // Off is the only way to make room, so the box that would take the tenth slot is the one
+    // that is disabled — no error to read, and the row above says how many are left.
+    const bool full = enabled_pastes(c.pastes) >= kMaxActivePastes;
+    ImGui::BeginDisabled(!p.enabled && full);
+    ImGui::Checkbox("##on", &p.enabled);
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+
+    paste_slot_number(c, i);
+
+    const float heading_x = ImGui::GetCursorPosX();
+    ImGui::AlignTextToFramePadding();
+    if (p.heading.empty()) ImGui::TextDisabled("%s", ui::text(ui::Msg::PasteUntitled));
+    else ImGui::TextUnformatted(p.heading.c_str());
+
+    right_align(kPasteIconW * 2.0f + ImGui::GetStyle().ItemSpacing.x);
+    if (icon_button(app, ui::kGlyphEdit, "...", ui::text(ui::Msg::PasteEdit), kPasteIconW)) {
+        app.paste_edit() = PasteEdit{true, false, i, p};
+    }
+    ImGui::SameLine();
+    if (icon_button(app, ui::kGlyphDelete, "X", ui::text(ui::Msg::PasteDelete), kPasteIconW)) {
+        act.removed = i;
+        act.removing = true;
+    }
+
+    // The text, one line and dim, under the heading and in its column. The same line the popup
+    // draws, so what is arranged here is what will be read there.
+    ImGui::SetCursorPosX(heading_x);
+    const std::string preview = paste_preview(p.body, 200);
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", preview.empty() ? ui::text(ui::Msg::PasteEmptyBody)
+                                              : preview.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing();
+    act.heights.push_back(ImGui::GetCursorScreenPos().y - top);
+    ImGui::PopID();
+}
+
+/// Writing a paste: the one place a heading or a body is typed. A dialog rather than fields in
+/// the list, because the body is multi-line and a list whose rows are text boxes is a list you
+/// cannot scan.
+///
+/// It edits a **draft**, which Done copies back — Cancel has to be able to leave nothing behind,
+/// and Settings as a whole is still not saved until its own Save.
+void paste_dialog(App& app, Config& c) {
+    PasteEdit& pe = app.paste_edit();
+    if (pe.open && !ImGui::IsPopupOpen("##paste_edit")) ImGui::OpenPopup("##paste_edit");
+    // The full width of the dialog it opens over, centred on it. The text being written is a
+    // chat line or a search string, so width is what it wants and height is what it does not:
+    // three lines by default, and the box scrolls for the rare paste that runs longer.
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowSize(ImVec2(display.x, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("##paste_edit", nullptr, ImGuiWindowFlags_NoTitleBar |
+                                                             ImGuiWindowFlags_NoResize |
+                                                             ImGuiWindowFlags_NoMove))
+        return;
+
+    section(app, ui::text(pe.adding ? ui::Msg::PasteNew : ui::Msg::PasteEdit));
+    ImGui::InputTextWithHint(row(ui::text(ui::Msg::PasteHeading)),
+                             ui::text(ui::Msg::PasteHeadingHint), &pe.draft.heading);
+    row_label(ui::text(ui::Msg::PasteBody));
+    ImGui::InputTextMultiline("##body", &pe.draft.body,
+                              ImVec2(-FLT_MIN, ImGui::GetTextLineHeightWithSpacing() * 3.0f +
+                                                   ImGui::GetStyle().FramePadding.y * 2.0f));
+    row_gutter();
+    if (pe.draft.body.size() > kMaxClipboardWrite) {
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextColored(kWarn, ui::text(ui::Msg::PasteTooLong), kMaxClipboardWrite);
+        ImGui::PopTextWrapPos();
+    } else {
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::PasteBodyHint));
+        ImGui::PopTextWrapPos();
+    }
+
+    ImGui::Separator();
+    // Nothing to paste is not an error worth wording: the button that would store it is simply
+    // not available, which is the same answer the ninth-slot checkbox gives.
+    const bool storable = !pe.draft.body.empty() && pe.draft.body.size() <= kMaxClipboardWrite;
+    ImGui::BeginDisabled(!storable);
+    ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kButtonHovered);
+    const std::string done = app.fonts().has_glyphs
+                                 ? std::string(ui::kGlyphConfirm) + "  " +
+                                       ui::text(ui::Msg::PasteDone)
+                                 : std::string(ui::text(ui::Msg::PasteDone));
+    if (ImGui::Button(done.c_str(), ImVec2(120, 0))) {
+        if (pe.adding) {
+            // Enabled if there is a slot for it, and off when the nine are taken — a new paste
+            // that silently displaced one of them would be worse than one with no number yet.
+            pe.draft.enabled = enabled_pastes(c.pastes) < kMaxActivePastes;
+            c.pastes.push_back(pe.draft);
+        } else if (pe.index < c.pastes.size()) {
+            c.pastes[pe.index].heading = pe.draft.heading;
+            c.pastes[pe.index].body = pe.draft.body;
+        }
+        pe = PasteEdit{};
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::PopStyleColor();
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button(ui::text(ui::Msg::PasteCancel), ImVec2(120, 0))) {
+        pe = PasteEdit{};
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+void quickpaste_tab(App& app, Config& c) {
+    section(app, ui::text(ui::Msg::SectionPastes));
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::PasteListHelp));
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing();
+
+    PasteAction act;
+    for (size_t i = 0; i < c.pastes.size(); ++i) paste_row(app, c, i, act);
+    if (c.pastes.empty()) ImGui::TextDisabled("%s", ui::text(ui::Msg::PasteNone));
+    // After the loop, never inside it: both of these change the list the loop is walking.
+    resolve_paste_drag(c, act);
+    if (act.removing && act.removed < c.pastes.size())
+        c.pastes.erase(c.pastes.begin() + static_cast<ptrdiff_t>(act.removed));
+
+    ImGui::Separator();
+    const std::string add = app.fonts().has_glyphs
+                                ? std::string(ui::kGlyphAdd) + "  " + ui::text(ui::Msg::PasteNew)
+                                : std::string(ui::text(ui::Msg::PasteNew));
+    if (ImGui::Button(add.c_str())) app.paste_edit() = PasteEdit{true, true, 0, Paste{}};
+    ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
+    const size_t on = enabled_pastes(c.pastes);
+    if (on >= kMaxActivePastes)
+        ImGui::TextDisabled(ui::text(ui::Msg::PasteSlotsFull), kMaxActivePastes);
+    else
+        ImGui::TextDisabled(ui::text(ui::Msg::PasteSlotsLeft), on, kMaxActivePastes);
+
+    paste_dialog(app, c);
+}
+
 void application_tab(App& app, Config& c) {
     section(app, ui::text(ui::Msg::SectionGameData));
     data_row(app);
@@ -542,8 +807,13 @@ struct Tab {
 constexpr Tab kTabs[]{
     {ui::Msg::TabGeneral, &general_tab},
     {ui::Msg::TabPriceCheck, &price_check_tab},
+    {ui::Msg::TabQuickPaste, &quickpaste_tab},
     {ui::Msg::TabApplication, &application_tab},
 };
+// The paste popup's "add one" opens Settings on this tab by number, and a tab inserted above
+// it would quietly send that button somewhere else.
+static_assert(kTabs[kQuickPasteTab].draw == &quickpaste_tab,
+              "kQuickPasteTab must name the tab the paste list is on");
 
 /// The fixed tab strip. Buttons rather than `ImGui::BeginTabBar`, because the game marks the
 /// open tab by lighting its *name* and ImGui has no colour for a selected tab's label.

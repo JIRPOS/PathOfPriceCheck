@@ -20,7 +20,9 @@
 #include "platform/overlay_native.hpp"
 #include "platform/platform.hpp"
 #include "platform/single_instance.hpp"
+#include "quickpaste.hpp"
 #include "screens/pricecheck_screen.hpp"
+#include "screens/quickpaste_screen.hpp"
 #include "screens/settings_screen.hpp"
 #include "trade/query.hpp"
 #include "ui/strings.hpp"
@@ -98,6 +100,20 @@ std::string clipboard_wedge_note(const std::string& targets) {
            " application takes the selection from Wine, which re-acquires it only when the window"
            " manager activates the game again. Alt-tab out of the game and back to clear it."
            " The format list above usually names who has it.";
+}
+
+/// Which paste-list slot a key press picks, or -1 for a key that picks none.
+///
+/// **Scancodes and not keycodes.** The digits are printed on the number row only on a US
+/// layout; on a Czech one the same physical keys produce `ěščřžýáíé`, and the popup would be
+/// unusable by number for everybody whose layout is not en-US. A scancode is the key's position,
+/// which is what "the second key along" means and what the digit in the square stands for. The
+/// keypad answers the same slots, since somebody whose hand is already there should not have to
+/// move it either.
+int paste_slot_for(SDL_Scancode sc) {
+    if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9) return sc - SDL_SCANCODE_1;
+    if (sc >= SDL_SCANCODE_KP_1 && sc <= SDL_SCANCODE_KP_9) return sc - SDL_SCANCODE_KP_1;
+    return -1;
 }
 
 void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
@@ -318,6 +334,14 @@ int App::run(bool relaunched_after_update) {
             // The idle status marker, which otherwise only ever appears while the game is the
             // window in front. Laid out against the display, since there is no game to measure.
             place_overlay();
+        } else if (std::getenv("PPC_DEV_PASTE")) {
+            // The paste popup, at wherever the pointer happens to be — the only way to see it
+            // without the game, since it is placed against a cursor the hotkey sampled.
+            float mx = 0, my = 0;
+            SDL_GetGlobalMouseState(&mx, &my);
+            paste_x_ = static_cast<int>(mx);
+            paste_y_ = static_cast<int>(my);
+            set_screen(Screen::QuickPaste);
         } else if (const char* path = std::getenv("PPC_DEV_ITEM")) {
             std::ifstream in(path, std::ios::binary);
             if (in) {
@@ -369,6 +393,8 @@ int App::run(bool relaunched_after_update) {
                 draw_settings_screen(*this);
             else if (screen_ == Screen::PriceCheck)
                 draw_pricecheck_screen(*this);
+            else if (screen_ == Screen::QuickPaste)
+                draw_quickpaste_screen(*this);
             else
                 draw_status_marker(*this);
             overlay_.end_frame();
@@ -453,8 +479,11 @@ void App::handle_event(const SDL_Event& e) {
             if (km & SDL_KMOD_SHIFT) m = m | Mod::Shift;
             if (km & SDL_KMOD_ALT) m = m | Mod::Alt;
             if (km & SDL_KMOD_GUI) m = m | Mod::Super;
-            (capture_which_ == Action::PriceCheck ? config_.price_check : config_.settings) =
-                Hotkey{m, name};
+            switch (capture_which_) {
+            case Action::PriceCheck: config_.price_check = Hotkey{m, name}; break;
+            case Action::ToggleSettings: config_.settings = Hotkey{m, name}; break;
+            case Action::QuickPaste: config_.quick_paste = Hotkey{m, name}; break;
+            }
             end_capture();
         }
     } else if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) {
@@ -463,16 +492,25 @@ void App::handle_event(const SDL_Event& e) {
         // the user was aiming at. ImGui closes its popup on the same press, so both agree.
         if (filter_edit_.open()) close_filter_edit();
         else set_screen(Screen::Hidden);
+    } else if (e.type == SDL_EVENT_KEY_DOWN && screen_ == Screen::QuickPaste) {
+        // The whole reason the popup claims the keyboard. A slot nothing is in is not a miss to
+        // report — the popup stays up and the mouse still works.
+        const int slot = paste_slot_for(e.key.scancode);
+        const std::vector<size_t> active = active_pastes(config_.pastes);
+        if (slot >= 0 && static_cast<size_t>(slot) < active.size())
+            pick_paste(active[static_cast<size_t>(slot)]);
     } else if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
         had_focus_ = true;
         debug::log("[app]    overlay focus gained");
     } else if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
         debug::log("[app]    overlay focus lost (screen=%d, had_focus=%d)", (int)screen_,
                    (int)had_focus_);
-        // Price-check auto-dismisses when you click back into the game; Settings stays
-        // open until closed manually (its hotkey or the X button). had_focus_ avoids
-        // closing before the window has actually taken focus.
-        if (!dev_mode_ && screen_ == Screen::PriceCheck && had_focus_) set_screen(Screen::Hidden);
+        // Price-check and the paste popup auto-dismiss when you click back into the game;
+        // Settings stays open until closed manually (its hotkey or the X button). had_focus_
+        // avoids closing before the window has actually taken focus.
+        if (!dev_mode_ && (screen_ == Screen::PriceCheck || screen_ == Screen::QuickPaste) &&
+            had_focus_)
+            set_screen(Screen::Hidden);
     }
     overlay_.process_event(e);
     need_redraw_ = true; // an event may have changed the UI
@@ -746,7 +784,7 @@ void App::rebuild_plan() {
 /// from under the edit. `set_screen(Hidden)` gives it back when the check itself ends.
 void App::edit_filter(FilterEdit::Kind kind, size_t index, float top, float bottom) {
     filter_edit_ = FilterEdit{kind, index, bottom, top, /*opening=*/true};
-    if (!overlay_.has_focus()) overlay_take_keyboard_focus(overlay_.window());
+    if (!overlay_.has_focus()) take_keyboard();
     need_redraw_ = true;
 }
 
@@ -804,7 +842,9 @@ void App::open_reference_page() {
 }
 
 void App::poll_click_away() {
-    if (screen_ != Screen::PriceCheck) {
+    // The paste popup dismisses the same way and by the same measurement — it is all panel and
+    // no gutter, so the rectangle below is simply its whole window.
+    if (screen_ == Screen::Hidden) {
         mouse_was_down_ = false;
         return;
     }
@@ -830,6 +870,15 @@ void App::poll_click_away() {
     const bool on_card = card_h_ > 0 && gx >= wx + layout_.tip_x &&
                          gx < wx + layout_.tip_x + layout_.tip_w && gy >= wy &&
                          gy < wy + card_h_;
+    // Settings does not dismiss on a click away — it closes on its own X, its hotkey or
+    // Escape. What a click *into* it means is that the user is coming back to it, possibly
+    // from another application that took the keyboard with it, and this is the earliest
+    // moment we can tell: the poll in `update_overlay_placement` is up to 400ms behind, and
+    // in the meantime the dialog would swallow their first sentence.
+    if (screen_ == Screen::Settings) {
+        if (on_panel) reclaim_keyboard();
+        return;
+    }
     if (!on_panel && !on_card) set_screen(Screen::Hidden);
 }
 
@@ -866,8 +915,12 @@ void App::handle_action(Action a) {
     // still has to close it.
     const bool game_focused = foreground_title_contains(config_.poe_window_title);
     if (a == Action::PriceCheck) log_state("hotkey");
-    if (!game_focused && !dev_mode_ &&
-        !(a == Action::ToggleSettings && screen_ == Screen::Settings)) {
+    // The exception is a hotkey closing the screen it opened. Both of those screens hold the
+    // keyboard focus themselves, so the game *cannot* be foreground while one is up, and the
+    // hotkey that opened it has to be able to take it away again.
+    const bool closes_own_screen = (a == Action::ToggleSettings && screen_ == Screen::Settings) ||
+                                   (a == Action::QuickPaste && screen_ == Screen::QuickPaste);
+    if (!game_focused && !dev_mode_ && !closes_own_screen) {
         debug::trace("[copy] hotkey ignored: game not focused");
         return;
     }
@@ -914,9 +967,48 @@ void App::handle_action(Action a) {
             debug::log("[copy] injected in %llums, stamp=%llu owner=%s",
                        (unsigned long long)(copy_started_ms_ - t0),
                        (unsigned long long)copy_stamp_, clipboard_owner_info().c_str());
+    } else if (a == Action::QuickPaste) {
+        if (screen_ == Screen::QuickPaste) {
+            set_screen(Screen::Hidden);
+            return;
+        }
+        // A price check still waiting on the clipboard would read our own write as the item it
+        // asked about — the stamp moves, the text is a paste, and it is dropped as "not an
+        // item" several hundred milliseconds after the user has moved on to something else.
+        if (copy_pending_) {
+            debug::log("[paste]  dropping the copy in flight: the paste list writes the"
+                       " clipboard itself");
+            abandon_copy();
+        }
+        // Where the hand is now, not where it will be when the window is placed.
+        float mx = 0, my = 0;
+        SDL_GetGlobalMouseState(&mx, &my);
+        paste_x_ = static_cast<int>(mx);
+        paste_y_ = static_cast<int>(my);
+        set_screen(Screen::QuickPaste);
     } else {
         set_screen(screen_ == Screen::Settings ? Screen::Hidden : Screen::Settings);
     }
+}
+
+/// Put a paste on the clipboard and close, which is the whole of what the popup does.
+///
+/// **Nothing presses Ctrl+V.** The paste happens where the user means it to, in their own field
+/// and at their own time — an injected keystroke into a game window is a different promise from
+/// the one this application makes about the copy path, and a mistimed one types into the chat
+/// box of whatever had focus.
+void App::pick_paste(size_t index) {
+    if (index >= config_.pastes.size()) return;
+    const Paste& p = config_.pastes[index];
+    const bool ok = clipboard_set_text(p.body);
+    debug::log("[paste]  picked '%s' (%zu bytes)%s", p.heading.c_str(), p.body.size(),
+               ok ? "" : " \xe2\x80\x94 the clipboard would not take it");
+    set_screen(Screen::Hidden); // which hands the focus back to the game
+}
+
+void App::open_paste_settings() {
+    settings_tab_ = kQuickPasteTab;
+    set_screen(Screen::Settings);
 }
 
 void App::update_overlay_placement() {
@@ -930,18 +1022,25 @@ void App::update_overlay_placement() {
                    (int)g.focused, g.w, g.h, g.x, g.y);
         game_state_logged_ = gs;
     }
-    // Go dormant when the game is gone *or* merely not in front — the idle marker has no
-    // business floating over other applications. Keep polling either way. An open panel is
-    // exempt: Settings holds the focus itself, so the game is never foreground while it's up,
-    // and price-check dismisses on its own terms.
+    // Somebody else is in front: a browser, a terminal, anything that is not the game and not
+    // us. **Nothing of ours floats over it — Settings included.** That exemption used to be
+    // justified by Settings holding the keyboard focus, so the game could never be foreground
+    // while it was up; but it only holds while Settings still *has* the focus, and alt-tabbing
+    // to look something up takes it away. What was left was a dialog painted over the browser
+    // that could not be typed into, because the window manager will not focus an
+    // override-redirect window and nothing asked it to again.
     //
     // **Our own window counts as the game being in front**, because from the user's side it
     // is: closing a panel that had taken the focus (a click on it, or the clipboard handover
     // nudge) leaves the focus on our now-empty overlay for as long as the compositor takes to
-    // hand it back, and the marker used to blink out for exactly that gap. It is not a hole in
-    // the rule above — focusing anything else takes the focus off us too, and the marker goes.
-    if (!g.present || (!g.focused && !overlay_.has_focus() && screen_ == Screen::Hidden)) {
-        if (overlay_.visible() && screen_ == Screen::Hidden) overlay_.set_visible(false);
+    // hand it back, and the marker used to blink out for exactly that gap.
+    const bool elsewhere = g.present && !g.focused && !overlay_.has_focus();
+    if (!g.present || elsewhere) {
+        // With the game *gone* only the idle marker goes with it: a panel left open would have
+        // no way back, since every hotkey that could reopen it is gated on the game being in
+        // front. With the game merely behind something else, everything hides and comes back.
+        if (overlay_.visible() && (elsewhere || screen_ == Screen::Hidden))
+            overlay_.set_visible(false);
         if (!g.present) { // forget geometry so it re-places when the game comes back
             game_present_ = false;
             game_w_ = game_h_ = 0;
@@ -950,7 +1049,13 @@ void App::update_overlay_placement() {
     }
 
     bool moved = g.x != game_x_ || g.y != game_y_ || g.w != game_w_ || g.h != game_h_;
-    if (game_present_ && overlay_.visible() && !moved) return; // already placed, nothing changed
+    if (game_present_ && overlay_.visible() && !moved) {
+        // Back from another application without the window having moved: still owed the
+        // keyboard, since it was lost to whatever was in front and no window manager will hand
+        // it to a window it does not manage.
+        reclaim_keyboard();
+        return; // already placed, nothing changed
+    }
     game_present_ = true;
     game_x_ = g.x;
     game_y_ = g.y;
@@ -962,8 +1067,30 @@ void App::update_overlay_placement() {
         overlay_.set_visible(true);
         overlay_set_click_through(overlay_.window(), screen_ == Screen::Hidden);
     }
-    if (screen_ != Screen::Hidden) SDL_RaiseWindow(overlay_.window());
+    if (screen_ != Screen::Hidden) {
+        SDL_RaiseWindow(overlay_.window());
+        reclaim_keyboard();
+    }
     need_redraw_ = true; // first placement / a move: repaint once
+}
+
+/// Take the keyboard back for a screen that cannot work without it.
+///
+/// Claiming it once, when the screen opens, is not enough: alt-tab to a browser and the focus
+/// goes with it, and **nothing ever gives it back** — the window manager will not focus an
+/// override-redirect window, so returning to the game leaves Settings on screen, apparently
+/// live, swallowing every keystroke. Reported from a session where looking a regex up in a
+/// browser cost the whole dialog. So it is re-claimed whenever the game is in front again,
+/// which is the same condition that puts the window back on screen.
+///
+/// Only the two screens that are *about* the keyboard, and only when we do not already hold it:
+/// a price check takes it on demand (`edit_filter`) and must not take it otherwise, or the
+/// focus-loss that dismisses it could never happen.
+void App::reclaim_keyboard() {
+    if (overlay_.has_focus()) return;
+    if (screen_ != Screen::Settings && screen_ != Screen::QuickPaste) return;
+    debug::log("[app]    reclaiming the keyboard for screen %d", (int)screen_);
+    take_keyboard();
 }
 
 Side App::cursor_side() const {
@@ -990,6 +1117,29 @@ void App::place_overlay() {
         SDL_SetWindowSize(overlay_.window(), kSettingsW, sh);
         SDL_SetWindowPosition(overlay_.window(), gx + (gw - kSettingsW) / 2, gy + (gh - sh) / 2);
         layout_ = PanelLayout{0, kSettingsW, 0, 0};
+        return;
+    }
+
+    if (screen_ == Screen::QuickPaste) {
+        int w = 0, h = 0;
+        quickpaste_size(active_pastes(config_.pastes).size(), &w, &h);
+        // Right of the cursor and starting at it, which is where a menu opens — then clamped
+        // into the game window, which is what turns "downwards" into "upwards" near the bottom
+        // edge and into somewhere between the two in the middle. No decision of its own: a rule
+        // that picks a direction and a clamp that has to override it would disagree in the
+        // cases that matter.
+        constexpr int kCursorGap = 14;
+        int x = paste_x_ + kCursorGap;
+        if (x + w > gx + gw) x = paste_x_ - kCursorGap - w; // no room on the right: open left
+        // max(min()), not clamp: a game window narrower or shorter than the popup puts the low
+        // bound above the high one, which clamp is not defined for.
+        x = std::max(gx, std::min(x, gx + gw - w));
+        const int y = std::max(gy, std::min(paste_y_ - kCursorGap, gy + gh - h));
+        SDL_SetWindowSize(overlay_.window(), w, h);
+        SDL_SetWindowPosition(overlay_.window(), x, y);
+        layout_ = PanelLayout{0, float(w), 0, 0};
+        debug::log("[paste]  placed %dx%d+%d+%d for a cursor at %d,%d", w, h, x, y, paste_x_,
+                   paste_y_);
         return;
     }
 
@@ -1061,9 +1211,11 @@ void App::log_state(const char* when) {
 void App::log_session_start() {
     if (!debug::enabled()) return;
     debug::log("[state]  config %s", Config::path().c_str());
-    debug::log("[state]  hotkeys: price check %s, settings %s; league '%s'; window title '%s'",
+    debug::log("[state]  hotkeys: price check %s, settings %s, paste list %s (%zu of %zu"
+               " enabled); league '%s'; window title '%s'",
                to_string(config_.price_check).c_str(), to_string(config_.settings).c_str(),
-               config_.league.c_str(), config_.poe_window_title.c_str());
+               to_string(config_.quick_paste).c_str(), enabled_pastes(config_.pastes),
+               config_.pastes.size(), config_.league.c_str(), config_.poe_window_title.c_str());
     debug::log("[state]  video driver %s", SDL_GetCurrentVideoDriver());
     log_state("startup");
 }
@@ -1105,15 +1257,47 @@ void App::set_screen(Screen s) {
     // Settings needs keyboard focus immediately (text fields); a price check takes it only when
     // something on it has to be typed into (edit_filter) or the copy stalls
     // (nudge_clipboard_handover). Closing hands focus back to the game.
-    if (s == Screen::Settings) {
-        overlay_take_keyboard_focus(overlay_.window());
+    if (s == Screen::QuickPaste) {
+        // The number keys are the feature; without the keyboard the popup is a menu you have to
+        // aim at. This is the server's input focus and not the window manager's activation —
+        // the same thing the range editor takes, and the same reason it is not a violation of
+        // the rule about the game's foreground.
+        take_keyboard();
+    } else if (s == Screen::Settings) {
+        take_keyboard();
         // TTL-gated, so a warm cache makes this a no-op. A user who never opens Settings
         // never makes a network request at all.
         leagues_.refresh(false);
-    } else if (s == Screen::Hidden && overlay_.has_focus()) {
-        focus_game_window(config_.poe_window_title); // only hand back focus we actually took
+    } else if (s == Screen::Hidden) {
+        give_keyboard_back();
     }
     need_redraw_ = true;
+}
+
+/// Claim the X input focus for our own window, and **remember that we did**.
+void App::take_keyboard() {
+    took_keyboard_ = true;
+    overlay_take_keyboard_focus(overlay_.window());
+}
+
+/// Hand the keyboard back to the game — but only focus we took, and only if the game is still
+/// the window the *user* is in.
+///
+/// Two conditions rather than one, and the second is not redundant. `overlay_.has_focus()` is
+/// SDL's view, which lags the `XSetInputFocus` we just made by however long the round trip takes
+/// — so a popup dismissed briskly (pick a paste the moment it opens) could reach here before SDL
+/// had registered the focus we ourselves claimed, and the game would be left without it. That is
+/// not cosmetic on this path: it is the focus change that makes Wine re-read the X selection, so
+/// skipping it is a paste of the previous clipboard.
+///
+/// `took_keyboard_` is our own record of an action we performed, and the foreground check is
+/// what keeps it honest — if the user has alt-tabbed to a browser meanwhile, the focus is theirs
+/// to place and pulling it onto the game would be exactly the theft the focus rule forbids.
+void App::give_keyboard_back() {
+    const bool ours = overlay_.has_focus() ||
+                      (took_keyboard_ && foreground_title_contains(config_.poe_window_title));
+    took_keyboard_ = false;
+    if (ours) focus_game_window(config_.poe_window_title);
 }
 
 void App::begin_capture(Action which) {
@@ -1137,7 +1321,9 @@ void App::apply_and_save_config() {
 }
 
 void App::rebind_hotkeys() {
-    hotkeys_->rebind({{config_.price_check, Action::PriceCheck}, {config_.settings, Action::ToggleSettings}});
+    hotkeys_->rebind({{config_.price_check, Action::PriceCheck},
+                      {config_.settings, Action::ToggleSettings},
+                      {config_.quick_paste, Action::QuickPaste}});
 }
 
 } // namespace ppc

@@ -37,17 +37,17 @@ what a strategy leaves out is a **collapsed section at its foot** rather than no
 its links**, which is a price the tool missed entirely — see [trade-layer.md](trade-layer.md) and
 [item-layer.md](item-layer.md).
 
-### 0.5, the paste list
+### 0.5, QuickPaste — **built**
 
-- Setting the clipboard goes through our own platform seam, never SDL's, and the X11 owner is a
-  window that has to outlive the popup. Wine renders on request, so it will ask.
-  → [platform.md](platform.md)
-- No injected Ctrl+V: **focus is a gate, never something to take**, and Wine's clipboard is the
-  one sanctioned exception. → [architecture.md](architecture.md)
-- Cursor placement is a new mode; everything placed today anchors to `stash_edge` /
-  `inventory_edge`. Clamp to the screen, dismiss on Escape, click-away and pick.
-- Number-key selection is not a nicety: the point of the feature is speed at a vendor window, and
-  a popup the mouse has to travel to has spent what it saved.
+Every constraint below held; the layer is [quickpaste.md](quickpaste.md) now, not a plan. The
+clipboard owner is a thread with its own `Display` (`clipboard_set_text`), nothing injects
+Ctrl+V, the popup is placed against a cursor sampled at hotkey time and clamped into the game
+window, and the number keys are read as **scancodes** — which was the one thing the note below
+did not anticipate, and the thing that decides whether the feature works outside a US layout.
+
+One rule the plan did not have and the code now does: nine slots is a limit on the *keyboard*,
+so storage is unbounded, `enabled` is what competes for a number, and the ceiling is enforced on
+load as well as in the UI because `config.json` is hand-editable.
 
 ### 0.6, map check
 

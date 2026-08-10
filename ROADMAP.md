@@ -70,18 +70,25 @@ could only tick it or leave it.
 
 **Does not** — carry an edit onto the next item. Bounds belong to the item in hand.
 
-## 0.5 — The paste list
+## 0.5 — QuickPaste — **shipped**
 
-*Working name.* A hotkey opens a small window at the cursor listing saved snippets — a map regex,
-a vendor search, a whisper you send twenty times an evening.
+A hotkey opens a small window at the cursor listing saved snippets — a map regex, a vendor
+search, a whisper you send twenty times an evening.
 
-**Will:**
+**Does:**
 
-- Hold entries of a heading and a body, multi-line, edited in Settings.
+- Hold entries of a heading and a body, multi-line, written and arranged in Settings' own
+  **QuickPaste** tab: add, edit, delete, and drag into the order you want them offered in.
 - Put the one you pick on the clipboard and give the game back the foreground.
-- Pick by number key, so the mouse never has to travel.
+- **Pick by number key**, so the mouse never has to travel — and by the key's *position*, so it
+  works on a keyboard layout that does not print digits on that row.
+- Offer nine at a time, which is how many number keys there are. Keep as many as you like: the
+  ones beyond nine are simply switched off until you switch something else off. Nothing to read,
+  nothing refused — the tenth tick is just not available.
+- Open at your cursor, growing down, up, or from somewhere between the two, whichever fits the
+  screen.
 
-**Will not** — press Ctrl+V for you. You paste, in your own field, at your own time.
+**Does not** — press Ctrl+V for you. You paste, in your own field, at your own time.
 
 **Might** — grow that keystroke as an option later if it turns out to be wanted.
 

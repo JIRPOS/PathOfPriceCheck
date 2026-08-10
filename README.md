@@ -36,6 +36,11 @@ the game in the game's own typeface.
   volume-weighted average, the band around it, and the volume on both sides. Items that trade
   there get no Search button, and one that had no trade in the last hour says so rather than
   showing you nothing.
+- **QuickPaste.** Alt+V opens your saved snippets at the cursor — a map regex, a vendor search, the
+  whisper you send twenty times an evening. Pick one by clicking it or by pressing its number, and
+  it is on your clipboard. **It does not press Ctrl+V for you**: you paste it yourself, in the
+  field you meant, at your own time. Nine at a time, because that is how many number keys there
+  are; keep as many as you like and switch them in and out in Settings.
 - **Listings you can read.** Account, listing age and price, with the seller's own item drawn
   beside the list when you hover a row — through the same renderer as the item in your hand, so the
   comparison is like-for-like.
@@ -117,11 +122,15 @@ for Arch, Debian/Ubuntu/Mint/Pop!\_OS and Fedora, plus the Windows toolchain.
 | | |
 |---|---|
 | **Ctrl+D** | price-check the item under the cursor |
+| **Alt+V** | open QuickPaste at the cursor; **1**-**9** picks one |
 | **Shift+Space** | Settings |
 | **Escape**, click away, or the hotkey again | dismiss the panel |
 
-Both hotkeys are rebindable in Settings, and both are ignored unless Path of Exile is the window in
-front — they are grabbed system-wide, so they must not go off in your browser.
+All three hotkeys are rebindable in Settings, and all three are ignored unless Path of Exile is the
+window in front — they are grabbed system-wide, so they must not go off in your browser.
+
+QuickPaste's number keys go by the key's **position**, not by what your layout prints on it, so the
+top row works whatever keyboard you have.
 
 The panel docks beside the frame the item came from: right of the stash, or left of the inventory,
 depending on which half of the screen your cursor was in. If it lands wrong, the stash and

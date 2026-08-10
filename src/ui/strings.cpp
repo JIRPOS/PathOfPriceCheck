@@ -20,6 +20,7 @@ constexpr const char* kEnglish[]{
 
     "General",
     "Price check",
+    "QuickPaste",
     "Application",
 
     "League and account",
@@ -28,6 +29,7 @@ constexpr const char* kEnglish[]{
     "Trade search",
     "Filter ranges",
     "Hotkeys",
+    "Pastes",
     "Price-check panel",
     "Game data",
     "Updates",
@@ -69,6 +71,7 @@ constexpr const char* kEnglish[]{
 
     "Price check",
     "Settings",
+    "QuickPaste",
     "press keys\xe2\x80\xa6",
 
     "Reduce transparency",
@@ -78,6 +81,27 @@ constexpr const char* kEnglish[]{
     "Width",
     "Stash edge",
     "Inventory edge",
+
+    "The QuickPaste hotkey opens this list at your cursor. Picking one puts its text on your "
+    "clipboard \xe2\x80\x94 you paste it yourself, where you meant to.",
+    "Nothing here yet.",
+    "%zu of %zu slots used \xe2\x80\x94 the popup picks by number key.",
+    "All %zu slots are taken. Turn one off to give another a number.",
+    "(no heading)",
+    "(nothing to paste)",
+    "New paste",
+    "Edit paste",
+    "Delete",
+    "Drag to reorder",
+    "Heading",
+    "What it is",
+    "Text",
+    "What goes on the clipboard. Newlines are kept.",
+    "Done",
+    "Cancel",
+    "Too long to put on the clipboard \xe2\x80\x94 the ceiling is %zu bytes.",
+    "No pastes enabled.",
+    "Add a paste",
 
     "Bundle",
     "Downloading %.1f / %.1f MB",

@@ -9,7 +9,9 @@ it drives have docs of their own and are read separately: [data-layer.md](data-l
 [platform.md](platform.md).
 
 Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`)
-owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings }`. Price-check
+owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings, QuickPaste }`
+— the last of which is the paste list and is [quickpaste.md](quickpaste.md), the only screen that
+does not involve the copy path at all. Price-check
 hotkey → `simulate_copy()` → wait for the clipboard to be written → parse → show if it's an item.
 **Four steps, and they are meant to stay four.** An earlier version grew a pre-copy snapshot, a
 byte comparison against it, a latching write detector, `SDL_EVENT_CLIPBOARD_UPDATE` as a third
@@ -129,15 +131,29 @@ the copy path used to call `focus_game_window()` on a window it had just confirm
 and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
 the game on close **only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
 
-**Claiming the keyboard is a smaller thing than claiming the foreground**, and two places do it:
-Settings, for its text fields, and the filter list's range editor, for its two boxes. Both call
-`overlay_take_keyboard_focus`, which is `XSetInputFocus` on our own override-redirect window — it
+**Claiming the keyboard is a smaller thing than claiming the foreground**, and three places do it:
+Settings, for its text fields; the filter list's range editor, for its two boxes; and the paste
+popup, for its number keys. All three go through `App::take_keyboard`, which is
+`overlay_take_keyboard_focus` — `XSetInputFocus` on our own override-redirect window — it
 moves `input=` and leaves `active=` on the game, which is why it is useless for prising the
 clipboard out of Wine (below) and exactly right here. Without it a text field on a price check
-looks live and receives nothing, because the WM will not focus the window it is drawn on. Neither
-hands the focus back on closing the widget: for a price check the game regaining focus *is* the
-dismiss, so returning it would close the panel out from under the edit. `set_screen` hands it back
-when the screen closes, and only if `overlay_.has_focus()`.
+looks live and receives nothing, because the WM will not focus the window it is drawn on. None of
+them hands the focus back on closing the widget: for a price check the game regaining focus *is*
+the dismiss, so returning it would close the panel out from under the edit. `set_screen` hands it
+back when the screen closes, through `give_keyboard_back`.
+
+**Claiming it once is not enough, and `overlay_.has_focus()` is not the record of having claimed
+it.** Two reported bugs came out of that pair. A screen that lives on the keyboard has to
+*re-*claim it whenever the game comes back to the front, because the window manager will not hand
+the focus to a window it does not manage — without that, alt-tabbing to a browser and back left
+Settings on screen, apparently live, receiving nothing (`App::reclaim_keyboard`, run from the
+placement poll and, up to 400ms sooner, from a click into the panel). And handing it back cannot
+be gated on SDL's `has_focus()` alone, which lags the `XSetInputFocus` that caused it: a paste
+popup dismissed briskly reached the hand-back before SDL had registered the focus we had taken
+ourselves, so the game never got a focus change — and that focus change is what makes Wine re-read
+the clipboard, which is why the first paste served the *previous* one. `took_keyboard_` is our own
+record of the call, and `give_keyboard_back` still checks the foreground first, so it can never
+become a focus steal from a third application.
 
 **A drag that leaves the window is reconciled against the physical mouse** (`Overlay::sync_held_mouse`,
 run between the backend's `NewFrame` and ImGui's). The overlay is never wider than it needs to be
@@ -178,7 +194,8 @@ releases even when it finds no game window — an unmatched pair leaks the helpe
 `deactivate_game_window` then refuses.
 
 `App::place_overlay()` gives each screen its own geometry: Settings is a 640×720 dialog centered over
-the game, price-check is a **full-height panel docked beside the item's own frame** — right of the
+the game, the paste popup is sized to its own list and placed at the cursor sampled when its hotkey
+fired (see [quickpaste.md](quickpaste.md)), price-check is a **full-height panel docked beside the item's own frame** — right of the
 stash if the cursor was in the left half of the game window at hotkey time, left of the inventory if
 in the right half (`App::cursor_side()`, sampled before the copy; the user has moved on by the time
 the clipboard lands). Panels straddling the middle — vendor, quest rewards — have no correct answer,
@@ -222,7 +239,7 @@ globe's lower half, so that the third line — the one an available update adds 
 glass instead of on the frame. `place_overlay` sizes the window to the text for that screen, so the idle
 overlay is a 200×48 rectangle rather than a dialog-sized one nothing is drawn into.
 
-**Settings is three tabs** — General, Price check, Application — between a fixed header (the title
+**Settings is four tabs** — General, Price check, QuickPaste, Application — between a fixed header (the title
 and the close disc) and a fixed footer (Save). `kTabs` in `settings_screen.cpp` pairs each name with
 the function that draws it; `App::settings_tab()` holds which one is open, because the screen is a
 free function rebuilt every frame. The strip is buttons, not `ImGui::BeginTabBar`: the game marks
@@ -311,13 +328,18 @@ holds no SDL/X11/curl and every layer can log into it.
   `clipboard_poke`). Suspect it first whenever turning the log on changes the behaviour being logged.
 
 A **system-tray icon** (SDL3 `SDL_Tray`, cross-platform) provides Exit. `Overlay` wraps
-the SDL3+GL+ImGui window; `Config` persists to JSON. **`SDL_HINT_VIDEO_ALLOW_SCREENSAVER` is set
+the SDL3+GL+ImGui window; `Config` persists to JSON. **`Config::load` reads every field inside
+one `try`**, not just the parse: `config.json` is hand-editable and nlohmann throws as readily on
+a field of the wrong type as on a truncated file, so an object where a string belongs would
+otherwise be an uncaught exception before the first window — a config the user can only fix by
+deleting it. What was read before the throw stands and everything after it keeps its default,
+which is the same posture as the clamping the numeric fields already do. **`SDL_HINT_VIDEO_ALLOW_SCREENSAVER` is set
 back on**: SDL disables the screensaver at video init on the assumption that it is running a game,
 and on Linux that is an `org.freedesktop.ScreenSaver` inhibit — reason "Playing a game" — held for
 the life of the process, so an application that sits in the tray all day stopped the machine from
 sleeping. The game does its own inhibiting; we are a desktop app. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check panel on a captured
-clipboard instead, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
+clipboard instead, `PPC_DEV_PASTE=1` to open the paste popup at the pointer, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
 appears while the game is the window in front). `PPC_DEV_UPDATE_URL=<url>` points the update check
 at a `latest.json` of your own, which is the only way to see its three notice surfaces before a
 release publishes one — see [updater.md](updater.md).
