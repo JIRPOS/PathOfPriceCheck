@@ -8,6 +8,7 @@
 #include <imgui.h>
 
 #include "data/mapped_file.hpp"
+#include "ui/glyphs.hpp"
 
 namespace ppc {
 namespace {
@@ -16,6 +17,9 @@ namespace {
 // dependency. Regenerate with scripts/gen-font-data.sh; see assets/fonts/README.md
 // for the license it ships under.
 #include "fontin_data.inc"
+
+// The UI glyphs, on the same terms. Regenerate with scripts/gen-glyph-data.sh.
+#include "glyph_data.inc"
 
 constexpr const char* kRegular = "Fontin-Regular.ttf";
 constexpr const char* kBold = "Fontin-Bold.ttf";
@@ -43,6 +47,20 @@ constexpr ImWchar kBorrowedGlyphs[]{0x2264, 0x2265, 0};
 /// serve every script Fontin lacks, quietly replacing the boxes `fonts.unicode` exists to draw
 /// properly.
 constexpr ImWchar kOnlyBorrowed[]{1, 0x2263, 0x2266, IM_UNICODE_CODEPOINT_MAX, 0};
+
+/// The same complement for the glyph subset, which lives in the Private Use Area between
+/// U+F00C and U+F0E2. The subset carries no outline outside those two, but it does carry a
+/// `.notdef` — and a merged source answering for *that* would serve every codepoint nothing
+/// else has, replacing the boxes `fonts.unicode` exists to draw honestly.
+constexpr ImWchar kOnlyGlyphs[]{1, 0xF00B, 0xF0E3, IM_UNICODE_CODEPOINT_MAX, 0};
+
+/// Font Awesome draws on a square em and Fontin on a face with descenders, so a glyph baked at
+/// the text size stands a touch tall and sits a touch high against the words beside it. Both
+/// numbers are fractions of the size so they hold at every scale: the glyphs are only ever
+/// used on buttons, where being a hair smaller than the label height is what keeps the button
+/// the same height as one with a word on it.
+constexpr float kGlyphScale = 0.86f;
+constexpr float kGlyphNudgeY = 0.10f;
 
 bool exists(const std::string& path) { return SDL_GetPathInfo(path.c_str(), nullptr); }
 
@@ -227,8 +245,14 @@ Fonts load_fonts(float size_px) {
     // Merged straight after the face it belongs to: MergeMode folds a source into whichever face
     // was added last, so this cannot be hoisted out of the middle of the list.
     const auto borrowed = [&](ImFont* face) {
-        if (face)
-            for (const FontBytes b : borrow) add_mapped_face(b, size_px, true, kOnlyBorrowed);
+        if (!face) return face;
+        for (const FontBytes b : borrow) add_mapped_face(b, size_px, true, kOnlyBorrowed);
+        ImFontConfig gcfg;
+        gcfg.MergeMode = true;
+        gcfg.GlyphExcludeRanges = kOnlyGlyphs;
+        gcfg.GlyphOffset = ImVec2(0.0f, size_px * kGlyphNudgeY);
+        io.Fonts->AddFontFromMemoryCompressedBase85TTF(ppc_glyphs_compressed_data_base85,
+                                                       size_px * kGlyphScale, &gcfg);
         return face;
     };
 
@@ -261,6 +285,15 @@ Fonts load_fonts(float size_px) {
                               baked->FindGlyphNoFallback(0x2265) != nullptr;
     if (!f.has_comparison_glyphs)
         SDL_Log("no system face carries \xe2\x89\xa4 or \xe2\x89\xa5; spelling them out instead");
+    // Asked of the atlas for the same reason, though this one is embedded and so can only fail
+    // by the subset and `ui/glyphs.hpp` having drifted apart. That is worth catching loudly: the
+    // symptom downstream is a button with nothing drawn on it.
+    f.has_glyphs = baked != nullptr;
+    for (const unsigned int cp : ui::kGlyphCodepoints)
+        if (!baked || !baked->FindGlyphNoFallback(static_cast<ImWchar>(cp))) f.has_glyphs = false;
+    if (!f.has_glyphs)
+        SDL_Log("the bundled glyph subset is missing what ui/glyphs.hpp names; "
+                "regenerate with scripts/gen-glyph-data.sh");
 
     // Last, so a merge cannot latch onto one of the Fontin faces by accident.
     f.unicode = load_unicode_face(system_faces(), size_px);

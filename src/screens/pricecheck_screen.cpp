@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <memory>
@@ -16,6 +18,8 @@
 #include "ninja/ninja.hpp"
 #include "screens/item_view.hpp"
 #include "trade/query.hpp"
+#include "ui/glyphs.hpp"
+#include "ui/range_slider.hpp"
 #include "util/debug_log.hpp"
 
 namespace ppc {
@@ -59,12 +63,19 @@ std::string format_number(double v, int dp) {
 /// they used to paint nothing at all (see `kBorrowedGlyphs`). `glyphs` is false only where the
 /// OS shipped nothing to borrow from, and then they are spelled out: a floor whose `≥` went
 /// missing reads as an exact match, which is a different search.
+/// Two numbers as an interval. The separator is a hyphen — `46-48`, which is how a range is
+/// written and how the game writes one — **except where an end is negative**, and then it is the
+/// word: a map's "25% less Accuracy Rating" is stored as a negative increase, so its interval
+/// came out `-27--23`, which reads as neither a range nor two numbers.
+std::string interval_text(double lo, double hi, int dp) {
+    if (lo == hi) return format_number(lo, dp);
+    const char* join = lo < 0 || hi < 0 ? " to " : "-";
+    return format_number(lo, dp) + join + format_number(hi, dp);
+}
+
 std::string filter_text(const std::optional<double>& min, const std::optional<double>& max, int dp,
                         bool glyphs) {
-    if (min && max) {
-        if (*min == *max) return format_number(*min, dp);
-        return format_number(*min, dp) + "-" + format_number(*max, dp);
-    }
+    if (min && max) return interval_text(*min, *max, dp);
     if (min) return (glyphs ? "\xe2\x89\xa5" : ">=") + format_number(*min, dp);
     if (max) return (glyphs ? "\xe2\x89\xa4" : "<=") + format_number(*max, dp);
     return {};
@@ -75,8 +86,7 @@ std::string filter_text(const std::optional<double>& min, const std::optional<do
 std::string bracket_text(const std::optional<double>& min, const std::optional<double>& max,
                          int dp) {
     if (!min || !max) return {};
-    if (*min == *max) return "[" + format_number(*min, dp) + "]";
-    return "[" + format_number(*min, dp) + "-" + format_number(*max, dp) + "]";
+    return "[" + interval_text(*min, *max, dp) + "]";
 }
 
 /// The trade site's own colours for the two halves of the mod pool, which is where the user
@@ -217,6 +227,19 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     }
 }
 
+/// A row the range editor can be opened on, while the cursor is over it. Deliberately faint:
+/// the list is read down the column, and a highlight loud enough to notice on the row under the
+/// cursor is loud enough to break the scan on every row it passes over on the way.
+constexpr ImU32 kRowHover = IM_COL32(255, 255, 255, 20);
+
+/// Where the row was clicked, if it was. The row's extent comes back with the click because the
+/// editor hangs under the row — or over it, when the row is near the foot of the panel — and
+/// only the code that drew it knows how tall it turned out.
+struct RowClick {
+    bool clicked = false;
+    float top = 0, bottom = 0;
+};
+
 /// One filter row, across the table's four columns: the toggle, the wording, where the modifier
 /// came from and what it can roll, and what the search asks for.
 ///
@@ -224,11 +247,22 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
 /// row has something to put in: a pseudo total has no affix behind it and a roll on an item with
 /// Advanced Mod Descriptions off has no code, and a gap between the tick and the text reads as a
 /// missing checkbox rather than as a modifier with nothing to say about where it came from.
-void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& text,
-                     const std::string& note, const std::string& asks,
-                     const std::string& caveat = {}) {
+///
+/// **An `editable` row is one big click target, minus the checkbox** — the two things a filter
+/// row can be told are whether to search it and what to search it for, and putting the second on
+/// a widget in the last column would spend the width of a button per row on every list. The hit
+/// test is done by hand against the row's own rectangle rather than with a `Selectable`, because
+/// a `Selectable` is one line tall and a modifier wrapping onto three would only be clickable on
+/// its first: the row's height is not known until its four cells have been drawn.
+RowClick draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& text,
+                         const std::string& note, const std::string& asks,
+                         const std::string& caveat = {}, bool editable = false) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    float bottom = origin.y;
+    const auto reached = [&bottom] { bottom = std::max(bottom, ImGui::GetCursorScreenPos().y); };
+
     ImGui::PushID(id);
     // A box the height of a line of text rather than of a framed widget. This is a list of
     // modifiers with a tick beside each, and at the default frame padding the tick is taller
@@ -237,6 +271,10 @@ void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& 
     ImGui::Checkbox("", &enabled);
     ImGui::PopStyleVar();
     ImGui::PopID();
+    // The one part of the row that is not the click target: it has its own meaning, and the two
+    // would fight over every press.
+    const ImVec2 tick_min = ImGui::GetItemRectMin(), tick_max = ImGui::GetItemRectMax();
+    reached();
 
     ImGui::TableSetColumnIndex(1);
     ImGui::PushTextWrapPos(0.0f);
@@ -247,12 +285,381 @@ void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& 
     if (!caveat.empty() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", caveat.c_str());
     if (!note.empty()) ImGui::TextColored(kDim, "%s", note.c_str());
     ImGui::PopTextWrapPos();
+    reached();
 
     ImGui::TableSetColumnIndex(2);
     draw_origin(o);
+    reached();
 
     ImGui::TableSetColumnIndex(3);
     if (!asks.empty()) ImGui::TextColored(kBounds, "%s", asks.c_str());
+    const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+    reached();
+
+    if (!editable) return {};
+    // **`NoPopupHierarchy` is load-bearing.** `IsWindowHovered` counts a popup as part of the
+    // window that opened it unless told otherwise, so without this the editor's own window
+    // reads as the panel being hovered — and since the rect test deliberately ignores the clip
+    // rect, every press inside the editor also landed on whichever row it happened to cover.
+    // Dragging a knob or clicking a box opened a different row's editor.
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const bool on_tick = mouse.x >= tick_min.x && mouse.x < tick_max.x &&
+                         mouse.y >= tick_min.y && mouse.y < tick_max.y;
+    if (on_tick ||
+        !ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows |
+                                ImGuiHoveredFlags_NoPopupHierarchy) ||
+        !ImGui::IsMouseHoveringRect(ImVec2(origin.x, origin.y), ImVec2(right, bottom), false))
+        return {};
+    ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, kRowHover);
+    return {ImGui::IsMouseClicked(ImGuiMouseButton_Left), origin.y, bottom};
+}
+
+/// One interval, as the editor addresses it: the bounds to change, what the modifier can
+/// actually roll, what the plan seeded, and the precision all four are read at.
+///
+/// A view rather than a copy, because the edit is **live** — the last column follows the slider
+/// as it is dragged. There is no apply step to lose: an ImGui popup closes on any click outside
+/// itself, and on an overlay sitting over a game that happens constantly, so a scratch copy
+/// would throw away a drag the moment the mouse strayed. Nothing is sent either way until
+/// Search, which is the same argument `auto_search` is made of.
+struct Interval {
+    std::optional<double>* min;
+    std::optional<double>* max;
+    std::optional<double> roll_min, roll_max;
+    std::optional<double> seed_min, seed_max;
+    int dp = 0;
+    std::string label;
+};
+
+/// The slider's track, and whether it is a range the game published or one derived here.
+struct Track {
+    double lo = 0, hi = 0;
+    bool published = false;
+};
+
+/// How far a derived track reaches either side of the number it is built around, and the smallest
+/// half-width worth drawing. The floor is what keeps a value of zero — a resistance rolled off, a
+/// filter typed down to nothing — from collapsing the track to a point and taking the slider away
+/// again.
+constexpr double kDerivedSpread = 0.5;
+constexpr double kDerivedFloor = 1.0;
+
+/// The track to draw for an interval.
+///
+/// Where the game printed a range, that range is the track and there is nothing to decide. Most
+/// rows are not that: item level, quality, total energy shield and the derived damage numbers are
+/// **facts about the item rather than an affix's tier**, so no range exists for them anywhere, and
+/// a modifier read with Advanced Mod Descriptions off prints its roll without one. Those rows used
+/// to get two boxes and no slider, which made the editor look broken on exactly the numbers people
+/// most often want to loosen by a bit.
+///
+/// So a track is derived from the number in hand — **half of it either side** — and marked
+/// unpublished so nothing draws it as the affix's own range. This is a place to put the mouse and
+/// not a statement about what the item could have rolled: the ends still do not stop a drag, and
+/// the boxes still take anything. Read `range_slider`'s note on the ticks for the line between the
+/// two.
+std::optional<Track> track_for(const Interval& iv) {
+    if (iv.roll_min && iv.roll_max && *iv.roll_min < *iv.roll_max)
+        return Track{*iv.roll_min, *iv.roll_max, true};
+    // Whatever the row is actually about, preferring what the plan seeded over what the user has
+    // since typed — the track should not slide out from under a number being edited.
+    const auto anchor = [](std::initializer_list<std::optional<double>> candidates) {
+        for (const std::optional<double>& v : candidates)
+            if (v) return v;
+        return std::optional<double>{};
+    };
+    const std::optional<double> lo = anchor({iv.seed_min, iv.seed_max, *iv.min, *iv.max, iv.roll_min});
+    const std::optional<double> hi = anchor({iv.seed_max, iv.seed_min, *iv.max, *iv.min, iv.roll_max});
+    if (!lo || !hi) return std::nullopt; // nothing numeric to build one around
+    const double p = std::pow(10.0, iv.dp);
+    const double reach_lo = std::max(std::abs(*lo) * kDerivedSpread, kDerivedFloor);
+    const double reach_hi = std::max(std::abs(*hi) * kDerivedSpread, kDerivedFloor);
+    // Outwards, so the ends are round numbers at the row's own precision and the half either side
+    // is never rounded away.
+    return Track{std::floor((*lo - reach_lo) * p) / p, std::ceil((*hi + reach_hi) * p) / p, false};
+}
+
+/// The editor is the panel's width less this much on each side, so it reads as belonging to the
+/// list rather than floating over it. `kBoundField` is a box wide enough for six digits and a
+/// decimal point, which covers every roll the game prints; `kMinTrack` is the shortest track
+/// worth aiming a knob at, and going under it is what moves the buttons to a second line.
+constexpr float kEditorMargin = 6.0f;
+constexpr float kBoundField = 52.0f;
+constexpr float kMinTrack = 90.0f;
+/// One popup reused by every row, since only ever one is open.
+constexpr const char* kRangePopup = "##range_edit";
+
+/// The two boxes' text while the editor is open.
+///
+/// Kept as text and **not** re-formatted from the interval every frame: a box rewritten under
+/// the caret fights the typing, since "4" on the way to "48" formats straight back to "4" and a
+/// box cleared to remove a bound refills itself before the user lets go of backspace. So the
+/// text is the authority while the editor is up, and the interval is refilled *from* it —
+/// except when the slider or Reset moved the numbers, which is what `sync` is for.
+struct BoundText {
+    char min[24]{};
+    char max[24]{};
+    /// Which box the last typing went into, so a reconcile that happens after the editor is
+    /// already gone still knows which bound was the one being asked for.
+    bool typed_max = false;
+};
+
+void put_bound(char (&buf)[24], const std::optional<double>& v, int dp) {
+    const std::string s = v ? format_number(*v, dp) : std::string();
+    std::snprintf(buf, sizeof buf, "%s", s.c_str());
+}
+
+void sync_bounds(BoundText& t, const Interval& iv) {
+    put_bound(t.min, *iv.min, iv.dp);
+    put_bound(t.max, *iv.max, iv.dp);
+}
+
+/// One end of the interval, typed.
+///
+/// **Empty means no bound**, which is the whole reason this is an `InputText` and not an
+/// `InputDouble`: "both, a floor, a ceiling, or neither" cannot be said by a widget that always
+/// holds a number, and clearing the box is how a bound is taken off. Text that is not a number
+/// leaves the bound alone rather than clearing it — half of "-" is not yet a value, and a filter
+/// that emptied itself on the way to `-12` would be unusable.
+///
+/// **`std::from_chars`, never `strtod` or `sscanf`.** Both read the decimal separator through
+/// `LC_NUMERIC`, and the same "1.79" that is a number here is the integer 1 under a Czech
+/// locale — a filter on a different number, silently. See architecture.md.
+bool bound_input(const char* id, const char* hint, char (&buf)[24], std::optional<double>& v,
+                 float w) {
+    ImGui::SetNextItemWidth(w);
+    // The hint is what an empty box means, not a label: empty is the bound being **off**, which
+    // is a different search from a bound sitting at the end of the range. Which end this box is
+    // needs no word — it is the left one, in the order the slider beside it is drawn.
+    if (!ImGui::InputTextWithHint(id, hint, buf, sizeof buf,
+                                  ImGuiInputTextFlags_CharsDecimal |
+                                      ImGuiInputTextFlags_AutoSelectAll))
+        return false;
+    const char* begin = buf;
+    const char* end = buf + std::char_traits<char>::length(buf);
+    while (begin < end && *begin == ' ') ++begin;
+    if (begin == end) {
+        v.reset();
+        return true;
+    }
+    double parsed = 0;
+    if (std::from_chars(begin, end, parsed).ec != std::errc{}) return false;
+    // Held to the same stop the slider is. Nothing the game prints comes near it, so the only way
+    // past it is a paste, and a filter carrying 1e30 is a filter nothing downstream can format or
+    // send honestly.
+    v = std::clamp(parsed, -ui::kRangeLimit, ui::kRangeLimit);
+    return true;
+}
+
+/// Put a crossed-over interval back in order, carrying the bound that was **not** being typed —
+/// the same rule the slider's knobs follow, since an interval collapsed to a point is a legitimate
+/// search and a box that silently refuses what was typed into it says nothing about why.
+///
+/// **Once the box is left, and never per keystroke.** A drag past the other knob is unmistakably a
+/// request to take it along; a keystroke is not. Applied on every character, `200` typed over a
+/// floor of `192` arrives as `2`, `20`, `200` — and the first of those pulls the floor down to 2,
+/// where it stays, because the two keystrokes that would have justified it come after the damage
+/// is done. So the boxes write through live (the row follows the typing, which is the point) and
+/// the ordering waits for `IsItemDeactivatedAfterEdit`. A crossed interval on screen for as long
+/// as it takes to type the rest of a number is the honest picture of a half-typed number.
+void order_bounds(const Interval& iv, BoundText& t, bool typed_max) {
+    if (!*iv.min || !*iv.max || **iv.min <= **iv.max) return;
+    // Only the carried box is rewritten: reformatting the one under the caret is the fight
+    // `BoundText` exists to avoid.
+    if (typed_max) {
+        *iv.min = *iv.max;
+        put_bound(t.min, *iv.min, iv.dp);
+    } else {
+        *iv.max = *iv.min;
+        put_bound(t.max, *iv.max, iv.dp);
+    }
+}
+
+/// The range editor: a two-knob slider over what the modifier can roll, the two bounds as typed
+/// numbers, and the pair of glyph buttons — **all on one line**, the width of the panel it hangs
+/// under.
+///
+/// It says nothing the row above it already says. The wording, the modifier's own range and what
+/// the search currently asks for are all one line up, and repeating the wording inside the
+/// popover cost two lines to say what the reader is already looking at. So the editor is
+/// positioned to keep that row visible: **under it when there is room and over it never** — above
+/// it instead when the row is near the foot of the panel, using the height it drew at last frame,
+/// which is one frame stale and settles immediately.
+///
+/// **Every row that has a number gets a slider** — see `track_for` for where the track comes from
+/// when the game published no range, which is most of them. It reads as broken otherwise: an
+/// editor that is two boxes on item level and a slider on the modifier above it looks like the
+/// slider failed to load rather than like a considered distinction, and the numbers people most
+/// often want to loosen are exactly the ones with no published range. The distinction is still
+/// made, just where it belongs — in the ticks and the hover, not in whether the widget is there.
+void draw_range_editor(App& app, const Interval& iv, bool glyphs) {
+    static BoundText text;
+    static float last_h = 0;
+    FilterEdit& e = app.filter_edit();
+    // Read before it is cleared: the slider keeps a widened track between frames, keyed by an id
+    // this one popup uses for every row, and this is the frame that tells it the row has changed.
+    const bool fresh = e.opening;
+    if (e.opening) {
+        ImGui::OpenPopup(kRangePopup);
+        sync_bounds(text, iv);
+        text.typed_max = false;
+        e.opening = false;
+    }
+
+    // Panel-wide and pinned to the panel's own left edge, so the boxes and the buttons land in
+    // the same place on every row rather than wandering with the row's indentation. Inside the
+    // panel is not cosmetic: `App::poll_click_away` dismisses the whole price check on a press
+    // outside it, so a popover ImGui had drifted into the gutter would close the panel the first
+    // time it was used.
+    const PanelLayout& lay = app.layout();
+    const float w = std::max(160.0f, lay.panel_w - kEditorMargin * 2);
+    // Under the row, or above it when there is not room — never over it. max(min()) and not
+    // std::clamp, in keeping with everywhere else here that the two bounds can invert.
+    const float below = e.y + 2.0f;
+    const float y = below + last_h <= ImGui::GetIO().DisplaySize.y
+                        ? below
+                        : std::max(0.0f, e.top - last_h - 2.0f);
+    ImGui::SetNextWindowPos(ImVec2(lay.panel_x + kEditorMargin, y));
+    ImGui::SetNextWindowSize(ImVec2(w, 0.0f));
+    if (!ImGui::BeginPopup(kRangePopup)) {
+        // ImGui closed it — a click away, or Escape. Our own state is what says a row is being
+        // edited, so it has to follow rather than reopen the popup next frame. The boxes are not
+        // submitted on a frame the popup does not open, so this is the only place a number
+        // abandoned mid-typing gets its ordering: the box it was typed into never reports leaving.
+        order_bounds(iv, text, text.typed_max);
+        app.close_filter_edit();
+        return;
+    }
+
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float inner = ImGui::GetContentRegionAvail().x;
+    const float button = ImGui::GetFrameHeight();
+    const std::optional<Track> bar = track_for(iv);
+
+    // One line: slider, both boxes, both buttons. Four gaps between the five of them, and the
+    // slider takes whatever is left — dropping below `kMinTrack` is what puts the buttons on a
+    // second line instead, since a track too short to aim at is worse than a taller popover.
+    const float fixed = kBoundField * 2 + button * 2 + style.ItemSpacing.x * 4;
+    const bool one_line = !bar || inner - fixed >= kMinTrack;
+    if (bar) {
+        const float track = one_line ? inner - fixed
+                                     : inner - kBoundField * 2 - style.ItemSpacing.x * 2;
+        if (ui::range_slider("##track", *iv.min, *iv.max,
+                             ui::RangeTrack{bar->lo, bar->hi, iv.dp, track, bar->published, fresh}))
+            sync_bounds(text, iv);
+        // The numbers the track is drawn over. A hover rather than two labels under the ends:
+        // this is one line, and the row above already prints the same range in its own column.
+        // **The hover is where the two kinds of track are told apart** — one says what the game
+        // printed, the other says plainly that it is a place to drag and not a published range.
+        if (ImGui::IsItemHovered()) {
+            if (bar->published)
+                ImGui::SetTooltip("Rolls %s to %s at this tier \xe2\x80\x94 drag past an end, or "
+                                  "type, to ask for more",
+                                  format_number(*iv.roll_min, iv.dp).c_str(),
+                                  format_number(*iv.roll_max, iv.dp).c_str());
+            else
+                ImGui::SetTooltip("No published range for this, so the track is half either side "
+                                  "of what the item has \xe2\x80\x94 drag past an end, or type, to "
+                                  "ask for more");
+        }
+        ImGui::SameLine();
+    }
+
+    // No labels on the boxes. Left is the floor and right is the ceiling, which is the order the
+    // slider beside them is already drawn in, and two words here cost the track its width.
+    // The reconcile is deliberately **not** applied per keystroke — see `order_bounds`.
+    if (bound_input("##min", "min", text.min, *iv.min, kBoundField)) text.typed_max = false;
+    if (ImGui::IsItemDeactivatedAfterEdit()) order_bounds(iv, text, /*typed_max=*/false);
+    ImGui::SameLine();
+    if (bound_input("##max", "max", text.max, *iv.max, kBoundField)) text.typed_max = true;
+    if (ImGui::IsItemDeactivatedAfterEdit()) order_bounds(iv, text, /*typed_max=*/true);
+
+    // Glyphs rather than words: two buttons reading "Reset" and "Confirm" would take the width
+    // the track needs, and what each does is one hover away.
+    if (one_line) ImGui::SameLine();
+    else ImGui::SetCursorPosX(style.WindowPadding.x + inner - button * 2 - style.ItemSpacing.x);
+    if (ImGui::Button(glyphs ? ui::kGlyphReset : "R", ImVec2(button, button))) {
+        *iv.min = iv.seed_min;
+        *iv.max = iv.seed_max;
+        sync_bounds(text, iv);
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reset to what the tool seeded from the roll");
+    ImGui::SameLine();
+    if (ImGui::Button(glyphs ? ui::kGlyphConfirm : "K", ImVec2(button, button)) ||
+        ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) {
+        ImGui::CloseCurrentPopup();
+        app.close_filter_edit();
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Confirm \xe2\x80\x94 the edit is already kept");
+    last_h = ImGui::GetWindowSize().y;
+    ImGui::EndPopup();
+}
+
+/// The interval behind the row the editor is open on, or nothing if the plan has changed under
+/// it. The index is only meaningful against the plan it was taken from, and a bundle swap or a
+/// strategy change rebuilds that from scratch.
+std::optional<Interval> editing(item::SearchPlan& plan, const FilterEdit& e) {
+    if (e.kind == FilterEdit::Kind::Stat && e.index < plan.stats.size()) {
+        item::StatFilter& f = plan.stats[e.index];
+        return Interval{&f.min,     &f.max,     f.roll_min, f.roll_max,
+                        f.seed_min, f.seed_max, f.dp,       strip_roll_ranges(f.text)};
+    }
+    if (e.kind == FilterEdit::Kind::Numeric && e.index < plan.numerics.size()) {
+        item::NumericFilter& f = plan.numerics[e.index];
+        // A numeric has no roll range: item level, quality and the derived damage and defence
+        // numbers are facts about the item rather than an affix's tier, so there is nothing for
+        // a slider's track to be. Two boxes are the whole editor for these.
+        return Interval{&f.min,     &f.max,     std::nullopt, std::nullopt,
+                        f.seed_min, f.seed_max, f.dp,         f.label};
+    }
+    return std::nullopt;
+}
+
+/// Whether a row has an interval worth opening the editor on. A modifier asked for by presence
+/// alone has no bounds and never had any — there is no roll behind it to seed one from — and a
+/// negated filter is asking that the modifier not be there at all, which is not a quantity.
+bool has_interval(const item::StatFilter& f) {
+    return !f.negated && (f.min || f.max || f.roll_min || f.roll_max);
+}
+
+/// The row that opens the filters the strategy left out, and whether they are showing.
+///
+/// **What is behind it is the strategy's judgement, not the matcher's.** A map's affixes, a
+/// beast's monster modifiers and an ultimatum's hazards are all matched, searchable and
+/// deliberately not part of what the item is bought for — so they used to get no row at all, and
+/// a user who wanted one had no way to ask for it short of the trade site. This is that way, and
+/// it costs one line of panel when there is nothing behind it and none when there is not.
+///
+/// **Collapsed for every price check.** Six map affixes opened by default would bury the two rows
+/// that actually price the map, and the whole argument for hiding them is that they are not
+/// usually the question. The state lives on `App` rather than in ImGui's own storage, which is
+/// keyed by id and would carry an open section from one item to the next.
+///
+/// `SetNextItemOpen` every frame and the return value read back is what makes an external bool
+/// the authority: the node applies our value, the click toggles it, and it returns the state it
+/// ends the frame in, which is what we store.
+bool draw_hidden_header(App& app, size_t n) {
+    ImGui::TableNextRow();
+    // In the wording column, so the arrow lines up with the modifiers rather than with the ticks.
+    ImGui::TableSetColumnIndex(1);
+    ImGui::SetNextItemOpen(app.hidden_filters_shown());
+    // ImGui's own header colours are a solid selection blue, which on a list of modifiers read
+    // over a game is the loudest thing on the panel — for a row that is a disclosure, not a
+    // selection. Dimmed to the same weight as the row-hover tint the filters already use.
+    ImGui::PushStyleColor(ImGuiCol_Text, kDim);
+    ImGui::PushStyleColor(ImGuiCol_Header, kRowHover);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(255, 255, 255, 34));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(255, 255, 255, 46));
+    const bool open = ImGui::TreeNodeEx(
+        "##hidden", ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_NoTreePushOnOpen,
+        "%zu more this search leaves out", n);
+    ImGui::PopStyleColor(4);
+    app.show_hidden_filters(open);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Matched, and left out because this search is not about them. "
+                          "Tick one to send it anyway.");
+    return open;
 }
 
 /// The filter list, as a table so that every row's numbers sit under the previous row's. What
@@ -261,7 +668,11 @@ void draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& 
 ///
 /// The wording takes the stretch column and everything else fits its content, so the two number
 /// columns are as narrow as the widest row needs and the modifier gets the rest.
-void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
+void draw_filters(App& app, const item::Item& it, item::SearchPlan& plan) {
+    // Two unrelated questions about the atlas, and the list asks both: whether `≤`/`≥` can be
+    // borrowed for the column that says what the search asks for, and whether the bundled
+    // Font Awesome subset baked for the editor's two buttons.
+    const bool glyphs = app.fonts().has_comparison_glyphs;
     const ImGuiStyle& style = ImGui::GetStyle();
     // Tight rows: a filter list is read down the column, and the default spacing puts half a
     // line of nothing between one modifier and the next.
@@ -286,12 +697,21 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
             if (!f.shown) continue;
             draw_filter_row(static_cast<int>(2000 + i), f.enabled, {}, f.label, {}, f.display);
         }
-        for (size_t i = 0; i < plan.numerics.size(); ++i) {
+        // While the editor is up, no row is a target. ImGui already blocks the click, and this
+        // makes the highlight agree with it: a row lighting up under a popup that will swallow
+        // the press invites exactly the click that does nothing.
+        const bool rows_live = !app.filter_edit().open();
+        const auto numeric_row = [&](size_t i) {
             item::NumericFilter& f = plan.numerics[i];
-            draw_filter_row(static_cast<int>(i), f.enabled, {}, f.label, f.note,
-                            filter_text(f.min, f.max, f.dp, glyphs));
-        }
-        for (size_t i = 0; i < plan.stats.size(); ++i) {
+            if (const RowClick c = draw_filter_row(static_cast<int>(i), f.enabled, {}, f.label,
+                                                   f.note, filter_text(f.min, f.max, f.dp, glyphs),
+                                                   {}, rows_live);
+                c.clicked)
+                app.edit_filter(FilterEdit::Kind::Numeric, i, c.top, c.bottom);
+        };
+        for (size_t i = 0; i < plan.numerics.size(); ++i)
+            if (!plan.numerics[i].hidden) numeric_row(i);
+        const auto stat_row = [&](size_t i) {
             item::StatFilter& f = plan.stats[i];
             // Why this one is ticked on a unique whose other modifiers are not: the item picked
             // it out of a pool, so it is what separates this copy from every other.
@@ -301,14 +721,42 @@ void draw_filters(const item::Item& it, item::SearchPlan& plan, bool glyphs) {
             // "absent" goes in the column that says what the search asks for, because that is
             // the whole difference: the row is otherwise identical to one asking for the
             // modifier, and a tick beside a wording the item does not have reads backwards.
-            draw_filter_row(static_cast<int>(1000 + i), f.enabled, origin_of(it, f),
-                            strip_roll_ranges(f.text), note,
-                            f.negated ? "absent" : filter_text(f.min, f.max, f.dp, glyphs),
-                            f.caveat);
+            if (const RowClick c = draw_filter_row(
+                    static_cast<int>(1000 + i), f.enabled, origin_of(it, f),
+                    strip_roll_ranges(f.text), note,
+                    f.negated ? "absent" : filter_text(f.min, f.max, f.dp, glyphs), f.caveat,
+                    rows_live && has_interval(f));
+                c.clicked)
+                app.edit_filter(FilterEdit::Kind::Stat, i, c.top, c.bottom);
+        };
+        size_t hidden = 0;
+        for (const item::NumericFilter& f : plan.numerics)
+            if (f.hidden) ++hidden;
+        for (size_t i = 0; i < plan.stats.size(); ++i) {
+            if (plan.stats[i].hidden) ++hidden;
+            else stat_row(i);
+        }
+        // Numerics first behind the disclosure as well as in front of it, so a row does not move
+        // between the two lists depending on which one it is in.
+        if (hidden > 0 && draw_hidden_header(app, hidden)) {
+            for (size_t i = 0; i < plan.numerics.size(); ++i)
+                if (plan.numerics[i].hidden) numeric_row(i);
+            for (size_t i = 0; i < plan.stats.size(); ++i)
+                if (plan.stats[i].hidden) stat_row(i);
         }
         ImGui::EndTable();
     }
     ImGui::PopStyleVar(2);
+
+    // Outside the table on purpose. `BeginTable` pushes an id of its own, so a popup opened
+    // inside it and begun outside would be two different popups with the same name — and the
+    // row's own `PushID` would be in the first one as well.
+    if (const FilterEdit& e = app.filter_edit(); e.open()) {
+        if (const std::optional<Interval> iv = editing(plan, e))
+            draw_range_editor(app, *iv, app.fonts().has_glyphs);
+        else
+            app.close_filter_edit(); // the plan changed under the row being edited
+    }
 }
 
 constexpr ImVec4 kUp(0.40f, 0.78f, 0.42f, 1.0f);
@@ -1199,7 +1647,7 @@ void draw_pricecheck_screen(App& app) {
                     draw_unique_choice(app, *it);
                     ImGui::Dummy(ImVec2(0, 4));
                 }
-                draw_filters(*it, plan, app.fonts().has_comparison_glyphs);
+                draw_filters(app, *it, plan);
                 // A dropped filter has to be visible: silently searching without it reads as a
                 // successful price check on an item that is not this one.
                 ImGui::PushTextWrapPos(0.0f);

@@ -49,19 +49,26 @@ a folder they can move.
 
 One new request and two new files, all listed in [PRIVACY.md](PRIVACY.md).
 
-## 0.4 — Ranges in the filter list become editable
+## 0.4 — The filter list becomes yours to change — **shipped**
 
-Today the plan seeds each modifier's filter from the roll and the **Range matching** setting, and
-you can only tick it or leave it.
+The plan seeded each modifier's filter from the roll and the **Range matching** setting, and you
+could only tick it or leave it.
 
-**Will:**
+**Does:**
 
-- Let you type the bounds on any row that shows a range: both, a floor, a ceiling, or neither.
-- Keep the modifier's own roll range on screen beside what you asked for.
+- Let you set the bounds on any row that carries a number — a slider with both ends on one track,
+  or the two numbers typed. Both, a floor, a ceiling, or neither.
+- Keep the modifier's own roll range on screen beside what you asked for, and let you ask for more
+  than it: the slider does not stop at what your copy rolled.
 - Give each row a reset back to the value the tool seeded.
-- **Not search on an edit.** The Search button sends, as it does now.
+- Put the filters a search deliberately leaves out — a map's affixes, a beast's monster modifiers —
+  under a section at the foot of the list, so a question the tool does not ask by default is still
+  one you can ask.
+- Search a linked item on its sockets and its links. Six sockets and a six-link were no part of the
+  price before, which is most of what such an item is worth.
+- **Not search on an edit.** The Search button sends, as it always has.
 
-**Will not** — carry an edit onto the next item. Bounds belong to the item in hand.
+**Does not** — carry an edit onto the next item. Bounds belong to the item in hand.
 
 ## 0.5 — The paste list
 

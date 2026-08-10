@@ -54,6 +54,15 @@ const StatFilter* filter_saying(const SearchPlan& p, std::string_view text) {
     return nullptr;
 }
 
+/// The filters the list shows without being expanded — everything the strategy did not put
+/// behind `StatFilter::hidden`. What a case means by "the search is these and nothing else".
+std::vector<const StatFilter*> shown_stats(const SearchPlan& p) {
+    std::vector<const StatFilter*> out;
+    for (const StatFilter& f : p.stats)
+        if (!f.hidden) out.push_back(&f);
+    return out;
+}
+
 // These point into the plan's own vector, so a plan passed as a temporary leaves every caller
 // holding freed memory the moment the full expression ends. glibc hands the bytes back
 // unchanged and the checks pass; MSVC's debug heap poisons them and they do not. Deleted
@@ -102,7 +111,77 @@ Item Level: 84
 120% increased Energy Shield
 )";
 
+/// `kRareChest` with a socket block, which the game prints between the requirements and the item
+/// level. The captures in the fixtures are all three-socket or fewer, and what is under test is a
+/// rule about the count rather than anything else on the item.
+std::string chest_with_sockets(std::string_view sockets) {
+    std::string text(kRareChest);
+    const size_t at = text.find("Item Level:");
+    REQUIRE(at != std::string::npos);
+    text.insert(at, "Sockets: " + std::string(sockets) + "\n--------\n");
+    return text;
+}
+
 } // namespace
+
+TEST_CASE("sockets and links are searched when they are worth something, offered when they are not") {
+    auto gd = fixture();
+    const auto plan_for = [&gd](std::string_view sockets) {
+        const Item it = resolved(*gd, chest_with_sockets(sockets));
+        const Derived d = derive(gd.get(), it);
+        return build_plan(*gd, it, d);
+    };
+
+    SUBCASE("a six-link is most of what the item is worth, so it is asked for") {
+        const SearchPlan p = plan_for("B-B-B-B-B-B");
+        const NumericFilter* sockets = numeric_for(p, "sockets");
+        const NumericFilter* links = numeric_for(p, "links");
+        REQUIRE(sockets != nullptr);
+        REQUIRE(links != nullptr);
+        CHECK(sockets->enabled);
+        CHECK_FALSE(sockets->hidden);
+        CHECK(links->enabled);
+        CHECK_FALSE(links->hidden);
+        // A floor and no ceiling: a buyer shopping for a five-link takes a six-link.
+        CHECK(sockets->min == doctest::Approx(6));
+        CHECK_FALSE(sockets->max.has_value());
+        CHECK(links->min == doctest::Approx(6));
+    }
+
+    SUBCASE("six sockets in two groups is a six-socket item and a three-link one") {
+        const SearchPlan p = plan_for("B-B-B G-G-G");
+        REQUIRE(numeric_for(p, "sockets") != nullptr);
+        REQUIRE(numeric_for(p, "links") != nullptr);
+        CHECK(numeric_for(p, "sockets")->min == doctest::Approx(6));
+        CHECK(numeric_for(p, "sockets")->enabled);
+        // The links are the ordinary case even though the socket count is not, so the two rows
+        // part company — which is the whole reason they are two filters.
+        CHECK(numeric_for(p, "links")->min == doctest::Approx(3));
+        CHECK_FALSE(numeric_for(p, "links")->enabled);
+        CHECK(numeric_for(p, "links")->hidden);
+    }
+
+    SUBCASE("at four or fewer both are offered rather than imposed") {
+        const SearchPlan p = plan_for("B-G-R B");
+        for (const char* key : {"sockets", "links"}) {
+            const NumericFilter* f = numeric_for(p, key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK_MESSAGE(f->hidden, key);
+            CHECK_MESSAGE(!f->enabled, key);
+        }
+        // Still seeded with what the item has, so ticking one asks the right question.
+        CHECK(numeric_for(p, "sockets")->min == doctest::Approx(4));
+        CHECK(numeric_for(p, "links")->min == doctest::Approx(3));
+    }
+
+    SUBCASE("an item with no socket line is asked nothing about sockets") {
+        const Item it = resolved(*gd, kRareChest);
+        const Derived d = derive(gd.get(), it);
+        const SearchPlan p = build_plan(*gd, it, d);
+        CHECK(numeric_for(p, "sockets") == nullptr);
+        CHECK(numeric_for(p, "links") == nullptr);
+    }
+}
 
 TEST_CASE("a rare's modifiers become enabled stat filters") {
     auto gd = fixture();
@@ -1292,19 +1371,29 @@ TEST_CASE("a map is priced on where it goes and what was spent on it, never on i
         CHECK(count->min == 8);
         CHECK_FALSE(count->mod_index.has_value());
 
-        // Not one of those eight is a filter, and not one is a note either: they are left out
-        // deliberately, and "unrecognised modifier" would charge the check with failing at it.
+        // Not one of those eight is part of the search, and not one is a note either: they are
+        // left out deliberately, and "unrecognised modifier" would charge the check with
+        // failing at it. They are `hidden` rather than absent — a row behind the expandable
+        // section, unticked, so that a buyer who does want to name one can.
+        bool any_hidden = false;
         for (const StatFilter& f : p.stats)
-            CHECK(f.type != ppc::data::ModType::Explicit);
+            if (f.type == ppc::data::ModType::Explicit) {
+                CHECK(f.hidden);
+                CHECK_FALSE(f.enabled);
+                any_hidden = true;
+            }
+        CHECK(any_hidden);
         CHECK(p.notes.empty());
     }
 
     SUBCASE("a map with no implicit is its tier and its affix count, and nothing else") {
         const Item it = resolved(*gd, capture("map-rare-8mod-corrupted.txt"));
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
-        REQUIRE(p.stats.size() == 1);
-        CHECK(p.stats[0].id == "pseudo.pseudo_number_of_affix_mods");
-        CHECK(p.stats[0].min == 8);
+        // One filter the search is actually made of. The affixes are all behind it, hidden.
+        const std::vector<const StatFilter*> shown = shown_stats(p);
+        REQUIRE(shown.size() == 1);
+        CHECK(shown[0]->id == "pseudo.pseudo_number_of_affix_mods");
+        CHECK(shown[0]->min == 8);
         CHECK(p.notes.empty());
     }
 
@@ -1362,8 +1451,14 @@ TEST_CASE("a map is priced on where it goes and what was spent on it, never on i
         CHECK(p.discriminator == "map");
         REQUIRE(numeric_for(p, "map_tier") != nullptr);
         CHECK(numeric_for(p, "map_tier")->min == 16);
-        // Its own modifiers are the same on every copy; the name already says them.
-        CHECK(p.stats.empty());
+        // Its own modifiers are the same on every copy; the name already says them, so none of
+        // them is part of the search. They are still offered, hidden and unticked, on the same
+        // terms as a rare map's affixes — nothing in the list, nothing in the query.
+        CHECK(shown_stats(p).empty());
+        for (const StatFilter& f : p.stats) {
+            CHECK(f.hidden);
+            CHECK_FALSE(f.enabled);
+        }
     }
 
     SUBCASE("a white map is its tier and nothing else") {
@@ -1406,7 +1501,7 @@ TEST_CASE("blight is a filter on the ordinary map base, not a type of its own") 
     CHECK(numeric_for(p, "map_tier")->min == 12);
     CHECK(numeric_for(p, "map_tier")->max == 12);
     // Its implicit is searched like any map's, and neither half of it goes unrecognised.
-    CHECK(p.stats.size() == 2);
+    CHECK(shown_stats(p).size() == 2);
     CHECK(p.notes.empty());
 }
 
@@ -1424,11 +1519,12 @@ TEST_CASE("a Valdo map is bought for its reward and for whether dying in it void
         CHECK(p.option("map_completion_reward")->option == "Hrimsorrow");
 
         // This copy voids, so the search asks for that modifier and for nothing else.
-        REQUIRE(p.stats.size() == 1);
-        CHECK(p.stats[0].id == "explicit.stat_1095765106");
-        CHECK(p.stats[0].enabled);
-        CHECK_FALSE(p.stats[0].negated);
-        CHECK(p.stats[0].mod_index.has_value());
+        const std::vector<const StatFilter*> shown = shown_stats(p);
+        REQUIRE(shown.size() == 1);
+        CHECK(shown[0]->id == "explicit.stat_1095765106");
+        CHECK(shown[0]->enabled);
+        CHECK_FALSE(shown[0]->negated);
+        CHECK(shown[0]->mod_index.has_value());
 
         // The quantity and pack size come from unique modifiers rather than from a roll, so
         // they say nothing about which Valdo map a buyer wants: offered, never imposed.
@@ -1788,8 +1884,12 @@ TEST_CASE("a chart is a map: the area it covers, its shape, and its voyage modif
         CHECK(voyage->type == ppc::data::ModType::Implicit);
 
         // The affixes are the danger a buyer is choosing among, not the thing bought, so they
-        // are left out exactly as a map's are — and left out silently, in front of the reader.
-        CHECK(filter_saying(p, "Monster Life") == nullptr);
+        // are left out of the search exactly as a map's are — and left out silently, in front
+        // of the reader. Hidden rather than dropped: unticked, behind the expandable section.
+        const StatFilter* life = filter_saying(p, "Monster Life");
+        REQUIRE(life != nullptr);
+        CHECK(life->hidden);
+        CHECK_FALSE(life->enabled);
         CHECK(p.notes.empty());
 
         // Quantity and pack size ride the map path unchanged; rarity is offered, not imposed.

@@ -143,6 +143,40 @@ void add_defences(SearchPlan& p, const Item& it, const Derived& d, bool enabled)
                     std::floor(*d.base_pct * 100), p.strategy == Strategy::BaseItem);
 }
 
+/// At or below this, sockets and links are the ordinary case and asking about them only drops
+/// listings; at or above it they are most of what the item is worth. Five is where the game puts
+/// the line too — five-linking is the step that costs, and the market prices 4-link and 3-link the
+/// same as unlinked.
+constexpr int kSocketsWorthAsking = 5;
+
+/// The two numbers a linked item is bought for.
+///
+/// **Both are always offered and neither is always asked.** A six-socket, six-linked chest priced
+/// without them is priced as the wrong item — that was the bug — but imposing them on a three-link
+/// rare is the mirror of it, since every listing that would have answered has whatever sockets it
+/// happens to have. So the count decides: at five or six it is a row, ticked; below that it goes
+/// under the expandable section, where a buyer who *does* mean "and four-linked" can still say so.
+///
+/// They are separate filters because they are separate questions. Six sockets unlinked and six
+/// linked are different items at very different prices, and the trade site asks about them in two
+/// fields for the same reason.
+void add_sockets(SearchPlan& p, const Item& it) {
+    struct Entry {
+        const char* key;
+        const char* label;
+        int count;
+    };
+    for (const Entry& e : {Entry{"sockets", "Sockets", it.socket_count},
+                           Entry{"links", "Links", it.link_count}}) {
+        if (e.count <= 0) continue;
+        const bool worth = e.count >= kSocketsWorthAsking;
+        // A floor and no ceiling, like every other numeric: someone shopping for a five-link
+        // takes a six-link, and the same buyer would not thank a filter that ruled it out.
+        add_numeric(p, e.key, e.label, static_cast<double>(e.count), worth);
+        p.numerics.back().hidden = !worth;
+    }
+}
+
 void add_weapon(SearchPlan& p, const Item& it, const Derived& d, bool enabled) {
     if (!it.is_weapon()) return;
     const std::string note = quality_note(it);
@@ -533,7 +567,10 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
 void merge_same_stat(std::vector<StatFilter>& stats) {
     for (size_t i = 0; i < stats.size(); ++i) {
         for (size_t j = i + 1; j < stats.size();) {
-            if (stats[j].id != stats[i].id) {
+            // Never across the divide: a hidden filter folded into a shown one would put a
+            // modifier the strategy left out into the total of one it did not, and the row's
+            // tick would then be sending both.
+            if (stats[j].id != stats[i].id || stats[j].hidden != stats[i].hidden) {
                 ++j;
                 continue;
             }
@@ -1625,23 +1662,31 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             std::any_of(it.mods.begin(), it.mods.end(),
                         [](const Modifier& m) { return m.match && !m.match->roll_bounds.empty(); });
         for (size_t i = 0; i < it.mods.size(); ++i) {
-            // A map's affixes are not filters and are not notes either: they are left out on
-            // purpose, in a place where the reader can see them (the item beside the panel),
-            // and "unrecognised modifier: Players have 25% less Accuracy Rating" would charge
-            // the check with failing at something it deliberately did not attempt.
-            if (p.strategy == Strategy::Map && !map_searched_mod(it.mods[i])) continue;
-            // A beast's monster modifiers, on the same argument and with the same silence: not
-            // affixes, not searched, and visible on the item beside the panel.
-            if (p.strategy == Strategy::Beast) continue;
-            // An ultimatum's hazards, likewise: only the two that scale the stake are searched,
-            // and the rest are the trial rather than the deal. See `ultimatum_stake_mod`.
-            if (p.strategy == Strategy::Ultimatum && !ultimatum_stake_mod(it.mods[i])) continue;
+            // Modifiers the strategy does not search, and did not use to offer at all:
+            //
+            // - **A map's affixes**, which are re-rollable with one Chaos Orb and which a query
+            //   naming would answer with the single copy in the league that rolled that set.
+            // - **A beast's monster modifiers**, which are not affixes.
+            // - **An ultimatum's hazards** — only the two that scale the stake are the deal;
+            //   see `ultimatum_stake_mod`.
+            //
+            // They now get a filter, marked `hidden`, which puts them behind the expandable
+            // section at the foot of the list rather than on the floor. Unticked, so the search
+            // is exactly what it was; ticked, they are ordinary filters. Every one of these is
+            // occasionally the whole question, and there was no way to ask it here before.
+            const bool hidden =
+                (p.strategy == Strategy::Map && !map_searched_mod(it.mods[i])) ||
+                p.strategy == Strategy::Beast ||
+                (p.strategy == Strategy::Ultimatum && !ultimatum_stake_mod(it.mods[i]));
             if (std::optional<StatFilter> f = to_filter(it, i, p.strategy, ranges_printed, rm)) {
-                // Exact, and deliberately not what the range-match setting asked for: these two
-                // are the size of the deal, not a roll to be beaten. Set here rather than inside
-                // `to_filter` because it is the strategy that makes it true, and `to_filter`'s
-                // job is to read the modifier.
-                if (p.strategy == Strategy::Ultimatum) {
+                if (hidden) {
+                    f->hidden = true;
+                    f->enabled = false;
+                } else if (p.strategy == Strategy::Ultimatum) {
+                    // Exact, and deliberately not what the range-match setting asked for: these
+                    // two are the size of the deal, not a roll to be beaten. Set here rather
+                    // than inside `to_filter` because it is the strategy that makes it true, and
+                    // `to_filter`'s job is to read the modifier.
                     if (const Roll roll = roll_for(*it.mods[i].match); roll.value) {
                         f->min = *roll.value;
                         f->max = *roll.value;
@@ -1652,6 +1697,11 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                 p.stats.push_back(std::move(*f));
                 continue;
             }
+            // A modifier the strategy was never going to search is not one it failed at, so it
+            // gets no note either — "unrecognised modifier: Players have 25% less Accuracy
+            // Rating" on a map charges the check with something it deliberately did not attempt.
+            // The reader can see it on the item beside the panel, which is where it belongs.
+            if (hidden) continue;
             const Modifier& m = it.mods[i];
             if (m.match && m.match->stat)
                 p.notes.push_back("no " + std::string(data::trade_prefix(m.match->mod_type)) +
@@ -1681,6 +1731,10 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         const bool impose = p.strategy != Strategy::Unique;
         add_defences(p, it, d, impose);
         add_weapon(p, it, d, impose);
+        // Not gated on `impose`: a six-link is worth more than the unique printed on it, so this
+        // is the one number a unique *is* searched on. It follows the socket count, not the
+        // strategy.
+        add_sockets(p, it);
         // Last, because it is a question about the numerics that were just added.
         unimpose_derived_mods(it, p);
     }
@@ -1690,6 +1744,18 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
     // A gem is nothing but its own effect, so saying this about one is noise.
     if (!it.inherent_lines.empty() && it.rarity != Rarity::Gem)
         p.notes.emplace_back("the base's own effect is not part of the search");
+
+    // Last of all, and in one place rather than at each of the dozen sites that set a bound:
+    // the seed is *whatever this function came out with*, so a per-row reset can only ever
+    // disagree with the plan if it is recorded somewhere the plan can still be changed after.
+    for (StatFilter& f : p.stats) {
+        f.seed_min = f.min;
+        f.seed_max = f.max;
+    }
+    for (NumericFilter& f : p.numerics) {
+        f.seed_min = f.min;
+        f.seed_max = f.max;
+    }
     return p;
 }
 

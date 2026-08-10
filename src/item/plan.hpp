@@ -52,6 +52,18 @@ struct StatFilter {
     bool tiered = false;
     /// The trade site indexes this stat with the opposite sign; the query builder flips it.
     bool inverted = false;
+    /// The strategy matched this modifier and then decided it is not part of what the item is
+    /// bought for, so it is kept off the filter list proper and offered under **the expandable
+    /// section at the foot of it** instead. A map's affixes are the case: re-rollable with one
+    /// Chaos Orb, and a query naming them returns the one copy in the league that rolled that
+    /// set — but "one copy in the league" is occasionally the exact question, and before this
+    /// there was no way to ask it short of the trade site itself.
+    ///
+    /// **Hidden is about the row, not the search.** A hidden filter is disabled like any other
+    /// unticked one, and ticking it sends it: `trade::build_query` reads `enabled` and knows
+    /// nothing about this flag. It is only ever set where the strategy used to drop the
+    /// modifier on the floor.
+    bool hidden = false;
     /// Ask for the modifier being **absent** rather than present — a `not` stat group instead
     /// of the `and` one. A filter for a modifier the item in hand does not have, which is only
     /// ever worth asking where its absence is itself the thing being bought: a Valdo map that
@@ -64,6 +76,11 @@ struct StatFilter {
     /// Kept apart from `min`/`max` on purpose — those are what the search asks for, and the
     /// two are only equal until the asking is something the user can edit.
     std::optional<double> roll_min, roll_max;
+
+    /// What the plan seeded `min`/`max` with, kept so an edit can be taken back. The seed is
+    /// the one interval the application can defend — the roll widened by the **Range matching**
+    /// setting — and it has to be recoverable without re-copying the item.
+    std::optional<double> seed_min, seed_max;
 
     // From the bundle's per-unique modifier data, on a unique it has a record of.
     /// The unique picks this modifier from a pool rather than always having it, so not every
@@ -86,8 +103,17 @@ struct NumericFilter {
     std::string label; ///< "Item Level"
     std::optional<double> min, max;
     bool enabled = false;
+    /// Kept off the filter list proper and offered under the expandable section at its foot, on
+    /// exactly the terms `StatFilter::hidden` sets out — the flag is about the row, and
+    /// `trade::build_query` still reads nothing but `enabled`. Sockets and links are the case: an
+    /// item at four or fewer of either is the ordinary one and asking about it only drops
+    /// listings, but the question is occasionally the right one and there was no way to put it.
+    bool hidden = false;
     int dp = 0;
     std::string note;  ///< why the value is what it is, e.g. "at 20% quality"
+    /// What the plan seeded the interval with, so an edit can be taken back. See
+    /// `StatFilter::seed_min`.
+    std::optional<double> seed_min, seed_max;
 };
 
 /// A filter the trade site takes as an **option** rather than as an interval: the booleans

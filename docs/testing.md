@@ -19,7 +19,12 @@ every push/PR — trust it for the Win32 platform code, which can't be compiled 
 
 The bundled font data is committed, so a normal build needs nothing extra. To change the typeface:
 `./scripts/fetch-fonts.sh` (downloads the TTFs into the gitignored `assets/fonts/`) then
-`./scripts/gen-font-data.sh` (rewrites `src/fontin_data.inc`). The icon is the same deal — after
+`./scripts/gen-font-data.sh` (rewrites `src/fontin_data.inc`). To change **which UI glyphs are
+bundled**, the same pair one layer over: add the codepoint to `scripts/fetch-glyphs.sh` *and* the
+name to `src/ui/glyphs.hpp` — they are a contract, and only one side of it draws anything — then
+`./scripts/fetch-glyphs.sh && ./scripts/gen-glyph-data.sh`. That one needs `fonttools` for
+`pyftsubset`, which is the only build-time dependency here that is not a system package.
+The icon is the same deal — after
 changing `assets/popc_icon.png`, run `./scripts/gen-icon-data.sh` (rewrites `src/icon_data.inc` and
 `assets/popc_icon.ico`; needs ImageMagick for the latter).
 

@@ -63,6 +63,28 @@ struct PanelLayout {
     float tip_w = 0; ///< 0 when the game window left no room for one
 };
 
+/// Which filter row has its range editor open, and where on screen it was opened from.
+///
+/// `index` addresses `SearchPlan::stats` or `SearchPlan::numerics` according to `kind`, so it
+/// only means anything against the plan it was opened on — every place that rebuilds the plan
+/// clears this. Held on `App` for the same reason `settings_tab_` is: the screen is a free
+/// function redrawn from scratch every frame and has nowhere of its own to keep it.
+struct FilterEdit {
+    enum class Kind : uint8_t { None, Stat, Numeric };
+    Kind kind = Kind::None;
+    size_t index = 0;
+    /// The row's own extent, in ImGui viewport coordinates: `y` is its bottom, which is where
+    /// the editor opens, and `top` is what the editor falls back to when there is no room below
+    /// and it has to go above instead. Over the row is the one place it may not go — everything
+    /// it would otherwise have to repeat is printed there.
+    float y = 0, top = 0;
+    /// Set on the frame the row was clicked and consumed by the screen, which is the only
+    /// place allowed to call `ImGui::OpenPopup` — the id it opens has to be pushed from
+    /// outside the filter table, whose own id would otherwise be part of it.
+    bool opening = false;
+    bool open() const { return kind != Kind::None; }
+};
+
 /// A search result's own item, parsed from the clipboard text the API ships with every
 /// listing. Parsed lazily — twenty of these up front is work for rows nobody hovers — and
 /// resolved against the same pinned bundle snapshot as the item in hand.
@@ -155,6 +177,18 @@ public:
     /// free function redrawn from scratch every frame.
     int settings_tab() const { return settings_tab_; }
     void set_settings_tab(int i) { settings_tab_ = i; }
+    /// Which filter row has its range editor open. Mutable because the screen both reads it
+    /// and consumes `opening` in the same frame.
+    FilterEdit& filter_edit() { return filter_edit_; }
+    /// Open the editor on a row spanning `top`..`bottom` in viewport coordinates.
+    void edit_filter(FilterEdit::Kind kind, size_t index, float top, float bottom);
+    void close_filter_edit() { filter_edit_ = {}; }
+    /// Whether the filters the strategy left out are expanded. **Collapsed for every price
+    /// check**, deliberately: they are the modifiers the strategy decided the item is not
+    /// bought for, and a list that opens with six map affixes on it buries the two rows that
+    /// price the map. Reset with the plan, like the editor above.
+    bool hidden_filters_shown() const { return hidden_filters_shown_; }
+    void show_hidden_filters(bool on) { hidden_filters_shown_ = on; }
     /// False while there is nothing to search — no bundle, a strategy with no query behind it
     /// (currency), or a gem the bundle could not name.
     bool can_search() const;
@@ -236,6 +270,8 @@ private:
     PanelLayout layout_;          ///< set by place_overlay, read by the price-check renderer
     float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
     int settings_tab_ = 0;        ///< which Settings tab is open
+    FilterEdit filter_edit_;      ///< which filter row has its range editor open
+    bool hidden_filters_shown_ = false; ///< the filters the strategy left out are expanded
     std::string clipboard_;
     bool running_ = true;
 

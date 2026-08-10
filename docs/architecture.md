@@ -129,6 +129,28 @@ the copy path used to call `focus_game_window()` on a window it had just confirm
 and `XSetInputFocus` on the toplevel can land somewhere Wine didn't put it. Focus is handed back to
 the game on close **only** if `overlay_.has_focus()` — i.e. only focus we took ourselves.
 
+**Claiming the keyboard is a smaller thing than claiming the foreground**, and two places do it:
+Settings, for its text fields, and the filter list's range editor, for its two boxes. Both call
+`overlay_take_keyboard_focus`, which is `XSetInputFocus` on our own override-redirect window — it
+moves `input=` and leaves `active=` on the game, which is why it is useless for prising the
+clipboard out of Wine (below) and exactly right here. Without it a text field on a price check
+looks live and receives nothing, because the WM will not focus the window it is drawn on. Neither
+hands the focus back on closing the widget: for a price check the game regaining focus *is* the
+dismiss, so returning it would close the panel out from under the edit. `set_screen` hands it back
+when the screen closes, and only if `overlay_.has_focus()`.
+
+**A drag that leaves the window is reconciled against the physical mouse** (`Overlay::sync_held_mouse`,
+run between the backend's `NewFrame` and ImGui's). The overlay is never wider than it needs to be
+and the range slider is meant to be pulled past its own ends, so drags leave it routinely — and
+nothing guarantees the release comes back, because SDL's X11 capture is a **no-op whenever XInput2
+owns the pointer** (`X11_CaptureMouse` returns early unless the window also holds a grab). The
+button-up then lands on whatever is under the cursor and ImGui never hears it, leaving the widget
+grabbed and following the mouse long after the button was let go. So while any button is down the
+global state wins: the position is fed in as window coordinates (which also keeps the drag tracking
+outside the window) and a button the OS reports as up is released. It costs an extra
+`SDL_GetGlobalMouseState` only during drags, and `poll_click_away` already makes that call every
+frame.
+
 Taking the game **out of the foreground** is the one sanctioned exception, and it exists for
 exactly one reason: it is the only thing that makes Wine let go of the clipboard (above).
 `nudge_clipboard_handover` fires **once per check, at 350ms, only while the game is still in
@@ -355,6 +377,24 @@ on demand and answers null only when no source served the codepoint. That answer
 it is false, because a floor of 46 that loses its `≥` reads as an exact match, which is a different
 search. `×` (U+00D7) is the same argument and is left alone only because nothing draws one — it is
 absent from Fontin's cmap outright, so adding it to `kBorrowedGlyphs` is all it would take.
+
+**A handful of UI glyphs are embedded too**, for the buttons a word does not fit on: a subset of
+**Font Awesome Free Solid**, merged over every Fontin face out of the generated
+`src/glyph_data.inc`. They are named in `ui/glyphs.hpp` and are ordinary text — they take the text
+colour, scale with the font size and sit in a `Button` label like any other string. Three things
+make this cheap enough to be worth doing rather than drawing the shapes by hand: they live in the
+**Private Use Area**, which Fontin does not claim, so there is nothing to exclude on Fontin's side;
+the subset is **two codepoints and 1.4KB**, because `scripts/fetch-glyphs.sh` runs `pyftsubset` over
+the release rather than bundling the 416KB face; and the same file makes adding a third glyph a
+one-line change. Two things follow from the `≤`/`≥` lesson above and are not optional: the subset
+carries `kOnlyGlyphs`, the complement of what it holds, because it still ships a `.notdef` that
+would otherwise answer for every codepoint nothing else has; and the result is **asked** —
+`Fonts::has_glyphs` is `FindGlyphNoFallback` over `ui::kGlyphCodepoints`, so a subset that has
+drifted from the header logs and falls back to a letter instead of drawing an empty button. Font
+Awesome is scaled to `kGlyphScale` and nudged by `kGlyphNudgeY`, both fractions of the size: it
+draws on a square em against a face with descenders, and at parity it stands a touch tall against
+the words beside it. Its license, unlike Fontin's, permits redistribution — see
+`assets/fonts/README.md`.
 
 **`ppc_core`** is the static library holding everything that needs neither a window nor a network,
 so it can be unit-tested headless: `paths`, `config`, `leagues`, `platform/input`,

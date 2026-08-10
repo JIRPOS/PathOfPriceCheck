@@ -37,6 +37,19 @@ Item parse(const char* dir, const char* name) {
 
 Item example(const char* name) { return parse("examples", name); }
 
+/// A real capture with its `Sockets:` line swapped for another. No capture in the fixtures is
+/// five- or six-linked, and the layout of that one line is the whole of what is under test —
+/// so it is substituted rather than a whole item being invented around it.
+Item with_sockets(const char* name, const std::string& line) {
+    std::string text = capture("items", name);
+    const size_t at = text.find("Sockets: ");
+    REQUIRE(at != std::string::npos);
+    text.replace(at, text.find('\n', at) - at, "Sockets: " + line);
+    std::optional<Item> it = parse_item_en(text);
+    REQUIRE(it.has_value());
+    return *it;
+}
+
 const Modifier* find_mod(const Item& it, std::string_view first_line) {
     for (const Modifier& m : it.mods)
         if (!m.lines.empty() && m.lines.front() == first_line) return &m;
@@ -84,6 +97,7 @@ TEST_CASE("a rare weapon's header, properties and mods") {
     CHECK(it.item_level == 67);
     CHECK(it.sockets == "R-G-B");
     CHECK(it.socket_count == 3);
+    CHECK(it.link_count == 3);
 
     // "(gem)" marks a requirement a socketed gem raised; the number is still the requirement.
     CHECK(it.req.level == 43);
@@ -106,6 +120,27 @@ TEST_CASE("a rare weapon's header, properties and mods") {
     // A cosmetic effect is not a modifier and must not become a search filter.
     CHECK(it.cosmetic_lines == std::vector<std::string>{"Has Vampiric Weapon Effect"});
     CHECK(it.unparsed.empty());
+}
+
+TEST_CASE("links are the longest hyphenated group, not the socket count") {
+    // The distinction the whole filter rests on: six sockets in two groups of three is not a
+    // six-link, and is not priced like one.
+    const Item split = with_sockets("rare-rapier.txt", "B-G-R G-B-R");
+    CHECK(split.socket_count == 6);
+    CHECK(split.link_count == 3);
+
+    const Item six = with_sockets("rare-rapier.txt", "R-R-R-G-G-B");
+    CHECK(six.socket_count == 6);
+    CHECK(six.link_count == 6);
+
+    // A trailing group of one, and a leading pair: the longest run wins wherever it sits.
+    const Item mixed = with_sockets("rare-rapier.txt", "W-W G-G-G-G B");
+    CHECK(mixed.socket_count == 7);
+    CHECK(mixed.link_count == 4);
+
+    const Item lone = with_sockets("rare-rapier.txt", "W");
+    CHECK(lone.socket_count == 1);
+    CHECK(lone.link_count == 1);
 }
 
 TEST_CASE("influence, quality and crafted mods") {
