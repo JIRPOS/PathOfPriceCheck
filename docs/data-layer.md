@@ -71,9 +71,22 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   **`NORMALIZATION.md` in the data repo is normative** and this must reproduce it exactly — a
   divergence does not crash, it silently mismatches a mod and returns a confident wrong price.
   `normalize_test` replays the conformance vectors shipped with every data release.
+  A modifier can roll over a **list instead of an interval**, and the game prints that range the
+  same way — "Maximum number of Sentinels of Purity (Animated Weapons-Holy Armaments) is
+  Doubled" rolls over the minion skill gems. `scan_numbers` cannot see it: there is no number in
+  front of the parenthesis to carry the bounds. `strip_named_ranges` drops it, and the roll is
+  the name left in the wording, which is what trade indexes. It only ever **adds** candidates —
+  a wording whose parenthesis is genuinely part of it, `Unique Monsters (Blood-Filled Vessel)`,
+  is enumerated as printed first and never reaches the stripped form.
 - **`data/stat_matcher`** joins clipboard lines into one modifier and resolves it to a stat and a
   roll. Mod type is the primary disambiguator: explicit/implicit/fractured/crafted/enchant variants
-  share a wording and differ only by trade namespace. Two separate negation concepts —
+  share a wording and differ only by trade namespace.
+  `kMaxModLines` is **8**, not the two a hybrid needs: a modifier that enumerates its alternatives
+  is as long as its list — Bound Fate's "Every # seconds, gain one of the following" is seven
+  lines and the class-connection jewel is eight, which is the longest wording in the data. Below
+  the true maximum the join can never be built and *every line* of such a modifier is reported
+  unrecognised on its own. Reaching further is safe because a shorter join always wins: the loop
+  returns at the first join that resolves, so the cap only bounds a failed match. Two separate negation concepts —
   `matcher.negate` (the *wording* is inverse; store the roll canonically) and `trade.inverted` (the
   *trade site* indexes the opposite sign; applied at query-build time, not here).
   An inverse wording's Advanced Mod Descriptions range is **printed high to low** —

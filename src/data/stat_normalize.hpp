@@ -26,6 +26,19 @@ struct NumberToken {
 /// Remove every literal "()" — GGG emits them occasionally. Must run before scanning.
 std::string strip_empty_parens(std::string_view line);
 
+/// Remove every Advanced Mod Descriptions range whose roll is a *name*.
+///
+/// A modifier can roll over a list instead of over an interval — "Maximum number of
+/// Sentinels of Purity (Animated Weapons-Holy Armaments) is Doubled" rolls over the minion
+/// skill gems, and the parenthesis is the first and last of that list exactly as "(50-100)"
+/// is the first and last of an interval. `scan_numbers` cannot see it: there is no numeric
+/// token in front of it to carry the bounds. The name itself is the roll and the trade
+/// wording spells it out, so the range is dropped rather than placeheld.
+///
+/// Only a group whose two halves are both non-numeric, and that does not follow a number,
+/// qualifies — a numeric token's own range belongs to that token.
+std::string strip_named_ranges(std::string_view line);
+
 /// Every numeric token, in order.
 ///
 /// A token starts at a '+', '-' or digit that is *not* preceded by a digit or ')'. That
@@ -43,7 +56,9 @@ std::string apply_candidate(std::string_view line, std::span<const NumberToken> 
 /// Lookup candidates, most generic first, duplicates removed, raw line last.
 ///
 /// The order is load-bearing: the generic form wins wherever the data has it, and the
-/// literal forms exist only for wordings that do not generalise.
+/// literal forms exist only for wordings that do not generalise. A line carrying a named
+/// range is enumerated twice, as printed and then stripped, so a wording that really does
+/// contain a parenthesis still wins as itself.
 std::vector<std::string> candidates(std::string_view line);
 
 /// The fully generic candidate — every number replaced by '#'. This is the join key the

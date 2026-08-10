@@ -14,6 +14,8 @@
 {"candidates": ["#% increased Rarity of Items found", "100% increased Rarity of Items found"], "generic": "#% increased Rarity of Items found", "line": "100% increased Rarity of Items found"}
 {"candidates": ["#% to Critical Strike Chance", "+3.5% to Critical Strike Chance"], "generic": "#% to Critical Strike Chance", "line": "+3.5% to Critical Strike Chance"}
 {"candidates": ["Regenerate # Life per second", "Regenerate 1.4 Life per second"], "generic": "Regenerate # Life per second", "line": "Regenerate 1.4 Life per second"}
+{"candidates": ["Maximum number of Sentinels of Purity (Animated Weapons-Holy Armaments) is Doubled\nCannot have Minions other than Sentinels of Purity (Animated Weapons-Holy Armaments)", "Maximum number of Sentinels of Purity is Doubled\nCannot have Minions other than Sentinels of Purity"], "generic": "Maximum number of Sentinels of Purity (Animated Weapons-Holy Armaments) is Doubled\nCannot have Minions other than Sentinels of Purity (Animated Weapons-Holy Armaments)", "line": "Maximum number of Sentinels of Purity (Animated Weapons-Holy Armaments) is Doubled\nCannot have Minions other than Sentinels of Purity (Animated Weapons-Holy Armaments)"}
+{"candidates": ["Unique Monsters (Blood-Filled Vessel): #", "Unique Monsters (Blood-Filled Vessel): 5", "Unique Monsters: #", "Unique Monsters: 5"], "generic": "Unique Monsters (Blood-Filled Vessel): #", "line": "Unique Monsters (Blood-Filled Vessel): 5"}
 {"candidates": ["#% total to Cold Resistance", "7% total to Cold Resistance"], "generic": "#% total to Cold Resistance", "line": "7% total to Cold Resistance"}
 {"candidates": ["#% total to Fire Resistance", "7% total to Fire Resistance"], "generic": "#% total to Fire Resistance", "line": "7% total to Fire Resistance"}
 {"candidates": ["#% total to Lightning Resistance", "7% total to Lightning Resistance"], "generic": "#% total to Lightning Resistance", "line": "7% total to Lightning Resistance"}
@@ -118,8 +120,8 @@
 {"candidates": ["# Fractured Modifiers", "7 Fractured Modifiers"], "generic": "# Fractured Modifiers", "line": "7 Fractured Modifiers"}
 {"candidates": ["# Notable Passive Skills", "7 Notable Passive Skills"], "generic": "# Notable Passive Skills", "line": "7 Notable Passive Skills"}
 {"candidates": ["Mirrored Tablet has # Islands", "Mirrored Tablet has 7 Islands"], "generic": "Mirrored Tablet has # Islands", "line": "Mirrored Tablet has 7 Islands"}
-{"candidates": ["Unique Monsters (Blood-Filled Vessel): #", "Unique Monsters (Blood-Filled Vessel): 7"], "generic": "Unique Monsters (Blood-Filled Vessel): #", "line": "Unique Monsters (Blood-Filled Vessel): 7"}
-{"candidates": ["Non-Unique Monsters (Blood-Filled Vessel): #", "Non-Unique Monsters (Blood-Filled Vessel): 7"], "generic": "Non-Unique Monsters (Blood-Filled Vessel): #", "line": "Non-Unique Monsters (Blood-Filled Vessel): 7"}
+{"candidates": ["Unique Monsters (Blood-Filled Vessel): #", "Unique Monsters (Blood-Filled Vessel): 7", "Unique Monsters: #", "Unique Monsters: 7"], "generic": "Unique Monsters (Blood-Filled Vessel): #", "line": "Unique Monsters (Blood-Filled Vessel): 7"}
+{"candidates": ["Non-Unique Monsters (Blood-Filled Vessel): #", "Non-Unique Monsters (Blood-Filled Vessel): 7", "Non-Unique Monsters: #", "Non-Unique Monsters: 7"], "generic": "Non-Unique Monsters (Blood-Filled Vessel): #", "line": "Non-Unique Monsters (Blood-Filled Vessel): 7"}
 {"candidates": ["Quality (Elemental Damage Modifiers): #%", "Quality (Elemental Damage Modifiers): 7%"], "generic": "Quality (Elemental Damage Modifiers): #%", "line": "Quality (Elemental Damage Modifiers): 7%"}
 {"candidates": ["Quality (Caster Modifiers): #%", "Quality (Caster Modifiers): 7%"], "generic": "Quality (Caster Modifiers): #%", "line": "Quality (Caster Modifiers): 7%"}
 {"candidates": ["Quality (Attack Modifiers): #%", "Quality (Attack Modifiers): 7%"], "generic": "Quality (Attack Modifiers): #%", "line": "Quality (Attack Modifiers): 7%"}
@@ -278,43 +280,43 @@
 {"candidates": ["Reflection of Angling (Difficulty #)", "Reflection of Angling (Difficulty 7)"], "generic": "Reflection of Angling (Difficulty #)", "line": "Reflection of Angling (Difficulty 7)"}
 {"candidates": ["# to maximum Life", "7 to maximum Life"], "generic": "# to maximum Life", "line": "7 to maximum Life"}
 {"candidates": ["#% to Cold Resistance", "7% to Cold Resistance"], "generic": "#% to Cold Resistance", "line": "7% to Cold Resistance"}
-{"candidates": ["#% to Fire Resistance", "7% to Fire Resistance"], "generic": "#% to Fire Resistance", "line": "7% to Fire Resistance"}
 {"candidates": ["# to maximum Mana", "7 to maximum Mana"], "generic": "# to maximum Mana", "line": "7 to maximum Mana"}
+{"candidates": ["#% to Fire Resistance", "7% to Fire Resistance"], "generic": "#% to Fire Resistance", "line": "7% to Fire Resistance"}
 {"candidates": ["#% to Lightning Resistance", "7% to Lightning Resistance"], "generic": "#% to Lightning Resistance", "line": "7% to Lightning Resistance"}
 {"candidates": ["# to Dexterity", "7 to Dexterity"], "generic": "# to Dexterity", "line": "7 to Dexterity"}
 {"candidates": ["# to Strength", "7 to Strength"], "generic": "# to Strength", "line": "7 to Strength"}
 {"candidates": ["# to maximum Energy Shield", "7 to maximum Energy Shield"], "generic": "# to maximum Energy Shield", "line": "7 to maximum Energy Shield"}
-{"candidates": ["#% to all Elemental Resistances", "7% to all Elemental Resistances"], "generic": "#% to all Elemental Resistances", "line": "7% to all Elemental Resistances"}
 {"candidates": ["Regenerate # Life per second", "Regenerate 7 Life per second"], "generic": "Regenerate # Life per second", "line": "Regenerate 7 Life per second"}
 {"candidates": ["# to Intelligence", "7 to Intelligence"], "generic": "# to Intelligence", "line": "7 to Intelligence"}
+{"candidates": ["#% to all Elemental Resistances", "7% to all Elemental Resistances"], "generic": "#% to all Elemental Resistances", "line": "7% to all Elemental Resistances"}
 {"candidates": ["#% increased Stun and Block Recovery", "7% increased Stun and Block Recovery"], "generic": "#% increased Stun and Block Recovery", "line": "7% increased Stun and Block Recovery"}
+{"candidates": ["#% increased Attack Speed (Local)", "7% increased Attack Speed (Local)"], "generic": "#% increased Attack Speed (Local)", "line": "7% increased Attack Speed (Local)"}
 {"candidates": ["#% to Chaos Resistance", "7% to Chaos Resistance"], "generic": "#% to Chaos Resistance", "line": "7% to Chaos Resistance"}
 {"candidates": ["# to maximum Energy Shield (Local)", "7 to maximum Energy Shield (Local)"], "generic": "# to maximum Energy Shield (Local)", "line": "7 to maximum Energy Shield (Local)"}
 {"candidates": ["# to Accuracy Rating", "7 to Accuracy Rating"], "generic": "# to Accuracy Rating", "line": "7 to Accuracy Rating"}
 {"candidates": ["#% to Global Critical Strike Multiplier", "7% to Global Critical Strike Multiplier"], "generic": "#% to Global Critical Strike Multiplier", "line": "7% to Global Critical Strike Multiplier"}
 {"candidates": ["#% increased Cast Speed", "7% increased Cast Speed"], "generic": "#% increased Cast Speed", "line": "7% increased Cast Speed"}
-{"candidates": ["#% increased Attack Speed (Local)", "7% increased Attack Speed (Local)"], "generic": "#% increased Attack Speed (Local)", "line": "7% increased Attack Speed (Local)"}
 {"candidates": ["#% increased Attack Speed", "7% increased Attack Speed"], "generic": "#% increased Attack Speed", "line": "7% increased Attack Speed"}
 {"candidates": ["# to all Attributes", "7 to all Attributes"], "generic": "# to all Attributes", "line": "7 to all Attributes"}
 {"candidates": ["#% increased maximum Life", "7% increased maximum Life"], "generic": "#% increased maximum Life", "line": "7% increased maximum Life"}
 {"candidates": ["Adds # to # Physical Damage (Local)", "Adds 7 to # Physical Damage (Local)"], "generic": "Adds # to # Physical Damage (Local)", "line": "Adds 7 to # Physical Damage (Local)"}
 {"candidates": ["# to Evasion Rating", "7 to Evasion Rating"], "generic": "# to Evasion Rating", "line": "7 to Evasion Rating"}
 {"candidates": ["#% increased Global Critical Strike Chance", "7% increased Global Critical Strike Chance"], "generic": "#% increased Global Critical Strike Chance", "line": "7% increased Global Critical Strike Chance"}
-{"candidates": ["# to Evasion Rating (Local)", "7 to Evasion Rating (Local)"], "generic": "# to Evasion Rating (Local)", "line": "7 to Evasion Rating (Local)"}
 {"candidates": ["#% increased Evasion Rating (Local)", "7% increased Evasion Rating (Local)"], "generic": "#% increased Evasion Rating (Local)", "line": "7% increased Evasion Rating (Local)"}
+{"candidates": ["# to Evasion Rating (Local)", "7 to Evasion Rating (Local)"], "generic": "# to Evasion Rating (Local)", "line": "7 to Evasion Rating (Local)"}
 {"candidates": ["#% increased Armour (Local)", "7% increased Armour (Local)"], "generic": "#% increased Armour (Local)", "line": "7% increased Armour (Local)"}
 {"candidates": ["# to Armour (Local)", "7 to Armour (Local)"], "generic": "# to Armour (Local)", "line": "7 to Armour (Local)"}
 {"candidates": ["#% increased Energy Shield (Local)", "7% increased Energy Shield (Local)"], "generic": "#% increased Energy Shield (Local)", "line": "7% increased Energy Shield (Local)"}
-{"candidates": ["#% increased maximum Energy Shield", "7% increased maximum Energy Shield"], "generic": "#% increased maximum Energy Shield", "line": "7% increased maximum Energy Shield"}
-{"candidates": ["#% increased Armour and Evasion (Local)", "7% increased Armour and Evasion (Local)"], "generic": "#% increased Armour and Evasion (Local)", "line": "7% increased Armour and Evasion (Local)"}
 {"candidates": ["#% increased Light Radius", "7% increased Light Radius"], "generic": "#% increased Light Radius", "line": "7% increased Light Radius"}
-{"candidates": ["Adds # to # Lightning Damage (Local)", "Adds 7 to # Lightning Damage (Local)"], "generic": "Adds # to # Lightning Damage (Local)", "line": "Adds 7 to # Lightning Damage (Local)"}
-{"candidates": ["#% increased Evasion and Energy Shield (Local)", "7% increased Evasion and Energy Shield (Local)"], "generic": "#% increased Evasion and Energy Shield (Local)", "line": "7% increased Evasion and Energy Shield (Local)"}
+{"candidates": ["#% increased maximum Energy Shield", "7% increased maximum Energy Shield"], "generic": "#% increased maximum Energy Shield", "line": "7% increased maximum Energy Shield"}
 {"candidates": ["#% increased Armour and Energy Shield (Local)", "7% increased Armour and Energy Shield (Local)"], "generic": "#% increased Armour and Energy Shield (Local)", "line": "7% increased Armour and Energy Shield (Local)"}
+{"candidates": ["#% increased Critical Strike Chance", "7% increased Critical Strike Chance"], "generic": "#% increased Critical Strike Chance", "line": "7% increased Critical Strike Chance"}
+{"candidates": ["#% increased Armour and Evasion (Local)", "7% increased Armour and Evasion (Local)"], "generic": "#% increased Armour and Evasion (Local)", "line": "7% increased Armour and Evasion (Local)"}
 {"candidates": ["Adds # to # Cold Damage (Local)", "Adds 7 to # Cold Damage (Local)"], "generic": "Adds # to # Cold Damage (Local)", "line": "Adds 7 to # Cold Damage (Local)"}
 {"candidates": ["Gain # Mana per Enemy Killed", "Gain 7 Mana per Enemy Killed"], "generic": "Gain # Mana per Enemy Killed", "line": "Gain 7 Mana per Enemy Killed"}
+{"candidates": ["Adds # to # Lightning Damage (Local)", "Adds 7 to # Lightning Damage (Local)"], "generic": "Adds # to # Lightning Damage (Local)", "line": "Adds 7 to # Lightning Damage (Local)"}
+{"candidates": ["#% increased Evasion and Energy Shield (Local)", "7% increased Evasion and Energy Shield (Local)"], "generic": "#% increased Evasion and Energy Shield (Local)", "line": "7% increased Evasion and Energy Shield (Local)"}
 {"candidates": ["#% increased Stun Duration on Enemies", "7% increased Stun Duration on Enemies"], "generic": "#% increased Stun Duration on Enemies", "line": "7% increased Stun Duration on Enemies"}
-{"candidates": ["#% increased Critical Strike Chance", "7% increased Critical Strike Chance"], "generic": "#% increased Critical Strike Chance", "line": "7% increased Critical Strike Chance"}
 {"candidates": ["# to Armour", "7 to Armour"], "generic": "# to Armour", "line": "7 to Armour"}
 {"candidates": ["#% increased Global Physical Damage", "7% increased Global Physical Damage"], "generic": "#% increased Global Physical Damage", "line": "7% increased Global Physical Damage"}
 {"candidates": ["# to Accuracy Rating (Local)", "7 to Accuracy Rating (Local)"], "generic": "# to Accuracy Rating (Local)", "line": "7 to Accuracy Rating (Local)"}
@@ -322,26 +324,25 @@
 {"candidates": ["Adds # to # Fire Damage (Local)", "Adds 7 to # Fire Damage (Local)"], "generic": "Adds # to # Fire Damage (Local)", "line": "Adds 7 to # Fire Damage (Local)"}
 {"candidates": ["#% increased maximum Mana", "7% increased maximum Mana"], "generic": "#% increased maximum Mana", "line": "7% increased maximum Mana"}
 {"candidates": ["#% increased Projectile Speed", "7% increased Projectile Speed"], "generic": "#% increased Projectile Speed", "line": "7% increased Projectile Speed"}
+{"candidates": ["#% increased Global Accuracy Rating", "7% increased Global Accuracy Rating"], "generic": "#% increased Global Accuracy Rating", "line": "7% increased Global Accuracy Rating"}
 {"candidates": ["#% more Monster Life", "7% more Monster Life"], "generic": "#% more Monster Life", "line": "7% more Monster Life"}
 {"candidates": ["#% chance to Suppress Spell Damage", "7% chance to Suppress Spell Damage"], "generic": "#% chance to Suppress Spell Damage", "line": "7% chance to Suppress Spell Damage"}
 {"candidates": ["Gain # Life per Enemy Hit with Attacks", "Gain 7 Life per Enemy Hit with Attacks"], "generic": "Gain # Life per Enemy Hit with Attacks", "line": "Gain 7 Life per Enemy Hit with Attacks"}
-{"candidates": ["#% increased Global Accuracy Rating", "7% increased Global Accuracy Rating"], "generic": "#% increased Global Accuracy Rating", "line": "7% increased Global Accuracy Rating"}
 {"candidates": ["#% increased Evasion Rating", "7% increased Evasion Rating"], "generic": "#% increased Evasion Rating", "line": "7% increased Evasion Rating"}
 {"candidates": ["#% increased Duration", "7% increased Duration"], "generic": "#% increased Duration", "line": "7% increased Duration"}
 {"candidates": ["#% increased Spell Critical Strike Chance", "7% increased Spell Critical Strike Chance"], "generic": "#% increased Spell Critical Strike Chance", "line": "7% increased Spell Critical Strike Chance"}
 {"candidates": ["Reflects # Physical Damage to Melee Attackers", "Reflects 7 Physical Damage to Melee Attackers"], "generic": "Reflects # Physical Damage to Melee Attackers", "line": "Reflects 7 Physical Damage to Melee Attackers"}
+{"candidates": ["#% increased Monster Damage", "7% increased Monster Damage"], "generic": "#% increased Monster Damage", "line": "7% increased Monster Damage"}
 {"candidates": ["Minions have #% increased maximum Life", "Minions have 7% increased maximum Life"], "generic": "Minions have #% increased maximum Life", "line": "Minions have 7% increased maximum Life"}
 {"candidates": ["#% increased Projectile Damage", "7% increased Projectile Damage"], "generic": "#% increased Projectile Damage", "line": "7% increased Projectile Damage"}
 {"candidates": ["#% chance to Ignite", "7% chance to Ignite"], "generic": "#% chance to Ignite", "line": "7% chance to Ignite"}
-{"candidates": ["#% increased Damage over Time", "7% increased Damage over Time"], "generic": "#% increased Damage over Time", "line": "7% increased Damage over Time"}
+{"candidates": ["Minions deal #% increased Damage", "Minions deal 7% increased Damage"], "generic": "Minions deal #% increased Damage", "line": "Minions deal 7% increased Damage"}
 {"candidates": ["#% reduced Enemy Stun Threshold", "7% reduced Enemy Stun Threshold"], "generic": "#% reduced Enemy Stun Threshold", "line": "7% reduced Enemy Stun Threshold"}
 {"candidates": ["#% increased Damage", "7% increased Damage"], "generic": "#% increased Damage", "line": "7% increased Damage"}
-{"candidates": ["Minions deal #% increased Damage", "Minions deal 7% increased Damage"], "generic": "Minions deal #% increased Damage", "line": "Minions deal 7% increased Damage"}
 {"candidates": ["#% increased Armour", "7% increased Armour"], "generic": "#% increased Armour", "line": "7% increased Armour"}
 {"candidates": ["Area has #% chance to contain an Ultimatum Encounter", "Area has 7% chance to contain an Ultimatum Encounter"], "generic": "Area has #% chance to contain an Ultimatum Encounter", "line": "Area has 7% chance to contain an Ultimatum Encounter"}
 {"candidates": ["Your Maps have #% chance to contain an Ultimatum Encounter", "Your Maps have 7% chance to contain an Ultimatum Encounter"], "generic": "Your Maps have #% chance to contain an Ultimatum Encounter", "line": "Your Maps have 7% chance to contain an Ultimatum Encounter"}
 {"candidates": ["Your Maps have #% chance to contain a Mirror of Delirium", "Your Maps have 7% chance to contain a Mirror of Delirium"], "generic": "Your Maps have #% chance to contain a Mirror of Delirium", "line": "Your Maps have 7% chance to contain a Mirror of Delirium"}
-{"candidates": ["#% increased Monster Damage", "7% increased Monster Damage"], "generic": "#% increased Monster Damage", "line": "7% increased Monster Damage"}
 {"candidates": ["Your Maps have #% chance to contain a Legion Encounter", "Your Maps have 7% chance to contain a Legion Encounter"], "generic": "Your Maps have #% chance to contain a Legion Encounter", "line": "Your Maps have 7% chance to contain a Legion Encounter"}
 {"candidates": ["#% chance to contain an Expedition Encounter", "7% chance to contain an Expedition Encounter"], "generic": "#% chance to contain an Expedition Encounter", "line": "7% chance to contain an Expedition Encounter"}
 {"candidates": ["Your Maps have #% chance to contain an Expedition Encounter", "Your Maps have 7% chance to contain an Expedition Encounter"], "generic": "Your Maps have #% chance to contain an Expedition Encounter", "line": "Your Maps have 7% chance to contain an Expedition Encounter"}
@@ -351,19 +352,21 @@
 {"candidates": ["Your Maps have #% chance to contain Ritual Altars", "Your Maps have 7% chance to contain Ritual Altars"], "generic": "Your Maps have #% chance to contain Ritual Altars", "line": "Your Maps have 7% chance to contain Ritual Altars"}
 {"candidates": ["Your Maps have #% chance to contain an Abyss", "Your Maps have 7% chance to contain an Abyss"], "generic": "Your Maps have #% chance to contain an Abyss", "line": "Your Maps have 7% chance to contain an Abyss"}
 {"candidates": ["#% increased Monster Movement Speed", "7% increased Monster Movement Speed"], "generic": "#% increased Monster Movement Speed", "line": "7% increased Monster Movement Speed"}
-{"candidates": ["Your Maps have #% chance to contain The Sacred Grove", "Your Maps have 7% chance to contain The Sacred Grove"], "generic": "Your Maps have #% chance to contain The Sacred Grove", "line": "Your Maps have 7% chance to contain The Sacred Grove"}
 {"candidates": ["#% increased Monster Attack Speed", "7% increased Monster Attack Speed"], "generic": "#% increased Monster Attack Speed", "line": "7% increased Monster Attack Speed"}
 {"candidates": ["Your Maps have #% chance to contain a Blight Encounter", "Your Maps have 7% chance to contain a Blight Encounter"], "generic": "Your Maps have #% chance to contain a Blight Encounter", "line": "Your Maps have 7% chance to contain a Blight Encounter"}
-{"candidates": ["Monsters deal #% extra Physical Damage as Lightning", "Monsters deal 7% extra Physical Damage as Lightning"], "generic": "Monsters deal #% extra Physical Damage as Lightning", "line": "Monsters deal 7% extra Physical Damage as Lightning"}
-{"candidates": ["# to Strength and Intelligence", "7 to Strength and Intelligence"], "generic": "# to Strength and Intelligence", "line": "7 to Strength and Intelligence"}
+{"candidates": ["Your Maps have #% chance to contain The Sacred Grove", "Your Maps have 7% chance to contain The Sacred Grove"], "generic": "Your Maps have #% chance to contain The Sacred Grove", "line": "Your Maps have 7% chance to contain The Sacred Grove"}
 {"candidates": ["# to Level of Socketed Gems", "7 to Level of Socketed Gems"], "generic": "# to Level of Socketed Gems", "line": "7 to Level of Socketed Gems"}
+{"candidates": ["#% increased Damage over Time", "7% increased Damage over Time"], "generic": "#% increased Damage over Time", "line": "7% increased Damage over Time"}
+{"candidates": ["# to Strength and Intelligence", "7 to Strength and Intelligence"], "generic": "# to Strength and Intelligence", "line": "7 to Strength and Intelligence"}
 {"candidates": ["#% increased Area of Effect", "7% increased Area of Effect"], "generic": "#% increased Area of Effect", "line": "7% increased Area of Effect"}
 {"candidates": ["#% to Damage over Time Multiplier", "7% to Damage over Time Multiplier"], "generic": "#% to Damage over Time Multiplier", "line": "7% to Damage over Time Multiplier"}
 {"candidates": ["#% Chance to Block (Shields)", "7% Chance to Block (Shields)"], "generic": "#% Chance to Block (Shields)", "line": "7% Chance to Block (Shields)"}
 {"candidates": ["# to Dexterity and Intelligence", "7 to Dexterity and Intelligence"], "generic": "# to Dexterity and Intelligence", "line": "7 to Dexterity and Intelligence"}
 {"candidates": ["# to Strength and Dexterity", "7 to Strength and Dexterity"], "generic": "# to Strength and Dexterity", "line": "7 to Strength and Dexterity"}
-{"candidates": ["#% increased Flask Effect Duration", "7% increased Flask Effect Duration"], "generic": "#% increased Flask Effect Duration", "line": "7% increased Flask Effect Duration"}
 {"candidates": ["#% increased Charges per use", "7% increased Charges per use"], "generic": "#% increased Charges per use", "line": "7% increased Charges per use"}
+{"candidates": ["#% chance to Shock", "7% chance to Shock"], "generic": "#% chance to Shock", "line": "7% chance to Shock"}
+{"candidates": ["#% increased Mana Reservation Efficiency of Skills", "7% increased Mana Reservation Efficiency of Skills"], "generic": "#% increased Mana Reservation Efficiency of Skills", "line": "7% increased Mana Reservation Efficiency of Skills"}
+{"candidates": ["Monsters deal #% extra Physical Damage as Lightning", "Monsters deal 7% extra Physical Damage as Lightning"], "generic": "Monsters deal #% extra Physical Damage as Lightning", "line": "Monsters deal 7% extra Physical Damage as Lightning"}
 {"candidates": ["Regenerate # Mana per second", "Regenerate 7 Mana per second"], "generic": "Regenerate # Mana per second", "line": "Regenerate 7 Mana per second"}
 {"candidates": ["Grants # Life per Enemy Hit", "Grants 7 Life per Enemy Hit"], "generic": "Grants # Life per Enemy Hit", "line": "Grants 7 Life per Enemy Hit"}
 {"candidates": ["Your Maps have #% chance to contain a Smuggler's Cache", "Your Maps have 7% chance to contain a Smuggler's Cache"], "generic": "Your Maps have #% chance to contain a Smuggler's Cache", "line": "Your Maps have 7% chance to contain a Smuggler's Cache"}
@@ -371,3 +374,4 @@
 {"candidates": ["#% increased Chaos Damage", "7% increased Chaos Damage"], "generic": "#% increased Chaos Damage", "line": "7% increased Chaos Damage"}
 {"candidates": ["#% increased Monster Cast Speed", "7% increased Monster Cast Speed"], "generic": "#% increased Monster Cast Speed", "line": "7% increased Monster Cast Speed"}
 {"candidates": ["Your Maps have #% chance to contain Alva", "Your Maps have 7% chance to contain Alva"], "generic": "Your Maps have #% chance to contain Alva", "line": "Your Maps have 7% chance to contain Alva"}
+{"candidates": ["#% increased Energy Shield Recharge Rate", "7% increased Energy Shield Recharge Rate"], "generic": "#% increased Energy Shield Recharge Rate", "line": "7% increased Energy Shield Recharge Rate"}

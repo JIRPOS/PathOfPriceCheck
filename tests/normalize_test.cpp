@@ -106,3 +106,33 @@ TEST_CASE("more than four numbers does not overflow the mask table") {
     CHECK_FALSE(cs.empty());
     CHECK(cs.back() == line);
 }
+
+TEST_CASE("a range whose roll is a name is dropped") {
+    // The pool is the minion skill gems and the roll is the one named in the wording, so
+    // there is no numeric token for the parenthesis to belong to. Trade indexes one wording
+    // per gem, spelling it out.
+    CHECK(strip_named_ranges(
+              "Maximum number of Sentinels of Purity (Animated Weapons-Holy Armaments) "
+              "is Doubled") == "Maximum number of Sentinels of Purity is Doubled");
+
+    // A numeric token's own range belongs to that token, whether or not it reads as numbers.
+    CHECK(strip_named_ranges("+25(20-30)% to Cold Resistance") ==
+          "+25(20-30)% to Cold Resistance");
+    CHECK(strip_named_ranges("64(65-60)% reduced Effect") == "64(65-60)% reduced Effect");
+
+    // Neither is a parenthesis that is not a range at all.
+    CHECK(strip_named_ranges("Adds # to # Chaos Damage (Local)") ==
+          "Adds # to # Chaos Damage (Local)");
+    CHECK(strip_named_ranges("+51 to maximum Energy Shield (unscalable value)") ==
+          "+51 to maximum Energy Shield (unscalable value)");
+}
+
+TEST_CASE("stripping a named range only ever adds candidates, and adds them last") {
+    // "(Blood-Filled Vessel)" is a real wording, not a range, and it has to resolve as
+    // printed. It qualifies on shape alone, which is why the stripped form is enumerated
+    // second rather than instead.
+    CHECK(candidates("Unique Monsters (Blood-Filled Vessel): 7") ==
+          std::vector<std::string>{"Unique Monsters (Blood-Filled Vessel): #",
+                                   "Unique Monsters (Blood-Filled Vessel): 7",
+                                   "Unique Monsters: #", "Unique Monsters: 7"});
+}

@@ -1,0 +1,30 @@
+Item Class: Helmets
+Rarity: Unique
+The Dark Monarch
+Lich's Circlet
+--------
+Energy Shield: 177 (augmented)
+--------
+Requirements:
+Level: 84
+Int: 224 (unmet)
+--------
+Sockets: W W-W 
+--------
+Item Level: 86
+--------
+{ Unique Modifier — Defences, Energy Shield }
++51(50-100) to maximum Energy Shield
+{ Unique Modifier — Minion, Gem }
++1 to Level of all Minion Skill Gems
+{ Unique Modifier — Chaos, Resistance }
++34(27-37)% to Chaos Resistance
+{ Unique Modifier }
+50% reduced Light Radius
+{ Unique Modifier }
+Maximum number of Sentinels of Purity (Animated Weapons-Holy Armaments) is Doubled
+Cannot have Minions other than Sentinels of Purity (Animated Weapons-Holy Armaments)
+--------
+"Hate? You speak to me of hate? You have no idea what your persecution inflicts.
+How it chokes the heart. Withers the soul. Judge me, and you judge yourself."
+- Saresh, last words, to Sekhema Orbala

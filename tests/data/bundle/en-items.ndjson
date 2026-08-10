@@ -42,3 +42,9 @@
 {"art":"Art/2DItems/Currency/Heist/SlaveMerchantFightContract.png","name":"Contract: The Slaver King","namespace":"UNIQUE","refName":"Contract: The Slaver King","unique":{"base":"Vigilante Contract"}}
 {"craftable":{"category":"Sanctum Research"},"dropLevel":68,"h":1,"metadataId":"Metadata/Items/Sanctum/SanctumFloor2","name":"Sanctum Vaults Research","namespace":"ITEM","refName":"Sanctum Vaults Research","w":1}
 {"craftable":{"category":"Expedition Logbooks"},"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Expedition/ExpeditionLogbook","name":"Expedition Logbook","namespace":"ITEM","refName":"Expedition Logbook","w":1}
+{"art":"Art/2DItems/Armours/Helmets/TheDarkMonarch.png","name":"The Dark Monarch","namespace":"UNIQUE","refName":"The Dark Monarch","unique":{"base":"Lich's Circlet"}}
+{"armour":{"es":[117,134]},"craftable":{"category":"Helmets"},"dropLevel":84,"h":2,"metadataId":"Metadata/Items/Armours/Helmets/HelmetInt14","name":"Lich's Circlet","namespace":"ITEM","refName":"Lich's Circlet","w":2}
+{"art":"Art/2DItems/Amulets/Malachai's BrillianceAmulet.png","name":"Replica Dragonfang's Flight","namespace":"UNIQUE","refName":"Replica Dragonfang's Flight","unique":{"base":"Onyx Amulet"}}
+{"craftable":{"category":"Amulets"},"dropLevel":25,"h":1,"metadataId":"Metadata/Items/Amulets/Amulet7","name":"Onyx Amulet","namespace":"ITEM","refName":"Onyx Amulet","w":1}
+{"art":"Art/2DItems/Belts/HinekoraBelt.png","name":"Bound Fate","namespace":"UNIQUE","refName":"Bound Fate","unique":{"base":"Cloth Belt"}}
+{"craftable":{"category":"Belts"},"dropLevel":20,"h":1,"metadataId":"Metadata/Items/Belts/Belt5","name":"Cloth Belt","namespace":"ITEM","refName":"Cloth Belt","w":2}

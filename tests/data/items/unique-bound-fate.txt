@@ -1,0 +1,31 @@
+Item Class: Belts
+Rarity: Unique
+Bound Fate
+Cloth Belt
+--------
+Requirements:
+Level: 49
+--------
+Item Level: 82
+--------
+{ Implicit Modifier }
+21(15-25)% increased Stun and Block Recovery
+--------
+{ Unique Modifier — Attribute }
++23(20-30) to Dexterity
+{ Unique Modifier — Attribute }
++25(20-30) to Intelligence
+{ Unique Modifier — Life }
++77(60-80) to maximum Life
+{ Unique Modifier }
+Every 5 seconds, gain one of the following for 5 seconds:
+Your Hits are always Critical Strikes
+Hits against you are always Critical Strikes
+Attacks cannot Hit you
+Attacks against you always Hit
+Your Damage with Hits is Lucky
+Damage of Hits against you is Lucky
+--------
+Knowing what will happen
+and knowing when it will happen
+are two very different things.
