@@ -325,20 +325,55 @@ a console-subsystem build pops a console window beside an application whose whol
 and a tray icon. Nothing user-facing goes to stdout — `PPC_DEBUG_COPY`'s traces have nowhere to go
 there, which is what the debug log is for.
 
-**Icon** (`src/icon.cpp`): `assets/popc_icon.png` embedded as a base85 blob in the generated
-`src/icon_data.inc` and decoded at startup with SDL3's own `SDL_LoadPNG_IO` — no image library, no
-runtime asset. One surface feeds both the tray and `SDL_SetWindowIcon`. The Windows executable icon
-is separate: `assets/popc_icon.ico` via an `.rc` resource configured from `assets/app.rc.in`. That
-script also carries the executable's **`VERSIONINFO`** — publisher, product, description and both
-version strings, spelled exactly as [packaging/PathOfPriceCheck.iss](../packaging/PathOfPriceCheck.iss)
-spells them. It is there for the antivirus heuristics rather than for the properties dialog: an
-unsigned binary that declares no publisher and no version is a signal in itself, and until the
-release is code-signed it is the cheap half of the answer. `FILEVERSION` wants four numbers where
-`APP_VERSION` has three, so the fourth is a constant 0.
+**Icon** (`src/icon.cpp`): `assets/popc_icon.png` embedded as its own bytes in the generated
+`src/icon_data.inc` and read at startup with SDL3's own `SDL_LoadPNG_IO` — no image library, no
+runtime asset. One surface feeds both the tray and `SDL_SetWindowIcon`, which is why it has to be
+pixels at runtime and cannot come from the Windows resource: `SDL_CreateTray` takes a surface.
+The embedded copy is the 128px master **downscaled to 64**, since the tray draws it at 16 or 32
+and a window icon at rather less than 128; the master stays the source of the `.ico`, where the
+big entries are the ones Explorer uses.
+
+The Windows executable icon is separate: `assets/popc_icon.ico` via an `.rc` resource configured
+from `assets/app.rc.in`. That script also carries the executable's **`VERSIONINFO`** — publisher,
+product, description and both version strings, spelled exactly as
+[packaging/PathOfPriceCheck.iss](../packaging/PathOfPriceCheck.iss) spells them. `FILEVERSION` wants
+four numbers where `APP_VERSION` has three, so the fourth is a constant 0.
+
+**Looking like software rather than like malware** is what that resource is for, and it is not the
+only thing here doing that job. Microsoft's cloud classifier flagged an unsigned release as
+`Trojan:Win32/Wacatac.B!ml` — one verdict out of seventy-one engines, the shape of a false positive
+— and until the release is code-signed the answer is a collection of cheap signals, each of which
+is also defensible on its own:
+
+- the executable declares a publisher and a version (`VERSIONINFO`, above), because one that
+  declares neither is a signal in itself;
+- it carries an **application manifest** (`assets/app.manifest`, listed as a source so CMake hands
+  it to the manifest tool) declaring `asInvoker` and the standard `supportedOS` block. It declares
+  no DPI awareness on purpose — SDL sets that at video init, and taking the decision away from SDL
+  would move the overlay on a high-DPI display;
+- it is linked with **`/guard:cf`**, which MSVC leaves off by default and most shipped Windows
+  software has on. `/CETCOMPAT` is deliberately absent: it is a promise about the whole image,
+  statically linked SDL, curl and zlib included, and a wrong one crashes rather than degrading;
+- **nothing in it is packed or encoded.** The fonts and the icon go in as their own bytes, so a
+  scanner reading `.rdata` finds a TTF table directory and a PNG signature. They used to be
+  base85-encoded and `stb_compress`ed, which cost a few kilobytes less and looked exactly like a
+  packer: an opaque high-entropy blob beside a routine that decodes it into a fresh buffer.
+
+The last of those is a rule and not just a past decision — **do not obfuscate anything to get past
+a scanner.** String encryption, packing or anti-debug tricks raise the score sharply and are read
+as deliberate evasion, which is a worse verdict than the one being fixed. The genuinely
+dropper-shaped behaviour in this program is the updater downloading an executable and running it
+([updater.md](updater.md)), and hiding that would be dishonest as well as counterproductive. When a
+release does trip the classifier, the remedy is a false-positive report to Microsoft's WDSI
+submission portal as a software developer; it clears within a day or two, but it keys on the file
+hash, so it recurs per release until the binaries are signed.
 
 **Fonts** (`src/fonts.cpp`): the UI renders in **Fontin**, the typeface the game itself uses. Four
-faces (Regular/Bold/Italic/SmallCaps) are embedded in the executable as base85 blobs in the generated
-`src/fontin_data.inc` — no runtime asset dependency. Regular is the default; Bold marks panel headers;
+faces (Regular/Bold/Italic/SmallCaps) are embedded in the executable as their own TTF bytes in the
+generated `src/fontin_data.inc` — no runtime asset dependency, and see above for why they are not
+compressed. ImGui must be told `FontDataOwnedByAtlas = false` for them, as for a mapped file; the
+same config must never reach `AddFontFromFileTTF`, which allocates its own buffer and then leaks it.
+Regular is the default; Bold marks panel headers;
 **SmallCaps renders item text**, matching the game. SmallCaps is a separate family, *not* an OpenType
 `smcp` feature — load-bearing, since ImGui does no shaping or feature substitution. ImGui 1.92 fonts
 are dynamically scalable, so it's one `ImFont*` per face at any size: `PushFont(fonts.bold, 22.0f)`.
