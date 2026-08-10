@@ -48,8 +48,10 @@ struct RangeTrack {
 /// **A knob released hard against an end grows the track**, by a fifth of the range it started
 /// with, so the next drag has somewhere to go. Pegging is how a user says the number they want is
 /// further out than the track offers, and answering it with a track that is still exactly as long
-/// is how a slider reads as broken. Repeated, this walks outwards a fifth at a time, and
-/// `kRangeLimit` is where it stops.
+/// is how a slider reads as broken. The fifth is added beyond *where the knob was left* rather
+/// than beyond the end it was pushed past, which is what leaves it visibly clear of the corner
+/// afterwards — a drag does not stop at the end, so the two are not the same place. Repeated, this
+/// walks outwards a fifth at a time, and `kRangeLimit` is where it stops.
 ///
 /// Values are rounded to `dp` decimals. **A drag** never leaves `min` above `max` — pushing one
 /// knob past the other carries the other along, which is what makes an interval collapsible to a
