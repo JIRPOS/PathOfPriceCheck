@@ -2470,6 +2470,11 @@ TEST_CASE("an Expedition Logbook is priced on one of its destinations at a time"
         CHECK(lvl->min == 80);
         CHECK_FALSE(lvl->max.has_value()); // an 83 answers a search for an 80
         CHECK(lvl->enabled);
+        // Quantity and pack size are ticked on a map and deliberately are not here, which is the
+        // one place this strategy parts company with the keys it borrows: a map is run for them,
+        // and a logbook's are a second-order bonus on top of the artifacts the destination
+        // decides. They also only exist on a magic or rare book, so ticking them would search
+        // the same logbook two ways depending on whether it had rolled affixes at all.
         for (const char* key : {"ilvl", "map_iiq", "map_packsize", "map_iir"}) {
             const NumericFilter* f = numeric_for(p, key);
             REQUIRE_MESSAGE(f != nullptr, key);

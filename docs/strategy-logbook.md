@@ -22,7 +22,8 @@ colon, no mod-type suffix, not an info line — which nothing else a logbook pri
 its own is.
 
 Two checks and both are load-bearing. The **leading pair** is what keeps the block of affixes a
-rare logbook prints *below* its destinations out, because an affix opens with its roll. And the
+magic or rare logbook prints *below* its destinations out, because an affix opens with its roll.
+And the
 **tail has to read as modifiers** (`looks_like_mods`), which keeps a stray pair of prose lines out
 and is the half that still holds with Advanced Mod Descriptions on, where each implicit gains an
 info line above it. The number of implicits is deliberately not fixed: the captures show two and
@@ -78,12 +79,16 @@ a note, as an unknown sanctum boon or beast species is: the area list grows with
   an 83.
 - **The item level**, offered. It bounds what the affixes can be crafted to, which is a question
   about crafting the book rather than about running it.
-- **Quantity, rarity and pack size**, offered, all three unticked. They are the same three
-  properties a map is searched on and come off the same `map_filters` keys, but a map's are the
-  whole of what it is run for and a logbook's are a second-order bonus on top of the artifacts,
-  which the destination decides. **Not yet measured** for this category: a filter the site accepts
-  and indexes nothing under empties the search, exactly as `heist_max_escape_routes` does, and
-  unticked is the state that cannot do that. Measure one at a time before ticking any of them.
+- **Quantity, rarity and pack size**, offered, and all three **unticked on purpose — decided, not
+  deferred.** They are the same three properties a map is searched on and come off the same
+  `map_filters` keys, and this is the one place a logbook deliberately parts company with the map
+  strategy: a map's quantity and pack size are the whole of what it is run for and are ticked,
+  where a logbook's are a second-order bonus on top of the artifacts, which the *destination*
+  decides. They also only exist on a magic or rare book, so ticking them would make the same
+  logbook searched two different ways depending on whether it had rolled affixes at all. A
+  secondary reason to leave them alone: nobody has measured that the site indexes them for this
+  category, and a filter it accepts and indexes nothing under empties the search exactly as
+  `heist_max_escape_routes` does. Unticked is the state that cannot do that either way.
 - **The type is sent only where the bundle resolved the base.** The category is the whole search on
   its own — one base type is filed under `logbook` — so the type says nothing it does not, and a
   magic logbook's printed line is "Buffered Expedition Logbook", which as a type matches nothing
@@ -110,5 +115,6 @@ three ordinary booleans — returned **983 listings** in Allflame. So the catego
 it, the area level and the faction pseudo are all indexed for this category and none of them is a
 filter the site accepts and answers with nothing.
 
-What has **not** been measured, one variable at a time and against this same capture, is
-`map_iiq`, `map_packsize` and `map_iir` — see above.
+`map_iiq`, `map_packsize` and `map_iir` are **not** measured, and are not waiting on a
+measurement either: they are unticked because a logbook is not bought for them, and a measurement
+would only decide whether a row the search does not send is safe to send.

@@ -1220,12 +1220,14 @@ const data::Stat* logbook_stat(const data::GameData& gd, data::Term prefix,
 ///   an 83.
 /// - **The item level**, offered. It bounds what the affixes can be crafted to and is a
 ///   question about crafting the book rather than about running it.
-/// - **Quantity, rarity and pack size**, offered, all three. They are the same three properties
-///   a map is searched on and they come off the same `map_filters` keys — but a map's are the
-///   whole of what it is run for, and a logbook's are a second-order bonus on top of the
-///   artifacts, which is what the destination decides. Left unticked until someone has measured
-///   that the site indexes them for this category at all; a filter it accepts and indexes
-///   nothing under empties the search, exactly as `heist_max_escape_routes` does.
+/// - **Quantity, rarity and pack size**, offered and unticked — **decided, not deferred**, and
+///   the one place this parts company with the map strategy it borrows the keys from. A map's
+///   quantity and pack size are the whole of what it is run for and are ticked; a logbook's are
+///   a second-order bonus on top of the artifacts, which the *destination* decides. They also
+///   only exist on a magic or rare book, so ticking them would search the same logbook two
+///   different ways depending on whether it had rolled affixes at all. Nobody has measured that
+///   the site indexes them for this category either, and a filter it accepts and indexes nothing
+///   under empties the search exactly as `heist_max_escape_routes` does.
 ///
 /// The **affixes it prints below the destinations** are the map argument, and get the map's
 /// answer: they apply wherever it goes, they are re-rollable — a logbook is craftable, which is
