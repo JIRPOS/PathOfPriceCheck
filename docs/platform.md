@@ -78,6 +78,27 @@ The seams (windowing still comes free from SDL3; the clipboard did not — see b
   arrives as a plain hyphen (1277 bytes against 1291 for the same item). Polling therefore sees the
   two forms alternate, which is why one press of the hotkey used to show affixes and the next did
   not. `parse_info_line` accepts either separator; **do not "fix" that by trusting the encoding.**
+- **`platform/clipboard.hpp` — `clipboard_set_text(text)`:** the write, for QuickPaste. Not
+  `SDL_SetClipboardText`, and the reason is not the read path's: **X11 has no clipboard to put
+  something into.** A selection is a live window answering `SelectionRequest`, so a write is a
+  promise to still be there when the paste happens — which here is Wine asking, after the popup
+  has closed. So the owner is a window on a thread of its own with its own `Display`, started on
+  the first write and never stopped; the main thread hands text over under a mutex and pokes a
+  self-pipe, because **that Display is touched only by that thread** (the hotkey listener's rule,
+  and the same abort behind it). It answers `TARGETS`, `TIMESTAMP`, `UTF8_STRING`,
+  `text/plain;charset=utf-8`, `text/plain` and `STRING`, takes ownership with a **real server
+  timestamp** (the zero-length property append, as the handover does — ICCCM wants an owner able
+  to answer `TIMESTAMP` truthfully), and drops the text on `SelectionClear` rather than serving
+  something it no longer owns. `STRING` is served the same UTF-8 bytes on purpose: it is
+  nominally Latin-1, but everything that can read UTF-8 asks for `UTF8_STRING` first and refusing
+  `STRING` leaves the rest with nothing. **The call blocks until ownership is asserted** (a
+  condition variable, bounded at 250ms): the caller hands the focus back to the game immediately
+  afterwards and Wine re-reads the selection around that focus change, so returning before the
+  server has us as the owner is a first paste of the previous clipboard — measured, reported, and
+  the reason this is not fire-and-forget. **No INCR on this side** — one `XChangeProperty`, hence
+  `kMaxClipboardWrite` (64KB) and an editor that will not store more. Windows is the ordinary
+  `OpenClipboard`/`CF_UNICODETEXT` write, retried while another application holds the lock.
+  → [quickpaste.md](quickpaste.md)
 - **`clipboard_wedge_note` in `App` concludes from the owner's behaviour, never from its
   identity** — and that is the second attempt, the first two having been wrong in ways worth
   recording so nobody rebuilds them. It says the one thing the app can state truthfully about
