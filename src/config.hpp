@@ -70,13 +70,16 @@ struct Config {
     float stash_edge = 0.615f;     ///< stash frame's right edge, ÷ game height
     float inventory_edge = 0.615f; ///< inventory frame's left edge from the right, ÷ game height
 
-    // Where the idle status sits: the middle of the mana globe, which is anchored to the
-    // bottom-right corner of the game window and scales with its height — so both offsets are
-    // measured from that corner and divided by the height, like the two edges above. Defaults
-    // are off tests/data/full_screen_1440p.jpeg. Config-file only, like poe_window_title: the
+    // Where the idle status sits: over the mana globe, which is anchored to the bottom-right
+    // corner of the game window and scales with its height — so both offsets are measured from
+    // that corner and divided by the height, like the two edges above. Horizontally that is the
+    // globe's centre; vertically it is deliberately below it, in the globe's lower half, where
+    // the art is flattest and where the third line has somewhere to go when an update is
+    // waiting. Both are measured off tests/data/full_screen_1440p.jpeg, whose globe fits a
+    // circle at (2401, 1282) with a radius of 105. Config-file only, like poe_window_title: the
     // globe moves when GGG moves the HUD, which is not often enough to be a knob in the UI.
-    float status_right = 0.098f;  ///< globe centre's distance from the right edge, ÷ game height
-    float status_bottom = 0.080f; ///< globe centre's distance from the bottom edge, ÷ game height
+    float status_right = 0.110f;  ///< marker centre's distance from the right edge, ÷ game height
+    float status_bottom = 0.070f; ///< marker centre's distance from the bottom edge, ÷ game height
 
     /// Draw every panel's background solid instead of letting the game through it. An
     /// accessibility setting: text over a moving background is the hard case this answers.
