@@ -279,28 +279,39 @@ Six things about it are decided rather than incidental:
   because "no ceiling" and "a ceiling at the top of the range" are different searches that look
   identical otherwise.
 - **Every row with a number gets one, and `track_for` decides what it is drawn over.** Where the
-  game printed a range, `roll_min`..`roll_max` is the track and `published` is set. Most rows are
-  not that: item level, quality, total energy shield and the derived damage numbers are facts about
-  the item rather than an affix's tier, and with Advanced Mod Descriptions off a modifier prints no
-  range either. Those get a track derived from the number in hand, **half of it either side**.
-  Withholding the slider there was worse than deriving one — an editor that is two boxes on one row
-  and a slider on the next reads as a slider that failed to load, and the numbers people most want
-  to loosen are exactly the ones with no published range. **The distinction is kept where it
-  belongs**: a derived track gets no ticks and says so on hover, so nothing draws it as what the
-  affix rolls.
-- **The track is not a cage, and it grows.** Even a published range is only the tier in hand —
+  game printed a range, `roll_min`..`roll_max` is what the track is built around and the pair of
+  ticks marks it. Most rows are not that: item level, quality, total energy shield and the derived
+  damage numbers are facts about the item rather than an affix's tier, and with Advanced Mod
+  Descriptions off a modifier prints no range either. Those get a track built around the number in
+  hand and no ticks. Withholding the slider there was worse than deriving one — an editor that is
+  two boxes on one row and a slider on the next reads as a slider that failed to load, and the
+  numbers people most want to loosen are exactly the ones with no published range. **The
+  distinction is kept where it belongs**: a track with no ticks says so on hover, so nothing draws
+  it as what the affix rolls.
+- **`ui::widen_track` sets the width, and it is the same rule for both kinds.** Each end moves out
+  by `kTrackSpread` — half again — of *its own* magnitude, at least one step at the row's `dp`, and
+  the result is rounded outwards. One constant, in `ui/track.hpp`, deliberately not a setting:
+  nothing in the data makes one number here more correct than another, so a setting would be asking
+  the user a question nothing can answer. Consequences worth knowing: a range printed negative grows
+  *away* from zero, since the sign is the game's and the reach is on the magnitude; a tier that
+  rolls a single number (an eldritch implicit, a unique's fixed mod) still gets a real track and
+  keeps its ticks, where it used to fall through to the derived branch and lose them; and one step
+  is the floor, so a row at `dp` 0 sitting on zero reaches ±1 and one at `dp` 2 reaches ±0.01. It is
+  covered by `tests/track_test.cpp`, which is why the arithmetic lives in `ppc_core` and not beside
+  the widget.
+- **The track is not a cage, and it grows further.** A published range is only the tier in hand —
   **the bundle carries no per-tier affix table**, so what a *different* tier of the same modifier
-  rolls is not known and a wider track drawn as fact would be a picture of a guess. But a buyer is
-  entitled to ask for a better roll than the one they are holding, so: a knob pushed past an end
-  keeps going (to `kOvershoot` ranges out, with the boxes for anything beyond); a knob **released
-  hard against an end grows the track by a fifth of the range it started with**, at least 1, so the
-  next drag has somewhere to go and repeated pegging walks outwards; and **two ticks mark where the
-  known range was** on a published track — without them the widened track would read as the affix's
-  own range, which is exactly the claim nothing here may make. The domain lives in the widget's
-  storage, frozen for the duration of a drag (rescaling the track under a moving knob makes the
-  number race away from the cursor) and reset by `RangeTrack::reset` when the editor opens on a new
-  row, since one popup id serves every row. `ui::kRangeLimit` (INT32_MAX) is where all of it stops,
-  typed bounds included.
+  rolls is not known, and the reach above is a place to put the mouse rather than a claim about
+  those tiers. That line is what the ticks hold: they sit at `roll_min`..`roll_max` inside a wider
+  track, and without them the reach would read as the affix's own range, which is exactly the claim
+  nothing here may make. Past the reach a buyer can still ask for more: a knob pushed past an end
+  keeps going (to `kOvershoot` spans out, with the boxes for anything beyond), and a knob **released
+  hard against an end grows the track by a quarter of the span it started with**, at least one step,
+  so the next drag has somewhere to go and repeated pegging walks outwards. The domain lives in the
+  widget's storage, frozen for the duration of a drag (rescaling the track under a moving knob makes
+  the number race away from the cursor) and reset by `RangeTrack::reset` when the editor opens on a
+  new row, since one popup id serves every row. `ui::kRangeLimit` (INT32_MAX) is where all of it
+  stops, typed bounds included.
 - **The boxes are `InputTextWithHint`, not `InputDouble`.** Empty has to be sayable — it is how a
   bound is taken off, and "both, a floor, a ceiling, or neither" is the whole promise — so the box
   holds text, hints `min`/`max` when empty, and is parsed with **`std::from_chars`**: `strtod` and

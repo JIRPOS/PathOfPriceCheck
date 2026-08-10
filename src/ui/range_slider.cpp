@@ -36,16 +36,16 @@ ImGuiID key_have(ImGuiID id) { return id + 3; }
 /// user gets to the number they meant, with the boxes for anything beyond it.
 constexpr double kOvershoot = 2.0;
 
-/// How much a knob released hard against an end adds to the track, as a fraction of the range it
-/// started with. Of the range it *started* with, so repeated pegging walks outwards in equal
+/// How much a knob released hard against an end adds to the track, as a fraction of the span it
+/// started with. Of the span it *started* with, so repeated pegging walks outwards in equal
 /// steps rather than doubling away from the numbers the user is aiming at.
 ///
 /// The floor is one step at the row's own precision, and is only there for a track with no width
-/// to speak of — a modifier known to roll a single number — where a fifth of nothing is nothing.
-/// Anything blunter overshoots the gesture: a flat 1 on an attack speed's `1.30 to 1.45` grows the
-/// track sevenfold in a single release and leaves the knob most of the way across it, which is the
-/// opposite of the nudge that was asked for.
-constexpr double kPegGrowth = 0.2;
+/// to speak of, where a quarter of nothing is nothing. Anything blunter overshoots the gesture: a
+/// flat 1 on an attack speed's `1.30 to 1.45` grows the track sevenfold in a single release and
+/// leaves the knob most of the way across it, which is the opposite of the nudge that was asked
+/// for.
+constexpr double kPegGrowth = 0.25;
 
 double round_to(double v, int dp) {
     const double p = std::pow(10.0, dp);
@@ -59,10 +59,10 @@ bool range_slider(const char* id, std::optional<double>& min, std::optional<doub
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems) return false;
 
-    // What the modifier is known to roll, kept aside: once a bound has been pushed past it the
-    // domain is wider than this, and the two ticks that say where the known range was are the
-    // only thing left telling the reader which numbers are the affix's and which are theirs.
-    const double known_lo = track.lo, known_hi = track.hi;
+    // The span the caller handed over, kept aside: the domain below grows — with the bounds, and
+    // with pegging — and the growth has to stay measured against what the track started as rather
+    // than compounding on whatever it has become.
+    const double initial_span = track.hi - track.lo;
 
     const float h = ImGui::GetFrameHeight();
     const float knob = h * kKnobFrac;
@@ -171,13 +171,12 @@ bool range_slider(const char* id, std::optional<double>& min, std::optional<doub
         //
         // **Measured from where the knob was left, not from the end it passed.** A drag does not
         // stop at the end, so a pegged bound is usually somewhere out in the overshoot, and the
-        // domain widens to hold it on the next frame regardless. Growing the old end by a fifth
+        // domain widens to hold it on the next frame regardless. Growing the old end by a quarter
         // lands inside that, leaving the knob against the very corner it was just pushed into —
         // the growth invisible, the widget still stuck, and the user still dragging past it.
         const std::optional<double>& v = grabbed == kMin ? min : max;
         if (grabbed != kNone && v) {
-            const double grow =
-                std::max((known_hi - known_lo) * kPegGrowth, std::pow(10.0, -track.dp));
+            const double grow = std::max(initial_span * kPegGrowth, std::pow(10.0, -track.dp));
             if (*v <= lo) lo = std::max(*v - grow, -kRangeLimit);
             if (*v >= hi) hi = std::min(*v + grow, kRangeLimit);
         }
@@ -195,12 +194,12 @@ bool range_slider(const char* id, std::optional<double>& min, std::optional<doub
 
     dl->AddRectFilled(ImVec2(x0 - knob, cy - t), ImVec2(x1 + knob, cy + t), bg, t);
     dl->AddRect(ImVec2(x0 - knob, cy - t), ImVec2(x1 + knob, cy + t), edge, t);
-    // Where the **known** range sits, once the track is wider than the affix is. Without these
-    // the widened track reads as the affix's own range, which is a claim about other tiers that
-    // nothing here is entitled to make. A derived track has no such range to mark, and ticking
-    // one on would be inventing the claim outright.
-    if (track.published && (known_lo > lo || known_hi < hi))
-        for (const double v : {known_lo, known_hi}) {
+    // Where the **published** range sits inside a track that deliberately reaches past it.
+    // Without these the reach reads as the affix's own range, which is a claim about other tiers
+    // that nothing here is entitled to make. A derived track has no such range to mark, and
+    // ticking one on would be inventing the claim outright.
+    if (track.tick_lo && track.tick_hi)
+        for (const double v : {*track.tick_lo, *track.tick_hi}) {
             const float x = to_x(v);
             dl->AddLine(ImVec2(x, cy - t * 2.2f), ImVec2(x, cy + t * 2.2f), edge, 1.0f);
         }

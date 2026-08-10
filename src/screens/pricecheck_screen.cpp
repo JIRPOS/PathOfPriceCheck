@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
-#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <memory>
@@ -20,6 +19,7 @@
 #include "trade/query.hpp"
 #include "ui/glyphs.hpp"
 #include "ui/range_slider.hpp"
+#include "ui/track.hpp"
 #include "util/debug_log.hpp"
 
 namespace ppc {
@@ -331,36 +331,38 @@ struct Interval {
     std::string label;
 };
 
-/// The slider's track, and whether it is a range the game published or one derived here.
+/// The slider's track: the span to draw, and the published range to tick on it where there is one.
 struct Track {
     double lo = 0, hi = 0;
-    bool published = false;
+    std::optional<double> tick_lo, tick_hi;
 };
-
-/// How far a derived track reaches either side of the number it is built around, and the smallest
-/// half-width worth drawing. The floor is what keeps a value of zero — a resistance rolled off, a
-/// filter typed down to nothing — from collapsing the track to a point and taking the slider away
-/// again.
-constexpr double kDerivedSpread = 0.5;
-constexpr double kDerivedFloor = 1.0;
 
 /// The track to draw for an interval.
 ///
-/// Where the game printed a range, that range is the track and there is nothing to decide. Most
-/// rows are not that: item level, quality, total energy shield and the derived damage numbers are
-/// **facts about the item rather than an affix's tier**, so no range exists for them anywhere, and
-/// a modifier read with Advanced Mod Descriptions off prints its roll without one. Those rows used
-/// to get two boxes and no slider, which made the editor look broken on exactly the numbers people
-/// most often want to loosen by a bit.
+/// **Both kinds of track are the same width for the same reason**, `ui::widen_track`: half again
+/// either side of the numbers they are built around, at least one step. What differs is what those
+/// numbers are, and whether the track carries ticks.
 ///
-/// So a track is derived from the number in hand — **half of it either side** — and marked
-/// unpublished so nothing draws it as the affix's own range. This is a place to put the mouse and
-/// not a statement about what the item could have rolled: the ends still do not stop a drag, and
-/// the boxes still take anything. Read `range_slider`'s note on the ticks for the line between the
-/// two.
+/// Where the game printed a range, that range is what the track is built around and gets the
+/// ticks. It is not the ends: the tier in hand is the only tier we know, a buyer is entitled to
+/// drag toward a better one, and a track that stopped at the tier made the two most useful drags —
+/// "a bit better than this" and "a bit worse" — impossible without typing. The ticks are what keeps
+/// the reach from reading as a claim about the tiers either side, which nothing here can make.
+///
+/// Most rows have no published range at all: item level, quality, total energy shield and the
+/// derived damage numbers are **facts about the item rather than an affix's tier**, so no range
+/// exists for them anywhere, and a modifier read with Advanced Mod Descriptions off prints its roll
+/// without one. Those get a track around the number in hand and no ticks — a place to put the
+/// mouse, and deliberately not a statement about what the item could have rolled. Read
+/// `range_slider`'s note on the ticks for the line between the two.
 std::optional<Track> track_for(const Interval& iv) {
-    if (iv.roll_min && iv.roll_max && *iv.roll_min < *iv.roll_max)
-        return Track{*iv.roll_min, *iv.roll_max, true};
+    // `<=`, not `<`: a tier that rolls a single number — an eldritch implicit, a unique's fixed
+    // mod — is still a published range, and widening gives it a track to sit on. It used to fall
+    // through to the derived branch and quietly lose its ticks.
+    if (iv.roll_min && iv.roll_max && *iv.roll_min <= *iv.roll_max) {
+        const ui::TrackSpan s = ui::widen_track(*iv.roll_min, *iv.roll_max, iv.dp);
+        return Track{s.lo, s.hi, *iv.roll_min, *iv.roll_max};
+    }
     // Whatever the row is actually about, preferring what the plan seeded over what the user has
     // since typed — the track should not slide out from under a number being edited.
     const auto anchor = [](std::initializer_list<std::optional<double>> candidates) {
@@ -371,12 +373,8 @@ std::optional<Track> track_for(const Interval& iv) {
     const std::optional<double> lo = anchor({iv.seed_min, iv.seed_max, *iv.min, *iv.max, iv.roll_min});
     const std::optional<double> hi = anchor({iv.seed_max, iv.seed_min, *iv.max, *iv.min, iv.roll_max});
     if (!lo || !hi) return std::nullopt; // nothing numeric to build one around
-    const double p = std::pow(10.0, iv.dp);
-    const double reach_lo = std::max(std::abs(*lo) * kDerivedSpread, kDerivedFloor);
-    const double reach_hi = std::max(std::abs(*hi) * kDerivedSpread, kDerivedFloor);
-    // Outwards, so the ends are round numbers at the row's own precision and the half either side
-    // is never rounded away.
-    return Track{std::floor((*lo - reach_lo) * p) / p, std::ceil((*hi + reach_hi) * p) / p, false};
+    const ui::TrackSpan s = ui::widen_track(*lo, *hi, iv.dp);
+    return Track{s.lo, s.hi, std::nullopt, std::nullopt};
 }
 
 /// The editor is the panel's width less this much on each side, so it reads as belonging to the
@@ -545,16 +543,17 @@ void draw_range_editor(App& app, const Interval& iv, bool glyphs) {
         const float track = one_line ? inner - fixed
                                      : inner - kBoundField * 2 - style.ItemSpacing.x * 2;
         if (ui::range_slider("##track", *iv.min, *iv.max,
-                             ui::RangeTrack{bar->lo, bar->hi, iv.dp, track, bar->published, fresh}))
+                             ui::RangeTrack{bar->lo, bar->hi, bar->tick_lo, bar->tick_hi, iv.dp,
+                                            track, fresh}))
             sync_bounds(text, iv);
         // The numbers the track is drawn over. A hover rather than two labels under the ends:
         // this is one line, and the row above already prints the same range in its own column.
         // **The hover is where the two kinds of track are told apart** — one says what the game
         // printed, the other says plainly that it is a place to drag and not a published range.
         if (ImGui::IsItemHovered()) {
-            if (bar->published)
-                ImGui::SetTooltip("Rolls %s to %s at this tier \xe2\x80\x94 drag past an end, or "
-                                  "type, to ask for more",
+            if (bar->tick_lo)
+                ImGui::SetTooltip("Rolls %s to %s at this tier \xe2\x80\x94 the ticks. The track "
+                                  "reaches past it; drag past an end, or type, to ask for more",
                                   format_number(*iv.roll_min, iv.dp).c_str(),
                                   format_number(*iv.roll_max, iv.dp).c_str());
             else

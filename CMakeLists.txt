@@ -126,6 +126,7 @@ add_library(ppc_core STATIC
   src/data/index.cpp
   src/data/lexicon.cpp
   src/ui/strings.cpp
+  src/ui/track.cpp
   src/data/stat_normalize.cpp
   src/data/game_data.cpp
   src/data/stat_matcher.cpp
@@ -278,3 +279,4 @@ ppc_add_test(trade_query_test)
 ppc_add_test(ninja_test)
 ppc_add_test(exchange_test)
 ppc_add_test(ratelimit_test)
+ppc_add_test(track_test)
