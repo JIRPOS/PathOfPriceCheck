@@ -149,16 +149,26 @@ Known, argued, and unscheduled — except where a planned version claims one, wh
   rolled tier and only with Advanced Mod Descriptions on; `Stat` carries no tiers, and
   `en-unique-mods.ndjson` is per-unique rather than per-affix. **Upstream**: the data build would
   have to emit the mod table (GGG's `Mods.dat` joined to its tiers, keyed by item class and
-  domain, in displayed units the way `UniqueModFilter::ranges` already are).
-  Until then `ui::range_slider` answers the need without the claim — the knobs carry on past the
-  ends, a knob released against an end grows the track, and the numbers can be typed. **The line
-  that must hold is the one between a track and a statement**: a *published* track is drawn as
-  `roll_min`..`roll_max` and marked with ticks once it has been widened, and every other row gets a
-  track derived from the number in hand (`track_for`, half either side) that is deliberately given
-  no ticks and says on hover that it is not a published range. **Do not promote a derived track to
-  a published one, and do not widen a published one by a guessed factor.** A track with ticks is
-  read as a statement about what the affix rolls, and a wrong one is the confident wrong number
-  this layer exists to avoid.
+  domain, in displayed units the way `UniqueModFilter::ranges` already are). **The tables are
+  already extracted** — `Mods` comes out of `game_bundle.py` with `Level`, `Domain`,
+  `GenerationType` and all eight `StatMin`/`StatMax` pairs, and grouping the 4,369 item-domain
+  prefix/suffix rows by their stat-key set gives the ladders straight off (`local_physical_damage_+%`
+  comes back as eight tiers, `Heavy` 40–49 through `Merciless` 170–179). What is *not* extracted is
+  `SpawnWeight_TagsKeys`/`SpawnWeight_Values`, which is what decides whether a ladder can appear on
+  the base in hand at all; without it the union would sweep in essence-, influence- and
+  class-specific variants and overstate the range. So the cost is: two more columns, an emitter, a
+  bundle asset keyed by stat id and item class, and the app-side join — plus a rule for the case
+  where the wording in hand maps to more than one ladder, which is **refuse to guess**, the same as
+  everywhere else here.
+  Until then `ui::range_slider` answers the need without the claim — the track reaches past what is
+  known (`ui::widen_track`, half again either side, one constant for every row), the knobs carry on
+  past even that, a knob released against an end grows the track, and the numbers can be typed.
+  **The line that must hold is the one between a track and a statement**: what the game published is
+  `roll_min`..`roll_max` and is marked with ticks, wherever the track's own ends have got to, and a
+  row with no published range gets no ticks and says on hover that it has none. **The track's width
+  may be a convenience; the ticks may not.** Do not tick a derived track, and do not move a tick off
+  `roll_min`/`roll_max` to make the reach look authoritative. A tick is read as a statement about
+  what the affix rolls, and a wrong one is the confident wrong number this layer exists to avoid.
 - **Pseudo mods on gear** — trade's `pseudo.*` totals (total resistances, total life) are not built;
   mods are matched verbatim. The bundle does carry the ids (`pseudo.pseudo_total_cold_resistance`
   and the rest), so this is a plan-layer job, not a data one. A map's pseudo stats *are* built (see
