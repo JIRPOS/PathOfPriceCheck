@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -48,6 +49,26 @@ uint64_t clipboard_stamp();
 /// `clipboard_text` — the answer we want is the stamp moving, not whatever the owner is still
 /// serving from the previous copy. No-op on Windows, where the clipboard is already rendered.
 void clipboard_poke();
+
+/// The largest value the X11 half will take ownership of. There is no INCR on the write side —
+/// a value is handed over in one property — so this is the ceiling a single `XChangeProperty`
+/// can be relied on for on any server. A paste is a chat line or a map regex; nothing that
+/// belongs on this path comes near it.
+inline constexpr size_t kMaxClipboardWrite = 64 * 1024;
+
+/// Put UTF-8 `text` on the clipboard, replacing whatever was there. False when it could not be
+/// taken — no display, or `text` past `kMaxClipboardWrite`.
+///
+/// **Not `SDL_SetClipboardText`**, for the same reason nothing else here is SDL's: the X11
+/// clipboard is not a store but an owner, and this owner has to outlive whatever window asked
+/// for the write. A selection is served from a live window answering `SelectionRequest`, so
+/// ours lives on its own thread with its own `Display` for the life of the process — the popup
+/// that made the write is long closed by the time the game asks for the bytes, and Wine only
+/// asks when the user actually presses Ctrl+V.
+///
+/// Windows is the ordinary `OpenClipboard`/`CF_UNICODETEXT` write, retried while another
+/// application holds the lock.
+bool clipboard_set_text(const std::string& text);
 
 /// Diagnostics only: who owns the clipboard right now, as "0x<window> class 'X' pid N".
 /// Server-side queries exclusively — it never asks the owner for anything, so it cannot

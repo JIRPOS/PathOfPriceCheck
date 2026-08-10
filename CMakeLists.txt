@@ -119,6 +119,7 @@ target_compile_definitions(imgui PUBLIC SDL_MAIN_HANDLED)
 add_library(ppc_core STATIC
   src/paths.cpp
   src/config.cpp
+  src/quickpaste.cpp
   src/leagues.cpp
   src/util/sha256.cpp
   src/util/base64.cpp
@@ -177,6 +178,7 @@ set(APP_SOURCES
   src/ui/theme.cpp
   src/ui/range_slider.cpp
   src/screens/settings_screen.cpp
+  src/screens/quickpaste_screen.cpp
   src/screens/pricecheck_screen.cpp
   src/screens/item_view.cpp)
 if(WIN32)
@@ -280,3 +282,4 @@ ppc_add_test(ninja_test)
 ppc_add_test(exchange_test)
 ppc_add_test(ratelimit_test)
 ppc_add_test(track_test)
+ppc_add_test(quickpaste_test)

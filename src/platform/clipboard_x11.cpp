@@ -3,9 +3,14 @@
 #include <cerrno>
 #include <chrono>
 #include <climits>
+#include <condition_variable>
 #include <cstdio>
+#include <mutex>
+#include <thread>
 
+#include <fcntl.h>
 #include <sys/select.h>
+#include <unistd.h>
 
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
@@ -148,8 +153,8 @@ std::string read_prop(Ctx& c, Atom* type_out) {
 }
 
 /// Atom name for tracing only; the round trip is not worth it on the hot path.
-std::string atom_name(Ctx& c, Atom a) {
-    char* n = a ? XGetAtomName(c.d, a) : nullptr;
+std::string atom_name(Display* d, Atom a) {
+    char* n = a ? XGetAtomName(d, a) : nullptr;
     std::string s = n ? n : "?";
     if (n) XFree(n);
     return s;
@@ -168,7 +173,7 @@ std::string convert(Ctx& c, Atom target, Clock::time_point deadline) {
         if (!wait_for(c.d, c.win, SelectionNotify, &ev, deadline)) {
             if (trace())
                 debug::trace("[copy]   %s: no reply before the deadline",
-                             atom_name(c, target).c_str());
+                             atom_name(c.d, target).c_str());
             return {};
         }
         if (ev.xselection.selection == c.clipboard && ev.xselection.target == target) break;
@@ -176,7 +181,7 @@ std::string convert(Ctx& c, Atom target, Clock::time_point deadline) {
     if (ev.xselection.property == None) { // owner can't supply this format
         if (trace())
             debug::trace("[copy]   %s: owner refused (format not offered)",
-                         atom_name(c, target).c_str());
+                         atom_name(c.d, target).c_str());
         return {};
     }
 
@@ -185,7 +190,7 @@ std::string convert(Ctx& c, Atom target, Clock::time_point deadline) {
     if (type != c.incr) {
         XDeleteProperty(c.d, c.win, c.prop);
         if (trace())
-            debug::trace("[copy]   %s: %zu bytes", atom_name(c, target).c_str(), s.size());
+            debug::trace("[copy]   %s: %zu bytes", atom_name(c.d, target).c_str(), s.size());
         return s;
     }
 
@@ -234,14 +239,247 @@ std::string targets_list(Ctx& c, int timeout_ms) {
         data && fmt == 32) {
         Atom* list = reinterpret_cast<Atom*>(data);
         for (unsigned long i = 0; i < count; ++i) line += (line.empty() ? "" : " ") +
-                                                         atom_name(c, list[i]);
+                                                         atom_name(c.d, list[i]);
     }
     if (data) XFree(data);
     XDeleteProperty(c.d, c.win, c.prop);
     return line.empty() ? "(none)" : line;
 }
 
+int ignore_xerror(Display*, XErrorEvent*) { return 0; }
+
+/// The write half: a window that owns the CLIPBOARD selection and answers for it.
+///
+/// X11 has no clipboard to put something *in*. A selection is a live window that serves
+/// `SelectionRequest` on demand, so a write is a promise to still be there when the paste
+/// happens — which here is Wine asking, after the popup that made the write has closed and the
+/// user has clicked into a chat box. Hence a thread of its own with its own `Display`, started
+/// on the first write and never stopped: **the Display is touched only by that thread** (the
+/// same rule the hotkey listener follows, and for the same abort), and the main thread hands
+/// text over under the mutex and pokes a self-pipe.
+///
+/// The text goes with the process, as an unowned selection does everywhere on X11 — a clipboard
+/// manager that wants to outlive us will have taken a copy of its own.
+class SelectionOwner {
+public:
+    /// Blocks until the selection is actually ours, and **that is not a nicety**. The caller
+    /// hands the keyboard focus straight back to the game afterwards, and Wine re-reads the X
+    /// selection around a focus change: posting the text and returning meant the focus went back
+    /// while Wine still owned the selection, so the first paste was of the *previous* clipboard
+    /// and only the next one — after Wine had noticed us — came out right. Reported from the
+    /// game, and the whole reason this waits.
+    ///
+    /// The wait is a handful of milliseconds (two round trips on our own connection) against a
+    /// bound that only exists so a wedged server cannot hold the main loop.
+    bool set(const std::string& text) {
+        if (!start()) return false;
+        uint64_t want = 0;
+        {
+            std::lock_guard lk(mu_);
+            pending_ = text;
+            want = ++requested_;
+        }
+        poke();
+        std::unique_lock lk(mu_);
+        const bool answered = done_.wait_for(lk, std::chrono::milliseconds(kTakeTimeoutMs),
+                                             [&] { return taken_ >= want; });
+        return answered && owned_;
+    }
+
+private:
+    /// How long `set` waits for the thread to assert ownership. Generous: the work behind it is
+    /// two round trips, and anything near this bound is a server that has stopped answering.
+    static constexpr int kTakeTimeoutMs = 250;
+
+    bool start() {
+        if (started_) return d_ != nullptr;
+        started_ = true;
+        d_ = XOpenDisplay(nullptr);
+        if (!d_) return false;
+        if (pipe(pipe_) != 0) {
+            XCloseDisplay(d_);
+            d_ = nullptr;
+            return false;
+        }
+        fcntl(pipe_[0], F_SETFL, O_NONBLOCK);
+        // A requestor that exits between asking for the selection and being answered leaves us
+        // writing a property on a window that is gone — a `BadWindow` whose *default* handler
+        // exits the process. The hotkey listener installs the same handler, and it is global
+        // rather than per-display, so this is belt and braces; it is here because losing the
+        // application to somebody else's Ctrl+V is not a failure to inherit by accident.
+        XSetErrorHandler(ignore_xerror);
+        XSetWindowAttributes attr{};
+        w_ = XCreateWindow(d_, DefaultRootWindow(d_), -10, -10, 1, 1, 0, CopyFromParent, InputOnly,
+                           CopyFromParent, 0, &attr);
+        // PropertyChange for the timestamp trick below; the selection events themselves are
+        // sent to the owner whether or not anything is selected for.
+        XSelectInput(d_, w_, PropertyChangeMask);
+        clipboard_ = XInternAtom(d_, "CLIPBOARD", False);
+        utf8_ = XInternAtom(d_, "UTF8_STRING", False);
+        plain_utf8_ = XInternAtom(d_, "text/plain;charset=utf-8", False);
+        plain_ = XInternAtom(d_, "text/plain", False);
+        targets_ = XInternAtom(d_, "TARGETS", False);
+        timestamp_ = XInternAtom(d_, "TIMESTAMP", False);
+        stamp_prop_ = XInternAtom(d_, "PPC_OWNER_TIME", False);
+        thread_ = std::thread([this] { run(); });
+        return true;
+    }
+
+    void poke() {
+        char c = 1;
+        ssize_t n = write(pipe_[1], &c, 1);
+        (void)n;
+    }
+
+    /// A real server timestamp, from a zero-length property append on our own window. ICCCM
+    /// says an owner must be able to answer TIMESTAMP with the time it took the selection at,
+    /// and `CurrentTime` leaves it with nothing true to say.
+    Time server_time() {
+        XChangeProperty(d_, w_, stamp_prop_, XA_ATOM, 32, PropModeAppend, nullptr, 0);
+        XFlush(d_);
+        XEvent e;
+        if (wait_for(d_, w_, PropertyNotify, &e,
+                     Clock::now() + std::chrono::milliseconds(kTakeTimeoutMs / 2)))
+            return e.xproperty.time;
+        return CurrentTime;
+    }
+
+    void take_pending() {
+        uint64_t seq = 0;
+        {
+            std::lock_guard lk(mu_);
+            if (requested_ == taken_) return;
+            served_ = std::move(pending_);
+            seq = requested_;
+        }
+        const auto t0 = Clock::now();
+        owned_since_ = server_time();
+        XSetSelectionOwner(d_, clipboard_, w_, owned_since_);
+        XFlush(d_);
+        // Asked rather than assumed, and it is what `set` answers with: taking a selection can
+        // fail, and a paste of somebody else's clipboard is worth knowing about in the log.
+        const bool ok = XGetSelectionOwner(d_, clipboard_) == w_;
+        debug::log("[paste]  put %zu bytes on the clipboard in %lldms (owner taken: %d)",
+                   served_.size(),
+                   (long long)std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() -
+                                                                                    t0)
+                       .count(),
+                   (int)ok);
+        {
+            std::lock_guard lk(mu_);
+            taken_ = seq;
+            owned_ = ok;
+        }
+        done_.notify_all();
+    }
+
+    void serve(const XSelectionRequestEvent& req) {
+        XSelectionEvent note{};
+        note.type = SelectionNotify;
+        note.requestor = req.requestor;
+        note.selection = req.selection;
+        note.target = req.target;
+        note.time = req.time;
+        // An obsolete requestor sends None and means "put it where the target says".
+        const Atom prop = req.property == None ? req.target : req.property;
+        note.property = prop;
+
+        if (req.target == targets_) {
+            const Atom list[] = {targets_, timestamp_, utf8_, plain_utf8_, plain_, XA_STRING};
+            XChangeProperty(d_, req.requestor, prop, XA_ATOM, 32, PropModeReplace,
+                            reinterpret_cast<const unsigned char*>(list),
+                            static_cast<int>(std::size(list)));
+        } else if (req.target == timestamp_) {
+            const long t = static_cast<long>(owned_since_);
+            XChangeProperty(d_, req.requestor, prop, XA_INTEGER, 32, PropModeReplace,
+                            reinterpret_cast<const unsigned char*>(&t), 1);
+        } else if (req.target == utf8_ || req.target == plain_utf8_ || req.target == plain_ ||
+                   req.target == XA_STRING) {
+            // STRING is nominally Latin-1 and this is UTF-8. Served anyway: every requestor
+            // that can read one asks for UTF8_STRING first, and refusing STRING outright
+            // leaves the ones that only know it with nothing at all.
+            XChangeProperty(d_, req.requestor, prop, req.target, 8, PropModeReplace,
+                            reinterpret_cast<const unsigned char*>(served_.data()),
+                            static_cast<int>(served_.size()));
+        } else {
+            note.property = None; // we cannot supply that format
+        }
+        XSendEvent(d_, req.requestor, False, 0, reinterpret_cast<XEvent*>(&note));
+        XFlush(d_);
+        if (trace())
+            debug::trace("[paste]   served %s to 0x%lx: %s", atom_name(d_, req.target).c_str(),
+                         req.requestor, note.property == None ? "refused" : "ok");
+    }
+
+    void run() {
+        const int xfd = ConnectionNumber(d_);
+        for (;;) {
+            while (XPending(d_)) {
+                XEvent ev;
+                XNextEvent(d_, &ev);
+                if (ev.type == SelectionRequest) {
+                    serve(ev.xselectionrequest);
+                } else if (ev.type == SelectionClear && ev.xselectionclear.selection == clipboard_) {
+                    // Somebody else copied. Drop the text rather than keep serving it: we are
+                    // not the owner any more and the next request is not ours to answer.
+                    served_.clear();
+                    debug::log("[paste]  clipboard taken over by another window");
+                }
+            }
+            fd_set r;
+            FD_ZERO(&r);
+            FD_SET(xfd, &r);
+            FD_SET(pipe_[0], &r);
+            const int n = select(std::max(xfd, pipe_[0]) + 1, &r, nullptr, nullptr, nullptr);
+            if (n < 0) {
+                if (errno == EINTR) continue;
+                return;
+            }
+            if (FD_ISSET(pipe_[0], &r)) {
+                char buf[16];
+                while (read(pipe_[0], buf, sizeof buf) > 0) {} // drain
+                take_pending();
+            }
+        }
+    }
+
+    Display* d_ = nullptr;
+    Window w_ = None;
+    Atom clipboard_ = None, utf8_ = None, plain_utf8_ = None, plain_ = None, targets_ = None,
+         timestamp_ = None, stamp_prop_ = None;
+    Time owned_since_ = CurrentTime;
+    std::string served_; ///< thread-only: what requests are answered with
+    int pipe_[2] = {-1, -1};
+    std::thread thread_;
+    bool started_ = false;
+
+    std::mutex mu_;
+    std::condition_variable done_;
+    std::string pending_;   ///< handed to the thread; `requested_` says whether it is new
+    uint64_t requested_ = 0; ///< writes asked for, and `taken_` the ones that reached the server
+    uint64_t taken_ = 0;
+    bool owned_ = false;    ///< the last write actually got the selection
+};
+
+/// Leaked on purpose, and never joined: the selection has to stay answerable for as long as the
+/// process can be pasted from, and a static whose destructor joins an Xlib thread at exit is a
+/// deadlock waiting for a release build to find.
+SelectionOwner& owner() {
+    static SelectionOwner* o = new SelectionOwner();
+    return *o;
+}
+
 } // namespace
+
+bool clipboard_set_text(const std::string& text) {
+    if (text.size() > kMaxClipboardWrite) {
+        debug::log("[paste]  refused %zu bytes: past the %zu-byte ceiling a single property can"
+                   " be relied on for",
+                   text.size(), kMaxClipboardWrite);
+        return false;
+    }
+    return owner().set(text);
+}
 
 void clipboard_poke() {
     Ctx& c = ctx();

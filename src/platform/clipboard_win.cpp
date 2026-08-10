@@ -53,6 +53,38 @@ std::string clipboard_targets(int) {
     return out.empty() ? "(none)" : out;
 }
 
+bool clipboard_set_text(const std::string& text) {
+    if (text.size() > kMaxClipboardWrite) return false; // the X11 ceiling, kept one rule
+    // The same retry the read path does, and for the same reason: the lock belongs to whoever
+    // opened it last, and the application we are pasting into may be holding it briefly.
+    for (int waited = 0; !OpenClipboard(nullptr); waited += 10) {
+        if (waited >= 200) {
+            debug::log("[paste]  clipboard locked by %s, gave up",
+                       window_desc(GetOpenClipboardWindow()).c_str());
+            return false;
+        }
+        Sleep(10);
+    }
+    const int n = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
+    HGLOBAL mem = n > 0 ? GlobalAlloc(GMEM_MOVEABLE, static_cast<size_t>(n) * sizeof(wchar_t))
+                        : nullptr;
+    bool ok = false;
+    if (mem) {
+        if (wchar_t* dst = static_cast<wchar_t*>(GlobalLock(mem))) {
+            MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, dst, n);
+            GlobalUnlock(mem);
+            EmptyClipboard();
+            // The clipboard owns the block once SetClipboardData succeeds, and only then —
+            // a failure leaves it ours to free.
+            ok = SetClipboardData(CF_UNICODETEXT, mem) != nullptr;
+        }
+        if (!ok) GlobalFree(mem);
+    }
+    CloseClipboard();
+    debug::log("[paste]  put %zu bytes on the clipboard (ok: %d)", text.size(), (int)ok);
+    return ok;
+}
+
 std::string clipboard_text(int timeout_ms) {
     // No async handshake here — the data is already in the clipboard. The only wait is for
     // the global lock, which the copying app can hold briefly; retry rather than fail.

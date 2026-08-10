@@ -3,8 +3,11 @@
 #include <string>
 #include <string_view>
 
+#include <vector>
+
 #include "item/range_match.hpp"
 #include "platform/input.hpp"
+#include "quickpaste.hpp"
 #include "trade/trade.hpp"
 
 namespace ppc {
@@ -40,6 +43,15 @@ struct Config {
 
     Hotkey price_check{Mod::Ctrl, "D"};
     Hotkey settings{Mod::Shift, "Space"};
+    /// Opens the paste list at the cursor. Alt+V rather than anything on its own or under one
+    /// modifier: this fires while the game has the keyboard, so it has to be a combination
+    /// nobody arrives at by accident mid-fight.
+    Hotkey quick_paste{Mod::Alt, "V"};
+
+    /// The saved snippets that hotkey offers, in the order the popup lists them. No more than
+    /// `kMaxActivePastes` of them may be enabled at once — enforced on load as well as in
+    /// Settings, since this file is hand-editable.
+    std::vector<Paste> pastes;
 
     /// Run the trade search as soon as the panel opens, rather than on the Search button.
     /// Off by default and deliberately so: a hotkey the user pressed to *read* an item

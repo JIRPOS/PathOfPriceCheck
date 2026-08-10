@@ -29,6 +29,7 @@ enum class Msg : uint16_t {
 
     TabGeneral,
     TabPriceCheck,
+    TabQuickPaste,
     TabApplication,
 
     SectionAccount,
@@ -37,6 +38,7 @@ enum class Msg : uint16_t {
     SectionTradeSearch,
     SectionFilterRanges,
     SectionHotkeys,
+    SectionPastes,
     SectionPricePanel,
     SectionGameData,
     SectionUpdates,
@@ -75,6 +77,7 @@ enum class Msg : uint16_t {
 
     HotkeyPriceCheck,
     HotkeySettings,
+    HotkeyQuickPaste,
     PressKeys,
 
     ReduceTransparency,
@@ -84,6 +87,26 @@ enum class Msg : uint16_t {
     PanelWidth,
     StashEdge,
     InventoryEdge,
+
+    PasteListHelp,
+    PasteNone,            ///< Settings, with nothing in the list yet
+    PasteSlotsLeft,       ///< "%zu", "%zu" â active pastes and the ceiling
+    PasteSlotsFull,       ///< "%zu" â the ceiling
+    PasteUntitled,
+    PasteEmptyBody,
+    PasteNew,
+    PasteEdit,
+    PasteDelete,
+    PasteReorder,
+    PasteHeading,
+    PasteHeadingHint,
+    PasteBody,
+    PasteBodyHint,
+    PasteDone,
+    PasteCancel,
+    PasteTooLong,         ///< "%zu" â the byte ceiling
+    QuickPasteNone,       ///< the popup, with nothing enabled to offer
+    QuickPasteAdd,
 
     Bundle,
     Downloading,        ///< "%.1f", "%.1f" — megabytes done and total

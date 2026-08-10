@@ -74,14 +74,18 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 - If you press the hotkey while something other than an item is on your clipboard, that text is
   what gets parsed. It fails to parse, nothing opens, and it is discarded. But it *was* read — so
   the ordinary caution applies: this is a global hotkey and the clipboard is a global thing.
-- Nothing is ever written to your clipboard except when you click the diagnostic check id in the
-  panel footer, which copies that four-character id and nothing else.
+- **Two things write to your clipboard, both because you asked**: picking an entry from QuickPaste,
+  which puts that entry's own text there and nothing else, and clicking the diagnostic check id in
+  the panel footer, which copies that four-character id. On Linux the text is then served from a
+  window this application owns for as long as it runs — which is how the X11 clipboard works for
+  every program — so closing the tool takes it with it unless your desktop's clipboard manager has
+  kept a copy.
 
 ## What is stored on your machine
 
 | path | what |
 |---|---|
-| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, panel opacity, whether to update automatically |
+| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, panel opacity, whether to update automatically — **and your QuickPaste entries, in full**, since they are text you typed for this tool to hold |
 | `<config>/cookies.txt` | the cookie jar above |
 | `<cache>/data/<version>/` | the downloaded game-data bundle, plus a `current` pointer |
 | `<cache>/update/` | a downloaded release of the application, waiting for the restart that applies it. One file, consumed as it is applied; absent whenever no update is pending |

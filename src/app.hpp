@@ -26,7 +26,7 @@ union SDL_Event;
 
 namespace ppc {
 
-enum class Screen { Hidden, PriceCheck, Settings };
+enum class Screen { Hidden, PriceCheck, Settings, QuickPaste };
 
 /// How long a price check waits for the game to publish its copy before dropping it. Past this
 /// the user has moved on, and a panel that opens late is a panel about the wrong item.
@@ -83,6 +83,18 @@ struct FilterEdit {
     /// outside the filter table, whose own id would otherwise be part of it.
     bool opening = false;
     bool open() const { return kind != Kind::None; }
+};
+
+/// The paste being written in Settings, and the draft it is written into.
+///
+/// A draft rather than the entry itself: the dialog can be cancelled, and an edit typed
+/// straight into `Config::pastes` would already have happened by then. Held on `App` for the
+/// same reason `settings_tab_` is — the screen is a free function rebuilt every frame.
+struct PasteEdit {
+    bool open = false;
+    bool adding = false; ///< appended on Done, rather than written back over `index`
+    size_t index = 0;
+    Paste draft;
 };
 
 /// A search result's own item, parsed from the clipboard text the API ships with every
@@ -199,6 +211,17 @@ public:
     /// only ever come back empty, on every hour nobody happened to trade one in.
     bool trades_on_exchange() const;
 
+    // The paste list. `pick_paste` is the whole of what the popup does: the text goes on the
+    // clipboard and the popup closes, handing the game back the focus it took for the number
+    // keys. **Nothing presses Ctrl+V** — see the rule in docs/quickpaste.md.
+    void pick_paste(size_t index);
+    /// Open Settings on the tab where pastes are managed, which is the popup's only other
+    /// affordance and the answer to an empty list.
+    void open_paste_settings();
+    /// Which paste Settings has open in its editor. Mutable: the dialog reads and writes it in
+    /// the same frame.
+    PasteEdit& paste_edit() { return paste_edit_; }
+
     /// Copy-path diagnostic log (util/debug_log). Toggling it takes effect immediately —
     /// waiting for Save would mean the run that reproduced the bug went unrecorded — but it
     /// still needs a Save to persist.
@@ -227,6 +250,9 @@ private:
     void price_reference();                  ///< ask poe.ninja about the item as planned
     void poll_click_away();                  ///< dismiss price-check on a click outside it
     void update_overlay_placement();         ///< track the game window; move the overlay over it
+    void reclaim_keyboard();                 ///< re-take the focus a screen that types needs
+    void take_keyboard();                    ///< claim the input focus, and record that we did
+    void give_keyboard_back();               ///< return focus we took, if the game still wants it
     void place_overlay();                    ///< size + position the overlay for the current screen
     Side cursor_side() const;                ///< which half of the game window the mouse is in
     void set_screen(Screen s);
@@ -271,6 +297,10 @@ private:
     float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
     int settings_tab_ = 0;        ///< which Settings tab is open
     FilterEdit filter_edit_;      ///< which filter row has its range editor open
+    PasteEdit paste_edit_;        ///< the paste Settings has open in its editor
+    /// Where the cursor was when the paste hotkey fired. Sampled there rather than read at
+    /// placement time for the same reason `side_` is: by then the hand has moved.
+    int paste_x_ = 0, paste_y_ = 0;
     bool hidden_filters_shown_ = false; ///< the filters the strategy left out are expanded
     std::string clipboard_;
     bool running_ = true;
@@ -287,6 +317,10 @@ private:
     bool copy_deactivated_ = false;///< the game is currently off the WM's active window, by us
     bool mouse_was_down_ = false;  ///< prior global mouse button state, for click-away edges
 
+    /// We called `overlay_take_keyboard_focus` and have not handed it back. Our own record of
+    /// it, because SDL's `has_focus()` lags the call by a round trip and the moment it matters
+    /// most — a paste popup dismissed the instant it opened — is inside that gap.
+    bool took_keyboard_ = false;
     bool dev_mode_ = false;  ///< PPC_DEV_OVERLAY: keep overlay up regardless of focus
     bool had_focus_ = false; ///< overlay has gained focus since it was shown
 

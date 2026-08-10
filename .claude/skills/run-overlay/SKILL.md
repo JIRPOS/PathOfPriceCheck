@@ -14,6 +14,7 @@ launch it, photograph it, and look. `PPC_DEV_ITEM` is what makes that possible w
 | --- | --- |
 | `PPC_DEV_OVERLAY=1` | Opens Settings and disables dismiss-on-blur. Required for every dev run. |
 | `PPC_DEV_ITEM=<file>` | Opens the price-check panel on a captured clipboard instead. |
+| `PPC_DEV_PASTE=1` | Opens the QuickPaste popup at wherever the pointer is, which is the only way to see it without the game. |
 | `PPC_DEV_IDLE=1` | Keeps the idle status marker up (it otherwise shows only while the game is in front). |
 | `PPC_MANAGED=1` | Lets the window manager manage the window — needed if you want it stackable/movable on a real session. |
 | `PPC_DEBUG_COPY=1` | Traces the copy timeline to stderr. |
@@ -23,9 +24,12 @@ launch it, photograph it, and look. `PPC_DEV_ITEM` is what makes that possible w
 
 ```sh
 cmake --build build -j
-pkill -f PathOfPriceCheck            # one instance per user — a second launch refuses, loudly
-(PPC_DEV_OVERLAY=1 PPC_DEV_ITEM=tests/data/items/<file>.txt \
-  ./build/PathOfPriceCheck > "$SCRATCH/run.log" 2>&1 &)
+pkill -x -f ./build/PathOfPriceCheck  # ALWAYS, first — one instance per user, and a second
+                                      # launch refuses. -x -f matches that exact command line
+                                      # and so cannot match the shell running this script.
+setsid nohup env PPC_DEV_OVERLAY=1 PPC_DEV_ITEM=tests/data/items/<file>.txt \
+  ./build/PathOfPriceCheck > "$SCRATCH/run.log" 2>&1 < /dev/null &   # setsid: a plain `&`
+                                                                    # dies with the shell
 sleep 10                             # data bundle, poe.ninja overview, exchange digest, CDN icons
 spectacle -b -n -f -o "$SCRATCH/shot.png"
 magick "$SCRATCH/shot.png" -crop 480x620+1220+0 +repage -resize 220% "$SCRATCH/panel.png"

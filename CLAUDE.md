@@ -20,8 +20,8 @@ Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price 
 
 The overlay, Settings, the league list, the static game-data layer, the item layer (parse →
 resolve → price-relevant numbers → search plan, plus the game-styled tooltip), the trade search,
-poe.ninja reference pricing, the in-game currency exchange feed and the binary updater (with the
-Windows installer it depends on) are all **built and tested**.
+poe.ninja reference pricing, the in-game currency exchange feed, QuickPaste and the binary updater
+(with the Windows installer it depends on) are all **built and tested**.
 What is not built is [docs/roadmap.md](docs/roadmap.md) — including the fact that a language other
 than English cannot yet be selected, because the data build emits only English.
 
@@ -40,6 +40,7 @@ read whole; each is one layer.
 | [docs/updater.md](docs/updater.md) | `src/update/` and `packaging/` — how a copy arrives and how it replaces itself: the install flavours, the swap, `latest.json`, and the Windows installer. |
 | [docs/item-layer.md](docs/item-layer.md) | `src/item/` — parse, resolve, derive, range matching, and the plan rules every strategy shares. Where most pricing judgement lives. |
 | [docs/strategy-unique.md](docs/strategy-unique.md), [strategy-map.md](docs/strategy-map.md), [strategy-gem.md](docs/strategy-gem.md), [strategy-logbook.md](docs/strategy-logbook.md) | One per search strategy that has more to say than the shared rules: uniques (including unidentified), maps (with charts and Valdo maps), gems, expedition logbooks (the one item that is up to three items at once). |
+| [docs/quickpaste.md](docs/quickpaste.md) | The paste list — the popup at the cursor, the nine number-key slots, and the clipboard *write*, which is a seam of its own. |
 | [docs/trade-layer.md](docs/trade-layer.md) | `src/trade/` — query building, the two-step client, the rate limiter, and how results and the filter list are drawn. |
 | [docs/ninja.md](docs/ninja.md) | `src/ninja/` — the poe.ninja reference price. |
 | [docs/exchange.md](docs/exchange.md) | `src/exchange/` — GGG's hourly in-game currency exchange digests. |
@@ -90,6 +91,9 @@ violate one of these on the strength of not having read it.
 - **Never issue a GGG request outside `trade::request`.** The shared rate limiter is a hard
   requirement, not a courtesy. poe.ninja and the currency-exchange CDN are *different hosts with
   different rules* and deliberately do not go through it. → trade-layer, external-apis
+- **The clipboard is ours to read *and* to write.** `clipboard_set_text` owns the X selection from
+  a thread of its own, because a write on X11 is a promise to answer for the text later. →
+  quickpaste, platform
 - **Do not go back to `SDL_GetClipboardText()`**, do not clear the clipboard before a copy, and do
   not build a purely passive clipboard watcher. All three were tried and measured; each fails in a
   way that reads as a hang. → platform, architecture

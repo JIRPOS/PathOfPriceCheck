@@ -1,5 +1,7 @@
 #include "fonts.hpp"
 
+#include <algorithm>
+#include <array>
 #include <string>
 #include <utility>
 #include <vector>
@@ -47,11 +49,34 @@ constexpr ImWchar kBorrowedGlyphs[]{0x2264, 0x2265, 0};
 /// properly.
 constexpr ImWchar kOnlyBorrowed[]{1, 0x2263, 0x2266, IM_UNICODE_CODEPOINT_MAX, 0};
 
-/// The same complement for the glyph subset, which lives in the Private Use Area between
-/// U+F00C and U+F0E2. The subset carries no outline outside those two, but it does carry a
-/// `.notdef` — and a merged source answering for *that* would serve every codepoint nothing
-/// else has, replacing the boxes `fonts.unicode` exists to draw honestly.
-constexpr ImWchar kOnlyGlyphs[]{1, 0xF00B, 0xF0E3, IM_UNICODE_CODEPOINT_MAX, 0};
+/// The same complement for the glyph subset — every codepoint **except** the handful
+/// `ui/glyphs.hpp` names. The subset carries no outline outside those, but it does carry a
+/// `.notdef`, and a merged source answering for *that* would serve every codepoint nothing else
+/// has, replacing the boxes `fonts.unicode` exists to draw honestly.
+///
+/// Derived from `kGlyphCodepoints` rather than written out beside it. The two used to be one
+/// range because there were two glyphs and they sat next to each other; a third that landed
+/// outside it would have baked as nothing, which is the exact failure `has_glyphs` exists to
+/// catch and a worse one to have to catch twice.
+constexpr auto kOnlyGlyphs = [] {
+    constexpr size_t n = std::size(ui::kGlyphCodepoints);
+    std::array<unsigned int, n> cps{};
+    std::copy(std::begin(ui::kGlyphCodepoints), std::end(ui::kGlyphCodepoints), cps.begin());
+    std::sort(cps.begin(), cps.end()); // the gaps below only exist between neighbours
+    std::array<ImWchar, 2 * (n + 1) + 1> out{};
+    size_t at = 0;
+    unsigned int from = 1;
+    for (const unsigned int cp : cps) {
+        if (from < cp) { // no gap at all where two glyphs are adjacent
+            out[at++] = static_cast<ImWchar>(from);
+            out[at++] = static_cast<ImWchar>(cp - 1);
+        }
+        from = cp + 1;
+    }
+    out[at++] = static_cast<ImWchar>(from);
+    out[at++] = IM_UNICODE_CODEPOINT_MAX;
+    return out; // the tail is zeroed, and ImGui stops at the first 0
+}();
 
 /// Font Awesome draws on a square em and Fontin on a face with descenders, so a glyph baked at
 /// the text size stands a touch tall and sits a touch high against the words beside it. Both
@@ -253,7 +278,7 @@ Fonts load_fonts(float size_px) {
         ImFontConfig gcfg;
         gcfg.FontDataOwnedByAtlas = false; // a static array in the binary
         gcfg.MergeMode = true;
-        gcfg.GlyphExcludeRanges = kOnlyGlyphs;
+        gcfg.GlyphExcludeRanges = kOnlyGlyphs.data();
         gcfg.GlyphOffset = ImVec2(0.0f, size_px * kGlyphNudgeY);
         io.Fonts->AddFontFromMemoryTTF(const_cast<unsigned char*>(ppc_glyphs_ttf),
                                        static_cast<int>(sizeof ppc_glyphs_ttf),
