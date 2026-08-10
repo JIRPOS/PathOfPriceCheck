@@ -31,6 +31,12 @@ Every constraint below held; the layer is [trade-layer.md](trade-layer.md) now, 
 did not, `seed_min`/`seed_max` are what reset restores, the typed number goes through
 `std::from_chars`, only the Search button sends, and nothing survives the item.
 
+Two more changes to the same panel rode along, both of them the filter list rather than the ranges:
+what a strategy leaves out is a **collapsed section at its foot** rather than nothing
+(`StatFilter::hidden`, `NumericFilter::hidden`), and a linked item is searched on its **sockets and
+its links**, which is a price the tool missed entirely — see [trade-layer.md](trade-layer.md) and
+[item-layer.md](item-layer.md).
+
 ### 0.5, the paste list
 
 - Setting the clipboard goes through our own platform seam, never SDL's, and the X11 owner is a
