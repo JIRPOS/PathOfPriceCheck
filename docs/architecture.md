@@ -214,10 +214,12 @@ while a click on our own card would; and `place_overlay` logs the geometry it ch
 thing to read when the panel lands somewhere unexpected.
 
 The **idle status marker** replaces the old "● PPC" spike: two lines — `PoPC v<version>` and the data
-bundle's version — in outlined yellow at half opacity over the middle of the mana globe, which is
-where the game itself has nothing to say. `Config::status_right`/`status_bottom` place it, as offsets
-from the game window's bottom-right corner ÷ its height (the same reasoning as the frame edges), and
-they are config-file-only. `place_overlay` sizes the window to the text for that screen, so the idle
+bundle's version — in outlined yellow at half opacity over the mana globe, which is where the game
+itself has nothing to say. `Config::status_right`/`status_bottom` place its centre, as offsets from
+the game window's bottom-right corner ÷ its height (the same reasoning as the frame edges), and they
+are config-file-only. Horizontally that centre is the globe's; vertically it sits below it, in the
+globe's lower half, so that the third line — the one an available update adds — still lands on the
+glass instead of on the frame. `place_overlay` sizes the window to the text for that screen, so the idle
 overlay is a 200×48 rectangle rather than a dialog-sized one nothing is drawn into.
 
 **Settings is three tabs** — General, Price check, Application — between a fixed header (the title

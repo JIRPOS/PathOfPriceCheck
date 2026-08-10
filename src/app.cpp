@@ -111,7 +111,7 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
 // game's own height, which is the one thing that can force that scrollbar.
 constexpr int kSettingsW = 640, kSettingsH = 720;
 
-// The idle status: two short lines over the middle of the mana globe. Wide enough for a long
+// The idle status: two short lines over the lower half of the mana globe. Wide enough for a long
 // data version at the size below, and no wider — the window is what swallows mouse input, and
 // while idle it is only click-through because nothing else is open.
 constexpr int kStatusW = 200, kStatusH = 48;
@@ -158,10 +158,10 @@ void draw_outlined_line(const char* text, float centre_x, float y, float alpha) 
     dl->AddText(font, size, at, IM_COL32(255, 215, 0, static_cast<int>(alpha * 255)), text);
 }
 
-/// The idle marker: the application's version and the data bundle's, over the middle of the mana
-/// globe (see `Config::status_right`). It says the overlay is alive and which data it is pricing
-/// against — the two things there is no other way to see without opening Settings. Only drawn
-/// while the game is the window in front; `update_overlay_placement` unmaps it otherwise.
+/// The idle marker: the application's version and the data bundle's, over the lower half of the
+/// mana globe (see `Config::status_right`). It says the overlay is alive and which data it is
+/// pricing against — the two things there is no other way to see without opening Settings. Only
+/// drawn while the game is the window in front; `update_overlay_placement` unmaps it otherwise.
 void draw_status_marker(App& app) {
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -994,10 +994,11 @@ void App::place_overlay() {
     }
 
     if (screen_ == Screen::Hidden) {
-        // Over the middle of the mana globe, which hangs off the bottom-right corner and scales
-        // with the game's height — so both offsets are fractions of that height, exactly like the
-        // two frame edges. The window is no bigger than the text: it is click-through while idle,
-        // but it is also what the compositor has to composite every time the game redraws.
+        // Over the lower half of the mana globe, which hangs off the bottom-right corner and
+        // scales with the game's height — so both offsets are fractions of that height, exactly
+        // like the two frame edges. The window is no bigger than the text: it is click-through
+        // while idle, but it is also what the compositor has to composite every time the game
+        // redraws.
         const int cx = gx + gw - static_cast<int>(gh * config_.status_right);
         const int cy = gy + gh - static_cast<int>(gh * config_.status_bottom);
         // Room for the update line when there is one, and not a pixel of it otherwise: this
