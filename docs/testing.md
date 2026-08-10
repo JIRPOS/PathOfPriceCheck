@@ -26,7 +26,9 @@ name to `src/ui/glyphs.hpp` — they are a contract, and only one side of it dra
 `pyftsubset`, which is the only build-time dependency here that is not a system package.
 The icon is the same deal — after
 changing `assets/popc_icon.png`, run `./scripts/gen-icon-data.sh` (rewrites `src/icon_data.inc` and
-`assets/popc_icon.ico`; needs ImageMagick for the latter).
+`assets/popc_icon.ico`; needs ImageMagick for both, since the embedded copy is downscaled to 64px).
+All three write plain byte arrays through `scripts/bin2c.py`, and
+[architecture.md](architecture.md) says why they are not compressed.
 
 `-fsanitize=address,undefined` for debug builds is not wired into CMake yet; pass it by hand:
 

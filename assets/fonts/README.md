@@ -9,10 +9,15 @@ unrelated problems with unrelated licenses and are kept in separate blobs and se
 The overlay renders in **Fontin** — the typeface Path of Exile itself uses — by Jos Buivenga
 (exljbris). Homepage: <https://www.exljbris.com/fontin.html>
 
-Four faces are **embedded in the executable** as base85-encoded, stb_compress'd blobs in
+Four faces are **embedded in the executable** as their own TTF bytes in
 [`src/fontin_data.inc`](../../src/fontin_data.inc): Regular, Bold, Italic, SmallCaps. There is no
-runtime asset dependency — the `.ttf` files here are only inputs for regenerating that blob, and
+runtime asset dependency — the `.ttf` files here are only inputs for regenerating that array, and
 are not committed.
+
+They used to be base85-encoded and `stb_compress`ed, which was smaller in both the source file and
+the executable. Uncompressed is deliberate: an opaque high-entropy blob beside a routine that
+decodes it into a fresh buffer is a packer's shape, and on an unsigned binary it gets scored as
+one. The argument is in [docs/architecture.md](../../docs/architecture.md).
 
 `Fontin-SmallCaps.ttf` is a separate family, not an OpenType `smcp` feature — which is what makes
 small caps usable at all here, since ImGui does no text shaping or feature substitution.
@@ -44,8 +49,8 @@ change. Users can already override at runtime via `$PPC_FONT_DIR`.
 ./scripts/gen-font-data.sh   # rewrites src/fontin_data.inc
 ```
 
-`gen-font-data.sh` calls `fetch-fonts.sh` itself if the TTFs are missing, and needs a configured
-build tree for ImGui's `binary_to_compressed_c.cpp` (or `IMGUI_SOURCE_DIR` pointing at one).
+`gen-font-data.sh` calls `fetch-fonts.sh` itself if the TTFs are missing. It needs nothing else —
+the bytes go in as they are, via `scripts/bin2c.py`.
 
 ### Runtime override
 
@@ -62,8 +67,7 @@ Homepage: <https://fontawesome.com>
 
 **Only the codepoints actually used are bundled.** `scripts/fetch-glyphs.sh` runs `pyftsubset` over
 the release's `fa-solid-900.ttf` and keeps the two named in it, which is 1.4KB against the 416KB
-face; the result is base85'd into [`src/glyph_data.inc`](../../src/glyph_data.inc) exactly as
-Fontin is. **That codepoint list is the contract with [`src/ui/glyphs.hpp`](../../src/ui/glyphs.hpp)
+face; the result goes into [`src/glyph_data.inc`](../../src/glyph_data.inc) exactly as Fontin does. **That codepoint list is the contract with [`src/ui/glyphs.hpp`](../../src/ui/glyphs.hpp)
 — a glyph named there and missing here draws nothing at all**, which is the same silent blank
 Fontin's `≤` and `≥` produce; `Fonts::has_glyphs` is the check that catches it. Adding a glyph means
 editing both files and rerunning both scripts below.
@@ -86,5 +90,4 @@ call.
 ```
 
 `fetch-glyphs.sh` needs `fonttools` (`pip install fonttools`) for `pyftsubset`;
-`gen-glyph-data.sh` calls it itself if the subset is missing, and needs the same configured build
-tree `gen-font-data.sh` does.
+`gen-glyph-data.sh` calls it itself if the subset is missing, and needs nothing further.

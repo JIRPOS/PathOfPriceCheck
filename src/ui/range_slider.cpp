@@ -37,11 +37,15 @@ ImGuiID key_have(ImGuiID id) { return id + 3; }
 constexpr double kOvershoot = 2.0;
 
 /// How much a knob released hard against an end adds to the track, as a fraction of the range it
-/// started with, and the least it can add. The floor is what makes the gesture work on the small
-/// numbers it matters most on: a fifth of an attack speed's `1.30 to 1.45` is 0.03, which is not
-/// room for anything.
+/// started with. Of the range it *started* with, so repeated pegging walks outwards in equal
+/// steps rather than doubling away from the numbers the user is aiming at.
+///
+/// The floor is one step at the row's own precision, and is only there for a track with no width
+/// to speak of — a modifier known to roll a single number — where a fifth of nothing is nothing.
+/// Anything blunter overshoots the gesture: a flat 1 on an attack speed's `1.30 to 1.45` grows the
+/// track sevenfold in a single release and leaves the knob most of the way across it, which is the
+/// opposite of the nudge that was asked for.
 constexpr double kPegGrowth = 0.2;
-constexpr double kPegFloor = 1.0;
 
 double round_to(double v, int dp) {
     const double p = std::pow(10.0, dp);
@@ -157,13 +161,26 @@ bool range_slider(const char* id, std::optional<double>& min, std::optional<doub
         }
     }
     if (ImGui::IsItemDeactivated()) {
+        const int grabbed = store->GetInt(wid, kNone);
         store->SetInt(wid, kNone);
         // Released hard against an end: the user was asking for further out than the track goes,
         // and handing back a track exactly as long is what makes the widget feel stuck. Grow it,
-        // and only on the end that was pegged — the other one has not been asked about.
-        const double grow = std::max((known_hi - known_lo) * kPegGrowth, kPegFloor);
-        if (min && *min <= lo) lo = std::max(lo - grow, -kRangeLimit);
-        if (max && *max >= hi) hi = std::min(hi + grow, kRangeLimit);
+        // and only on the end the knob was left against — the other one has not been asked about,
+        // and a bound merely *carried* to an end by the knob crossing it has said nothing either,
+        // which is why this reads the bound that was dragged rather than both of them.
+        //
+        // **Measured from where the knob was left, not from the end it passed.** A drag does not
+        // stop at the end, so a pegged bound is usually somewhere out in the overshoot, and the
+        // domain widens to hold it on the next frame regardless. Growing the old end by a fifth
+        // lands inside that, leaving the knob against the very corner it was just pushed into —
+        // the growth invisible, the widget still stuck, and the user still dragging past it.
+        const std::optional<double>& v = grabbed == kMin ? min : max;
+        if (grabbed != kNone && v) {
+            const double grow =
+                std::max((known_hi - known_lo) * kPegGrowth, std::pow(10.0, -track.dp));
+            if (*v <= lo) lo = std::max(*v - grow, -kRangeLimit);
+            if (*v >= hi) hi = std::min(*v + grow, kRangeLimit);
+        }
         store->SetFloat(key_lo(wid), static_cast<float>(lo));
         store->SetFloat(key_hi(wid), static_cast<float>(hi));
         store->SetInt(key_have(wid), 1);

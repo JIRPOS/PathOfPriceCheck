@@ -13,9 +13,8 @@
 namespace ppc {
 namespace {
 
-// Fontin, base85-encoded, bundled into the executable so a build has no asset
-// dependency. Regenerate with scripts/gen-font-data.sh; see assets/fonts/README.md
-// for the license it ships under.
+// Fontin, bundled into the executable so a build has no asset dependency. Regenerate with
+// scripts/gen-font-data.sh; see assets/fonts/README.md for the license it ships under.
 #include "fontin_data.inc"
 
 // The UI glyphs, on the same terms. Regenerate with scripts/gen-glyph-data.sh.
@@ -186,9 +185,10 @@ std::vector<data::MappedFile>& font_maps() {
     return maps;
 }
 
-/// Where a mapped font's bytes are. Taken by value on purpose: `font_maps()` is a vector and
-/// grows, so a `MappedFile*` into it dies at the next map — while the *address it mapped* does
-/// not, because moving the object moves a pointer and not the pages.
+/// Where a font's bytes are — a file this process mapped, or one of the arrays the build embedded.
+/// Taken by value on purpose: `font_maps()` is a vector and grows, so a `MappedFile*` into it dies
+/// at the next map — while the *address it mapped* does not, because moving the object moves a
+/// pointer and not the pages.
 struct FontBytes {
     const uint8_t* data = nullptr;
     size_t size = 0;
@@ -203,12 +203,15 @@ FontBytes map_font(const std::string& path) {
     return {font_maps().back().data(), font_maps().back().size()};
 }
 
-/// Add a mapped font as a source: its own face, or — with `merge` — folded into whichever face
-/// was added last. `exclude` is the codepoints this source must not answer for.
-ImFont* add_mapped_face(FontBytes b, float size_px, bool merge,
-                        const ImWchar* exclude = nullptr) {
+/// Add a font as a source: its own face, or — with `merge` — folded into whichever face was added
+/// last. `exclude` is the codepoints this source must not answer for.
+ImFont* add_face(FontBytes b, float size_px, bool merge, const ImWchar* exclude = nullptr) {
     ImFontConfig cfg;
-    cfg.FontDataOwnedByAtlas = false; // font_maps() is the storage
+    // Never the atlas's to free: the bytes are a mapping in `font_maps()` or a static array in the
+    // binary, and both outlive it. **Not settable on a config that also goes to
+    // `AddFontFromFileTTF`** — that one allocates the buffer itself and does leak it if told the
+    // atlas does not own it, which is why this config is built here rather than passed in.
+    cfg.FontDataOwnedByAtlas = false;
     cfg.MergeMode = merge;
     cfg.GlyphExcludeRanges = exclude;
     return ImGui::GetIO().Fonts->AddFontFromMemoryTTF(const_cast<uint8_t*>(b.data),
@@ -220,7 +223,7 @@ ImFont* load_unicode_face(const std::vector<std::string>& faces, float size_px) 
     for (const std::string& p : faces) {
         const FontBytes b = map_font(p);
         if (!b) continue;
-        if (ImFont* got = add_mapped_face(b, size_px, font != nullptr)) {
+        if (ImFont* got = add_face(b, size_px, font != nullptr)) {
             SDL_Log("names render in %s", p.c_str());
             if (!font) font = got;
         }
@@ -246,13 +249,15 @@ Fonts load_fonts(float size_px) {
     // was added last, so this cannot be hoisted out of the middle of the list.
     const auto borrowed = [&](ImFont* face) {
         if (!face) return face;
-        for (const FontBytes b : borrow) add_mapped_face(b, size_px, true, kOnlyBorrowed);
+        for (const FontBytes b : borrow) add_face(b, size_px, true, kOnlyBorrowed);
         ImFontConfig gcfg;
+        gcfg.FontDataOwnedByAtlas = false; // a static array in the binary
         gcfg.MergeMode = true;
         gcfg.GlyphExcludeRanges = kOnlyGlyphs;
         gcfg.GlyphOffset = ImVec2(0.0f, size_px * kGlyphNudgeY);
-        io.Fonts->AddFontFromMemoryCompressedBase85TTF(ppc_glyphs_compressed_data_base85,
-                                                       size_px * kGlyphScale, &gcfg);
+        io.Fonts->AddFontFromMemoryTTF(const_cast<unsigned char*>(ppc_glyphs_ttf),
+                                       static_cast<int>(sizeof ppc_glyphs_ttf),
+                                       size_px * kGlyphScale, &gcfg);
         return face;
     };
 
@@ -268,13 +273,13 @@ Fonts load_fonts(float size_px) {
     } else {
         // Fontin ships SmallCaps as its own family rather than an OpenType `smcp`
         // feature — load-bearing, since ImGui does no shaping or feature substitution.
-        auto add = [&](const char* data) {
-            return borrowed(io.Fonts->AddFontFromMemoryCompressedBase85TTF(data, size_px, &cfg));
+        auto add = [&](const unsigned char* data, size_t size) {
+            return borrowed(add_face({data, size}, size_px, false, kBorrowedGlyphs));
         };
-        f.regular = add(fontin_regular_compressed_data_base85);
-        f.bold = add(fontin_bold_compressed_data_base85);
-        f.italic = add(fontin_italic_compressed_data_base85);
-        f.small_caps = add(fontin_small_caps_compressed_data_base85);
+        f.regular = add(fontin_regular_ttf, sizeof fontin_regular_ttf);
+        f.bold = add(fontin_bold_ttf, sizeof fontin_bold_ttf);
+        f.italic = add(fontin_italic_ttf, sizeof fontin_italic_ttf);
+        f.small_caps = add(fontin_small_caps_ttf, sizeof fontin_small_caps_ttf);
     }
     // Asked rather than assumed: a face existing is not a face carrying these two, and the one
     // Noto ships as its Latin base carries neither. `FindGlyphNoFallback` bakes on demand and

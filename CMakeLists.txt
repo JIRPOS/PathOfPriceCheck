@@ -191,6 +191,9 @@ if(WIN32)
   string(REPLACE "." "," PPC_VERSION_COMMAS "${APP_VERSION}")
   configure_file(assets/app.rc.in "${CMAKE_BINARY_DIR}/app.rc" @ONLY)
   list(APPEND APP_SOURCES "${CMAKE_BINARY_DIR}/app.rc")
+  # A .manifest source is handed to the manifest tool and merged with the one the linker generates
+  # anyway, which is why this does not go through the .rc: two RT_MANIFEST resources is an error.
+  list(APPEND APP_SOURCES assets/app.manifest)
 else()
   list(APPEND APP_SOURCES
     src/platform/hotkeys_x11.cpp src/platform/foreground_x11.cpp src/platform/input_sim_x11.cpp
@@ -210,6 +213,17 @@ find_package(OpenGL REQUIRED)
 target_link_libraries(PathOfPriceCheck PRIVATE OpenGL::GL)
 find_package(Threads REQUIRED)
 target_link_libraries(PathOfPriceCheck PRIVATE Threads::Threads)
+
+if(MSVC)
+  # Control Flow Guard. Off by default in MSVC and on in most of what ships for Windows, so its
+  # absence is one of the cheap signals a heuristic scanner counts against an unsigned binary —
+  # and it is worth having on its own terms. `/CETCOMPAT` is deliberately not here: it is a
+  # promise about the whole image, including the statically linked SDL, curl and zlib, and a
+  # wrong one crashes on hardware-enforced stack protection rather than degrading.
+  target_compile_options(ppc_core PRIVATE /guard:cf)
+  target_compile_options(PathOfPriceCheck PRIVATE /guard:cf)
+  target_link_options(PathOfPriceCheck PRIVATE /guard:cf)
+endif()
 
 if(WIN32)
   target_link_libraries(PathOfPriceCheck PRIVATE user32)
