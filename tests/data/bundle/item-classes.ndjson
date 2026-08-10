@@ -14,3 +14,4 @@
 {"id":"HeistContract","itemClass":"Contracts","tradeCategory":"heistmission.contract"}
 {"id":"HeistBlueprint","itemClass":"Blueprints","tradeCategory":"heistmission.blueprint"}
 {"id":"ItemisedSanctum","itemClass":"Sanctum Research","tradeCategory":"sanctum.research"}
+{"id":"ExpeditionLogbook","itemClass":"Expedition Logbooks","tradeCategory":"logbook"}

@@ -200,7 +200,10 @@ void draw_strategy_picker(App& app, const item::Item& it, item::SearchPlan& plan
     // modifiers are the danger the run holds and its base is the area, and the site indexes it
     // on a group of filters that only the heist strategy fills in. Offering the pair drew two
     // radio buttons with neither of them selected.
-    if (!it.is_map() && !it.is_chart() && !it.is_beast() && !it.is_heist() &&
+    // Nor an Expedition Logbook, which is magic or rare and is neither reading either: its
+    // affixes apply wherever it goes and its base is the one base in the category, so both
+    // readings would search past the destinations that are the whole of what it is worth.
+    if (!it.is_map() && !it.is_chart() && !it.is_beast() && !it.is_heist() && !it.is_logbook() &&
         (it.rarity == item::Rarity::Magic || it.rarity == item::Rarity::Rare)) {
         for (const item::Strategy s : {item::Strategy::Modifiers, item::Strategy::BaseItem}) {
             const bool on = plan.strategy == s;
@@ -256,13 +259,21 @@ struct RowClick {
 /// its first: the row's height is not known until its four cells have been drawn.
 RowClick draw_filter_row(int id, bool& enabled, const Origin& o, const std::string& text,
                          const std::string& note, const std::string& asks,
-                         const std::string& caveat = {}, bool editable = false) {
+                         const std::string& caveat = {}, bool editable = false,
+                         float indent = 0.0f) {
     ImGui::TableNextRow();
     ImGui::TableSetColumnIndex(0);
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     float bottom = origin.y;
     const auto reached = [&bottom] { bottom = std::max(bottom, ImGui::GetCursorScreenPos().y); };
 
+    // Under the alternative it belongs to, rather than level with the rows that are asked
+    // unconditionally. The row still starts its hit test at the cell's left edge, so the
+    // indent costs the click target nothing.
+    if (indent > 0.0f) {
+        ImGui::Dummy(ImVec2(indent, 0.0f));
+        ImGui::SameLine(0.0f, 0.0f);
+    }
     ImGui::PushID(id);
     // A box the height of a line of text rather than of a framed widget. This is a list of
     // modifiers with a tick beside each, and at the default frame padding the tick is taller
@@ -661,6 +672,46 @@ bool draw_hidden_header(App& app, size_t n) {
     return open;
 }
 
+/// How far a row belonging to an alternative sits in from the ones asked unconditionally.
+constexpr float kChoiceIndent = 14.0f;
+
+/// One alternative's own row: a **radio button**, the thing it is (a logbook's faction) and
+/// where that leads (the area), on the line under it.
+///
+/// A radio and not a tick, because that is the whole statement the row makes. An Expedition
+/// Logbook lists up to three destinations and the player travels to exactly one — so the rows
+/// underneath are not three questions to answer independently, they are one question with
+/// three answers, and three checkboxes would invite ticking two and searching for a logbook
+/// that goes to both. Which is a real item and never the one in hand.
+///
+/// The unchosen alternatives keep their row and lose their contents: the area under the label
+/// is what says where each of them leads, and expanding all three would bury the choice under
+/// nine rows of things nobody has picked yet.
+///
+/// **This row is the primary filter, not a heading above it.** The faction a logbook's
+/// destination belongs to is exactly what picking that destination asks for, so drawing it again
+/// underneath as a tickable row said the same thing twice and offered to untick a thing the
+/// radio button had just decided. `StatFilter::choice_primary` is that filter and it has no row
+/// of its own — this is it. Bold, because it is the one line here a reader scans a logbook for.
+bool draw_choice_row(int id, bool selected, const item::ChoiceGroup& g, const Fonts& fonts) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::PushID(id);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+    const bool pressed = ImGui::RadioButton("", selected);
+    ImGui::PopStyleVar();
+    ImGui::PopID();
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::PushFont(fonts.bold, 0.0f);
+    ImGui::TextUnformatted(g.label.c_str());
+    ImGui::PopFont();
+    if (!g.note.empty()) ImGui::TextColored(kDim, "%s", g.note.c_str());
+    ImGui::PopTextWrapPos();
+    return pressed && !selected;
+}
+
 /// The filter list, as a table so that every row's numbers sit under the previous row's. What
 /// the search asks for is the **last** column and not part of the origin beside the code: it is
 /// the one thing here that the user will be editing.
@@ -708,9 +759,7 @@ void draw_filters(App& app, const item::Item& it, item::SearchPlan& plan) {
                 c.clicked)
                 app.edit_filter(FilterEdit::Kind::Numeric, i, c.top, c.bottom);
         };
-        for (size_t i = 0; i < plan.numerics.size(); ++i)
-            if (!plan.numerics[i].hidden) numeric_row(i);
-        const auto stat_row = [&](size_t i) {
+        const auto stat_row = [&](size_t i, float indent = 0.0f) {
             item::StatFilter& f = plan.stats[i];
             // Why this one is ticked on a unique whose other modifiers are not: the item picked
             // it out of a pool, so it is what separates this copy from every other.
@@ -724,16 +773,35 @@ void draw_filters(App& app, const item::Item& it, item::SearchPlan& plan) {
                     static_cast<int>(1000 + i), f.enabled, origin_of(it, f),
                     strip_roll_ranges(f.text), note,
                     f.negated ? "absent" : filter_text(f.min, f.max, f.dp, glyphs), f.caveat,
-                    rows_live && has_interval(f));
+                    rows_live && has_interval(f), indent);
                 c.clicked)
                 app.edit_filter(FilterEdit::Kind::Stat, i, c.top, c.bottom);
         };
+        // The alternatives lead, ahead of the numerics as well as the modifiers: on a logbook
+        // they are what the item *is*, and everything below them — the area level, the book's
+        // own affixes — is the same wherever it goes. The chosen one shows its rows; the others
+        // show where they lead and nothing else. Empty on every other item, and then this
+        // leaves the list exactly as it was.
+        for (size_t g = 0; g < plan.choices.size(); ++g) {
+            if (draw_choice_row(static_cast<int>(3000 + g), g == plan.choice, plan.choices[g],
+                                app.fonts()))
+                plan.select_choice(g);
+            if (g != plan.choice) continue;
+            // Not the primary: the row above *is* that filter, and drawing it again would
+            // offer to untick what the radio button has just decided.
+            for (size_t i = 0; i < plan.stats.size(); ++i)
+                if (plan.stats[i].choice == g && !plan.stats[i].hidden &&
+                    !plan.stats[i].choice_primary)
+                    stat_row(i, kChoiceIndent);
+        }
+        for (size_t i = 0; i < plan.numerics.size(); ++i)
+            if (!plan.numerics[i].hidden) numeric_row(i);
         size_t hidden = 0;
         for (const item::NumericFilter& f : plan.numerics)
             if (f.hidden) ++hidden;
         for (size_t i = 0; i < plan.stats.size(); ++i) {
             if (plan.stats[i].hidden) ++hidden;
-            else stat_row(i);
+            else if (!plan.stats[i].choice) stat_row(i); // drawn under its alternative, above
         }
         // Numerics first behind the disclosure as well as in front of it, so a row does not move
         // between the two lists depending on which one it is in.

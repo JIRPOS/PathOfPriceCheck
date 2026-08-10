@@ -39,7 +39,7 @@ read whole; each is one layer.
 | [docs/data-layer.md](docs/data-layer.md) | `src/data/` — the runtime bundle, the updater, the lexicon, stat normalization and matching. |
 | [docs/updater.md](docs/updater.md) | `src/update/` and `packaging/` — how a copy arrives and how it replaces itself: the install flavours, the swap, `latest.json`, and the Windows installer. |
 | [docs/item-layer.md](docs/item-layer.md) | `src/item/` — parse, resolve, derive, range matching, and the plan rules every strategy shares. Where most pricing judgement lives. |
-| [docs/strategy-unique.md](docs/strategy-unique.md), [strategy-map.md](docs/strategy-map.md), [strategy-gem.md](docs/strategy-gem.md) | One per search strategy that has more to say than the shared rules: uniques (including unidentified), maps (with charts and Valdo maps), gems. |
+| [docs/strategy-unique.md](docs/strategy-unique.md), [strategy-map.md](docs/strategy-map.md), [strategy-gem.md](docs/strategy-gem.md), [strategy-logbook.md](docs/strategy-logbook.md) | One per search strategy that has more to say than the shared rules: uniques (including unidentified), maps (with charts and Valdo maps), gems, expedition logbooks (the one item that is up to three items at once). |
 | [docs/trade-layer.md](docs/trade-layer.md) | `src/trade/` — query building, the two-step client, the rate limiter, and how results and the filter list are drawn. |
 | [docs/ninja.md](docs/ninja.md) | `src/ninja/` — the poe.ninja reference price. |
 | [docs/exchange.md](docs/exchange.md) | `src/exchange/` — GGG's hourly in-game currency exchange digests. |

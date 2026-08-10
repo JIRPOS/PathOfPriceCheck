@@ -702,3 +702,44 @@ TEST_CASE("a sanctum's filters go in sanctum_filters, and its area level does no
         CHECK_FALSE(searchable(p));
     }
 }
+
+TEST_CASE("a logbook sends one destination of several, and the others are simply unticked") {
+    // The exclusion is entirely `SearchPlan::select_choice` keeping the other groups off. This
+    // layer reads `enabled` and knows nothing about the grouping, exactly as it knows nothing
+    // about `hidden` — which is the guarantee worth stating on the wire rather than in the plan.
+    SearchPlan p;
+    p.strategy = Strategy::Logbook;
+    p.category = "logbook";
+    p.type = "Expedition Logbook";
+    p.choices = {{"Druids of the Broken Circle", "Volcanic Island"},
+                 {"Order of the Chalice", "Sarn Slums"}};
+    const auto add = [&p](const char* id, size_t group, bool primary) {
+        ppc::item::StatFilter f;
+        f.id = id;
+        f.type = ppc::data::ModType::Pseudo;
+        f.choice = group;
+        f.choice_primary = primary;
+        p.stats.push_back(f);
+    };
+    add("pseudo.pseudo_logbook_faction_druids", 0, true);
+    add("pseudo.pseudo_logbook_area_volcano", 0, false);
+    add("pseudo.pseudo_logbook_faction_order", 1, true);
+    add("pseudo.pseudo_logbook_area_sarn_slums", 1, false);
+    p.numerics = {{"area_level", "Area Level", 80.0, std::nullopt, true}};
+
+    CHECK(searchable(p));
+    p.select_choice(0);
+    json q = query_of(p);
+    REQUIRE(q["stats"].size() == 1);
+    REQUIRE(q["stats"][0]["filters"].size() == 1);
+    CHECK(q["stats"][0]["filters"][0]["id"] == "pseudo.pseudo_logbook_faction_druids");
+    // Presence: the pseudo stat takes a count and the search deliberately does not send one.
+    CHECK_FALSE(q["stats"][0]["filters"][0].contains("value"));
+    CHECK(q["filters"]["map_filters"]["filters"]["area_level"]["min"] == 80.0);
+
+    // The other destination, and nothing of the first one left behind.
+    p.select_choice(1);
+    q = query_of(p);
+    REQUIRE(q["stats"][0]["filters"].size() == 1);
+    CHECK(q["stats"][0]["filters"][0]["id"] == "pseudo.pseudo_logbook_faction_order");
+}

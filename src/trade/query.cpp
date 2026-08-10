@@ -133,6 +133,11 @@ bool searchable(const item::SearchPlan& p) {
         // when the bundle cannot name one is still a real question, because resolve, aureus and
         // the boons are what tell two runs apart and none of them lives in the type.
         case item::Strategy::Sanctum: return !p.type.empty() || !p.category.empty();
+        // A logbook is one base type under a category of its own, so either term is the whole
+        // set and the destination filters are what narrow it. Unlike an ultimatum, the coarse
+        // search is still a real question — "some logbook at area level 83" is a market — so
+        // the type is not required to have brought a filter with it.
+        case item::Strategy::Logbook: return !p.type.empty() || !p.category.empty();
         case item::Strategy::Gem: return !p.type.empty();
         // Currency is bought in bulk and has nothing a stat query could ask about — except the
         // one kind that is not interchangeable, which the plan says so about by naming a type.

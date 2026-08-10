@@ -1,0 +1,26 @@
+Item Class: Expedition Logbooks
+Rarity: Magic
+Buffered Expedition Logbook
+--------
+Item Quantity: +13% (augmented)
+Item Rarity: +8% (augmented)
+Monster Pack Size: +5% (augmented)
+Area Level: 74
+--------
+Item Level: 74
+--------
+Bluffs
+Druids of the Broken Circle
+12% increased quantity of Artifacts dropped by Monsters (implicit)
+26% increased Explosive Radius (implicit)
+29% increased Explosive Placement Range (implicit)
+--------
+Scrublands
+Druids of the Broken Circle
+39% increased quantity of Artifacts dropped by Monsters (implicit)
+44% increased Explosive Placement Range (implicit)
+Area contains 34% increased number of Monster Markers (implicit)
+--------
+Monsters gain 32% of Maximum Life as Extra Maximum Energy Shield
+--------
+Take this item to Dannig in your Hideout to open portals to an expedition.

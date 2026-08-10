@@ -356,10 +356,11 @@ with ImGui about which presses can do anything.
 
 **What a strategy leaves out is a collapsed section at the foot of the list**, not nothing.
 `StatFilter::hidden` and `NumericFilter::hidden` are the flag and `draw_hidden_header` the row that
-opens it. Three strategies set it on a modifier they match and then decide the item is not bought
+opens it. Four strategies set it on a modifier they match and then decide the item is not bought
 for: **a map's affixes**, re-rollable with one Chaos Orb and answered by the single copy in the
-league that rolled that set; **a beast's monster modifiers**, which are not affixes; and **an
-ultimatum's hazards** other than the two that scale the stake. **Sockets and links below five** are
+league that rolled that set; **a beast's monster modifiers**, which are not affixes; **an
+ultimatum's hazards** other than the two that scale the stake; and **a logbook's own affixes**,
+on the map argument exactly. **Sockets and links below five** are
 the numeric case and the same argument. Every one of those is occasionally the whole question, and
 before this there was no way to ask it short of the trade site itself. Numerics come first behind
 the disclosure as they do in front of it, so a row does not change position depending on which of
@@ -373,6 +374,24 @@ note**: `to_filter` returning nothing for one of these produces no row *and* no 
 something it deliberately did not attempt. And `merge_same_stat` **never folds across the divide**,
 or a modifier the strategy left out would end up inside the total of one it did not, with the
 shown row's tick sending both.
+
+**A set of rows the search sends one of is a different thing entirely**, and the list draws it
+differently: `SearchPlan::choices` and `StatFilter::choice`, drawn by `draw_choice_row` as a
+**radio button** at the head of the list, ahead of the numerics as well as the modifiers. An
+Expedition Logbook is the case — up to three destinations, exactly one of which the player
+travels to — so those rows are not three questions to answer independently but one question with
+three answers, and three checkboxes would invite ticking two and searching for a logbook that
+goes to both. **The alternative's own row is its primary filter** rather than a heading over one: a logbook
+destination's faction is exactly what picking that destination asks for, so a tickable row
+repeating it underneath said the same thing twice and offered to untick what the radio button had
+just decided. It is the one line in the list drawn **bold**, being what a reader scans a logbook
+for. The **chosen alternative shows the rest of its group** indented under it — the area and the
+implicits, offered unticked; the others show their label and where they lead and nothing else,
+since expanding all three would bury the choice under nine rows nobody has picked. Clicking
+an unchosen one is `SearchPlan::select_choice`, which is the only thing that ticks or unticks a
+grouped row. `build_query` again knows nothing about any of it: the other groups are simply
+unticked. `merge_same_stat` grows a third divide for the same reason it has the `hidden` one —
+two destinations can share a faction or grant one stat, and their total belongs to neither.
 
 **Collapsed for every price check**, held on `App` rather than in ImGui's storage, which is keyed
 by id and would carry an open section from one item to the next. Six map affixes open by default

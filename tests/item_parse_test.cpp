@@ -864,3 +864,73 @@ TEST_CASE("an itemised sanctum's state is properties, and its affixes are sanctu
         CHECK(it->flavour_text.size() == 1);
     }
 }
+
+TEST_CASE("an Expedition Logbook's destinations are structure, not modifiers") {
+    SUBCASE("each block is an area, a faction and the implicits that apply there") {
+        const Item it = parse("items", "logbook-normal-three-areas.txt");
+        CHECK(it.item_class == "Expedition Logbooks");
+        CHECK(it.is_logbook());
+        CHECK(it.rarity == Rarity::Normal);
+        CHECK(it.base_type == "Expedition Logbook");
+        REQUIRE(it.logbook_areas.size() == 3);
+        CHECK(it.logbook_areas[0].area == "Scrublands");
+        CHECK(it.logbook_areas[0].faction == "Druids of the Broken Circle");
+        CHECK(it.logbook_areas[2].area == "Sarn Slums");
+        CHECK(it.logbook_areas[2].faction == "Order of the Chalice");
+        // The two names are the destination's own and are nowhere near the mod list, which
+        // used to hold six of them as unmatchable lines.
+        REQUIRE(it.mods.size() == 6);
+        for (const Modifier& m : it.mods) CHECK(m.type == ModType::Implicit);
+        CHECK(it.mods[0].lines.front() ==
+              "32% increased quantity of Artifacts dropped by Monsters");
+        // And which implicit belongs to which destination, which nothing about the modifiers
+        // themselves says: the same wording is granted by two of them at different rolls.
+        CHECK(it.logbook_areas[0].mods == std::vector<size_t>{0, 1});
+        CHECK(it.logbook_areas[1].mods == std::vector<size_t>{2, 3});
+        CHECK(it.logbook_areas[2].mods == std::vector<size_t>{4, 5});
+    }
+    SUBCASE("the usage note is a usage note, not a seventh modifier") {
+        // A logbook is gear, so prose needs a positive signal before it stops being read as a
+        // modifier — and "Take this item to Dannig…" opens with no click instruction. Without
+        // a needle of its own it came back as an unrecognised mod on every logbook.
+        const Item it = parse("items", "logbook-normal-three-areas.txt");
+        REQUIRE(it.help_text.size() == 1);
+        CHECK(it.help_text.front().starts_with("Take this item to Dannig"));
+    }
+    SUBCASE("a rare's own affixes sit below the destinations and stay explicit") {
+        const Item it = parse("items", "logbook-rare-ancient-lands.txt");
+        CHECK(it.name == "Ancient Lands");
+        CHECK(it.base_type == "Expedition Logbook");
+        REQUIRE(it.logbook_areas.size() == 3);
+        CHECK(it.logbook_areas[1].area == "Battleground Graves");
+        // Six implicits from the destinations and five affixes of the book's own. The affix
+        // block is the one that opens with a roll, which is what tells the two shapes apart.
+        REQUIRE(it.mods.size() == 11);
+        for (size_t i = 0; i < 6; ++i) CHECK(it.mods[i].type == ModType::Implicit);
+        for (size_t i = 6; i < 11; ++i) CHECK(it.mods[i].type == ModType::Explicit);
+        CHECK(it.mods[6].lines.front() == "Players have -9% to all maximum Resistances");
+        CHECK(it.mods[10].lines.front() ==
+              "Monsters gain 45% of Maximum Life as Extra Maximum Energy Shield");
+        // The quantity properties a rare logbook carries are the same three a map prints.
+        const auto num_of = [&it](PropertyKey k) {
+            for (const Property& p : it.properties)
+                if (p.key == k) return p.num;
+            return std::optional<double>();
+        };
+        CHECK(num_of(PropertyKey::ItemQuantity) == 61);
+        CHECK(num_of(PropertyKey::MonsterPackSize) == 23);
+        CHECK(num_of(PropertyKey::AreaLevel) == 80);
+        CHECK(it.item_level == 80);
+    }
+    SUBCASE("a destination is not fixed at two implicits, and a magic name is still the base") {
+        const Item it = parse("items", "logbook-magic-buffered.txt");
+        CHECK(it.rarity == Rarity::Magic);
+        CHECK(it.base_type == "Buffered Expedition Logbook");
+        REQUIRE(it.logbook_areas.size() == 2);
+        CHECK(it.logbook_areas[0].area == "Bluffs");
+        CHECK(it.logbook_areas[0].mods.size() == 3);
+        CHECK(it.logbook_areas[1].mods.size() == 3);
+        REQUIRE(it.mods.size() == 7); // six implicits and the one affix below them
+        CHECK(it.mods.back().type == ModType::Explicit);
+    }
+}

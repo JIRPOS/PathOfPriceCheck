@@ -471,4 +471,9 @@ bundle, and only the third and fourth encode pricing judgement.
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is
   [strategy-map.md](strategy-map.md) — maps, charts and Valdo maps, and the one strategy that
   searches on none of an item's affixes.
+- **`item/plan`'s logbook strategy** (`plan_logbook`, `group_logbook_mods`) is
+  [strategy-logbook.md](strategy-logbook.md) — the one item that is up to three items at once, and
+  the only plan whose rows are **alternatives**: `SearchPlan::choices` and `StatFilter::choice`,
+  one group per destination, exactly one live. `select_choice` is the whole of the exclusion and
+  `trade::build_query` reads nothing but `enabled`, as it does for `hidden`.
 - **`item/plan`'s gem strategy** (`plan_gem`) is [strategy-gem.md](strategy-gem.md).

@@ -15,8 +15,8 @@ namespace ppc::item {
 namespace {
 
 constexpr std::array<std::string_view, static_cast<size_t>(Strategy::Unsupported) + 1>
-    kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",         "Map",
-                "Beast",     "Ultimatum", "Heist",     "Sanctum",  "Unsupported"};
+    kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",     "Map",
+                "Beast",     "Ultimatum", "Heist",     "Sanctum",  "Logbook", "Unsupported"};
 
 /// How many decimals `v` needs to survive being printed. Rolls are at most hundredths.
 int decimals_needed(double v) {
@@ -570,7 +570,12 @@ void merge_same_stat(std::vector<StatFilter>& stats) {
             // Never across the divide: a hidden filter folded into a shown one would put a
             // modifier the strategy left out into the total of one it did not, and the row's
             // tick would then be sending both.
-            if (stats[j].id != stats[i].id || stats[j].hidden != stats[i].hidden) {
+            // Never across a choice either, and for a sharper version of the same reason: two
+            // of a logbook's destinations can grant one stat, or belong to one faction, and
+            // summing those gives a number no single destination has — while the whole point of
+            // the group is that only one destination is ever being asked about.
+            if (stats[j].id != stats[i].id || stats[j].hidden != stats[i].hidden ||
+                stats[j].choice != stats[i].choice) {
                 ++j;
                 continue;
             }
@@ -1183,6 +1188,151 @@ void plan_sanctum(const data::GameData& gd, const Item& it, SearchPlan& p) {
     add_sanctum_effects(gd, it, p);
 }
 
+/// The pseudo stat a logbook's faction or area name is searched under — `Has Logbook Faction:
+/// Druids of the Broken Circle`, which is the site's own wording for it. Null when this bundle
+/// has no such stat, which the caller says out loud rather than dropping: the area list grows
+/// with the league and a name nobody has published a stat for is a real gap.
+const data::Stat* logbook_stat(const data::GameData& gd, data::Term prefix,
+                               std::string_view name) {
+    const std::string_view p = gd.lexicon().term(prefix);
+    if (p.empty() || name.empty()) return nullptr;
+    const data::Stat* s = gd.find_stat_by_ref(std::string(p) + std::string(name));
+    return s && s->has(data::ModType::Pseudo) ? s : nullptr;
+}
+
+/// An Expedition Logbook: **which of its destinations is being priced**, and what the whole
+/// book is worth wherever it goes.
+///
+/// A logbook is up to three items in one. Each destination names an area, the faction whose
+/// land it is and the implicits that apply there; the player travels to exactly one of them,
+/// and the faction is what decides what that is worth — which is why a split logbook, two of
+/// whose destinations share a valuable faction, is a thing people pay for. Nothing in the
+/// clipboard says which destination the reader has in mind, so the plan does not guess: the
+/// destinations are `SearchPlan::choices` and the panel asks.
+///
+/// Inside a destination, only the **faction** is ticked. Where it goes and what it grants there
+/// are offered — a buyer picking a faction is rarely picking an area with it, and an implicit
+/// is one of two or three numbers that came with the area rather than something anybody chose.
+///
+/// What the book grants wherever it goes:
+/// - **The area level**, a floor and ticked. Unlike a map's tier or a sanctum's floor, a higher
+///   one is not a different product but strictly more of the same one, and a buyer at 80 takes
+///   an 83.
+/// - **The item level**, offered. It bounds what the affixes can be crafted to and is a
+///   question about crafting the book rather than about running it.
+/// - **Quantity, rarity and pack size**, offered and unticked — **decided, not deferred**, and
+///   the one place this parts company with the map strategy it borrows the keys from. A map's
+///   quantity and pack size are the whole of what it is run for and are ticked; a logbook's are
+///   a second-order bonus on top of the artifacts, which the *destination* decides. They also
+///   only exist on a magic or rare book, so ticking them would search the same logbook two
+///   different ways depending on whether it had rolled affixes at all. Nobody has measured that
+///   the site indexes them for this category either, and a filter it accepts and indexes nothing
+///   under empties the search exactly as `heist_max_escape_routes` does.
+///
+/// The **affixes it prints below the destinations** are the map argument, and get the map's
+/// answer: they apply wherever it goes, they are re-rollable — a logbook is craftable, which is
+/// most of what the affix crafting market is — and a query naming them finds the one copy in
+/// the league that rolled that set. So they are `hidden`, offered under the section at the foot
+/// of the list rather than dropped on the floor.
+void plan_logbook(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    // The category is the whole search on its own — one base type is filed under `logbook` —
+    // so the type term is sent only where the bundle resolved it, never off the printed line.
+    // A magic logbook's line is "Buffered Expedition Logbook", and that as a type matches
+    // nothing, which reads as nobody selling one.
+    if (it.base) {
+        p.type = base_wire_name(it);
+        if (!it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+    }
+
+    if (const Property* lvl = property_of(it, data::PropertyKey::AreaLevel); lvl && lvl->num)
+        add_numeric(p, "area_level", lvl->label, *lvl->num, true);
+    add_numeric(p, "ilvl", "Item Level",
+                it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, false);
+    static constexpr std::pair<data::PropertyKey, const char*> kBonuses[]{
+        {data::PropertyKey::ItemQuantity, "map_iiq"},
+        {data::PropertyKey::MonsterPackSize, "map_packsize"},
+        {data::PropertyKey::ItemRarity, "map_iir"},
+    };
+    for (const auto& [key, filter] : kBonuses)
+        if (const Property* prop = property_of(it, key); prop && prop->num)
+            add_numeric(p, filter, prop->label, *prop->num, false);
+
+    for (size_t d = 0; d < it.logbook_areas.size(); ++d) {
+        const LogbookArea& dest = it.logbook_areas[d];
+        ChoiceGroup g;
+        g.label = dest.faction;
+        g.note = dest.area;
+        p.choices.push_back(std::move(g));
+
+        const auto pseudo = [&](data::Term prefix, std::string_view name, bool primary) {
+            const data::Stat* s = logbook_stat(gd, prefix, name);
+            if (!s) {
+                p.notes.push_back("\"" + std::string(name) +
+                                  "\" is not a logbook faction or area the trade site knows in "
+                                  "this data bundle, so the search does not ask for it");
+                return;
+            }
+            StatFilter f;
+            f.id = s->trade_ids(data::ModType::Pseudo).front();
+            // The stat's own wording rather than the bare name: it is what the site's filter is
+            // called, and "Druids of the Broken Circle" on a row of its own says nothing about
+            // being a faction. The item beside the panel is where the block itself is read.
+            f.text = s->ref;
+            f.type = data::ModType::Pseudo;
+            f.choice = d;
+            f.choice_primary = primary;
+            // **Presence, not a count.** The pseudo stat takes a value — how many of the
+            // destinations belong to that faction — and it is not what decides the price: a
+            // logbook with two Druids destinations is still bought for a Druids run. Bounding
+            // it would drop every single-destination copy of the same thing.
+            p.stats.push_back(std::move(f));
+        };
+        pseudo(data::Term::LogbookFactionPrefix, dest.faction, true);
+        pseudo(data::Term::LogbookAreaPrefix, dest.area, false);
+    }
+}
+
+/// Whether modifier `index` came out of one of the logbook's destination blocks. Everything
+/// else it prints is an affix of the book itself, which applies wherever it goes.
+bool logbook_destination_mod(const Item& it, size_t index) {
+    return std::any_of(it.logbook_areas.begin(), it.logbook_areas.end(),
+                       [index](const LogbookArea& a) {
+                           return std::find(a.mods.begin(), a.mods.end(), index) != a.mods.end();
+                       });
+}
+
+/// Hand every destination's implicits to the destination they came from, once the ordinary mod
+/// pass has turned them into filters.
+///
+/// Two things happen here that could not happen in `to_filter`, which sees one modifier at a
+/// time and nothing about the block it was printed in.
+///
+/// The **upper bound goes**. Trade indexes an item's implicits as one total per stat, and all
+/// three destinations feed the same total — the rare capture grants "increased number of
+/// Explosives" twice, at 14% and 16%, and the site sees 30%. A floor still matches under that,
+/// since the total can only exceed the destination's own roll; a ceiling seeded from one
+/// destination's roll asks the other two not to exist. Which side is the floor is the stat's
+/// own `better`, the same question `to_filter` asks when it decides which way an open bound
+/// faces.
+///
+/// And the row **joins its group**, which is what keeps `merge_same_stat` from folding two
+/// destinations' rolls of one stat into a sum belonging to neither.
+void group_logbook_mods(const Item& it, SearchPlan& p) {
+    for (StatFilter& f : p.stats) {
+        if (!f.mod_index || f.hidden || f.choice) continue;
+        for (size_t d = 0; d < it.logbook_areas.size(); ++d) {
+            const std::vector<size_t>& mods = it.logbook_areas[d].mods;
+            if (std::find(mods.begin(), mods.end(), *f.mod_index) == mods.end()) continue;
+            f.choice = d;
+            f.enabled = false;
+            const data::StatMatch& m = *it.mods[*f.mod_index].match;
+            if (m.stat && m.stat->better < 0) f.min.reset();
+            else f.max.reset();
+            break;
+        }
+    }
+}
+
 /// The property a Valdo's Puzzle Box map states its payout in, or null on any other map. No
 /// other map prints one, which is what makes it the marker as well as the thing searched for.
 const Property* reward_property(const Item& it) {
@@ -1514,6 +1664,16 @@ const OptionFilter* SearchPlan::option(std::string_view key) const {
     return nullptr;
 }
 
+void SearchPlan::select_choice(size_t i) {
+    if (i >= choices.size()) return;
+    choice = i;
+    // Every grouped row is decided here, both the ones being turned off and the one being
+    // turned on, so there is no state to get out of step: a row is enabled exactly when it is
+    // the live group's primary. Rows with no group are none of this function's business.
+    for (StatFilter& f : stats)
+        if (f.choice) f.enabled = *f.choice == i && f.choice_primary;
+}
+
 Strategy default_strategy(const Item& it) {
     // A map is priced on none of the things a rare is, at any rarity it prints: pricing one as
     // gear would search for a chest piece carrying map modifiers. A **chart** is the same item
@@ -1541,6 +1701,12 @@ Strategy default_strategy(const Item& it) {
     // for an empty Sanctum Vaults Research at this item level, which is every run in the league
     // and none of what tells two apart. Its affixes are real, and so is everything else on it.
     if (it.is_sanctum()) return Strategy::Sanctum;
+    // A logbook prints Normal, Magic or Rare and is none of those readings. Its affixes are real
+    // and re-rollable, its base is the one base in the category, and what a buyer is choosing
+    // between is which of its up-to-three destinations they mean — a question the rarity switch
+    // below has nowhere to put, and which would leave the faction as an unmatchable line of
+    // prose and the price as whatever a logbook of that item level goes for.
+    if (it.is_logbook()) return Strategy::Logbook;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1632,6 +1798,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         case Strategy::Ultimatum: plan_ultimatum(gd, it, p); break;
         case Strategy::Heist: plan_heist(gd, it, p); break;
         case Strategy::Sanctum: plan_sanctum(gd, it, p); break;
+        case Strategy::Logbook: plan_logbook(gd, it, p); break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
             // query — bulk is what it sells in, and a stat filter has nothing to say about a
@@ -1674,10 +1841,15 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // section at the foot of the list rather than on the floor. Unticked, so the search
             // is exactly what it was; ticked, they are ordinary filters. Every one of these is
             // occasionally the whole question, and there was no way to ask it here before.
+            // - **A logbook's own affixes**, on the map argument exactly: they apply wherever
+            //   the book goes, a Chaos Orb redoes them, and what is being bought is where it
+            //   goes. Its destinations' implicits are not among them — those belong to a
+            //   destination, and `group_logbook_mods` files each under the one it came from.
             const bool hidden =
                 (p.strategy == Strategy::Map && !map_searched_mod(it.mods[i])) ||
                 p.strategy == Strategy::Beast ||
-                (p.strategy == Strategy::Ultimatum && !ultimatum_stake_mod(it.mods[i]));
+                (p.strategy == Strategy::Ultimatum && !ultimatum_stake_mod(it.mods[i])) ||
+                (p.strategy == Strategy::Logbook && !logbook_destination_mod(it, i));
             if (std::optional<StatFilter> f = to_filter(it, i, p.strategy, ranges_printed, rm)) {
                 if (hidden) {
                     f->hidden = true;
@@ -1718,6 +1890,10 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         // Before the merge, while every filter still points at the modifier it came from.
         if (p.strategy == Strategy::Unique) apply_unique_mods(gd, it, p, rm);
         if (p.strategy == Strategy::Map) add_map_pseudo(it, p);
+        // Before the merge as well, and for the same reason `apply_unique_mods` is: it reads
+        // `mod_index`, and merging is what makes one filter stand for several modifiers. It is
+        // also what tells the merge which rows are alternatives rather than repeats.
+        if (p.strategy == Strategy::Logbook) group_logbook_mods(it, p);
         merge_same_stat(p.stats);
     }
 
@@ -1744,6 +1920,12 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
     // A gem is nothing but its own effect, so saying this about one is noise.
     if (!it.inherent_lines.empty() && it.rarity != Rarity::Gem)
         p.notes.emplace_back("the base's own effect is not part of the search");
+
+    // The first destination is live until the reader says otherwise, and it is the *first* on
+    // purpose: nothing here can rank the four factions, that ranking changes with the league and
+    // with what the player is farming, and a default dressed up as an answer would be read as
+    // one. The panel puts the alternatives in the game's own order and the choice is one click.
+    if (!p.choices.empty()) p.select_choice(0);
 
     // Last of all, and in one place rather than at each of the dozen sites that set a bound:
     // the seed is *whatever this function came out with*, so a per-row reset can only ever

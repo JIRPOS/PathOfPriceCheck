@@ -1,0 +1,34 @@
+Item Class: Expedition Logbooks
+Rarity: Rare
+Ancient Lands
+Expedition Logbook
+--------
+Item Quantity: +61% (augmented)
+Item Rarity: +36% (augmented)
+Monster Pack Size: +23% (augmented)
+Area Level: 80
+--------
+Item Level: 80
+--------
+Volcanic Island
+Druids of the Broken Circle
+14% increased number of Explosives (implicit)
+42% increased Explosive Placement Range (implicit)
+--------
+Battleground Graves
+Druids of the Broken Circle
+11% increased quantity of Artifacts dropped by Monsters (implicit)
+16% increased number of Explosives (implicit)
+--------
+Sarn Slums
+Order of the Chalice
+Area contains 27% increased number of Runic Monster Markers (implicit)
+Remnants have 35% chance to have an additional Suffix Modifier (implicit)
+--------
+Players have -9% to all maximum Resistances
+Monsters' skills Chain 2 additional times
++25% Monster Chaos Resistance
++40% Monster Elemental Resistances
+Monsters gain 45% of Maximum Life as Extra Maximum Energy Shield
+--------
+Take this item to Dannig in your Hideout to open portals to an expedition.

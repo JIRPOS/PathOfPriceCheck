@@ -118,6 +118,18 @@ struct Requirements {
     std::optional<int> level, str, dex, intelligence;
 };
 
+/// One destination on an Expedition Logbook: where the expedition goes, whose land it is, and
+/// what applies there. A logbook carries up to three and the player travels to **exactly one**
+/// of them, which is the whole reason it is a structure rather than three more modifiers.
+struct LogbookArea {
+    std::string area;    ///< the area's own name, "Scrublands"
+    std::string faction; ///< "Druids of the Broken Circle" — what the destination is worth
+    /// This destination's implicits, as indices into `Item::mods`. They stay in the mod list so
+    /// the item card draws the logbook in the order the game printed it; this says which of
+    /// them belong to which destination, which nothing about the modifiers themselves does.
+    std::vector<size_t> mods;
+};
+
 struct Item {
     std::string item_class; ///< as printed: "Thrusting One Hand Swords"
     /// Which of the classes the app branches on that is, decided by the lexicon while
@@ -178,6 +190,8 @@ struct Item {
     std::optional<int> armour, evasion, energy_shield, ward, block;
 
     std::vector<Modifier> mods;
+    /// An Expedition Logbook's destinations, in printed order. Empty for everything else.
+    std::vector<LogbookArea> logbook_areas;
     std::vector<std::string> inherent_lines; ///< a flask's own effect; rendered, never searched
     std::vector<std::string> description;    ///< what a gem or a currency item does
     std::vector<std::string> flavour_text;
@@ -241,6 +255,13 @@ struct Item {
     /// what it has picked up along the way. The item class ("Sanctum Research") is its own, as a
     /// heist item's is.
     bool is_sanctum() const;
+    /// An Expedition Logbook — the item class is its own, as a heist item's and a sanctum's are.
+    ///
+    /// The one item in the game that is **up to three items at once**: each destination it lists
+    /// leads somewhere else, belongs to a different faction and is worth a different amount, and
+    /// the player picks exactly one. Which of them is being priced is a question no clipboard
+    /// text can answer, so the plan asks it — see `SearchPlan::choices`.
+    bool is_logbook() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is

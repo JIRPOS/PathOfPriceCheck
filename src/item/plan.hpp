@@ -26,6 +26,7 @@ enum class Strategy : uint8_t {
     Ultimatum,   ///< the trial, its stake and its payout, plus the two mods that scale the stake
     Heist,       ///< a contract or blueprint: the area, what is revealed, and what it demands
     Sanctum,     ///< a run in progress: how far it has got, and the boons and afflictions it holds
+    Logbook,     ///< an expedition: one of its destinations, and what the whole book grants
     Unsupported
 };
 
@@ -69,6 +70,22 @@ struct StatFilter {
     /// ever worth asking where its absence is itself the thing being bought: a Valdo map that
     /// does not void the character who dies in it. Carries no bounds; there is no roll.
     bool negated = false;
+    /// One of a set of alternatives only ever asked **one at a time** — an index into
+    /// `SearchPlan::choices` — or absent, which is every row on every other plan.
+    ///
+    /// An Expedition Logbook is the case and so far the only one: it lists up to three
+    /// destinations, the player travels to exactly one, and each is worth a different amount.
+    /// Asking for all three at once prices the one copy in the league that leads to that exact
+    /// trio; asking for none prices every logbook in the league. So the rows are grouped and
+    /// `select_choice` keeps exactly one group live.
+    std::optional<size_t> choice;
+    /// Within a group, the filter that picking the group *is* — the faction, which is what a
+    /// destination is worth. **It has no row of its own**: the alternative's own row is that
+    /// filter, so drawing it again underneath said the same thing twice and offered to untick
+    /// what the choice had just decided. Everything else in the group (where it goes, what it
+    /// grants there) is an ordinary row, offered unticked, because a buyer choosing a faction
+    /// is rarely choosing an area with it.
+    bool choice_primary = false;
     int dp = 0;
 
     /// What this modifier *can* roll, whichever source said so: the affix tier's own range
@@ -137,6 +154,17 @@ struct OptionFilter {
     bool shown = false; ///< offered as a row the user can untick, rather than imposed silently
 };
 
+/// A set of filters the search sends **one of**. The item holds several answers to one
+/// question and only one of them is what is being priced.
+///
+/// Nothing about the wire format changes for these: `trade::build_query` reads `enabled` and
+/// knows nothing about the grouping, exactly as it knows nothing about `hidden`. The exclusion
+/// is `SearchPlan::select_choice` keeping the other groups unticked.
+struct ChoiceGroup {
+    std::string label; ///< what the group is called on its row: "Druids of the Broken Circle"
+    std::string note;  ///< the second line under it — a logbook destination's area
+};
+
 /// Everything a search for this item would ask for. Purely declarative — building the trade
 /// query JSON out of this, and running it, is the next layer up.
 struct SearchPlan {
@@ -168,9 +196,20 @@ struct SearchPlan {
     /// dropped filter reads as a successful price check on the wrong item.
     std::vector<std::string> notes;
 
+    /// The mutually exclusive alternatives, in printed order, and which of them is live. Empty
+    /// on every plan but a logbook's, where it is the destination being priced.
+    std::vector<ChoiceGroup> choices;
+    size_t choice = 0;
+
     bool has_enabled_stats() const;
     /// The option filter under `key`, or null. Also the answer to "is this asked at all".
     const OptionFilter* option(std::string_view key) const;
+
+    /// Make `i` the live alternative: tick its primary row, untick every row of every other
+    /// group. The optional rows of the newly chosen group come back unticked, which is what
+    /// they were seeded as — switching destination is choosing a different question, not
+    /// carrying the last one's answers onto it.
+    void select_choice(size_t i);
 };
 
 /// The strategy an item gets unless the user overrides it.

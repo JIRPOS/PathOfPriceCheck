@@ -317,6 +317,30 @@ void draw_mods(const Item& it, const Fonts& fonts, const data::Lexicon& lex,
     }
 }
 
+/// An Expedition Logbook's destinations, each behind its own rule exactly as the game prints
+/// them: where it goes, whose land it is, and what applies there.
+///
+/// Drawn here rather than in the implicit block, and that is the whole reason it exists —
+/// **which implicit belongs to which destination** is what a logbook is priced on, and the mod
+/// list holds all six in one run with nothing in it saying where each came from. Read as one
+/// block they are the sum of three places the item can go to, only one of which is being sold.
+void draw_logbook_destinations(const Item& it, const Fonts& fonts, const data::Lexicon& lex) {
+    for (const item::LogbookArea& dest : it.logbook_areas) {
+        draw_rule();
+        draw_line(dest.area, kColValue);
+        draw_line(dest.faction, kColValue);
+        for (const size_t i : dest.mods) {
+            if (i >= it.mods.size()) continue;
+            const Modifier& m = it.mods[i];
+            ImGui::BeginGroup();
+            for (const std::string& l : m.lines)
+                draw_line(strip_roll_ranges(l), mod_colour(m.type));
+            ImGui::EndGroup();
+            draw_hover_tip(join_lines(m.info_text(lex), m.reminder), fonts);
+        }
+    }
+}
+
 bool has_mods(const Item& it, std::initializer_list<data::ModType> types) {
     for (const Modifier& m : it.mods)
         if (in(types, m.type)) return true;
@@ -374,6 +398,9 @@ void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& font
         draw_segments({{"Item Level: ", kColLabel}, {std::to_string(*it.item_level), kColValue}});
     }
 
+    // A logbook prints its implicits inside the destinations, which is where they mean anything.
+    if (it.is_logbook()) draw_logbook_destinations(it, fonts, lex);
+
     // Blocks in the order the game prints them, each behind its own rule. Explicit, fractured,
     // crafted and veiled mods share one block, as on the item.
     for (const std::initializer_list<data::ModType> block :
@@ -383,6 +410,7 @@ void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& font
            data::ModType::Veiled},
           {data::ModType::Scourge},
           {data::ModType::Crucible}}) {
+        if (it.is_logbook() && in(block, data::ModType::Implicit)) continue;
         if (!has_mods(it, block)) continue;
         draw_rule();
         draw_mods(it, fonts, lex, block);

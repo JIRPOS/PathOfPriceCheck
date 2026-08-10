@@ -73,6 +73,15 @@ base line says, and `ITEM::SeafloorRidges` is what trade files the chart under â
 internal id, with the `chart` discriminator and no display name on it at all, which is the whole
 reason `chart_area_key` exists.
 
+The **logbook** entries are the only `pseudo.*` records in the slice that are looked up by
+wording: two faction stats and five area stats, plus the seven destination implicits and the five
+affixes a rare logbook prints below them. Two of those five affixes are there and still do not
+resolve, which is a data-side gap rather than a slicing one â€” `+#% Monster Chaos Resistance` and
+`+#% Monster Elemental Resistances` are published with the sign *inside* the matcher, and
+`placeholder_form` replaces the sign along with the digits, so nothing the clipboard prints can
+reach them. 34 of the bundle's 15,148 matchers are shaped that way. The pricing case asserts three
+hidden affixes for that reason and becomes five the day it is fixed.
+
 The slice's four `GEM::` records need a bundle from `data-20260807.23` or later, which is the
 release that keys gems on the name the game prints. The transfigured one
 (`Raise Zombie of Falling`) is the whole point of that field and is the record to check after
