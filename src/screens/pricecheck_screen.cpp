@@ -701,14 +701,16 @@ void draw_filters(App& app, const item::Item& it, item::SearchPlan& plan) {
         // makes the highlight agree with it: a row lighting up under a popup that will swallow
         // the press invites exactly the click that does nothing.
         const bool rows_live = !app.filter_edit().open();
-        for (size_t i = 0; i < plan.numerics.size(); ++i) {
+        const auto numeric_row = [&](size_t i) {
             item::NumericFilter& f = plan.numerics[i];
             if (const RowClick c = draw_filter_row(static_cast<int>(i), f.enabled, {}, f.label,
                                                    f.note, filter_text(f.min, f.max, f.dp, glyphs),
                                                    {}, rows_live);
                 c.clicked)
                 app.edit_filter(FilterEdit::Kind::Numeric, i, c.top, c.bottom);
-        }
+        };
+        for (size_t i = 0; i < plan.numerics.size(); ++i)
+            if (!plan.numerics[i].hidden) numeric_row(i);
         const auto stat_row = [&](size_t i) {
             item::StatFilter& f = plan.stats[i];
             // Why this one is ticked on a unique whose other modifiers are not: the item picked
@@ -728,13 +730,20 @@ void draw_filters(App& app, const item::Item& it, item::SearchPlan& plan) {
                 app.edit_filter(FilterEdit::Kind::Stat, i, c.top, c.bottom);
         };
         size_t hidden = 0;
+        for (const item::NumericFilter& f : plan.numerics)
+            if (f.hidden) ++hidden;
         for (size_t i = 0; i < plan.stats.size(); ++i) {
             if (plan.stats[i].hidden) ++hidden;
             else stat_row(i);
         }
-        if (hidden > 0 && draw_hidden_header(app, hidden))
+        // Numerics first behind the disclosure as well as in front of it, so a row does not move
+        // between the two lists depending on which one it is in.
+        if (hidden > 0 && draw_hidden_header(app, hidden)) {
+            for (size_t i = 0; i < plan.numerics.size(); ++i)
+                if (plan.numerics[i].hidden) numeric_row(i);
             for (size_t i = 0; i < plan.stats.size(); ++i)
                 if (plan.stats[i].hidden) stat_row(i);
+        }
         ImGui::EndTable();
     }
     ImGui::PopStyleVar(2);

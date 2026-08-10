@@ -143,6 +143,40 @@ void add_defences(SearchPlan& p, const Item& it, const Derived& d, bool enabled)
                     std::floor(*d.base_pct * 100), p.strategy == Strategy::BaseItem);
 }
 
+/// At or below this, sockets and links are the ordinary case and asking about them only drops
+/// listings; at or above it they are most of what the item is worth. Five is where the game puts
+/// the line too — five-linking is the step that costs, and the market prices 4-link and 3-link the
+/// same as unlinked.
+constexpr int kSocketsWorthAsking = 5;
+
+/// The two numbers a linked item is bought for.
+///
+/// **Both are always offered and neither is always asked.** A six-socket, six-linked chest priced
+/// without them is priced as the wrong item — that was the bug — but imposing them on a three-link
+/// rare is the mirror of it, since every listing that would have answered has whatever sockets it
+/// happens to have. So the count decides: at five or six it is a row, ticked; below that it goes
+/// under the expandable section, where a buyer who *does* mean "and four-linked" can still say so.
+///
+/// They are separate filters because they are separate questions. Six sockets unlinked and six
+/// linked are different items at very different prices, and the trade site asks about them in two
+/// fields for the same reason.
+void add_sockets(SearchPlan& p, const Item& it) {
+    struct Entry {
+        const char* key;
+        const char* label;
+        int count;
+    };
+    for (const Entry& e : {Entry{"sockets", "Sockets", it.socket_count},
+                           Entry{"links", "Links", it.link_count}}) {
+        if (e.count <= 0) continue;
+        const bool worth = e.count >= kSocketsWorthAsking;
+        // A floor and no ceiling, like every other numeric: someone shopping for a five-link
+        // takes a six-link, and the same buyer would not thank a filter that ruled it out.
+        add_numeric(p, e.key, e.label, static_cast<double>(e.count), worth);
+        p.numerics.back().hidden = !worth;
+    }
+}
+
 void add_weapon(SearchPlan& p, const Item& it, const Derived& d, bool enabled) {
     if (!it.is_weapon()) return;
     const std::string note = quality_note(it);
@@ -1697,6 +1731,10 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         const bool impose = p.strategy != Strategy::Unique;
         add_defences(p, it, d, impose);
         add_weapon(p, it, d, impose);
+        // Not gated on `impose`: a six-link is worth more than the unique printed on it, so this
+        // is the one number a unique *is* searched on. It follows the socket count, not the
+        // strategy.
+        add_sockets(p, it);
         // Last, because it is a question about the numerics that were just added.
         unimpose_derived_mods(it, p);
     }

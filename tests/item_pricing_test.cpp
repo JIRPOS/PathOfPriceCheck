@@ -111,7 +111,77 @@ Item Level: 84
 120% increased Energy Shield
 )";
 
+/// `kRareChest` with a socket block, which the game prints between the requirements and the item
+/// level. The captures in the fixtures are all three-socket or fewer, and what is under test is a
+/// rule about the count rather than anything else on the item.
+std::string chest_with_sockets(std::string_view sockets) {
+    std::string text(kRareChest);
+    const size_t at = text.find("Item Level:");
+    REQUIRE(at != std::string::npos);
+    text.insert(at, "Sockets: " + std::string(sockets) + "\n--------\n");
+    return text;
+}
+
 } // namespace
+
+TEST_CASE("sockets and links are searched when they are worth something, offered when they are not") {
+    auto gd = fixture();
+    const auto plan_for = [&gd](std::string_view sockets) {
+        const Item it = resolved(*gd, chest_with_sockets(sockets));
+        const Derived d = derive(gd.get(), it);
+        return build_plan(*gd, it, d);
+    };
+
+    SUBCASE("a six-link is most of what the item is worth, so it is asked for") {
+        const SearchPlan p = plan_for("B-B-B-B-B-B");
+        const NumericFilter* sockets = numeric_for(p, "sockets");
+        const NumericFilter* links = numeric_for(p, "links");
+        REQUIRE(sockets != nullptr);
+        REQUIRE(links != nullptr);
+        CHECK(sockets->enabled);
+        CHECK_FALSE(sockets->hidden);
+        CHECK(links->enabled);
+        CHECK_FALSE(links->hidden);
+        // A floor and no ceiling: a buyer shopping for a five-link takes a six-link.
+        CHECK(sockets->min == doctest::Approx(6));
+        CHECK_FALSE(sockets->max.has_value());
+        CHECK(links->min == doctest::Approx(6));
+    }
+
+    SUBCASE("six sockets in two groups is a six-socket item and a three-link one") {
+        const SearchPlan p = plan_for("B-B-B G-G-G");
+        REQUIRE(numeric_for(p, "sockets") != nullptr);
+        REQUIRE(numeric_for(p, "links") != nullptr);
+        CHECK(numeric_for(p, "sockets")->min == doctest::Approx(6));
+        CHECK(numeric_for(p, "sockets")->enabled);
+        // The links are the ordinary case even though the socket count is not, so the two rows
+        // part company — which is the whole reason they are two filters.
+        CHECK(numeric_for(p, "links")->min == doctest::Approx(3));
+        CHECK_FALSE(numeric_for(p, "links")->enabled);
+        CHECK(numeric_for(p, "links")->hidden);
+    }
+
+    SUBCASE("at four or fewer both are offered rather than imposed") {
+        const SearchPlan p = plan_for("B-G-R B");
+        for (const char* key : {"sockets", "links"}) {
+            const NumericFilter* f = numeric_for(p, key);
+            REQUIRE_MESSAGE(f != nullptr, key);
+            CHECK_MESSAGE(f->hidden, key);
+            CHECK_MESSAGE(!f->enabled, key);
+        }
+        // Still seeded with what the item has, so ticking one asks the right question.
+        CHECK(numeric_for(p, "sockets")->min == doctest::Approx(4));
+        CHECK(numeric_for(p, "links")->min == doctest::Approx(3));
+    }
+
+    SUBCASE("an item with no socket line is asked nothing about sockets") {
+        const Item it = resolved(*gd, kRareChest);
+        const Derived d = derive(gd.get(), it);
+        const SearchPlan p = build_plan(*gd, it, d);
+        CHECK(numeric_for(p, "sockets") == nullptr);
+        CHECK(numeric_for(p, "links") == nullptr);
+    }
+}
 
 TEST_CASE("a rare's modifiers become enabled stat filters") {
     auto gd = fixture();

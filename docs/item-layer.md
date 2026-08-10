@@ -171,6 +171,15 @@ bundle, and only the third and fourth encode pricing judgement.
   78.6th-percentile item asked for at 79 does not match itself. Ticked only on a `BaseItem` plan,
   where the base's roll is what is being bought; on a modifier search the defence totals already
   carry it, and asking the same question twice only drops the listings that answer it once.
+- **Sockets and links are two filters, not one** (`add_sockets`). `Item::socket_count` is every
+  socket and `Item::link_count` is the **longest hyphenated group** — `B-G-R G-B-R` is six sockets
+  and three links, and the two are very different items at very different prices, which is why the
+  site asks in two fields and so does this. **At five or six either one is a ticked row; at four or
+  fewer it goes behind the expandable section** (`NumericFilter::hidden`), because a three-link is
+  the ordinary case and asking about it only drops the listings that happen to be socketed
+  differently. Not gated on the strategy the way defences and damage are: a six-link is worth more
+  than the unique printed on it, so this is one of the few numbers a unique *is* searched on. Both
+  are a floor with no ceiling — someone shopping for a five-link takes a six-link.
 - **`item/range_match`** — how wide a filter opens around the roll. It is the one input here that
   is a **setting rather than a fact about the item**, which is why it arrives from outside as a
   `RangeMatch` and `Config` is the only thing that owns one. Each side of the interval is

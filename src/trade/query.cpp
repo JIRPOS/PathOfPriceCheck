@@ -31,6 +31,10 @@ std::string_view group_for(std::string_view key) {
     if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize" ||
         key == "area_level" || key == "chart_sulphur")
         return "map_filters";
+    // The site's group also takes per-colour counts (`r`, `g`, `b`, `w`) under the same two
+    // names. Nothing plans those: a socket colour is one Chromatic Orb away and pricing on it
+    // would be pricing the wrong thing.
+    if (key == "sockets" || key == "links") return "socket_filters";
     // The reveal counts and the nine rogue-job levels. `area_level` above is deliberately not
     // among them: a heist item asks about one, and the site still files it under Map/Chart.
     if (key.starts_with("heist_")) return "heist_filters";
@@ -74,6 +78,20 @@ json bounds(const std::optional<double>& min, const std::optional<double>& max) 
     json v = json::object();
     if (min) v["min"] = *min;
     if (max) v["max"] = *max;
+    return v;
+}
+
+/// The same as whole numbers, for `socket_filters`.
+///
+/// **Measured, not assumed**: the site answers a socket bound of `6.0` with "Socket min must be an
+/// integer" and runs no search at all — and it is right to, since there is no such thing as five
+/// and a half sockets. Every other group takes the same value as a float without complaint, which
+/// is why this is one group's rule rather than the wire format's. Rounded rather than truncated:
+/// a floor of `5.9` truncated to 5 asks for something wider than what was typed.
+json int_bounds(const std::optional<double>& min, const std::optional<double>& max) {
+    json v = json::object();
+    if (min) v["min"] = std::llround(*min);
+    if (max) v["max"] = std::llround(*max);
     return v;
 }
 
@@ -195,7 +213,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
 
     json misc = json::object(), armour = json::object(), weapon = json::object(),
          map = json::object(), ultimatum = json::object(), heist = json::object(),
-         sanctum = json::object();
+         sanctum = json::object(), socket = json::object();
     // Whether an option has a row in the panel is the plan's business; all that matters here is
     // that an unticked one is not asked for. `map_completion_reward` rides the same path and
     // takes a unique's own name rather than a boolean, which is why the value is a string all
@@ -216,13 +234,14 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
         if (!f.enabled) continue;
         const std::string_view g = group_for(f.key);
         if (g.empty()) continue;
-        json v = bounds(f.min, f.max);
+        json v = g == "socket_filters" ? int_bounds(f.min, f.max) : bounds(f.min, f.max);
         if (v.empty()) continue;
         (g == "misc_filters"     ? misc
          : g == "armour_filters" ? armour
          : g == "map_filters"     ? map
          : g == "heist_filters"   ? heist
          : g == "sanctum_filters" ? sanctum
+         : g == "socket_filters"  ? socket
                                   : weapon)[f.key] = std::move(v);
     }
     json filters = json::object();
@@ -234,6 +253,7 @@ std::string build_query(const item::SearchPlan& p, std::string_view status) {
     if (!ultimatum.empty()) filters["ultimatum_filters"] = json{{"filters", std::move(ultimatum)}};
     if (!heist.empty()) filters["heist_filters"] = json{{"filters", std::move(heist)}};
     if (!sanctum.empty()) filters["sanctum_filters"] = json{{"filters", std::move(sanctum)}};
+    if (!socket.empty()) filters["socket_filters"] = json{{"filters", std::move(socket)}};
 
     json q = json::object();
     q["status"] = json{{"option", valid_status(status) ? status : kDefaultStatus}};

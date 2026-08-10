@@ -164,8 +164,12 @@ struct Item {
     bool transfigured = false; ///< an alternate version of a skill: "Raise Zombie of Falling"
     std::string quality_kind; ///< catalyst quality's parenthetical, e.g. "Critical Modifiers"
     Requirements req;
-    std::string sockets;      ///< as printed: "R-G-B"
+    std::string sockets;      ///< as printed: "R-G-B B", hyphens linking and spaces separating
     int socket_count = 0;
+    /// The **largest** linked group, which is what "a 6-link" means and the only link number a
+    /// buyer asks for. `sockets` is the whole picture and this is the one number out of it worth
+    /// searching: "B-G-R G B" is six sockets on some items and three links on this one.
+    int link_count = 0;
 
     // Property values the pricing layer computes with, pulled out of `properties`.
     std::optional<DamageRange> physical, chaos;

@@ -319,12 +319,37 @@ TEST_CASE("numeric filters land in the group the API files them under") {
     // one, and not a number the item's own defence carries.
     add("base_defence_percentile", 78, true);
     add("quality", 23, false); // untouched by the user, so not sent
+    // Their own group on the site, and the API rejects a filter filed anywhere else.
+    add("sockets", 6, true);
+    add("links", 6, true);
     const json filters = query_of(p)["filters"];
     CHECK(filters["misc_filters"]["filters"]["ilvl"]["min"] == 84);
     CHECK(filters["armour_filters"]["filters"]["es"]["min"] == 300);
     CHECK(filters["armour_filters"]["filters"]["base_defence_percentile"]["min"] == 78);
     CHECK(filters["weapon_filters"]["filters"]["pdps"]["min"] == 400);
+    // Integers, not the floats every other group takes: the site answers `6.0` here with
+    // "Socket min must be an integer" and runs no search.
+    CHECK(filters["socket_filters"]["filters"]["sockets"]["min"] == 6);
+    CHECK(filters["socket_filters"]["filters"]["sockets"]["min"].is_number_integer());
+    CHECK(filters["socket_filters"]["filters"]["links"]["min"].is_number_integer());
+    CHECK(filters["misc_filters"]["filters"]["ilvl"]["min"].is_number_float());
     CHECK_FALSE(filters["misc_filters"]["filters"].contains("quality"));
+}
+
+TEST_CASE("a hidden socket filter is a row, not a search") {
+    SearchPlan p = rare_plan();
+    ppc::item::NumericFilter f;
+    f.key = "links";
+    f.min = 3;
+    f.hidden = true;
+    f.enabled = false; // what the plan does with a three-link
+    p.numerics.push_back(f);
+    CHECK_FALSE(query_of(p)["filters"].contains("socket_filters"));
+
+    // The flag says where the row is drawn and nothing else: ticking it sends it, and this layer
+    // never reads the flag at all.
+    p.numerics.back().enabled = true;
+    CHECK(query_of(p)["filters"]["socket_filters"]["filters"]["links"]["min"] == 3);
 }
 
 TEST_CASE("influences become misc booleans; the eldritch pair has none") {

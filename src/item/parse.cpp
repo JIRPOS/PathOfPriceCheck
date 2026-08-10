@@ -357,13 +357,20 @@ void parse_requirements(const Section& sec, Item& it, const data::Lexicon& lex) 
     }
 }
 
+/// `Sockets: B-G-R G B` — a letter is a socket, a hyphen links it to the one before, and anything
+/// else (the game prints a space) starts a new group. Both numbers come out of one pass: every
+/// socket, and the longest run of hyphen-joined ones, which is what a 5- or 6-link means.
 void parse_sockets(std::string_view line, Item& it) {
     it.sockets = std::string(trim(line.substr(line.find(':') + 1)));
-    it.socket_count = static_cast<int>(std::count_if(it.sockets.begin(), it.sockets.end(),
-                                                     [](char c) {
-                                                         return std::isalpha(
-                                                                    static_cast<unsigned char>(c)) != 0;
-                                                     }));
+    int run = 0;
+    for (const char c : it.sockets) {
+        if (std::isalpha(static_cast<unsigned char>(c)) != 0) {
+            ++it.socket_count;
+            it.link_count = std::max(it.link_count, ++run);
+        } else if (c != '-') {
+            run = 0;
+        }
+    }
 }
 
 void take_typed_property(const Property& p, Item& it) {

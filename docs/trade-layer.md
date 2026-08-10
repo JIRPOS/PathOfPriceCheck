@@ -10,7 +10,11 @@
   indexes it, so a floor becomes a ceiling. Only ticked filters are sent. `group_for` is the
   contract with `item/plan`'s `NumericFilter::key` — the API nests every filter under a group
   (`misc_filters`, `armour_filters`, `weapon_filters`, `map_filters`, `heist_filters`,
-  `sanctum_filters`) and rejects one filed in the wrong place.
+  `sanctum_filters`, `socket_filters`) and rejects one filed in the wrong place.
+  **`socket_filters` is also the one group the site type-checks**: it answers a socket bound of
+  `6.0` with "Socket min must be an integer" and runs no search, so `sockets` and `links` go out
+  through `int_bounds` while every other group takes the same value as a float. Measured against
+  the live API, not inferred.
   `option_group_for` is the same contract for `SearchPlan::options`,
   which go out as `{"option": …}` under `misc_filters`, `map_filters`, `ultimatum_filters` or
   `heist_filters`; an **unticked one is not sent at all** — whether an option has a row in the
@@ -340,12 +344,15 @@ row's editor. The rows are additionally dead while the editor is up, so the hove
 with ImGui about which presses can do anything.
 
 **What a strategy leaves out is a collapsed section at the foot of the list**, not nothing.
-`StatFilter::hidden` is the flag and `draw_hidden_header` the row that opens it. Three strategies
-set it, all for modifiers they match and then decide the item is not bought for: **a map's
-affixes**, re-rollable with one Chaos Orb and answered by the single copy in the league that
-rolled that set; **a beast's monster modifiers**, which are not affixes; and **an ultimatum's
-hazards** other than the two that scale the stake. Every one of those is occasionally the whole
-question, and before this there was no way to ask it short of the trade site itself.
+`StatFilter::hidden` and `NumericFilter::hidden` are the flag and `draw_hidden_header` the row that
+opens it. Three strategies set it on a modifier they match and then decide the item is not bought
+for: **a map's affixes**, re-rollable with one Chaos Orb and answered by the single copy in the
+league that rolled that set; **a beast's monster modifiers**, which are not affixes; and **an
+ultimatum's hazards** other than the two that scale the stake. **Sockets and links below five** are
+the numeric case and the same argument. Every one of those is occasionally the whole question, and
+before this there was no way to ask it short of the trade site itself. Numerics come first behind
+the disclosure as they do in front of it, so a row does not change position depending on which of
+the two lists it is in.
 
 Three rules hold it together. **Hidden is about the row, not the search** — a hidden filter is
 unticked like any other and `build_query` reads `enabled` and knows nothing about the flag, so

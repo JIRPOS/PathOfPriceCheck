@@ -103,6 +103,12 @@ struct NumericFilter {
     std::string label; ///< "Item Level"
     std::optional<double> min, max;
     bool enabled = false;
+    /// Kept off the filter list proper and offered under the expandable section at its foot, on
+    /// exactly the terms `StatFilter::hidden` sets out — the flag is about the row, and
+    /// `trade::build_query` still reads nothing but `enabled`. Sockets and links are the case: an
+    /// item at four or fewer of either is the ordinary one and asking about it only drops
+    /// listings, but the question is occasionally the right one and there was no way to put it.
+    bool hidden = false;
     int dp = 0;
     std::string note;  ///< why the value is what it is, e.g. "at 20% quality"
     /// What the plan seeded the interval with, so an edit can be taken back. See
