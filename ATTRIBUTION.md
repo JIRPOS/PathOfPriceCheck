@@ -9,10 +9,10 @@ work without, the projects and data sources below, which keep their own terms.
 is **not affiliated with or endorsed by Grinding Gear Games in any way.**
 
 Item names, modifier wordings, the clipboard format the game writes on Ctrl+C, and the stat
-identifiers a trade query is built from are GGG's. None of it is baked into the binary — it is
+identifiers a trade query is built from are GGG's. None of it is baked into the binary - it is
 downloaded at runtime from [PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data),
 whose [DATA-LICENSE.md](https://github.com/JIRPOS/PathOfPriceCheck-Data/blob/main/DATA-LICENSE.md)
-states what that bundle contains and how it was derived. No game assets — images, sounds, models —
+states what that bundle contains and how it was derived. No game assets - images, sounds, models -
 are copied or redistributed anywhere in this project.
 
 ### How this client uses GGG's API
@@ -28,18 +28,18 @@ no API key, and never asks the user for account credentials.
   `X-Rate-Limit-<policy>-State`, and `Retry-After` on a 429). Every GGG request goes through one
   shared limiter that parses those headers, tracks each window, and **delays proactively** instead
   of absorbing 429s. The server's own state counters outrank our tally, because they count every
-  client on the address — the user's browser tab included.
+  client on the address - the user's browser tab included.
 - **The limiter survives a restart.** An active restriction is written to disk and restored on the
-  next launch, so closing and reopening the application cannot be used — accidentally or otherwise
-  — to walk out of a lockout it never served.
+  next launch, so closing and reopening the application cannot be used - accidentally or
+  otherwise - to walk out of a lockout it never served.
 - **Requests are made only when the user asks for them.** A price check parses and displays the
   item without touching the network; the trade search is a button, and `auto_search` is off by
   default. Static data (leagues, currency symbols) is cached for 24 hours and a week respectively.
-- **It fetches in the batch sizes the API specifies** — ten listing ids per `/fetch` request — and
+- **It fetches in the batch sizes the API specifies** - ten listing ids per `/fetch` request - and
   asks only for as many listings as the user configured.
 - **The in-game currency exchange feed is treated as its own thing.**
   `web.poecdn.com/api/currency-exchange` is public and unauthenticated, and it is on the CDN rather
-  than the API host — so it publishes no rate-limit policy, and it is deliberately *not* sent
+  than the API host - so it publishes no rate-limit policy, and it is deliberately *not* sent
   through the limiter above, which exists to serve budgets this endpoint does not state. What
   stands in for one is that a published hour never changes and one download covers every item in
   every league: the cost is per hour of play rather than per price check, and a digest already on
@@ -50,8 +50,8 @@ is the route and it will be actioned. See [CONTACT.md](CONTACT.md).
 
 ## poe.ninja
 
-The reference price row — what a unique, a gem, a currency item or a base type is currently going
-for — comes from [poe.ninja](https://poe.ninja), used under its
+The reference price row - what a unique, a gem, a currency item or a base type is currently going
+for - comes from [poe.ninja](https://poe.ninja), used under its
 [public API documentation](https://poe.ninja/docs/api).
 
 - **Only the economy endpoints are touched.** The builds and profile endpoints are explicitly
@@ -65,14 +65,14 @@ for — comes from [poe.ninja](https://poe.ninja), used under its
 
 ## Path of Exile Wiki
 
-The data bundle's per-unique modifier dataset — which modifiers a given unique can roll, and which
-of them come from a random pool — is not in the game files. That grouping comes from
+The data bundle's per-unique modifier dataset - which modifiers a given unique can roll, and which
+of them come from a random pool - is not in the game files. That grouping comes from
 [poewiki](https://www.poewiki.net)'s `item_mods` cargo table, licensed
 **[CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/)**: attribution required,
 non-commercial use only, which this project is.
 
 The attribution string travels with the bundle rather than staying behind in the publisher's
-repository — the manifest carries it, the installer writes it through, and Settings renders it —
+repository - the manifest carries it, the installer writes it through, and Settings renders it -
 because an attribution that does not reach the user is not an attribution.
 
 ## Tooling behind the data bundle
@@ -111,19 +111,19 @@ the typeface the game itself uses. Four faces are embedded in the executable.
 Fontin is free for personal and commercial use, but its license nominally forbids redistribution
 without the author's permission, which bundling into a released binary arguably is. That is a
 deliberate maintainer decision with its reasoning written down in
-[assets/fonts/README.md](assets/fonts/README.md), along with how to swap the typeface out — it is
+[assets/fonts/README.md](assets/fonts/README.md), along with how to swap the typeface out - it is
 one generated file and no code change. `PPC_FONT_DIR` already overrides the embedded faces at
 runtime. **If you are Jos Buivenga and would prefer this not be bundled, open an issue and it will
 be removed.**
 
-For text this project did not write — trade account and character names, which are routinely
-Cyrillic, Hangul or CJK, none of which Fontin covers — a fallback face is loaded from **whatever
+For text this project did not write - trade account and character names, which are routinely
+Cyrillic, Hangul or CJK, none of which Fontin covers - a fallback face is loaded from **whatever
 the operating system already ships**. Nothing is bundled for it and nothing is redistributed.
 
 ## Font Awesome Free
 
 The buttons a word does not fit on are drawn in **[Font Awesome Free](https://fontawesome.com)**
-Solid, by Fonticons, Inc. Only the codepoints actually used are bundled — `scripts/fetch-glyphs.sh`
+Solid, by Fonticons, Inc. Only the codepoints actually used are bundled - `scripts/fetch-glyphs.sh`
 subsets the release down to those and no more, and
 [assets/fonts/README.md](assets/fonts/README.md) says which and why. The website's navigation
 icons are the same set, inlined into `site/style.css` rather than fetched from anywhere.

@@ -2,8 +2,8 @@
 
 There is no dependency manager to set up and nothing to vendor by hand: CMake's `FetchContent`
 clones and builds SDL3, Dear ImGui, nlohmann/json and doctest from pinned tags in
-[CMakeLists.txt](CMakeLists.txt). What the system has to provide is a compiler, CMake, git, and —
-on Linux — the development headers those libraries compile against.
+[CMakeLists.txt](CMakeLists.txt). What the system has to provide is a compiler, CMake, git, and -
+on Linux - the development headers those libraries compile against.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -19,13 +19,13 @@ of build tree. Every configure after that is cached.
 | | minimum |
 |---|---|
 | CMake | 3.20 (4.x works) |
-| Compiler | GCC 12+, Clang 15+, or MSVC 19.3x (Visual Studio 2022) — C++20 |
+| Compiler | GCC 12+, Clang 15+, or MSVC 19.3x (Visual Studio 2022) - C++20 |
 | git | any; `FetchContent` shells out to it |
 | Network | needed at configure time, for the dependency clones |
 
 **libcurl is the one dependency taken from the system where there is one.** `find_package(CURL)`
 decides: on Linux it finds the distro package listed below, and on Windows it finds nothing, so
-curl and zlib are fetched and built statically against Schannel. That is deliberate — it keeps the
+curl and zlib are fetched and built statically against Schannel. That is deliberate - it keeps the
 Windows release a single `.exe` with no DLL beside it and no CA bundle to ship.
 
 ## Linux
@@ -37,7 +37,7 @@ An X11 client, which under a Wayland session means Xwayland. See
 continuously verified.** The others are its equivalents and are checked by hand; if one is wrong,
 the CMake error names the header it could not find, and an issue about it is welcome.
 
-### Arch — and CachyOS, EndeavourOS, Manjaro
+### Arch - and CachyOS, EndeavourOS, Manjaro
 
 ```sh
 sudo pacman -S --needed base-devel cmake git \
@@ -66,7 +66,7 @@ sudo apt-get update && sudo apt-get install -y \
 `apt` and `apt-get` take the same package names; use whichever your distribution prefers. Mint and
 Pop!\_OS track the Ubuntu release they are built on, so the names are identical.
 
-Version floors worth knowing: **Ubuntu 22.04** ships GCC 11 — install `g++-12` and configure with
+Version floors worth knowing: **Ubuntu 22.04** ships GCC 11 - install `g++-12` and configure with
 `-DCMAKE_CXX_COMPILER=g++-12` if the build rejects C++20 constructs. **Debian 12** (bookworm, CMake
 3.25 / GCC 12) is fine as shipped.
 
@@ -86,7 +86,7 @@ list; the rest is libcurl and the X11 extensions.
 ### SteamOS / Steam Deck
 
 Untested, and two things are in the way rather than one. The root filesystem is read-only, so the
-headers above cannot be installed onto it — build inside a container (`distrobox`, `toolbox`) or
+headers above cannot be installed onto it - build inside a container (`distrobox`, `toolbox`) or
 just use the release tarball. Beyond that, the Deck's gaming session is gamescope rather than a
 plain X11 session, and the global hotkey grab and overlay have not been tried against it.
 
@@ -118,7 +118,7 @@ ctest --test-dir build -C Release
 
 The binary lands at `build\Release\PathOfPriceCheck.exe` and is self-contained: curl, zlib, SDL3
 and the fonts are all linked in, and TLS goes through Schannel, so there is no OpenSSL and no CA
-bundle to install. It is a **GUI-subsystem** executable — nothing is printed to a console, because
+bundle to install. It is a **GUI-subsystem** executable - nothing is printed to a console, because
 a console-subsystem build would pop a window beside an application whose whole UI is an overlay
 and a tray icon. Diagnostics go to the debug log instead (see below).
 
@@ -136,7 +136,7 @@ winget install JRSoftware.InnoSetup
 iscc /DAppVersion=0.0.0 packaging\PathOfPriceCheck.iss
 ```
 
-It installs per-user and unelevated, which is a decision rather than a convenience — see
+It installs per-user and unelevated, which is a decision rather than a convenience - see
 [docs/updater.md](docs/updater.md) for what the updater does with it.
 
 ## Runtime requirements
@@ -146,7 +146,7 @@ It installs per-user and unelevated, which is a decision rather than a convenien
   for the X11 backend outright rather than letting it choose. So it is an X11 client either way: on
   a Wayland session it runs through **Xwayland**, which is how it is developed daily.
 
-  **There is no native Wayland backend and there will not be one.** Not "not yet" — the reason is
+  **There is no native Wayland backend and there will not be one.** Not "not yet" - the reason is
   the game, not the effort. Proton runs Path of Exile as an Xwayland client, and an X11 tool can
   see every other Xwayland client: which window is in front, what it is called, where it is, and
   where to send a synthetic keypress. None of that has a native-Wayland equivalent. A client cannot
@@ -157,7 +157,7 @@ It installs per-user and unelevated, which is a decision rather than a convenien
   protocols involved as a matter of policy, so the result would not run there at all.
 
   So going native would cost a windowing rewrite and a permanent three-compositor test matrix, and
-  buy a build that positions the panel *worse* than this one — for as long as the game itself is an
+  buy a build that positions the panel *worse* than this one - for as long as the game itself is an
   Xwayland client. This application's dependency on X11 is not stronger than Path of Exile's.
 
   One caveat worth knowing under Wayland: copying in a **Wayland-native** application while the game
@@ -175,12 +175,12 @@ It installs per-user and unelevated, which is a decision rather than a convenien
 
   | | |
   |---|---|
-  | Both downloads | `glibc` 2.35+, `libstdc++`, `libX11`, and an OpenGL driver (`libglvnd`/`libGL`). SDL's X11 backend also loads `libXcursor`, `libXi`, `libXrandr` and `libxkbcommon` where they exist, and the tray icon needs GTK 3 with `libayatana-appindicator3` — without it the app runs but has nothing to quit from. |
+  | Both downloads | `glibc` 2.35+, `libstdc++`, `libX11`, and an OpenGL driver (`libglvnd`/`libGL`). SDL's X11 backend also loads `libXcursor`, `libXi`, `libXrandr` and `libxkbcommon` where they exist, and the tray icon needs GTK 3 with `libayatana-appindicator3` - without it the app runs but has nothing to quit from. |
   | Tarball only | `libcurl` and whichever TLS stack it was built against, plus `libXext`, `libXfixes` and `libXtst`. |
 
   **That second row is the whole difference between the two downloads**: the AppImage bundles
   libcurl with its TLS, compression and Kerberos tree and those three X extensions, and takes
-  everything in the first row from the host — as it must, since libX11 and the GL driver
+  everything in the first row from the host - as it must, since libX11 and the GL driver
   belong to the session, not to the application.
 - **Windows 10 or later.** No runtime dependencies beyond the OS.
 - **The game may be the native Windows client or Wine/Proton.** The copy path carries a good deal
@@ -209,8 +209,8 @@ Development environment variables, for iterating without the game running:
 
 Captures to feed `PPC_DEV_ITEM` live in [`tests/data/examples/`](tests/data/examples).
 
-**Only one copy runs at a time.** The first one to start takes a lock — `flock` on
-`<cache>/PathOfPriceCheck.lock`, a session-local named mutex on Windows — and a second launch says
+**Only one copy runs at a time.** The first one to start takes a lock - `flock` on
+`<cache>/PathOfPriceCheck.lock`, a session-local named mutex on Windows - and a second launch says
 so and exits. Both are released by the operating system when the process dies, so a crash leaves
 nothing to clean up. This is not tidiness: two copies would both grab the global hotkeys (X11 hands
 a passive grab to whoever asked first, so the *newly launched* one silently does nothing, which
@@ -224,8 +224,8 @@ ctest --test-dir build                 # all
 ctest --test-dir build -R item_parse_test -V   # one, verbose
 ```
 
-Tests link `ppc_core` only — the static library holding everything that needs neither a window nor
-a network — so they run headless, offline, and are the fast way to work on the parser, the data
+Tests link `ppc_core` only - the static library holding everything that needs neither a window nor
+a network - so they run headless, offline, and are the fast way to work on the parser, the data
 layer, the query builder and the rate limiter. `ppc_core` links no SDL3, no ImGui, no X11 and no
 libcurl, and that rule is worth keeping.
 
@@ -250,7 +250,7 @@ Both are committed, so a normal build needs neither.
 ```
 
 The test fixtures under `tests/data/bundle/` are a slice of a real data release and are regenerated
-by `./scripts/slice-test-bundle.py`, never edited by hand — the `.index.bin` files address the
+by `./scripts/slice-test-bundle.py`, never edited by hand - the `.index.bin` files address the
 ndjson by byte offset, so one stray byte silently shifts every record out from under every lookup.
 
 ## Versioning

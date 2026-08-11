@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Path of Price Check — a native Path of Exile price-check overlay</title>
+<title>Path of Price Check - a native Path of Exile price-check overlay</title>
 <meta name="description" content="Take the guesswork out of your Path to Riches. A native, lightweight, privacy-first price-check overlay for Path of Exile: one hotkey, with prices from the official trade API, poe.ninja and the in-game currency exchange. Windows and Linux, free and open source.">
 <link rel="icon" href="favicon.ico" sizes="128x128 64x64">
 <link rel="stylesheet" href="style.css">
 <link rel="canonical" href="{{BASE_URL}}/">
 <meta property="og:title" content="Path of Price Check">
-<meta property="og:description" content="Take the guesswork out of your Path to Riches. One hotkey press away — a native, lightweight, privacy-first price-check overlay for Path of Exile.">
+<meta property="og:description" content="Take the guesswork out of your Path to Riches. One hotkey press away - a native, lightweight, privacy-first price-check overlay for Path of Exile.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{BASE_URL}}/">
 <meta property="og:image" content="{{BASE_URL}}/{{OG_IMAGE}}">
 <meta name="twitter:card" content="summary_large_image">
 <!-- Inline and in the head on purpose: the stylesheet hides the strip's scrollbar only when the
-     gallery script can run, and hiding it shortens the strip — decided after first paint, that
+     gallery script can run, and hiding it shortens the strip - decided after first paint, that
      is a scrollbar flashing and the page shifting under the reader. -->
 <script>document.documentElement.classList.add('js')</script>
 <script src="gallery.js" defer></script>
@@ -31,7 +31,7 @@
   <img class="logo" src="popc_icon.png" alt="" width="128" height="128">
   <h1>Path of Price Check</h1>
   <p class="tagline">Take the guesswork out of your Path to Riches. One hotkey press away.</p>
-  <p class="sub">Native, lightweight, fast<sup>*</sup>, open-source, multi-platform<sup>**</sup> and privacy-first price check overlay tool for Path of Exile. A live economy requires live data — this is the tool that lets you in on them in one place and at a glance, minimising the friction between the (for sure) multi-mirror item you've dropped and otherwise would vendor for Alteration shards.</p>
+  <p class="sub">Native, lightweight, fast<sup>*</sup>, open-source, multi-platform<sup>**</sup> and privacy-first price check overlay tool for Path of Exile. A live economy requires live data - this is the tool that lets you in on them in one place and at a glance, minimising the friction between the (for sure) multi-mirror item you've dropped and otherwise would vendor for Alteration shards.</p>
   <p class="fineprint"><sup>*</sup> Results may vary, not tested on a potato.<br><sup>**</sup> Windows and Linux, see below.</p>
 
   <div class="downloads">
@@ -42,7 +42,7 @@
     </div>
     <div class="dl">
       <a class="primary" href="{{DL_WIN}}">Windows · portable</a>
-      <span>.zip with the bare .exe. Updates itself only if you unpack it somewhere writable — which <code>Program Files</code> is not.</span>
+      <span>.zip with the bare .exe. Updates itself only if you unpack it somewhere writable - which <code>Program Files</code> is not.</span>
       <span class="size">{{DL_WIN_SIZE}}</span>
     </div>
     <div class="dl">
@@ -67,7 +67,7 @@
   <h2>Main features</h2>
   <ul>
     <li><strong>One hotkey.</strong> Ctrl+D over an item. The game's own copy shortcut is synthesized for you, so there is no separate Ctrl+C to remember.</li>
-    <li><strong>Reads the item properly.</strong> Implicits, explicits, fractured, crafted, enchants, corruption, influences and quality — plus the numbers the game leaves implicit, like quality-20 DPS and where a base's defences fall in their own roll range.</li>
+    <li><strong>Reads the item properly.</strong> Implicits, explicits, fractured, crafted, enchants, corruption, influences and quality - plus the numbers the game leaves implicit, like quality-20 DPS and where a base's defences fall in their own roll range.</li>
     <li><strong>Asks the right question for the kind of item.</strong> A rare is searched on its modifiers, bounded by the tier each one rolled. A unique is searched on the rolls that actually vary. A map is searched on none of its affixes, because a single Chaos Orb re-rolls them all. A gem goes on its name, level and quality.</li>
     <li><strong>Three sources, not one.</strong> The official trade API for listings, poe.ninja for the going rate on uniques, gems, currency and base types, and GGG's own in-game currency exchange for the things that are traded in bulk rather than listed.</li>
     <li><strong>Nothing is baked in.</strong> The game data is downloaded at runtime and published separately, so a new league needs a data build rather than a new release of this.</li>
@@ -82,7 +82,7 @@
       <dt>Path of Exile</dt>
       <dd>
         <ul>
-          <li>The International client — Steam or Standalone</li>
+          <li>The International client - Steam or Standalone</li>
           <li>Client language: <a href="about.html#only-an-english-client-for-now">English</a></li>
           <li>Any public league currently running; private leagues are not offered</li>
         </ul>
@@ -92,15 +92,15 @@
       <dd>
         <ul>
           <li>Windows 10 or newer, 64-bit</li>
-          <li>Nothing else — no runtime, no DLLs beside the .exe</li>
+          <li>Nothing else - no runtime, no DLLs beside the .exe</li>
           <li>The installer puts the tool in <code>%LOCALAPPDATA%\Programs\PathOfPriceCheck</code> and asks for no administrator rights. The portable .zip goes wherever you put it.</li>
         </ul>
-        <p class="aside"><strong>Both downloads are unsigned</strong>, so Windows shows “Windows protected your PC” the first time you run them — a code-signing certificate is a yearly fee this project does not charge anyone for. Choose <em>More info</em> → <em>Run anyway</em>. Every release is built in public by <a href="https://github.com/JIRPOS/PathOfPriceCheck/actions">GitHub Actions</a> from the source in this repository, and the checksums are published with it.</p>
+        <p class="aside"><strong>Both downloads are unsigned</strong>, so Windows shows "Windows protected your PC" the first time you run them - a code-signing certificate is a yearly fee this project does not charge anyone for. Choose <em>More info</em> → <em>Run anyway</em>. Every release is built in public by <a href="https://github.com/JIRPOS/PathOfPriceCheck/actions">GitHub Actions</a> from the source in this repository, and the checksums are published with it.</p>
       </dd>
       <dt>Linux</dt>
       <dd>
         <ul>
-          <li>X11, or Wayland through Xwayland — it is an X11 client either way, and Xwayland is what it is developed on</li>
+          <li>X11, or Wayland through Xwayland - it is an X11 client either way, and Xwayland is what it is developed on</li>
           <li>glibc 2.35 or newer (Ubuntu 22.04, Debian 12); older than that, build from source</li>
         </ul>
         <details class="reqs">
@@ -110,15 +110,15 @@
             <li><code>libcurl</code>, with whichever TLS stack it was built against</li>
             <li><code>libXext</code>, <code>libXfixes</code>, <code>libXtst</code></li>
           </ul>
-          <p><strong>Both</strong> downloads need <code>glibc</code> 2.35 or newer, <code>libstdc++</code>, <code>libX11</code> and an OpenGL driver (<code>libglvnd</code> / <code>libGL</code>) — those belong to the session rather than to the application, so nothing can bundle them. The window also loads <code>libXcursor</code>, <code>libXi</code>, <code>libXrandr</code> and <code>libxkbcommon</code> where they exist, and the tray icon needs GTK 3 with <code>libayatana-appindicator3</code>; without that one the app still runs, it just has nothing to quit from.</p>
-          <p>These are library names, not package names — those differ by distribution. <a href="building.html#runtime-requirements">Building from source</a> carries per-distribution lists, but those are the <em>development headers</em> for compiling rather than this.</p>
+          <p><strong>Both</strong> downloads need <code>glibc</code> 2.35 or newer, <code>libstdc++</code>, <code>libX11</code> and an OpenGL driver (<code>libglvnd</code> / <code>libGL</code>) - those belong to the session rather than to the application, so nothing can bundle them. The window also loads <code>libXcursor</code>, <code>libXi</code>, <code>libXrandr</code> and <code>libxkbcommon</code> where they exist, and the tray icon needs GTK 3 with <code>libayatana-appindicator3</code>; without that one the app still runs, it just has nothing to quit from.</p>
+          <p>These are library names, not package names - those differ by distribution. <a href="building.html#runtime-requirements">Building from source</a> carries per-distribution lists, but those are the <em>development headers</em> for compiling rather than this.</p>
         </details>
       </dd>
 
       <dt>An internet connection</dt>
       <dd>
         <ul>
-          <li>The game data, republished every 6 hours — checked at startup, and ~4 MB to download only when there is a bundle you do not have</li>
+          <li>The game data, republished every 6 hours - checked at startup, and ~4 MB to download only when there is a bundle you do not have</li>
           <li>The official trade API, when you run a search</li>
           <li>The in-game currency exchange history</li>
           <li><a href="https://poe.ninja">poe.ninja</a>, for reference prices</li>
@@ -130,7 +130,7 @@
   </div>
   <div>
     <h2>Privacy first</h2>
-    <p>Privacy is not a setting you have to find here — it's the default. No account, no telemetry, no analytics, no crash reporting, no usage counter, and no server of ours on the other end to collect any of it with. What goes out is what a price check needs, to the same hosts your browser would talk to, and nothing else leaves the machine. The one thing you can send is a bug report, and only by pressing the button: the dialog shows you the whole of it — the screenshot too, if you tick that box — before any of it moves.</p>
+    <p>Privacy is not a setting you have to find here - it's the default. No account, no telemetry, no analytics, no crash reporting, no usage counter, and no server of ours on the other end to collect any of it with. What goes out is what a price check needs, to the same hosts your browser would talk to, and nothing else leaves the machine. The one thing you can send is a bug report, and only by pressing the button: the dialog shows you the whole of it - the screenshot too, if you tick that box - before any of it moves.</p>
     <p><a href="privacy.html">Read the entire privacy policy &rarr;</a></p>
   </div>
 </section>
