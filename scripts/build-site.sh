@@ -107,13 +107,15 @@ inject() {
         { print }'
 }
 
+# The class is the page's own name, which is what carries the glyph: `.nav-<page>` in the
+# stylesheet holds the icon, and a page listed here without a rule there simply goes without one.
 nav=""
 for p in "${PAGES[@]}"; do
     IFS='|' read -r _ out title <<<"$p"
     case $out in about.html|roadmap.html|privacy.html|attribution.html|contact.html) ;; *) continue ;; esac
-    nav+="<a href=\"$out\">$title</a>"
+    nav+="<a class=\"nav-${out%.html}\" href=\"$out\">$title</a>"
 done
-nav+="<a href=\"https://github.com/$REPO\">GitHub</a>"
+nav+="<a class=\"nav-github\" href=\"https://github.com/$REPO\">GitHub</a>"
 
 docs_list=""
 for p in "${PAGES[@]}"; do
@@ -210,7 +212,7 @@ done
 if [ -n "$gallery" ]; then
     {
         printf '<section class="shots" id="screenshots">\n'
-        printf '<h2>What it looks like</h2>\n'
+        printf '<h2>Gallery</h2>\n'
         printf '<div class="strip" tabindex="0" role="region" aria-label="Screenshots">%s</div>\n' "$gallery"
         printf '<nav class="dots" aria-label="Jump to a screenshot"><span>Scroll, swipe or pick one</span>%s</nav>\n' "$dots"
         printf '</section>\n'
