@@ -76,6 +76,9 @@ constexpr const char* kEnglish[]{
 
     "Reduce transparency",
     "Draws the panels solid instead of letting the game show through them.",
+    "Show the status indicator",
+    "The version and data lines over the mana globe. Turning them off hides nothing else \xe2\x80\x94 "
+    "price checks still open as usual.",
 
     "Docks beside whichever game panel the cursor was over.",
     "Width",

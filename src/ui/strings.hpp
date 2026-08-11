@@ -82,6 +82,8 @@ enum class Msg : uint16_t {
 
     ReduceTransparency,
     ReduceTransparencyHelp,
+    StatusMarker,
+    StatusMarkerHelp,
 
     PanelHelp,
     PanelWidth,

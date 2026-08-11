@@ -93,6 +93,11 @@ struct Config {
     float status_right = 0.110f;  ///< marker centre's distance from the right edge, ÷ game height
     float status_bottom = 0.070f; ///< marker centre's distance from the bottom edge, ÷ game height
 
+    /// Draw that marker at all. On by default — it is the only sign the overlay is running —
+    /// but it is text over the game's HUD, so it is a knob. Off leaves the idle overlay
+    /// unmapped entirely; nothing else about a price check changes.
+    bool status_marker = true;
+
     /// Draw every panel's background solid instead of letting the game through it. An
     /// accessibility setting: text over a moving background is the hard case this answers.
     /// Opacity and not a blur — see ui/theme.hpp for why a blur is not available to us.
