@@ -47,6 +47,7 @@ read whole; each is one layer.
 | [docs/trade-layer.md](docs/trade-layer.md) | `src/trade/` — query building, the two-step client, the rate limiter, and how results and the filter list are drawn. |
 | [docs/ninja.md](docs/ninja.md) | `src/ninja/` — the poe.ninja reference price. |
 | [docs/exchange.md](docs/exchange.md) | `src/exchange/` — GGG's hourly in-game currency exchange digests. |
+| [docs/map-check.md](docs/map-check.md) | **Not built.** The design for 0.7 — mod domains, the map modifier pool, and the bundle and data-layer changes it needs first. Read before touching either for map check. |
 | [docs/localisation.md](docs/localisation.md) | Reading a translated client vs. translating our own text — two unrelated problems, two settings. |
 | [docs/external-apis.md](docs/external-apis.md) | The endpoints themselves: trade, poe.ninja, currency exchange, and GGG's rate-limit policy. |
 | [docs/conventions.md](docs/conventions.md) | Comment style, commit and PR shape, the maintainer alias, which docs are public. |
