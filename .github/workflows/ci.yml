@@ -30,6 +30,12 @@ jobs:
           if [ "$files" = "VERSION" ]; then
             echo "code=false" >> "$GITHUB_OUTPUT"
             echo "Version-only PR; skipping the build."
+          elif printf '%s\n' "$files" | grep -qx VERSION; then
+            # The release workflow bumps VERSION and applies its own `bump` on top of whatever it
+            # reads, so a hand-edit that reaches master is counted twice and skips a minor. That
+            # is how 0.5 was lost. A version-only PR is the release's own and passes above.
+            echo "::error::VERSION is the release workflow's to move. Drop it from this PR."
+            exit 1
           else
             echo "code=true" >> "$GITHUB_OUTPUT"
           fi

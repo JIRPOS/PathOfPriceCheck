@@ -18,8 +18,8 @@ load-bearing and should not be reshuffled casually:
   is fixed in 0.3.x builds before anything downstream depends on it. Built — it and the Windows
   installer are [updater.md](updater.md) now, not a plan.
 - **The paste list precedes the map check** because both need an overlay placed at the cursor,
-  which does not exist yet, and the paste list is much the simpler first consumer of it. 0.6 also
-  reads its regexes from what 0.5 stores.
+  which does not exist yet, and the paste list is much the simpler first consumer of it. 0.7 also
+  reads its regexes from what 0.6 stores.
 
 ## Implementation notes, per planned version
 
@@ -37,7 +37,7 @@ what a strategy leaves out is a **collapsed section at its foot** rather than no
 its links**, which is a price the tool missed entirely — see [trade-layer.md](trade-layer.md) and
 [item-layer.md](item-layer.md).
 
-### 0.5, QuickPaste — **built**
+### 0.6, QuickPaste — **built**
 
 Every constraint below held; the layer is [quickpaste.md](quickpaste.md) now, not a plan. The
 clipboard owner is a thread with its own `Display` (`clipboard_set_text`), nothing injects
@@ -49,11 +49,11 @@ One rule the plan did not have and the code now does: nine slots is a limit on t
 so storage is unbounded, `enabled` is what competes for a number, and the ceiling is enforced on
 load as well as in the UI because `config.json` is hand-editable.
 
-### 0.6, map check
+### 0.7, map check
 
 - Reuse the price-check copy path whole, and the map strategy's existing parse and resolve.
   → [strategy-map.md](strategy-map.md)
-- The verdict store keys on the stat record's id, never `placeholder_form` — 0.7 makes the
+- The verdict store keys on the stat record's id, never `placeholder_form` — 0.8 makes the
   wording language-dependent and `find_stat` already refuses to guess between shared wordings.
   → [data-layer.md](data-layer.md)
 - **Verdict per stat, not per roll** — the practice this copies (map regexes) has no notion of a
@@ -71,7 +71,7 @@ load as well as in the UI because `config.json` is hand-editable.
 - The import proposes and the user confirms. Nothing writes a verdict the user has not seen.
 - The store, the profiles and any `LatestClient.log` read are all `PRIVACY.md` entries.
 
-### 0.7, client languages
+### 0.8, client languages
 
 - Blocked upstream: `<lang>-stats.ndjson`, `<lang>-items.ndjson` with `refName`, and
   `<lang>-lexicon.json`. Nothing in the app's schema changes. → [localisation.md](localisation.md)
@@ -81,7 +81,7 @@ load as well as in the UI because `config.json` is hand-editable.
 - `chart_area_key` moves into the bundle.
 - `fonts.unicode`'s system fallback already covers the scripts Fontin does not.
 
-### 0.8, UI language
+### 0.9, UI language
 
 - `ui::Msg` plus one table per language, `static_assert` on the length. Droppable.
 
@@ -89,13 +89,13 @@ load as well as in the UI because `config.json` is hand-editable.
 
 Known, argued, and unscheduled — except where a planned version claims one, which is marked.
 
-- **A language other than English to actually select.** *(Claimed by 0.7.)* The application side is built;
+- **A language other than English to actually select.** *(Claimed by 0.8.)* The application side is built;
   what is missing is upstream. The data build fetches only the English `stat_descriptions.txt`
   files and emits one language, so `manifest.json` declares `["en"]` and the Settings row has
   one entry. A second language needs the build to emit `<lang>-stats.ndjson`,
   `<lang>-items.ndjson` with `refName` filled in, and a `<lang>-lexicon.json`. Nothing in the
   app's schema has to change. **Say so in the README rather than letting it be discovered.**
-- **Two things still matched on English wordings** *(claimed by 0.7)*, both deliberately left alone rather than
+- **Two things still matched on English wordings** *(claimed by 0.8)*, both deliberately left alone rather than
   guessed at, because getting either wrong is a confident wrong price rather than a failure:
   `item/derive`'s local-modifier lists (`kLocalDefences` and the weapon wordings) and
   `item/resolve`'s `kLocalWordings` compare `placeholder_form` of the printed line, and
@@ -106,7 +106,7 @@ Known, argued, and unscheduled — except where a planned version claims one, wh
   localised matcher. **Pin it to a real localised bundle, not to a guess.**
   `ninja::kKeywords` is the same shape and already reads `ref_name`, which is why it is not on
   this list.
-- **`chart_area_key`'s convention is Latin-only** *(claimed by 0.7)* — it capitalises words and drops apostrophes
+- **`chart_area_key`'s convention is Latin-only** *(claimed by 0.8)* — it capitalises words and drops apostrophes
   to turn a printed area name into the internal id trade files a chart under. That cannot work
   for Russian, Korean or Thai, and the answer is for the bundle to carry the mapping rather
   than for the app to keep deriving it. A wrong key already costs breadth and never correctness
