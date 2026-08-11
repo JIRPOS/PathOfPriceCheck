@@ -17,3 +17,9 @@ assets/fonts/Fontin-LICENSE.txt
 
 # built website
 _site/
+
+# Report relay: deploy credentials are local-only, and so is anything wrangler leaves behind.
+worker/.env
+worker/.dev.vars
+worker/node_modules/
+worker/.wrangler/
