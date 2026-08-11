@@ -66,7 +66,9 @@ resize the dialog brings must not land inside one.
   the user's own, on the row `account_name` marks as theirs. What a maintainer needs off the
   picture is that these are twenty different sellers and which row is which; the handles are
   somebody else's name and are worth nothing in a bug report. Prices, ages and the counts stay,
-  because those are what a mispricing is read against.
+  because those are what a mispricing is read against. The predicate is `App::mask_sellers`, not
+  `report_capture_pending` directly: `PPC_DEV_ANON` holds the same masking on for a whole run,
+  which is what the website's screenshots are taken with, and both exist for the same reason.
 - **No button shows its tooltip.** The cursor is on the report button when it is pressed, so
   without this every capture carries "Report a Bug" hovering over the panel — a picture of the act
   of reporting rather than of the thing being reported.

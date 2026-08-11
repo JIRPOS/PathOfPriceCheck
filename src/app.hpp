@@ -262,6 +262,14 @@ public:
     /// and the first is somebody else's name.
     bool report_capture_pending() const { return report_opening_ != Opening::No; }
 
+    /// Whether a seller's handle is drawn or replaced by its position in the results.
+    ///
+    /// True for the one frame a bug report is photographed on, and for the whole run under
+    /// `PPC_DEV_ANON` — which is what `scripts/capture-screenshots.sh` takes the website's
+    /// pictures with, since those are published and the handles on them are not ours to publish.
+    /// Only the handles: prices, ages and counts are what a screenshot is read for.
+    bool mask_sellers() const { return report_capture_pending() || anonymise_; }
+
     /// Copy-path diagnostic log (util/debug_log). Toggling it takes effect immediately —
     /// waiting for Save would mean the run that reproduced the bug went unrecorded — but it
     /// still needs a Save to persist.
@@ -375,8 +383,9 @@ private:
     /// it, because SDL's `has_focus()` lags the call by a round trip and the moment it matters
     /// most — a paste popup dismissed the instant it opened — is inside that gap.
     bool took_keyboard_ = false;
-    bool dev_mode_ = false;  ///< PPC_DEV_OVERLAY: keep overlay up regardless of focus
-    bool had_focus_ = false; ///< overlay has gained focus since it was shown
+    bool dev_mode_ = false;   ///< PPC_DEV_OVERLAY: keep overlay up regardless of focus
+    bool anonymise_ = false;  ///< PPC_DEV_ANON: never draw a seller's handle (see mask_sellers)
+    bool had_focus_ = false;  ///< overlay has gained focus since it was shown
 
     // One contiguous block from SDL_RegisterEvents. Kept as distinct types rather than
     // widening Action: handle_action() gates on the game being foreground, which would

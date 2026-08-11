@@ -333,6 +333,7 @@ int App::run(bool relaunched_after_update) {
     if (!std::getenv("PPC_MANAGED")) overlay_set_unmanaged(overlay_.window(), true);
 
     dev_mode_ = std::getenv("PPC_DEV_OVERLAY") != nullptr;
+    anonymise_ = std::getenv("PPC_DEV_ANON") != nullptr;
     log_session_start(); // after dev_mode_, which changes what every gate below does
     if (dev_mode_) { // local UI dev, no game needed
         overlay_.set_visible(true);

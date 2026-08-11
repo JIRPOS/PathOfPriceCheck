@@ -353,7 +353,9 @@ appears while the game is the window in front). `PPC_DEV_UPDATE_URL=<url>` point
 at a `latest.json` of your own, which is the only way to see its three notice surfaces before a
 release publishes one — see [updater.md](updater.md). `PPC_REPORT_URL=<url>` points the bug
 reporter at a relay of your own, which is how its two outcomes are seen without posting into the
-real channel — see [reporting.md](reporting.md).
+real channel — see [reporting.md](reporting.md). `PPC_DEV_ANON=1` replaces every seller's handle
+in the results with its position for the whole run — the masking a bug-report capture already
+does for one frame, held on, because `scripts/capture-screenshots.sh` publishes what it takes.
 
 The Windows binary is **GUI-subsystem** (`WIN32_EXECUTABLE`, entered at `WinMain` in `src/main.cpp`):
 a console-subsystem build pops a console window beside an application whose whole UI is an overlay
