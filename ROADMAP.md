@@ -8,13 +8,18 @@ A version that has shipped stays on this page, marked **shipped** and written in
 so the list reads as the whole road rather than only the part still ahead.
 
 **One feature per minor, no feature on a build.** `MAJOR.MINOR` is the [VERSION](VERSION) file and
-`BUILD` is the CI run counter, so `0.4.31` → `0.4.32` is a fix and `0.4` → `0.5` is the next thing
-on this list. A minor stays open as long as its fixes keep arriving.
+`BUILD` is the CI run counter, so `0.6.31` → `0.6.32` is a fix and `0.6` → `0.7` is the next thing
+on this list. A minor stays open as long as its fixes keep arriving. The release workflow owns that
+file; it is never edited by hand.
 
-**0.7 is the only version whose place is not fixed.** It waits on the
+**0.8 is the only version whose place is not fixed.** It waits on the
 [data repository](https://github.com/JIRPOS/PathOfPriceCheck-Data) rather than on this one, and
 lands whenever the first localised bundle is ready - if that is early, everything behind it shifts
 up.
+
+**There is no 0.5.** The release after 0.4 was cut with the minor already moved by hand, so the
+bump landed twice and QuickPaste shipped as 0.6. The number is spent; nothing is missing from this
+page.
 
 For what is deliberately *not* planned, and why, see [docs/roadmap.md](docs/roadmap.md).
 
@@ -70,7 +75,7 @@ could only tick it or leave it.
 
 **Does not** - carry an edit onto the next item. Bounds belong to the item in hand.
 
-## 0.5 - QuickPaste - **shipped**
+## 0.6 - QuickPaste - **shipped**
 
 A hotkey opens a small window at the cursor listing saved snippets - a map regex, a vendor
 search, a whisper you send twenty times an evening.
@@ -92,7 +97,7 @@ search, a whisper you send twenty times an evening.
 
 **Might** - grow that keystroke as an option later if it turns out to be wanted.
 
-## 0.6 - Map check
+## 0.7 - Map check
 
 A hotkey that reads a map's rolled modifiers and tells you which ones you decided you cannot take.
 
@@ -113,13 +118,13 @@ modifier an excluding term hits is *proposed* dangerous, every one a wanted term
 safe. You confirm; from then on the table is what the tool believes. It imports imperfectly on
 purpose - the game's search reads a whole item where this reads modifier wordings, and a term
 written against a printed number is being matched against a placeholder - so it is a head start,
-not an answer. The regexes come from the paste list in 0.5.
+not an answer. The regexes come from the paste list in 0.6.
 
 **Might - switch profile automatically** by watching `LatestClient.log`. Outside the 1.0 promise:
 it ships if it is cheap and is dropped without argument if it is not. Either way it goes in
 [PRIVACY.md](PRIVACY.md), as does the verdict table.
 
-## 0.7 - Every language the client speaks
+## 0.8 - Every language the client speaks
 
 Already built on this side: every word the client prints is read from a table, and Settings has a
 **Client language** row. Only the data is missing, which is why this version floats.
@@ -131,7 +136,7 @@ Already built on this side: every word the client prints is read from a table, a
 - Ship each language only once it has been checked against a real capture from a client actually
   set to it.
 
-## 0.8 - This tool's own text, in more than English
+## 0.9 - This tool's own text, in more than English
 
 Reading a translated client and translating the buttons are two different problems and two
 settings; the machinery for the second is written and only the tables are missing.
@@ -139,7 +144,7 @@ settings; the machinery for the second is written and only the tables are missin
 **Might** - Latin-script languages first. **This is the one version here that can be dropped**:
 it is cosmetic, 1.0 does not wait on it, and if it slips past 1.0 the README will say so.
 
-## 0.9.x - The long window
+## The long window - the last minor before 1.0
 
 **No features. Fixes only, for as long as it takes**, and longer than the windows between the
 versions above.
