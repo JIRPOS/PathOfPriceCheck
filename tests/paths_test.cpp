@@ -53,7 +53,39 @@ TEST_CASE("config and cache never collide") {
     set_env("HOME", "/home/tester");
     CHECK(ppc::config_dir() != ppc::cache_dir());
 }
+
+TEST_CASE("display_path folds the home directory away") {
+    set_env("HOME", "/home/tester");
+    CHECK(ppc::display_path("/home/tester/.config/PathOfPriceCheck/config.json") ==
+          "~/.config/PathOfPriceCheck/config.json");
+    // A trailing slash on HOME must not leave "~//".
+    set_env("HOME", "/home/tester/");
+    CHECK(ppc::display_path("/home/tester/.config") == "~/.config");
+}
+
+TEST_CASE("display_path leaves anything not under home alone") {
+    set_env("HOME", "/home/tester");
+    // Somewhere else entirely — an XDG variable pointed outside the home directory.
+    CHECK(ppc::display_path("/srv/ppc/config.json") == "/srv/ppc/config.json");
+    // The prefix matches but the boundary does not: a sibling directory is not inside it.
+    CHECK(ppc::display_path("/home/tester2/x") == "/home/tester2/x");
+    // The home directory itself: nothing follows it, so there is nothing to shorten.
+    CHECK(ppc::display_path("/home/tester") == "/home/tester");
+    set_env("HOME", nullptr);
+    CHECK(ppc::display_path("/home/tester/x") == "/home/tester/x");
+}
 #endif
+
+TEST_CASE("file_url escapes what a URL reserves") {
+    // The separator, the drive colon and the unreserved set survive; a space does not.
+    CHECK(ppc::file_url("/home/t/My Games/config.json") ==
+          "file:///home/t/My%20Games/config.json");
+    CHECK(ppc::file_url("/home/t/a-b_c.d~e") == "file:///home/t/a-b_c.d~e");
+    CHECK(ppc::file_url("/home/t/100%").ends_with("/100%25"));
+    // Whatever the platform's separator, the URL's is a forward slash, and the drive letter
+    // gets the third one rather than being read as a hostname.
+    CHECK(ppc::file_url(fs::path("C:") / "Users" / "t").starts_with("file:///"));
+}
 
 TEST_CASE("ensure_dir creates nested directories and is idempotent") {
     const fs::path root = fs::temp_directory_path() / "ppc-paths-test";

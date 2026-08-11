@@ -136,6 +136,7 @@ constexpr const char* kEnglish[]{
     "Records the copy path, item text included. Off by default.",
 
     "Save",
+    "Click to open the folder",
 };
 
 /// Every compiled-in table. English is index 0 and is the fallback, so it is the one entry

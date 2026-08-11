@@ -1598,12 +1598,13 @@ void draw_results(App& app, float gutter_top) {
     // indistinguishable from the rest of the page, and the page is what a price is read off:
     // an own listing sitting at the top reads as the market's floor, which it is not.
     const std::string& me = app.config().account_name;
-    // **Nobody's name goes in a bug report.** On the frame the panel is being read back for one,
-    // every handle is replaced by its position in the results — which is all a maintainer reading
-    // the picture ever needed: that these are twenty different sellers, and which row is which.
-    // The user's own marker stays, because it names nobody and is the one thing on the row that
-    // explains its colour.
-    const bool masked = app.report_capture_pending();
+    // **Nobody's name goes in a picture that leaves this machine.** On the frame the panel is
+    // being read back for a bug report — and for the whole run when the website's screenshots are
+    // being taken — every handle is replaced by its position in the results, which is all a
+    // reader of the picture ever needed: that these are twenty different sellers, and which row
+    // is which. The user's own marker stays, because it names nobody and is the one thing on the
+    // row that explains its colour.
+    const bool masked = app.mask_sellers();
 
     for (size_t i = 0; i < t.results().listings.size(); ++i) {
         const trade::Listing& l = t.results().listings[i];

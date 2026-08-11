@@ -4,6 +4,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include <imgui_stdlib.h>
 
 #include "app.hpp"
+#include "paths.hpp"
 #include "platform/clipboard.hpp"
 #include "quickpaste.hpp"
 #include "ui/glyphs.hpp"
@@ -492,6 +494,37 @@ void price_check_tab(App& app, Config& c) {
                        "%.3f");
 }
 
+/// A file this dialog names, drawn short and opened by a click.
+///
+/// **Short** — `~/…`, `%APPDATA%\…` — for two reasons that happen to agree: these lines have one
+/// line of room, and they are on every screenshot anyone posts of this dialog, where an absolute
+/// path names the person who took it. The whole of it is still a hover away, which is where what
+/// the shortening took off is given back.
+///
+/// **The folder, not the file**: a `.json` or `.log` handler is something a desktop may or may
+/// not have, and the reason to go there is usually the other files beside it anyway.
+void path_line(const std::string& full) {
+    ImGui::PushTextWrapPos(0.0f); // an XDG variable pointing somewhere long is not shortened
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::TextUnformatted(display_path(full).c_str());
+    ImGui::PopStyleColor();
+    ImGui::PopTextWrapPos();
+    if (!ImGui::IsItemHovered()) return;
+
+    ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    // Underlined on hover only: a line that advertises itself as a link at all times is a second
+    // lit control beside Save, and there is one thing on this footer worth pressing. Skipped
+    // where the text wrapped, since the item's box is then every line at once and an underline
+    // under all of them is a box, not a link.
+    const ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+    if (b.y - a.y < ImGui::GetTextLineHeight() * 1.5f)
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(a.x, b.y), b,
+                                            ImGui::GetColorU32(ImGuiCol_TextDisabled));
+    ImGui::SetTooltip("%s\n%s", full.c_str(), ui::text(ui::Msg::OpenTheFolder));
+    if (ImGui::IsItemClicked())
+        SDL_OpenURL(file_url(std::filesystem::path(full).parent_path()).c_str());
+}
+
 /// A square icon button, or the word behind it when the glyph subset and `ui/glyphs.hpp` have
 /// drifted apart. `tip` is what it does, since an icon cannot say so itself.
 bool icon_button(App& app, const char* glyph, const char* word, const char* tip, float w) {
@@ -764,11 +797,11 @@ void application_tab(App& app, Config& c) {
     row_gutter();
     if (c.debug_log) {
         // The path, not just "on": the user is going to attach this file to a report, and
-        // every price check shows the id that indexes into it.
-        ImGui::PushTextWrapPos(0.0f);
+        // every price check shows the id that indexes into it. A click opens the folder it is
+        // in, which is the step between reading the path and attaching the file.
         const std::string p = debug::log_path();
-        ImGui::TextDisabled("%s", p.empty() ? ui::text(ui::Msg::LogOpenFailed) : p.c_str());
-        ImGui::PopTextWrapPos();
+        if (p.empty()) ImGui::TextDisabled("%s", ui::text(ui::Msg::LogOpenFailed));
+        else path_line(p);
     } else {
         ImGui::TextDisabled("%s", ui::text(ui::Msg::DebugLogHelp));
     }
@@ -838,7 +871,7 @@ void draw_footer(App& app) {
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::AlignTextToFramePadding();
-    ImGui::TextDisabled("%s", Config::path().c_str());
+    path_line(Config::path());
 }
 
 } // namespace

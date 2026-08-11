@@ -120,6 +120,18 @@ For text this project did not write — trade account and character names, which
 Cyrillic, Hangul or CJK, none of which Fontin covers — a fallback face is loaded from **whatever
 the operating system already ships**. Nothing is bundled for it and nothing is redistributed.
 
+## Font Awesome Free
+
+The buttons a word does not fit on are drawn in **[Font Awesome Free](https://fontawesome.com)**
+Solid, by Fonticons, Inc. Only the codepoints actually used are bundled — `scripts/fetch-glyphs.sh`
+subsets the release down to those and no more, and
+[assets/fonts/README.md](assets/fonts/README.md) says which and why. The website's navigation
+icons are the same set, inlined into `site/style.css` rather than fetched from anywhere.
+
+Icons are **CC BY 4.0** and the fonts are **SIL OFL 1.1**; both permit redistribution with
+attribution, which this section is. The full text is fetched to
+`assets/fonts/FontAwesome-LICENSE.txt`.
+
 ## Icon
 
 `assets/popc_icon.png` and the `.ico` generated from it are part of this repository and covered by

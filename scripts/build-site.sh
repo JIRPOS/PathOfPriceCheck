@@ -42,11 +42,11 @@ PAGES=(
 # rather than a row of broken images. No `|` or `;` inside the copy — they are the separators.
 SHOTS=(
     "panel-rare.png|The Price Check Window|Just one hotkey away;Rebuilt item preview;Modifier parsing including Rank, Tier and Ranges;Pre-selected modifiers based on strategies, but you decide what to search by"
-    "listing-hover.png|See what you are comparing to|Item previews straight from the live trade site results;Rendered exactly the way your own item is;See the asking price and the gold fee as a bonus"
-    "unique-reference.png|A going rate, not just a list of prices|Whenever available, see the current price recorded by poe.ninja;See which way the price is going, with a week of history behind it;Recognises variable modifiers (can roll n of m modifiers)"
+    "listing-hover.png|See what you are comparing to|Item previews straight from the live trade site results;Rendered exactly the way your own item is;See the asking price and the gold fee as a bonus;Whenever available, the going rate poe.ninja records, and which way it is heading with a week of history behind it;Recognises variable modifiers (can roll n of m modifiers)"
     "map.png|Every kind of item asks its own question|Different item, different strategy;Smart search for maps based on Tier, Quantity, More X modifiers…;Custom strategy for Blighted, Blight-ravaged, Corrupted or Influenced maps;Valdo map reward and Void matching"
     "currency-exchange.png|Faustus does the work, you should see it|See how an item tradeable on the currency exchange actually trades;See the average price, volume, maximums and minimums for the stated period;Straight from GGG, published once each hour has closed;Every hour ever published* is crawled, going all the way back to Settlers, so no item that has ever traded there is missed;* Only to know what trades there at all — the prices you see are always the single hour named under the table"
     "unidentified-picker.png|It knows what it cannot know|Identify an unidentified unique from a list;Pictures included! (unless they aren't);The trade site search matches the Identified/Unidentified status, so the listings are the same product you are holding;Careful: poe.ninja shows you the identified price — don't forget to search!;Not a gambler? Never turn a Watcher's Eye into a 5c item*;* Without checking what the unidentified ones are selling for first!"
+    "report.png|Something priced wrong? Say so from where it happened|Bug reporting with zero friction;Sends what the tool actually used to identify the item, which is the thing a maintainer has to see;As anonymous as it can be made — every account name is scrubbed out of the trade results before the picture is taken;Everything you see is what will be sent. Nothing more. No fingerprint, no identifying information, just what matters for fixing the problem;A screenshot sometimes tells the rest of the story, so you get the preview and the choice of whether to attach it"
     "settings.png|Some Assembly Required|You should probably tell the tool the league you play in;Adjustable range matching including open-sided matching;Want a pleasant surprise? Set up your own account name;The tool will spot your own listings in the results and highlight them"
 )
 
@@ -107,13 +107,15 @@ inject() {
         { print }'
 }
 
+# The class is the page's own name, which is what carries the glyph: `.nav-<page>` in the
+# stylesheet holds the icon, and a page listed here without a rule there simply goes without one.
 nav=""
 for p in "${PAGES[@]}"; do
     IFS='|' read -r _ out title <<<"$p"
     case $out in about.html|roadmap.html|privacy.html|attribution.html|contact.html) ;; *) continue ;; esac
-    nav+="<a href=\"$out\">$title</a>"
+    nav+="<a class=\"nav-${out%.html}\" href=\"$out\">$title</a>"
 done
-nav+="<a href=\"https://github.com/$REPO\">GitHub</a>"
+nav+="<a class=\"nav-github\" href=\"https://github.com/$REPO\">GitHub</a>"
 
 docs_list=""
 for p in "${PAGES[@]}"; do
@@ -210,7 +212,7 @@ done
 if [ -n "$gallery" ]; then
     {
         printf '<section class="shots" id="screenshots">\n'
-        printf '<h2>What it looks like</h2>\n'
+        printf '<h2>Gallery</h2>\n'
         printf '<div class="strip" tabindex="0" role="region" aria-label="Screenshots">%s</div>\n' "$gallery"
         printf '<nav class="dots" aria-label="Jump to a screenshot"><span>Scroll, swipe or pick one</span>%s</nav>\n' "$dots"
         printf '</section>\n'

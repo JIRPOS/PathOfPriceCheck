@@ -56,20 +56,31 @@ The overlay is drawn on a **virtual X display**, which is what makes this reprod
 nothing appears on screen, the system-wide hotkey grabs land on `:99` where they bother nobody,
 and the screen is black everywhere the overlay did not paint, so trimming leaves the panel and
 the item beside it and nothing else. `PPC_DEV_ITEM` opens the panel on a captured clipboard with
-no game running; the one shot that cannot be staged that way — the seller's item drawn beside a
-hovered listing — is taken by moving the pointer over a row with `XTestFakeMotionEvent`, since a
-plain `XWarpPointer` moves the pointer without generating the motion a widget reacts to.
+no game running.
 
-Every shot is cropped to a **common 980px height**, which is what the Settings dialog measures
-and comfortably clears the tallest panel. That also crops away the footer, which on a machine
-with the debug log on draws the check id and is not worth publishing.
+What that cannot open, the pointer does, through `XTestFakeMotionEvent` — a plain `XWarpPointer`
+moves the pointer without generating the motion a widget reacts to. The same helper clicks and
+types, and `stage` in the script is where a shot says what it needs beyond an item: the seller's
+item drawn beside a hovered listing is a move, and the bug reporter is a click onto its glyph, a
+description typed into the box and the consent ticked, because a report with an empty description
+photographs as a form nobody filled in. Its coordinates are the **virtual screen's** and they move
+whenever the panel width or the screen geometry does — re-derive them from a capture rather than
+trusting them.
 
-The run does two things worth knowing. It **spends real trade API requests**, one search per
-item, because a screenshot of an empty results table sells nothing. And it overrides
-`auto_search` and `debug_log` for the duration and puts the config back afterwards — without
-that the Settings shot shows this machine's state and its home directory rather than what a new
-user sees.
+No shot is taller than **980px**, which comfortably clears the tallest panel. That also crops away
+the panel footer, which on a machine with the debug log on draws the check id and is not worth
+publishing. Dialogs come out at their own size — the bug reporter is a fixed 940×660.
 
-Check each one before committing: a listing row carries the **seller's** handle (public on the
-trade site anyway), and **your own** listings are tinted green with `(you)` whenever
-`account_name` is filled in.
+**Nobody's name is published.** `PPC_DEV_ANON` holds on the same masking a bug-report capture
+does, so every seller is `seller 1`, `seller 2` — and `account_name` is blanked in the config for
+the run, so the Settings shot draws the placeholder a new user sees rather than the maintainer's
+handle. The config is put back afterwards, along with the `auto_search` and `debug_log` overrides
+that make the run look like a fresh install rather than this machine. The update check is pointed
+at a closed port for the same reason: the build in the tree is usually behind the published
+release, and a screenshot selling the tool should not open on a "new version" banner.
+
+Still check each one before committing. The masking covers the results table, and what it cannot
+cover is anything else that happens to name this machine — a path, a league, a window title.
+
+The run **spends real trade API requests**, one search per item, because a screenshot of an empty
+results table sells nothing.
