@@ -2,9 +2,9 @@
 
 **This project is in early development and is not accepting pull requests.**
 
-That is not a comment on anyone's code. The layers are still moving underneath each other — the
+That is not a comment on anyone's code. The layers are still moving underneath each other - the
 item, trade and reference-price layers are built but their seams are being redrawn as the
-remaining pieces land — and reviewing patches against a design that changes weekly costs more than
+remaining pieces land - and reviewing patches against a design that changes weekly costs more than
 it produces, for both sides. A pull request opened today would likely sit until it stopped
 applying, which is a worse outcome than not opening it.
 
@@ -26,11 +26,11 @@ are worth more than a patch would be right now:
   fullscreen, windowed or borderless.
 - **The copy hotkey doing nothing.** Turn on Settings → Diagnostics → debug log, reproduce it, and
   quote the four-character check id from the panel footer (clicking it copies it). Read the log
-  before attaching it — it contains whatever was on your clipboard. See [PRIVACY.md](PRIVACY.md).
+  before attaching it - it contains whatever was on your clipboard. See [PRIVACY.md](PRIVACY.md).
 
 ## Forking
 
-The code is MIT ([LICENSE](LICENSE)) and fork away — that is what it is for. Note that the fonts
+The code is MIT ([LICENSE](LICENSE)) and fork away - that is what it is for. Note that the fonts
 and the game data have terms of their own; [ATTRIBUTION.md](ATTRIBUTION.md) says what they are, and
 they follow the code into a fork.
 

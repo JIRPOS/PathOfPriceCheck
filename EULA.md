@@ -1,7 +1,7 @@
 # Terms of use
 
 Plain-language summary of what you get and what you do not. The binding text is the MIT license in
-[LICENSE](LICENSE) — where this document and that one differ, that one wins.
+[LICENSE](LICENSE) - where this document and that one differ, that one wins.
 
 ## The software is provided as-is
 
@@ -12,7 +12,7 @@ promised against, and there is no support obligation, no SLA and no fitness for 
 
 **Prices shown are an estimate and nothing more.** They are what a public API and a public economy
 site said at the time of asking, filtered by heuristics that are documented but not infallible.
-Trades you make are your decisions. Money — real or in-game — lost on one is yours.
+Trades you make are your decisions. Money - real or in-game - lost on one is yours.
 
 ## No liability
 
@@ -39,8 +39,8 @@ endorsed by them. The game data, the modifier groupings from poewiki (CC BY-NC 3
 embedded Fontin typeface each carry their own terms, which are yours to observe as much as they are
 ours. [ATTRIBUTION.md](ATTRIBUTION.md) lists all of them.
 
-**This project is non-commercial**, and one of those licenses — CC BY-NC 3.0, covering the
-per-unique modifier data — requires that. Selling this, or building something commercial on the
+**This project is non-commercial**, and one of those licenses - CC BY-NC 3.0, covering the
+per-unique modifier data - requires that. Selling this, or building something commercial on the
 data bundle, is not something the license permits you to do.
 
 ## Privacy
