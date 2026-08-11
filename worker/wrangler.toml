@@ -14,6 +14,10 @@ enabled = false
 REPORTS_ENABLED = "1"
 MAX_PER_IP_PER_HOUR = "5"
 MAX_PER_DAY_GLOBAL = "300"
+# The webhook points at a forum channel, so each report is posted as its own thread. Set to "0" if
+# it is ever moved back to a plain text channel — a forum rejects a message with no thread name,
+# and a text channel rejects one that has it, so this has to match the channel.
+DISCORD_FORUM = "1"
 
 # Rate limiting is optional — without this binding the relay still works, it just has no brakes.
 # Create the namespace once, paste the id, uncomment:

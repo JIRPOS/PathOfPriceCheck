@@ -17,12 +17,17 @@ app  --HTTPS-->  ppc-reports.<subdomain>.workers.dev  --webhook-->  #ppc-reports
 
 ### 1. Discord — the channel and the webhook
 
-1. In your server, **create a channel** for this, e.g. `#ppc-reports`.
+1. In your server, **create a forum channel** for this, e.g. `#ppc-reports`. It has to be a forum,
+   not a text channel: each report is posted as its own thread, so triage is Discord's own
+   open/resolved state and its tags rather than a convention you have to remember. Discord cannot
+   convert a text channel into a forum, so this is decided when the channel is made.
 2. **Make it private.** Edit Channel → Permissions → deny `@everyone` *View Channel*. Every report
    is text a stranger typed; it does not belong in a channel anyone can read.
-3. Edit Channel → **Integrations** → **Webhooks** → **New Webhook**. Name it (the name is
+3. Optionally add **tags** — `parse`, `data-repo`, `needs-capture`, `wontfix`. Reports arrive
+   untagged; nothing applies one automatically, because a tag on every post sorts nothing.
+4. Edit Channel → **Integrations** → **Webhooks** → **New Webhook**. Name it (the name is
    overridden per-message anyway), confirm the channel, then **Copy Webhook URL**.
-4. Do not paste that URL anywhere else — not a commit, not an issue, not a screenshot. GitHub scans
+5. Do not paste that URL anywhere else — not a commit, not an issue, not a screenshot. GitHub scans
    for them and Discord revokes the ones it hears about.
 
 The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. You need *Manage Webhooks* on
@@ -104,7 +109,9 @@ is untrue, stop and say so rather than shipping the app side.
 
 | | |
 | --- | --- |
+| Mark a report handled | close the forum post. Deleting it works too, but a wording that comes back in three months is then gone. |
 | Change the Discord channel | make a new webhook, `./rotate-webhook.sh`. Clients never notice. |
+| Move back to a text channel | `DISCORD_FORUM = "0"` in `wrangler.toml`, `./publish.sh`. It has to match the channel: a forum rejects a message with no thread name and a text channel rejects one that has it. |
 | Turn reporting off | `REPORTS_ENABLED = "0"` in `wrangler.toml`, `./publish.sh`. |
 | Turn it off *now* | `npx --yes wrangler delete` — the app treats a dead endpoint as a dropped report. |
 | Watch it | `npx --yes wrangler tail` |
@@ -163,6 +170,9 @@ text, and each has a test in `test.mjs`:
   secret cannot turn the relay into a request forwarder.
 - **`application/json` is required**, which forces a preflight on any browser-originated POST, and
   no `OPTIONS` is answered. A random web page cannot use this endpoint.
+- **The forum post is named by us**, from the item's own name plus the report id, capped at
+  Discord's 100 characters with the id's room reserved first — so a reporter cannot choose what a
+  thread in your server is called, and two reports about the same base are still two posts.
 - **Discord's own limits are applied here** (6000 per embed, 4096 description, 1024 per field) so an
   oversized report is trimmed by us rather than rejected wholesale by Discord.
 

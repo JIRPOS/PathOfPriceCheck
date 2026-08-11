@@ -20,7 +20,7 @@ const LIMITS = {
 };
 
 // Discord's own caps. Enforced here so an oversized report is trimmed rather than 400'd away.
-const DISCORD = { title: 256, description: 4096, fieldValue: 1024, total: 6000 };
+const DISCORD = { title: 256, description: 4096, fieldValue: 1024, total: 6000, threadName: 100 };
 
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
@@ -70,9 +70,12 @@ export default {
         const id = crypto.randomUUID().split('-')[0];
         const at = new Date().toISOString();
 
-        const res = await post_to_discord(env.DISCORD_WEBHOOK, report, id, at);
+        const res = await post_to_discord(env, report, id, at);
         if (!res.ok) {
-            console.error(`discord rejected report ${id}: ${res.status}`);
+            // Discord says why in the body, and the reason is usually a channel/payload mismatch
+            // that no amount of staring at this code would reveal. It reaches `wrangler tail`.
+            const detail = await res.text().catch(() => '');
+            console.error(`discord rejected report ${id}: ${res.status} ${detail.slice(0, 500)}`);
             return json(502, 'could not deliver the report');
         }
         return json(200, null, {}, { ok: true, id });
@@ -223,9 +226,10 @@ async function bump(kv, key, ttl, max) {
     return true;
 }
 
-async function post_to_discord(url, report, id, at) {
+async function post_to_discord(env, report, id, at) {
+    const url = env.DISCORD_WEBHOOK;
     const form = new FormData();
-    form.append('payload_json', JSON.stringify(message(report, id, at)));
+    form.append('payload_json', JSON.stringify(message(report, id, at, env.DISCORD_FORUM !== '0')));
     form.append(
         'files[0]',
         new Blob([issue_markdown(report, id, at)], { type: 'text/markdown' }),
@@ -239,7 +243,7 @@ async function post_to_discord(url, report, id, at) {
     return fetch(`${url}?wait=true`, { method: 'POST', body: form });
 }
 
-function message(report, id, at) {
+function message(report, id, at, forum) {
     const fields = [];
     if (report.comment) {
         fields.push({
@@ -263,13 +267,28 @@ function message(report, id, at) {
     };
     if (report.png) embed.image = { url: 'attachment://screenshot.png' };
 
-    return {
+    const payload = {
         username: 'Path of Price Check',
         // The one setting that makes @everyone in a report inert. Everything else is cosmetic;
         // without this, any reporter can ping the whole server.
         allowed_mentions: { parse: [] },
         embeds: [within_budget(embed, report.item)],
     };
+    // A forum channel takes a post, not a message: `thread_name` is what makes one, and a webhook
+    // aimed at a forum is rejected without it. Tags stay manual — every report carrying the same
+    // one would sort nothing.
+    if (forum) payload.thread_name = thread_name(report.item, id);
+    return payload;
+}
+
+/**
+ * The forum post's title. The report id rides along on the end and is reserved room before the
+ * name is trimmed, because two reports about the same base are otherwise the same post title.
+ */
+function thread_name(item, id) {
+    const suffix = ` · ${id}`;
+    const name = title_of(item).replace(/\s+/g, ' ').trim();
+    return cut(name, DISCORD.threadName - suffix.length) + suffix;
 }
 
 /**

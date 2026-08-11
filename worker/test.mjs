@@ -53,6 +53,29 @@ test('a plain report reaches Discord and comes back with an id', async () => {
     assert.ok(files['report.md'], 'report.md is always attached');
 });
 
+test('a report is posted as a forum thread, named and disambiguated', async () => {
+    const { json, payload } = await send({ item: ITEM });
+    assert.equal(payload.thread_name, `Doom Song — Spine Bow · ${json.id}`);
+});
+
+test('a long name is trimmed but the id always survives', async () => {
+    const long = `Item Class: Bows\nRarity: Rare\n${'Doom '.repeat(40)}\nSpine Bow\n--------\nQuality: +20%`;
+    const { json, payload } = await send({ item: long });
+    assert.ok(payload.thread_name.length <= 100);
+    assert.ok(payload.thread_name.endsWith(` · ${json.id}`));
+});
+
+test('a thread name is a single line', async () => {
+    const { payload } = await send({ item: ITEM });
+    assert.ok(!payload.thread_name.includes('\n'));
+});
+
+test('DISCORD_FORUM=0 posts a plain message instead', async () => {
+    const { payload } = await send({ item: ITEM }, { DISCORD_FORUM: '0' });
+    assert.equal(payload.thread_name, undefined);
+    assert.equal(payload.embeds.length, 1);
+});
+
 test('mentions cannot ping anyone', async () => {
     const { payload } = await send({ item: ITEM, comment: '@everyone @here <@&999>' });
     assert.deepEqual(payload.allowed_mentions, { parse: [] });
