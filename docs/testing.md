@@ -13,8 +13,10 @@ ctest --test-dir build -R <name> -V            # a single test
 SDL3 builds from source, so **Linux needs dev headers**: `libx11-dev libxext-dev libxrandr-dev
 libxcursor-dev libxi-dev libxfixes-dev libxkbcommon-dev libwayland-dev wayland-protocols
 libgl1-mesa-dev libegl1-mesa-dev libasound2-dev libpulse-dev libdbus-1-dev libudev-dev
-libcurl4-openssl-dev` (the CI
-workflows install exactly these). Windows needs only MSVC. The CI still validates the Windows build on
+libcurl4-openssl-dev zlib1g-dev` (the CI
+workflows install exactly these). zlib is `ppc_core`'s only link dependency besides
+nlohmann/json — it is the deflate behind `util/png`, and on Windows it is already in the tree,
+fetched alongside curl. Windows needs only MSVC. The CI still validates the Windows build on
 every push/PR — trust it for the Win32 platform code, which can't be compiled locally here.
 
 The bundled font data is committed, so a normal build needs nothing extra. To change the typeface:

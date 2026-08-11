@@ -342,7 +342,9 @@ dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check
 clipboard instead, `PPC_DEV_PASTE=1` to open the paste popup at the pointer, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
 appears while the game is the window in front). `PPC_DEV_UPDATE_URL=<url>` points the update check
 at a `latest.json` of your own, which is the only way to see its three notice surfaces before a
-release publishes one — see [updater.md](updater.md).
+release publishes one — see [updater.md](updater.md). `PPC_REPORT_URL=<url>` points the bug
+reporter at a relay of your own, which is how its two outcomes are seen without posting into the
+real channel — see [reporting.md](reporting.md).
 
 The Windows binary is **GUI-subsystem** (`WIN32_EXECUTABLE`, entered at `WinMain` in `src/main.cpp`):
 a console-subsystem build pops a console window beside an application whose whole UI is an overlay

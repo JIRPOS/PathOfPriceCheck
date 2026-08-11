@@ -18,6 +18,7 @@
 #include "ninja_service.hpp"
 #include "overlay.hpp"
 #include "platform/hotkeys.hpp"
+#include "report_service.hpp"
 #include "trade_service.hpp"
 
 struct SDL_Surface;
@@ -26,7 +27,7 @@ union SDL_Event;
 
 namespace ppc {
 
-enum class Screen { Hidden, PriceCheck, Settings, QuickPaste };
+enum class Screen { Hidden, PriceCheck, Settings, QuickPaste, BugReport, ReportSent };
 
 /// How long a price check waits for the game to publish its copy before dropping it. Past this
 /// the user has moved on, and a panel that opens late is a panel about the wrong item.
@@ -95,6 +96,23 @@ struct PasteEdit {
     bool adding = false; ///< appended on Done, rather than written back over `index`
     size_t index = 0;
     Paste draft;
+};
+
+/// The bug report being written, and the exact bytes it would send.
+///
+/// **Everything but the comment is fixed when the dialog opens.** The dialog's promise is that
+/// what it shows is what it sends, and a payload that went on being rebuilt underneath — the
+/// updater swapping a bundle in, a search landing — would quietly break that promise between the
+/// reading and the pressing.
+struct ReportDraft {
+    report::Report payload; ///< item text, parse dump and meta; `png` is filled at send time
+    std::string comment;    ///< the one field the user can edit
+    /// The panel as it was the instant the button was pressed, and that capture as something
+    /// ImGui can draw. Held whether or not it will be sent: the checkbox is a decision about a
+    /// picture the user is looking at, which is the only way it can be an informed one.
+    Capture shot;
+    uint64_t shot_tex = 0;
+    bool attach = false;
 };
 
 /// A search result's own item, parsed from the clipboard text the API ships with every
@@ -222,6 +240,28 @@ public:
     /// the same frame.
     PasteEdit& paste_edit() { return paste_edit_; }
 
+    // Bug reports. The panel's own button opens the dialog; nothing here sends anything until
+    // the dialog's Send is pressed, and the dialog shows the whole payload first.
+    /// Capture the panel as it stands and open the report dialog on it. Called from the panel
+    /// mid-draw, so the capture and the screen change both wait for the end of this frame — see
+    /// `finish_bug_report`.
+    void open_bug_report();
+    /// The draft being written. Mutable: the dialog reads and writes it in the same frame.
+    ReportDraft& report_draft() { return report_draft_; }
+    const ReportService& report() const { return report_; }
+    /// Post the draft, with the screenshot if the box is ticked. Never blocks.
+    void send_bug_report();
+    /// Abandon it and go back to the price check the report was about.
+    void close_bug_report();
+    /// Wave away the confirmation the send left on screen.
+    void dismiss_report_result();
+    /// The panel is being drawn to be photographed, not to be read.
+    ///
+    /// Two things follow from it, both in `pricecheck_screen`: sellers' account names are replaced
+    /// by positions, and no button shows its tooltip. Neither is worth anything in a bug report
+    /// and the first is somebody else's name.
+    bool report_capture_pending() const { return report_opening_ != Opening::No; }
+
     /// Copy-path diagnostic log (util/debug_log). Toggling it takes effect immediately —
     /// waiting for Save would mean the run that reproduced the bug went unrecorded — but it
     /// still needs a Save to persist.
@@ -232,6 +272,8 @@ public:
     void begin_capture(Action which);        ///< next key press rebinds this action
     bool capturing(Action which) const { return capturing_ && capture_which_ == which; }
     void apply_and_save_config();            ///< persist config + re-register hotkeys
+    /// Which screen is up. Read by the one renderer that serves two of them.
+    Screen screen() const { return screen_; }
     void close_overlay() { set_screen(Screen::Hidden); }
     void quit() { running_ = false; }
 
@@ -241,6 +283,8 @@ private:
     void handle_action(Action a);            ///< handled on the main thread
     void refresh_checks();                   ///< re-check for a bundle and a release, if stale
     void end_capture();                      ///< stop capturing and re-grab hotkeys
+    void finish_bug_report();                ///< take the frame's capture and open the dialog on it
+    void drop_report_draft();                ///< clear it, freeing the capture's texture
     void poll_pending_copy();                ///< show the item once the clipboard is written
     void abandon_copy();                     ///< drop the copy in flight, showing nothing
     void nudge_clipboard_handover(uint64_t elapsed); ///< make the game let go of the copy
@@ -268,6 +312,7 @@ private:
     NinjaService ninja_;
     ExchangeService currency_exchange_;
     IconCache icons_;
+    ReportService report_;
     data::DataUpdater updater_;
     update::Updater app_updater_;
     /// Waved away for this session only. Deliberately not persisted: the staged update is
@@ -298,6 +343,15 @@ private:
     int settings_tab_ = 0;        ///< which Settings tab is open
     FilterEdit filter_edit_;      ///< which filter row has its range editor open
     PasteEdit paste_edit_;        ///< the paste Settings has open in its editor
+    ReportDraft report_draft_;    ///< the bug report being written
+    /// How far along opening the report dialog is. Two frames pass between the press and the
+    /// dialog, and both of them are the point — see `open_bug_report`.
+    enum class Opening : uint8_t {
+        No,
+        Masking,   ///< the panel is redrawing in the face it will be photographed in
+        Capturing, ///< that redraw is being read back at the end of this frame
+    };
+    Opening report_opening_ = Opening::No;
     /// Where the cursor was when the paste hotkey fired. Sampled there rather than read at
     /// placement time for the same reason `side_` is: by then the hand has moved.
     int paste_x_ = 0, paste_y_ = 0;
@@ -334,6 +388,7 @@ private:
     uint32_t trade_event_ = 0;  ///< carries a TradeService::Result*
     uint32_t ninja_event_ = 0;  ///< carries a NinjaService::Result*
     uint32_t exchange_event_ = 0; ///< carries an ExchangeService::Result*
+    uint32_t report_event_ = 0;   ///< carries a ReportService::Result*
 
     bool game_present_ = false; ///< the game window was found on the last poll
     int game_x_ = 0, game_y_ = 0, game_w_ = 0, game_h_ = 0; ///< last placed-over geometry

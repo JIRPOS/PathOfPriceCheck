@@ -1,17 +1,22 @@
 # Report relay
 
 A Cloudflare Worker that takes a bug report from the app and posts it to one Discord channel. It
-exists so the app ships **no credential**: the data bundle carries this Worker's public URL, and the
-Discord webhook lives only in Cloudflare. Extracting the URL from the bundle gets you a rate-limited
-endpoint that can post a formatted item report to a private channel, and nothing else.
+exists so the app ships **no credential**: the binary carries this Worker's public URL — an
+endpoint like every other host it talks to, not a secret — and the Discord webhook lives only in
+Cloudflare. Reading the URL out of the binary gets you a rate-limited endpoint that can post a
+formatted item report to a private channel, and nothing else.
 
 Nothing above this is automated. A report arrives in Discord with a `report.md` attached that is
 written to be pasted into a GitHub issue unedited, by hand, if it turns out to be worth one.
 
 ```
 app  --HTTPS-->  ppc-reports.<subdomain>.workers.dev  --webhook-->  #ppc-reports
-                 (public URL, in the bundle)            (Cloudflare secret)
+                 (public URL, compiled in)             (Cloudflare secret)
 ```
+
+The app side — the button, the dialog that previews the whole payload, the screenshot and the
+request — is [docs/reporting.md](../docs/reporting.md). `$PPC_REPORT_URL` overrides the endpoint,
+which is how the app is tested against something other than the live channel.
 
 ## Setup, once
 
@@ -103,7 +108,7 @@ daily cap keeps the relay inside it.
 The first posts a real fixture item. The second posts what a malicious reporter would send —
 `@everyone`, a masked link, a code-fence break, a right-to-left override. **Nobody should be
 pinged, no link should be clickable, and every character should appear literally.** If any of that
-is untrue, stop and say so rather than shipping the app side.
+is untrue, stop and say so rather than shipping a release that points at this.
 
 ## Day to day
 

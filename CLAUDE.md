@@ -20,8 +20,9 @@ Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price 
 
 The overlay, Settings, the league list, the static game-data layer, the item layer (parse →
 resolve → price-relevant numbers → search plan, plus the game-styled tooltip), the trade search,
-poe.ninja reference pricing, the in-game currency exchange feed, QuickPaste and the binary updater
-(with the Windows installer it depends on) are all **built and tested**.
+poe.ninja reference pricing, the in-game currency exchange feed, QuickPaste, the bug reporter (with
+the relay it posts to) and the binary updater (with the Windows installer it depends on) are all
+**built and tested**.
 What is not built is [docs/roadmap.md](docs/roadmap.md) — including the fact that a language other
 than English cannot yet be selected, because the data build emits only English.
 
@@ -41,7 +42,8 @@ read whole; each is one layer.
 | [docs/item-layer.md](docs/item-layer.md) | `src/item/` — parse, resolve, derive, range matching, and the plan rules every strategy shares. Where most pricing judgement lives. |
 | [docs/strategy-unique.md](docs/strategy-unique.md), [strategy-map.md](docs/strategy-map.md), [strategy-gem.md](docs/strategy-gem.md), [strategy-logbook.md](docs/strategy-logbook.md) | One per search strategy that has more to say than the shared rules: uniques (including unidentified), maps (with charts and Valdo maps), gems, expedition logbooks (the one item that is up to three items at once). |
 | [docs/quickpaste.md](docs/quickpaste.md) | The paste list — the popup at the cursor, the nine number-key slots, and the clipboard *write*, which is a seam of its own. |
-| [worker/README.md](worker/README.md) | `worker/` — the Cloudflare Worker that relays a user's bug report to Discord, what has to be set up by hand, and the injection rules every payload field is held to. Not built into the app yet. |
+| [docs/reporting.md](docs/reporting.md) | `src/report/`, the **Report a bug** button and its dialog, the screenshot read-back and the PNG encoder — the app side of a bug report, up to the request. |
+| [worker/README.md](worker/README.md) | `worker/` — the Cloudflare Worker that relays that report to Discord, what has to be set up by hand, and the injection rules every payload field is held to. |
 | [docs/trade-layer.md](docs/trade-layer.md) | `src/trade/` — query building, the two-step client, the rate limiter, and how results and the filter list are drawn. |
 | [docs/ninja.md](docs/ninja.md) | `src/ninja/` — the poe.ninja reference price. |
 | [docs/exchange.md](docs/exchange.md) | `src/exchange/` — GGG's hourly in-game currency exchange digests. |
@@ -73,7 +75,8 @@ rather than reconstructing the procedure.
 - **HTTP:** libcurl behind `src/net/http.hpp` (static Schannel build on Windows, so the release is a
   single `.exe`; gzip required, not `AUTO`). Do not re-add a `CURL::libcurl` alias — curl declares
   that name itself. **JSON:** nlohmann/json. **Tests:** doctest. **Clipboard:** our own platform
-  seam, never SDL's.
+  seam, never SDL's. **zlib** is `ppc_core`'s one other link dependency, and only for
+  `util/png`.
 - **Game data:** never baked into the binary. Built and published by the separate public repo
   **[JIRPOS/PathOfPriceCheck-Data](https://github.com/JIRPOS/PathOfPriceCheck-Data)** and downloaded
   at runtime, so a new league needs a data build rather than a new release.
@@ -92,6 +95,9 @@ violate one of these on the strength of not having read it.
 - **Never issue a GGG request outside `trade::request`.** The shared rate limiter is a hard
   requirement, not a courtesy. poe.ninja and the currency-exchange CDN are *different hosts with
   different rules* and deliberately do not go through it. → trade-layer, external-apis
+- **A bug report is sent only by a press, and the dialog shows the whole of it first.** Nothing may
+  reach the relay that the preview does not draw, and nothing about a report is gathered in the
+  background. → reporting, PRIVACY.md
 - **The clipboard is ours to read *and* to write.** `clipboard_set_text` owns the X selection from
   a thread of its own, because a write on X11 is a promise to answer for the text later. →
   quickpaste, platform

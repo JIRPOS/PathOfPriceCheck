@@ -1342,40 +1342,87 @@ bool draw_exchange_price(App& app, const item::Item& it) {
     return true;
 }
 
-/// The Search / Open in browser pair, plus whatever the last search had to say. Both act on
-/// the filters as they are ticked right now, so changing one's mind and pressing again is
-/// the whole interaction.
-void draw_search_controls(App& app) {
+/// A square button with a glyph on it. Rounded, and the same size as a framed widget, so a row
+/// of them reads as a toolbar rather than as three words of different lengths.
+///
+/// The word is never on the button: three of them would take the width the listings need, and
+/// what each does is one hover away. `fallback` is a single letter for the case the bundled glyph
+/// subset drifted from `ui/glyphs.hpp` — see `Fonts::has_glyphs`. A button with nothing drawn on
+/// it is the failure that guards against.
+constexpr float kIconRounding = 4.0f;
+
+bool icon_button(const char* glyph, const char* fallback, const char* tip, bool glyphs,
+                 bool quiet) {
+    const float side = ImGui::GetFrameHeight();
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, kIconRounding);
+    const bool hit = ImGui::Button(glyphs ? glyph : fallback, ImVec2(side, side));
+    ImGui::PopStyleVar();
+    // AllowWhenDisabled: a greyed Search is exactly the button whose tooltip is worth reading.
+    // **Silent while the panel is being photographed**: the cursor is on this row when the report
+    // button is pressed, and a capture with "Report a Bug" hovering over it is a picture of the
+    // act of reporting rather than of the thing being reported.
+    if (!quiet && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("%s", tip);
+    return hit;
+}
+
+/// The panel's action row: whatever the last search had to say on the left, and the buttons
+/// against the right edge.
+///
+/// **Right to left, primary first.** Search is the rightmost because it is the one the hand goes
+/// to, then the same search on the site, then reporting the check — which is the one button that
+/// is here on every item, including the ones with no search at all. Search and browser both act
+/// on the filters as they are ticked right now, so changing one's mind and pressing again is the
+/// whole interaction.
+void draw_action_bar(App& app, bool searchable) {
     const TradeService& t = app.trade();
+    const bool glyphs = app.fonts().has_glyphs;
     const bool busy = t.state() == TradeState::Searching;
     const bool can = app.can_search();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float side = ImGui::GetFrameHeight();
+    const int buttons = searchable ? 3 : 1;
+    const float cluster = buttons * side + (buttons - 1) * style.ItemSpacing.x;
 
-    ImGui::BeginDisabled(busy || !can);
-    if (ImGui::Button("Search", ImVec2(110, 0))) app.start_search();
-    ImGui::SameLine();
-    if (ImGui::Button("Open in browser", ImVec2(150, 0))) app.open_search_in_browser();
-    ImGui::EndDisabled();
-
-    ImGui::SameLine();
-    if (busy) {
-        ImGui::TextDisabled("Searching\xe2\x80\xa6");
-    } else if (!can) {
-        // Where the answer is, not just that there is no search: currency, cards, scarabs and
-        // fragments have nothing a stat query could ask for — they are bought in bulk on the
-        // in-game exchange — so the poe.ninja row above is the whole price check, and a bare
-        // "Nothing to search" over it reads as a failure. An unidentified unique is the same
-        // argument: the search is one question away, not missing.
-        const item::Item* it = app.item();
-        ImGui::TextDisabled("%s", it && it->needs_unique_choice() ? "Pick which unique it is"
-                                  : app.plan().strategy == item::Strategy::Currency
-                                      ? "Priced by poe.ninja, not by a trade search"
-                                      : "Nothing to search");
-    } else if (t.state() == TradeState::Ok) {
-        // The total, not the number fetched: "20 of 4" would be a lie and "20 listings" hides
-        // that there are two thousand more.
-        ImGui::TextDisabled("%d match%s in %s", t.results().total,
-                            t.results().total == 1 ? "" : "es", t.league().c_str());
+    const bool quiet = app.report_capture_pending();
+    const float right = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
+    if (searchable) {
+        ImGui::AlignTextToFramePadding();
+        if (busy) {
+            ImGui::TextDisabled("Searching\xe2\x80\xa6");
+        } else if (!can) {
+            // Where the answer is, not just that there is no search: currency, cards, scarabs
+            // and fragments have nothing a stat query could ask for — they are bought in bulk
+            // on the in-game exchange — so the poe.ninja row above is the whole price check, and
+            // a bare "Nothing to search" over it reads as a failure. An unidentified unique is
+            // the same argument: the search is one question away, not missing.
+            const item::Item* it = app.item();
+            ImGui::TextDisabled("%s", it && it->needs_unique_choice() ? "Pick which unique it is"
+                                      : app.plan().strategy == item::Strategy::Currency
+                                          ? "Priced by poe.ninja, not by a trade search"
+                                          : "Nothing to search");
+        } else if (t.state() == TradeState::Ok) {
+            // The total, not the number fetched: "20 of 4" would be a lie and "20 listings"
+            // hides that there are two thousand more.
+            ImGui::TextDisabled("%d match%s in %s", t.results().total,
+                                t.results().total == 1 ? "" : "es", t.league().c_str());
+        }
+        ImGui::SameLine();
     }
+    // max, not a bare subtraction: a long status line on a narrow panel would otherwise put the
+    // cursor back over the text it has just drawn.
+    ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), right - cluster));
+
+    if (icon_button(ui::kGlyphBug, "B", "Report a Bug", glyphs, quiet)) app.open_bug_report();
+    if (!searchable) return;
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled(busy || !can);
+    if (icon_button(ui::kGlyphExternal, "O", "Open this search on the trade site", glyphs, quiet))
+        app.open_search_in_browser();
+    ImGui::SameLine();
+    if (icon_button(ui::kGlyphSearch, "S", "Search", glyphs, quiet)) app.start_search();
+    ImGui::EndDisabled();
 }
 
 /// Why there is **no** search, for the items that get none at all. The filters, the buttons and
@@ -1551,6 +1598,12 @@ void draw_results(App& app, float gutter_top) {
     // indistinguishable from the rest of the page, and the page is what a price is read off:
     // an own listing sitting at the top reads as the market's floor, which it is not.
     const std::string& me = app.config().account_name;
+    // **Nobody's name goes in a bug report.** On the frame the panel is being read back for one,
+    // every handle is replaced by its position in the results — which is all a maintainer reading
+    // the picture ever needed: that these are twenty different sellers, and which row is which.
+    // The user's own marker stays, because it names nobody and is the one thing on the row that
+    // explains its colour.
+    const bool masked = app.report_capture_pending();
 
     for (size_t i = 0; i < t.results().listings.size(); ++i) {
         const trade::Listing& l = t.results().listings[i];
@@ -1572,8 +1625,9 @@ void draw_results(App& app, float gutter_top) {
         // The user's own row says so in words as well as in colour: the tint is what catches
         // the eye at a glance, and a green row is nothing at all to a reader who cannot see
         // green. Clipped away on a narrow panel, where the tint is still there.
-        const std::string label =
-            (mine ? l.account + "  (you)" : l.account) + "##row" + std::to_string(i);
+        const std::string who =
+            masked ? "seller " + std::to_string(i + 1) : l.account;
+        const std::string label = (mine ? who + "  (you)" : who) + "##row" + std::to_string(i);
         ImGui::PushFont(app.fonts().unicode, 0.0f);
         ImGui::Selectable(label.c_str(), false,
                           ImGuiSelectableFlags_SpanAllColumns |
@@ -1736,10 +1790,14 @@ void draw_pricecheck_screen(App& app) {
             // come back empty reads as the item being unsellable rather than as the wrong
             // market having been asked.
             if (searchable) {
-                draw_search_controls(app);
+                draw_action_bar(app, true);
                 draw_results(app, gutter_top);
             } else {
                 draw_no_search_note(app);
+                // Under whatever drew last, which for these items is the note above: the
+                // report button is the one action every price check has, including the ones
+                // that never had a search to offer.
+                draw_action_bar(app, false);
             }
         }
     }
