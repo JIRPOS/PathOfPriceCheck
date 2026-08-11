@@ -23,6 +23,7 @@
 #include "quickpaste.hpp"
 #include "screens/pricecheck_screen.hpp"
 #include "screens/quickpaste_screen.hpp"
+#include "screens/report_screen.hpp"
 #include "screens/settings_screen.hpp"
 #include "trade/query.hpp"
 #include "ui/strings.hpp"
@@ -126,6 +127,11 @@ void SDLCALL tray_exit_cb(void* userdata, SDL_TrayEntry*) {
 // avoiding. 720 fits the tallest tab and still fits inside a 768-tall game window. The cap is the
 // game's own height, which is the one thing that can force that scrollbar.
 constexpr int kSettingsW = 640, kSettingsH = 720;
+
+// The report dialog is two columns — the payload on the left, the screenshot beside it — so it is
+// wider than Settings and no taller. The confirmation that follows it is a sentence and a button.
+constexpr int kReportW = 940, kReportH = 660;
+constexpr int kNoticeW = 420, kNoticeH = 150;
 
 // The idle status: two short lines over the lower half of the mana globe. Wide enough for a long
 // data version at the size below, and no wider — the window is what swallows mouse input, and
@@ -260,7 +266,7 @@ int App::run(bool relaunched_after_update) {
         return 1;
     }
     // SDL hands back a contiguous range, so the offsets are guaranteed.
-    const uint32_t event_base = SDL_RegisterEvents(7);
+    const uint32_t event_base = SDL_RegisterEvents(8);
     if (!event_base) {
         SDL_Log("SDL_RegisterEvents failed: %s", SDL_GetError());
         SDL_Quit();
@@ -273,6 +279,7 @@ int App::run(bool relaunched_after_update) {
     ninja_event_ = event_base + 4;
     exchange_event_ = event_base + 5;
     update_event_ = event_base + 6;
+    report_event_ = event_base + 7;
 
     if (!overlay_.init("Path of Price Check Overlay")) {
         SDL_Log("overlay init failed");
@@ -301,6 +308,7 @@ int App::run(bool relaunched_after_update) {
     trade_.load_cache(); // currency symbols; the search itself fetches them if they are stale
     ninja_.init(ninja_event_);
     currency_exchange_.init(exchange_event_);
+    report_.init(report_event_);
     icons_.init();
 
     // Reclaim superseded bundles and map the installed one before anything else can hold a
@@ -395,10 +403,23 @@ int App::run(bool relaunched_after_update) {
                 draw_pricecheck_screen(*this);
             else if (screen_ == Screen::QuickPaste)
                 draw_quickpaste_screen(*this);
+            else if (screen_ == Screen::BugReport || screen_ == Screen::ReportSent)
+                draw_report_screen(*this);
             else
                 draw_status_marker(*this);
             overlay_.end_frame();
             need_redraw_ = false;
+            // Between frames, because every part of this needs a frame boundary: the panel has
+            // to be redrawn in its masked face before it can be read back, the read-back has to
+            // be of a frame that is finished, and the resize the dialog brings must not land
+            // inside one. See `open_bug_report`.
+            if (report_opening_ == Opening::Masking) {
+                overlay_.request_capture(); // of the next frame, which is the masked one
+                report_opening_ = Opening::Capturing;
+                need_redraw_ = true;
+            } else if (report_opening_ == Opening::Capturing) {
+                finish_bug_report();
+            }
         }
     }
 
@@ -408,6 +429,7 @@ int App::run(bool relaunched_after_update) {
     trade_.shutdown();
     ninja_.shutdown();
     currency_exchange_.shutdown();
+    report_.shutdown();
     icons_.shutdown(); // frees GL textures, so before the context goes with the overlay
     updater_.shutdown();
     app_updater_.shutdown();
@@ -469,6 +491,15 @@ void App::handle_event(const SDL_Event& e) {
         }
     } else if (e.type == update_event_) {
         need_redraw_ = true;
+    } else if (e.type == report_event_) {
+        report_.on_done(e);
+        // Only a send that landed closes the dialog. A refusal leaves it exactly as it was, with
+        // the reason on it: the text the user wrote is in that window and nowhere else.
+        if (report_.state() == ReportState::Sent && screen_ == Screen::BugReport) {
+            drop_report_draft(); // the dialog is done with it, and it holds a GL texture
+            set_screen(Screen::ReportSent);
+        }
+        need_redraw_ = true;
     } else if (e.type == SDL_EVENT_KEY_DOWN && capturing_) {
         if (e.key.key == SDLK_ESCAPE) {
             end_capture(); // cancel capture, don't bind Escape
@@ -491,6 +522,8 @@ void App::handle_event(const SDL_Event& e) {
         // editor claimed the keyboard, and closing the whole check on it would throw away the row
         // the user was aiming at. ImGui closes its popup on the same press, so both agree.
         if (filter_edit_.open()) close_filter_edit();
+        else if (screen_ == Screen::BugReport) close_bug_report();
+        else if (screen_ == Screen::ReportSent) dismiss_report_result();
         else set_screen(Screen::Hidden);
     } else if (e.type == SDL_EVENT_KEY_DOWN && screen_ == Screen::QuickPaste) {
         // The whole reason the popup claims the keyboard. A slot nothing is in is not a miss to
@@ -875,7 +908,11 @@ void App::poll_click_away() {
     // from another application that took the keyboard with it, and this is the earliest
     // moment we can tell: the poll in `update_overlay_placement` is up to 400ms behind, and
     // in the meantime the dialog would swallow their first sentence.
-    if (screen_ == Screen::Settings) {
+    // Neither the report dialog nor its confirmation dismisses on a click away, for the reason
+    // Settings does not and one of its own: the text in that window exists nowhere else, and
+    // losing it to a stray click over the game would be losing the report.
+    if (screen_ == Screen::Settings || screen_ == Screen::BugReport ||
+        screen_ == Screen::ReportSent) {
         if (on_panel) reclaim_keyboard();
         return;
     }
@@ -1088,7 +1125,9 @@ void App::update_overlay_placement() {
 /// focus-loss that dismisses it could never happen.
 void App::reclaim_keyboard() {
     if (overlay_.has_focus()) return;
-    if (screen_ != Screen::Settings && screen_ != Screen::QuickPaste) return;
+    if (screen_ != Screen::Settings && screen_ != Screen::QuickPaste &&
+        screen_ != Screen::BugReport)
+        return;
     debug::log("[app]    reclaiming the keyboard for screen %d", (int)screen_);
     take_keyboard();
 }
@@ -1110,6 +1149,16 @@ void App::place_overlay() {
         SDL_Rect r{};
         if (!SDL_GetDisplayBounds(SDL_GetPrimaryDisplay(), &r)) return;
         gx = r.x, gy = r.y, gw = r.w, gh = r.h;
+    }
+
+    if (screen_ == Screen::BugReport || screen_ == Screen::ReportSent) {
+        const bool notice = screen_ == Screen::ReportSent;
+        const int w = std::min(notice ? kNoticeW : kReportW, gw);
+        const int h = std::min(notice ? kNoticeH : kReportH, gh);
+        SDL_SetWindowSize(overlay_.window(), w, h);
+        SDL_SetWindowPosition(overlay_.window(), gx + (gw - w) / 2, gy + (gh - h) / 2);
+        layout_ = PanelLayout{0, float(w), 0, 0};
+        return;
     }
 
     if (screen_ == Screen::Settings) {
@@ -1237,6 +1286,78 @@ void App::copy_check_id() {
     debug::log("[app]    wrote the check id to the clipboard on the user's request");
 }
 
+// The panel is mid-draw when this is called — the button that calls it is on it — so nothing here
+// may resize the window, change the screen, or read anything back. All of it waits, and what waits
+// is two frames rather than one:
+//
+//   press → [this frame finishes as it was] → **masked frame, read back** → dialog
+//
+// The middle frame is the whole reason for the state machine. It is the panel drawn as it will be
+// photographed — sellers' account names replaced, tooltips silent — and a picture can only be of a
+// frame that was actually rendered. Drawing it takes about sixteen milliseconds and it is on
+// screen for one frame before the dialog covers it, which is not a flicker anyone has reported
+// seeing; masking on the press frame instead would work only for as long as the action bar keeps
+// being drawn before the results table, which is not a thing this file can promise.
+void App::open_bug_report() {
+    if (report_opening_ != Opening::No || screen_ != Screen::PriceCheck) return;
+    report_opening_ = Opening::Masking;
+    need_redraw_ = true;
+}
+
+// Everything the report will say, decided here and not touched again. What the dialog shows is
+// what it sends, which is a promise it cannot keep if the payload goes on being rebuilt behind it
+// — the updater can swap a bundle in and a search can land while the user is still typing.
+void App::finish_bug_report() {
+    report_opening_ = Opening::No;
+    drop_report_draft();
+    report_draft_.shot = overlay_.take_capture();
+    report_draft_.shot_tex = overlay_.upload_texture(report_draft_.shot);
+    // The clipboard capture verbatim, which is the one input every parse bug is against.
+    report_draft_.payload.item = clipboard_;
+    if (item_) report_draft_.payload.parse = report::describe(*item_, derived_, plan_);
+    report_draft_.payload.meta.version = APP_VERSION;
+    report_draft_.payload.meta.os = SDL_GetPlatform();
+    report_draft_.payload.meta.league = config_.league;
+    // The bundle the item was *resolved against*, not whichever is current: a mispricing is as
+    // often the data's as the code's, and the two can already differ by this point.
+    if (item_data_) report_draft_.payload.meta.bundle = std::string(item_data_->data_version());
+    report_.reset();
+    debug::log("[report] opening the dialog: %dx%d capture, %zu byte parse dump",
+               report_draft_.shot.w, report_draft_.shot.h, report_draft_.payload.parse.size());
+    set_screen(Screen::BugReport);
+}
+
+// The draft holds a GL texture, so it is dropped through here rather than assigned over.
+void App::drop_report_draft() {
+    overlay_.free_texture(report_draft_.shot_tex);
+    report_draft_ = ReportDraft{};
+}
+
+void App::send_bug_report() {
+    if (report_.state() == ReportState::Sending) return;
+    report::Report r = report_draft_.payload;
+    r.comment = report_draft_.comment;
+    report_.send(std::move(r), report_draft_.attach ? report_draft_.shot : Capture{});
+    need_redraw_ = true;
+}
+
+void App::close_bug_report() {
+    drop_report_draft();
+    report_.reset();
+    // Back to the check it was about rather than away entirely: the report was opened from a
+    // panel that is still the answer to the question the user asked.
+    set_screen(Screen::PriceCheck);
+}
+
+// Both answers the send can leave behind, because clearing it is the same act either way: a
+// refusal is dismissed back into the dialog it never left, and a success is dismissed off screen
+// because the dialog it belonged to is already gone.
+void App::dismiss_report_result() {
+    report_.reset();
+    if (screen_ == Screen::ReportSent) set_screen(Screen::Hidden);
+    need_redraw_ = true;
+}
+
 void App::set_screen(Screen s) {
     debug::log("[app]    screen %d -> %d", (int)screen_, (int)s);
     screen_ = s;
@@ -1262,6 +1383,10 @@ void App::set_screen(Screen s) {
         // aim at. This is the server's input focus and not the window manager's activation —
         // the same thing the range editor takes, and the same reason it is not a violation of
         // the rule about the game's foreground.
+        take_keyboard();
+    } else if (s == Screen::BugReport) {
+        // The dialog is mostly a box to type in, and without the keyboard it is a preview with
+        // an unusable comment field.
         take_keyboard();
     } else if (s == Screen::Settings) {
         take_keyboard();

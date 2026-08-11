@@ -11,8 +11,10 @@ set -euo pipefail
 ver="6.7.2"
 url="https://github.com/FortAwesome/Font-Awesome/releases/download/$ver/fontawesome-free-$ver-web.zip"
 # f00c check (confirm), f0e2 arrow-rotate-left (reset), f0fe square-plus (add),
-# f304 pen (edit), f2ed trash-can (delete), f7a4 grip-lines (drag to reorder).
-codepoints="U+F00C,U+F0E2,U+F0FE,U+F304,U+F2ED,U+F7A4"
+# f304 pen (edit), f2ed trash-can (delete), f7a4 grip-lines (drag to reorder),
+# f002 magnifying-glass (search), f08e arrow-up-right-from-square (open in browser),
+# f188 bug (report a bug).
+codepoints="U+F00C,U+F0E2,U+F0FE,U+F304,U+F2ED,U+F7A4,U+F002,U+F08E,U+F188"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dest="$root/assets/fonts"

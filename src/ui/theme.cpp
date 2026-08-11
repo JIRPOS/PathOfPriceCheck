@@ -35,6 +35,11 @@ Theme::Theme(bool opaque) {
     colour(ImGuiCol_PopupBg, with_alpha(col::kWindow, opaque ? 1.0f : 0.97f));
     colour(ImGuiCol_Border, col::kBorder);
     colour(ImGuiCol_BorderShadow, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    // Only a modal popup has one of these — every window of ours draws its own heading — and
+    // ImGui's default is a blue that has nothing to do with the rest of this palette.
+    colour(ImGuiCol_TitleBg, col::kTabIdle);
+    colour(ImGuiCol_TitleBgActive, col::kFrameActive);
+    colour(ImGuiCol_TitleBgCollapsed, col::kTabIdle);
 
     colour(ImGuiCol_Text, col::kText);
     colour(ImGuiCol_TextDisabled, col::kTextDim);

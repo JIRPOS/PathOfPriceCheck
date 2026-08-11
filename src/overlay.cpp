@@ -1,6 +1,9 @@
 #include "overlay.hpp"
 
+#include <algorithm>
 #include <iterator>
+#include <utility>
+#include <vector>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
@@ -106,7 +109,71 @@ void Overlay::end_frame() {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f); // transparent; ImGui paints the opaque panels
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    // Before the swap, not after: the back buffer is what was just drawn, and what a swap
+    // leaves in it is undefined.
+    if (want_capture_) {
+        want_capture_ = false;
+        read_back(w, h);
+    }
     SDL_GL_SwapWindow(window_);
+}
+
+/// The drawn frame, off the back buffer and turned the right way up.
+///
+/// **Un-premultiplied on the way out.** ImGui blends `GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA` onto
+/// a framebuffer cleared to transparent black, so what accumulates is colour already multiplied
+/// by its own coverage — correct for a compositor, and a shade too dark for anything that reads
+/// the file as ordinary straight-alpha RGBA, which is every PNG viewer and Discord. Dividing it
+/// back out is what makes the attachment look like the panel did.
+void Overlay::read_back(int w, int h) {
+    if (w <= 0 || h <= 0) return;
+    Capture c;
+    c.w = w;
+    c.h = h;
+    c.rgba.resize(static_cast<size_t>(w) * static_cast<size_t>(h) * 4);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, c.rgba.data());
+
+    // GL's origin is the bottom-left and every consumer of this expects the top-left, so the
+    // rows come back in the wrong order and are swapped in place.
+    const size_t stride = static_cast<size_t>(w) * 4;
+    std::vector<uint8_t> line(stride);
+    for (int y = 0; y < h / 2; ++y) {
+        uint8_t* top = c.rgba.data() + static_cast<size_t>(y) * stride;
+        uint8_t* bottom = c.rgba.data() + static_cast<size_t>(h - 1 - y) * stride;
+        std::copy_n(top, stride, line.data());
+        std::copy_n(bottom, stride, top);
+        std::copy_n(line.data(), stride, bottom);
+    }
+    for (size_t i = 0; i + 3 < c.rgba.size(); i += 4) {
+        const unsigned a = c.rgba[i + 3];
+        if (a == 0 || a == 255) continue;
+        for (int k = 0; k < 3; ++k)
+            c.rgba[i + k] = static_cast<uint8_t>(std::min(255u, c.rgba[i + k] * 255u / a));
+    }
+    capture_ = std::move(c);
+}
+
+uint64_t Overlay::upload_texture(const Capture& c) {
+    if (c.empty()) return 0;
+    GLuint tex = 0;
+    glGenTextures(1, &tex);
+    if (!tex) return 0;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, c.w, c.h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 c.rgba.data());
+    return tex;
+}
+
+void Overlay::free_texture(uint64_t tex) {
+    if (!tex) return;
+    const auto id = static_cast<GLuint>(tex);
+    glDeleteTextures(1, &id);
 }
 
 void Overlay::set_visible(bool v) {

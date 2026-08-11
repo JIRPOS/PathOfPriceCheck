@@ -1,0 +1,27 @@
+name = "ppc-reports"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+workers_dev = true
+
+# Off deliberately. Workers Logs would retain request metadata for a feature whose whole premise is
+# that a report is anonymous; `console.error` still reaches `wrangler tail` when you are watching.
+[observability]
+enabled = false
+
+[vars]
+# Flip to "0" and redeploy to turn reporting off without deleting the Worker. The app treats a
+# refusal the same as any other failure: the report is dropped and nothing is said.
+REPORTS_ENABLED = "1"
+MAX_PER_IP_PER_HOUR = "5"
+MAX_PER_DAY_GLOBAL = "300"
+# The webhook points at a forum channel, so each report is posted as its own thread. Set to "0" if
+# it is ever moved back to a plain text channel — a forum rejects a message with no thread name,
+# and a text channel rejects one that has it, so this has to match the channel.
+DISCORD_FORUM = "1"
+
+# Rate limiting is optional — without this binding the relay still works, it just has no brakes.
+# Create the namespace once, paste the id, uncomment:
+#   npx --yes wrangler kv namespace create ppc-reports-rl
+# [[kv_namespaces]]
+# binding = "RL"
+# id = "paste-the-id-here"

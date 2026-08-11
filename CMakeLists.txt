@@ -123,6 +123,8 @@ add_library(ppc_core STATIC
   src/leagues.cpp
   src/util/sha256.cpp
   src/util/base64.cpp
+  src/util/png.cpp
+  src/report/report.cpp
   src/util/debug_log.cpp
   src/data/index.cpp
   src/data/lexicon.cpp
@@ -155,7 +157,12 @@ add_library(ppc_core STATIC
   src/platform/input.cpp)
 target_include_directories(ppc_core PUBLIC src)
 target_compile_definitions(ppc_core PUBLIC APP_VERSION="${APP_VERSION}")
-target_link_libraries(ppc_core PUBLIC nlohmann_json::nlohmann_json)
+# zlib: the PNG encoder's deflate, and nothing else. Already in the tree on the Windows path
+# above, where curl fetches it; everywhere else it is a system package (libcurl needs it too).
+if(NOT TARGET ZLIB::ZLIB)
+  find_package(ZLIB REQUIRED)
+endif()
+target_link_libraries(ppc_core PUBLIC nlohmann_json::nlohmann_json ZLIB::ZLIB)
 
 set(APP_SOURCES
   src/main.cpp
@@ -169,6 +176,7 @@ set(APP_SOURCES
   src/ninja_service.cpp
   src/ninja/client.cpp
   src/exchange_service.cpp
+  src/report_service.cpp
   src/exchange/client.cpp
   src/icon_cache.cpp
   src/data/updater.cpp
@@ -180,6 +188,7 @@ set(APP_SOURCES
   src/screens/settings_screen.cpp
   src/screens/quickpaste_screen.cpp
   src/screens/pricecheck_screen.cpp
+  src/screens/report_screen.cpp
   src/screens/item_view.cpp)
 if(WIN32)
   list(APPEND APP_SOURCES
@@ -283,3 +292,4 @@ ppc_add_test(exchange_test)
 ppc_add_test(ratelimit_test)
 ppc_add_test(track_test)
 ppc_add_test(quickpaste_test)
+ppc_add_test(report_test)

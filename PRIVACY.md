@@ -1,10 +1,16 @@
 # Privacy
 
 **This project collects nothing.** There is no account, no telemetry, no analytics, no crash
-reporting and no usage counter — and, more to the point, **there is no server on the other end to
-collect anything with.** The project operates no backend of any kind. Everything the application
-does happens on the machine it runs on, against third-party APIs that are the same ones a browser
-would talk to.
+reporting and no usage counter. Nothing is gathered in the background, on a timer, or as a side
+effect of anything you do. Everything the application does happens on the machine it runs on,
+against third-party APIs that are the same ones a browser would talk to.
+
+**There is exactly one thing you can send us, and only by pressing a button that says so.**
+**Report a bug** on the price-check panel opens a dialog that shows you the entire payload — the
+item text, what the tool made of it, four version strings, whatever you type, and a screenshot
+only if you tick the box — and sends it nowhere until you press Send. It goes to a small relay of
+ours, described in full [below](#reporting-a-bug). That relay is the project's only backend, it
+exists for that one button, and nothing else in the application ever talks to it.
 
 The one thing that might sound like a phone-home is the update check, so it is worth being exact:
 it downloads a small **static file** from the GitHub release page — the same bytes served to
@@ -31,6 +37,7 @@ Exhaustively — this is every outbound request the binary can make.
 | `web.poecdn.com/api/currency-exchange/<hour>` | when an item is priced and the newest published hour is not already on disk; **one download covers every item and every league** | nothing but the request |
 | `poe.ninja/poe1/api/economy/...` | when a reference price is needed and the 30-minute cache has expired; **once per category**, not per price check | nothing but the request and the league name |
 | `poe.ninja/favicons/favicon-32x32.png` | once, for the reference row's source mark | nothing but the request |
+| `ppc-reports.jirpos.workers.dev` | **only when you press Send in the bug reporter**, never otherwise | the report you were shown before you pressed it — see [below](#reporting-a-bug) |
 
 **Opening a search in your browser** builds the same query into a `pathofexile.com/trade/search`
 URL and hands it to your browser. That costs no API call, and what happens after it is between you
@@ -74,6 +81,9 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 - If you press the hotkey while something other than an item is on your clipboard, that text is
   what gets parsed. It fails to parse, nothing opens, and it is discarded. But it *was* read — so
   the ordinary caution applies: this is a global hotkey and the clipboard is a global thing.
+- Item text you priced is held in memory until the next check, and is the one thing a **bug
+  report** can carry off the machine — only the check you are looking at, and only if you press
+  Send. See [Reporting a bug](#reporting-a-bug).
 - **Two things write to your clipboard, both because you asked**: picking an entry from QuickPaste,
   which puts that entry's own text there and nothing else, and clicking the diagnostic check id in
   the panel footer, which copies that four-character id. On Linux the text is then served from a
@@ -113,11 +123,76 @@ its shortcuts, one registry value at `HKCU\Software\PathOfPriceCheck` recording 
 installed, and the usual Add/Remove Programs entry; uninstalling removes them.
 
 One optional setting is personal information you may type in yourself: **Account** in Settings
-(`Name#1234`). It is stored in `config.json` and, as of today, is **not sent anywhere** — nothing
-in the request path reads it.
+(`Name#1234`). It is stored in `config.json` and is **never sent anywhere** — nothing in the
+request path reads it, the bug reporter included. It is used for one thing: marking a listing in
+the results as yours, and even a screenshot you choose to attach has it replaced along with every
+other handle on the table.
 
 Search results contain other players' account names and the whisper text for contacting them.
 Those live in memory for as long as the panel is open and are dropped when the next check runs.
+
+## Reporting a bug
+
+The **Report a bug** button on the price-check panel. Nothing here happens unless you press it, and
+then press **Send** in the dialog it opens.
+
+**The dialog is the disclosure.** It shows the payload in full, in the same text that goes on the
+wire, before anything is sent — there is no summary standing in for the real thing and no field it
+does not display. Read it, and if you would rather not send some part of it, close the dialog.
+
+What a report contains, exhaustively:
+
+| | |
+|---|---|
+| the item | the clipboard text the game wrote, verbatim and unedited |
+| the parse | what this tool made of that text: the fields it read, what they resolved to in the data bundle, which modifier matched which stat record and which matched none, and what a search would have asked for |
+| your comment | the box you typed in, or nothing if you left it empty |
+| four version strings | the application's version, the operating system's name (`Linux`, `Windows`), the league you have selected, and the data bundle's version. Nothing else, and none of them is per-machine |
+| a screenshot | **only if you tick the box.** See below |
+
+What a report does **not** contain: your account name, your character, any identifier of your
+machine or install, any path from your disk, any cookie, and anything at all from a previous check.
+There is no id tying two reports to one person, because there is no id.
+
+### The screenshot
+
+The checkbox starts unticked. The picture beside it is the exact image that would be attached, at
+the moment you pressed the button, so the decision is one you can make by looking.
+
+It is a **read-back of this application's own window**, not a capture of your screen: the pixels
+this program drew, and only those. The game behind the transparent parts of the overlay is not in
+it and cannot be — nothing here has the ability to photograph another window. Everything else on
+your desktop is likewise absent.
+
+**Nobody's account name is in it.** On an item that ran a search the panel shows a results table,
+and before the picture is taken the panel is redrawn with every seller's handle replaced by its
+position — `seller 1`, `seller 2` — so what is photographed never had a name on it. Yours is
+covered by the same rule, on the row marked as yours. Prices, ages and everything else about the
+market are left exactly as they were, because those are the thing a mispricing is read against.
+
+What is in it, then, is the panel as you were looking at it with the names taken out — which is
+still worth checking before you tick the box, and is why the preview is the size it is.
+
+### Where it goes
+
+To `ppc-reports.jirpos.workers.dev`, a Cloudflare Worker operated by the maintainer, which forwards
+it to a private channel the maintainer reads and does nothing else with it. The Worker keeps no
+database, writes no log of requests, and stores nothing: the report is relayed and the request is
+over. Its source is in [`worker/`](worker/) in this repository, so what it does is readable rather
+than promised.
+
+Cloudflare sits in front of it and sees your IP address, as any host you make a request to does;
+their [privacy policy](https://www.cloudflare.com/privacypolicy/) applies. The Worker uses that
+address for one thing — an hourly cap, so the endpoint cannot be flooded — and it is never part of
+what reaches the channel.
+
+A report stays in that channel until it is dealt with. If you want one removed, quote its id: the
+dialog shows it after a successful send and it is the only handle either of us has on it.
+
+### Turning it off
+
+There is nothing to turn off, because nothing runs. The button sends when you press it; if you
+never press it, the application never contacts the relay and never has.
 
 ## The debug log
 

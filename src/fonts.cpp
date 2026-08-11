@@ -199,6 +199,40 @@ std::vector<std::string> math_faces() {
     return out;
 }
 
+/// The monospace face to read a capture in, most likely first — the first that exists wins, and
+/// there is no merging: this face is only ever pushed over text the tool itself captured.
+///
+/// Deliberately not a Fontin: a clipboard capture and a parse dump are read down the line, and the
+/// whole reason to show them at all is that a reporter and a maintainer are looking at the same
+/// characters in the same places.
+std::vector<std::string> mono_faces() {
+    std::vector<std::string> out;
+#ifdef _WIN32
+    const char* root = SDL_getenv("SystemRoot");
+    const std::string dir = std::string(root ? root : "C:\\Windows") + "\\Fonts\\";
+    for (const char* f : {"consola.ttf", "cour.ttf", "lucon.ttf"})
+        if (exists(dir + f)) {
+            out.push_back(dir + f);
+            break;
+        }
+#else
+    for (const char* f : {"/usr/share/fonts/TTF/DejaVuSansMono.ttf",
+                          "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                          "/usr/share/fonts/dejavu/DejaVuSansMono.ttf",
+                          "/usr/share/fonts/noto/NotoSansMono-Regular.ttf",
+                          "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
+                          "/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf",
+                          "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+                          "/usr/share/fonts/liberation/LiberationMono-Regular.ttf",
+                          "/usr/share/fonts/gnu-free/FreeMono.ttf"})
+        if (exists(f)) {
+            out.emplace_back(f);
+            break;
+        }
+#endif
+    return out;
+}
+
 /// Mapped font files, kept for the life of the atlas.
 ///
 /// The files are **mapped, not read**: ImGui 1.92 rasterizes glyphs on demand and keeps the
@@ -330,6 +364,15 @@ Fonts load_fonts(float size_px) {
     if (!f.unicode) {
         SDL_Log("no system face with non-Latin coverage; names may render as boxes");
         f.unicode = f.regular;
+    }
+    for (const std::string& p : mono_faces())
+        if (const FontBytes b = map_font(p); b && (f.mono = add_face(b, size_px, false))) {
+            SDL_Log("captures render in %s", p.c_str());
+            break;
+        }
+    if (!f.mono) {
+        SDL_Log("no system monospace face; captures render in Fontin, out of column");
+        f.mono = f.regular;
     }
     io.FontDefault = f.regular;
     return f;
