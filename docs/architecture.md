@@ -274,6 +274,15 @@ and the Save row sit outside it and stay put when they do — a form whose Save 
 is the failure that shape exists to prevent. Adding a section needs no new number; adding one that
 overflows 720 needs this one raised.
 
+**The two paths the dialog names go through `path_line()`** — the config file beside Save, and the
+debug log under Diagnostics. Both are drawn through `paths::display_path`, which folds the home
+directory back into `~` or `%APPDATA%`, and both open their **folder** on a click
+(`paths::file_url` → `SDL_OpenURL`). Three reasons, and they all point the same way: the line has
+one line of room and an absolute path does not reliably fit it; this dialog is the one people
+screenshot, and an absolute path names the person who took it; and a `.json` or a `.log` is a file
+a desktop may have no handler for, while its folder is a thing every file manager opens. The whole
+path is still in the hover, which is where the shortening gives back what it took.
+
 **The look is `src/ui/theme.cpp`** — the game's palette and control shapes, sampled off its Options
 dialog: near-black frames under hairline brown borders, headings and the title in the small-caps
 face, the left column tinted where the value beside it is not, and orange for check marks, slider

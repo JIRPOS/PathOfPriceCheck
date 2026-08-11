@@ -139,6 +139,7 @@ enum class Msg : uint16_t {
     DebugLogHelp,
 
     Save,
+    OpenTheFolder,
     Count
 };
 
