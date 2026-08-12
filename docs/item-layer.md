@@ -416,15 +416,16 @@ bundle, and only the third and fourth encode pricing judgement.
   on the same reading a chart's and an ultimatum's get; **what is revealed** on a blueprint, as a
   floor, with the **total** beside it exact where the site indexes one, because a blueprint's wing
   count varies per copy and a four-wing Tunnels is a different item rather than a better one; the
-  **objective's value** on a contract, which is the parenthetical after the target and the only
-  thing about that target the site takes; and the **enchant**, which on a blueprint is what the
+  **job levels**, as floors at the level the item demands, because a requirement is what the run
+  costs to open — a rogue short of it cannot run this copy at all, and a copy asking for less is a
+  cheaper product rather than a better one; and the **enchant**, which on a blueprint is what the
   whole run is for and is something somebody paid to put there.
-  Offered and left unticked: the **job levels**, seeded as ceilings, because a requirement is a
-  demand on the *buyer's* rogue rather than a property of the thing being bought, and a copy
-  asking less is strictly more usable; and the **heist modifiers**, which are the danger the run
-  will hold — rolled, re-rollable, the map argument exactly, except that here the row stays and
-  only the tick goes, because a contract carries seven and ticking all seven asks for one
-  particular copy in the world.
+  Offered and left unticked: the **objective's value** on a contract, the parenthetical after the
+  target and the only thing about that target the site takes, which follows from whatever target
+  this copy rolled rather than from what the area is; and the **heist modifiers**, which are the
+  danger the run will hold — rolled, re-rollable, the map argument exactly, except that here the
+  row stays and only the tick goes, because a contract carries seven and ticking all seven asks
+  for one particular copy in the world.
   Two things are left out entirely. **Item quantity, item rarity, alert level reduction, time
   before lockdown and maximum alive reinforcements** have no `heist_` filter at all, so there is
   nowhere to put them. And **Total Escape Routes** has one, `heist_max_escape_routes`, which the
