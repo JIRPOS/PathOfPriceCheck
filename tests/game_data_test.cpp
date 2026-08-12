@@ -216,6 +216,106 @@ TEST_CASE("Item Class maps to a trade category") {
     CHECK(gd->trade_category_for("Nonexistent Class").empty());
 }
 
+TEST_CASE("a pool answers for a whole mod domain, not for an item") {
+    auto gd = fixture();
+    CHECK(gd->has_mod_pools());
+    const std::span<const PoolMod* const> maps = gd->mod_pool(5);
+    REQUIRE(maps.size() == 3);
+    // File order, which is the order the game's own table holds the modifiers in.
+    CHECK(maps.front()->name == "Ceremonial");
+    CHECK(maps.front()->gen == 1);
+    // Every row behind the wording, tiers and side-area twin alike: it is provenance.
+    CHECK(maps.front()->tiers == 4);
+    CHECK(maps.front()->mods.front() == "MapTotems");
+    // A domain the bundle publishes no pool for is empty, which is not the same answer as a
+    // bundle that has no pools at all — `has_mod_pools()` is what tells those apart.
+    CHECK(gd->mod_pool(1).empty());
+}
+
+TEST_CASE("a pooled modifier carries the span of its tiers, or no bounds at all") {
+    auto gd = fixture();
+    const std::vector<const PoolMod*> hinder =
+        gd->find_pool_mods(5, "Monsters have #% chance to Hinder on Hit with Spells");
+    REQUIRE(hinder.size() == 1);
+    REQUIRE(hinder.front()->stats.size() == 1);
+    const PoolStat& s = hinder.front()->stats.front();
+    CHECK(s.trade_id == "explicit.stat_962720646");
+    CHECK(s.min == doctest::Approx(100));
+    CHECK(s.max == doctest::Approx(100));
+
+    // A wording that prints no number has no bounds, which the reader must not confuse with
+    // bounds it failed to read.
+    const std::vector<const PoolMod*> totems = gd->find_pool_mods(5, "Area contains many Totems");
+    REQUIRE(totems.size() == 1);
+    CHECK_FALSE(totems.front()->stats.front().min.has_value());
+}
+
+TEST_CASE("the domain is part of what a pool lookup asks for") {
+    auto gd = fixture();
+    // A map and a chart word this modifier identically and are separate pools. Answering with
+    // both would offer a chart's affix for a map, which is what the domain keeps apart.
+    const std::string_view wording = "Monsters have #% chance to Hinder on Hit with Spells";
+    REQUIRE(gd->find_pool_mods(5, wording).size() == 1);
+    REQUIRE(gd->find_pool_mods(39, wording).size() == 1);
+    CHECK(gd->find_pool_mods(5, wording).front()->domain == 5);
+    CHECK(gd->find_pool_mods(39, wording).front()->domain == 39);
+    // A wording no entry in that domain prints. Normal, never an error: the pool describes
+    // what spawns naturally and an item can print more than that.
+    CHECK(gd->find_pool_mods(5, "# to maximum Life").empty());
+}
+
+TEST_CASE("a pooled modifier printing two wordings carries one entry per wording") {
+    auto gd = fixture();
+    const std::vector<const PoolMod*> found = gd->find_pool_mods(39, "Monsters cannot be Stunned");
+    REQUIRE(found.size() == 1);
+    REQUIRE(found.front()->stats.size() == 2);
+    // Only one of the two prints a number, and only one is searchable: "#% more Monster Life"
+    // is a wording trade indexes under two hashes, so the build refuses to pick one rather
+    // than filtering on the wrong stat.
+    CHECK(found.front()->stats[0].trade_id == "explicit.stat_1041951480");
+    CHECK(found.front()->stats[1].ref == "#% more Monster Life");
+    CHECK(found.front()->stats[1].trade_id.empty());
+    CHECK(found.front()->stats[1].min == doctest::Approx(10));
+    // It is still an entry: a pool is rated, not searched.
+    CHECK(gd->find_pool_mods(39, "#% more Monster Life").size() == 1);
+}
+
+TEST_CASE("a corruption implicit is filed in the implicit namespace") {
+    auto gd = fixture();
+    const std::vector<const PoolMod*> iiq = gd->find_pool_mods(5, "#% Item Quantity");
+    REQUIRE(iiq.size() == 1);
+    CHECK(iiq.front()->gen == 5);
+    CHECK(iiq.front()->stats.front().trade_id == "implicit.stat_2023217031");
+    // Nothing names this one: only the affixes carry an affix name.
+    CHECK(iiq.front()->name.empty());
+}
+
+TEST_CASE("which pool an item rolls from is the base's answer, then its class's") {
+    auto gd = fixture();
+    const std::vector<const BaseType*> rings = gd->find_bases(Namespace::Item, "Two-Stone Ring");
+    REQUIRE_FALSE(rings.empty());
+    CHECK(rings.front()->mod_domain == 1);
+    CHECK(gd->mod_domain_for(rings.front(), "Rings") == 1);
+
+    // The case the fallback exists for: trade lists all 491 maps under one entry whose game
+    // row is a stand-in sitting with the stackable currency, so the record states no domain
+    // and the class is what knows a map rolls from 5.
+    const std::vector<const BaseType*> maps = gd->find_bases(Namespace::Item, "Map");
+    REQUIRE_FALSE(maps.empty());
+    CHECK(maps.front()->mod_domain == 0);
+    CHECK(gd->mod_domain_for(maps.front(), "Maps") == 5);
+
+    // A chart's own record answers, and its class agrees.
+    const std::vector<const BaseType*> chart =
+        gd->find_bases(Namespace::Item, "Coral Reef Chart");
+    REQUIRE_FALSE(chart.empty());
+    CHECK(gd->mod_domain_for(chart.front(), "Chart") == 39);
+
+    // Neither says: a unique carries no domain and Jewels holds two, so nothing is claimed.
+    CHECK(gd->mod_domain_for(nullptr, "Jewels") == 0);
+    CHECK(gd->mod_domain_for(nullptr, "Nonexistent Class") == 0);
+}
+
 TEST_CASE("a base can be named by its reference name") {
     auto gd = fixture();
     // How the app names a record the clipboard did not print — the blighted-map redirect is

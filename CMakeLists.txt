@@ -120,6 +120,10 @@ add_library(ppc_core STATIC
   src/paths.cpp
   src/config.cpp
   src/quickpaste.cpp
+  src/mapcheck/verdict.cpp
+  src/mapcheck/filter.cpp
+  src/mapcheck/store.cpp
+  src/mapcheck/rate.cpp
   src/leagues.cpp
   src/util/sha256.cpp
   src/util/base64.cpp
@@ -187,6 +191,7 @@ set(APP_SOURCES
   src/ui/range_slider.cpp
   src/screens/settings_screen.cpp
   src/screens/quickpaste_screen.cpp
+  src/screens/mapcheck_screen.cpp
   src/screens/pricecheck_screen.cpp
   src/screens/report_screen.cpp
   src/screens/item_view.cpp)
@@ -292,4 +297,6 @@ ppc_add_test(exchange_test)
 ppc_add_test(ratelimit_test)
 ppc_add_test(track_test)
 ppc_add_test(quickpaste_test)
+ppc_add_test(mapcheck_test)
+ppc_add_test(hotkey_test)
 ppc_add_test(report_test)

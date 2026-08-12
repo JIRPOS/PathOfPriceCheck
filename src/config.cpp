@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "mapcheck/verdict.hpp"
 #include "paths.hpp"
 
 using json = nlohmann::json;
@@ -43,6 +44,24 @@ void read_into(Config& c, const json& j) {
         if (h.contains("settings")) c.settings = parse_hotkey(h["settings"].get<std::string>());
         if (h.contains("quick_paste"))
             c.quick_paste = parse_hotkey(h["quick_paste"].get<std::string>());
+        if (h.contains("map_check")) c.map_check = parse_hotkey(h["map_check"].get<std::string>());
+    }
+    if (j.contains("map_check")) {
+        const auto& m = j["map_check"];
+        if (m.contains("profiles") && m["profiles"].is_array())
+            for (const auto& p : m["profiles"])
+                if (p.is_string()) {
+                    // Sanitised on the way in as well as on the way out: this file is
+                    // hand-editable and a name here is a file name, so a slash in one would be
+                    // a profile that can be listed and never opened.
+                    std::string name = mapcheck::sanitize_profile_name(p.get<std::string>());
+                    if (!name.empty()) c.map_profiles.push_back(std::move(name));
+                }
+        c.map_profile = mapcheck::sanitize_profile_name(m.value("profile", std::string()));
+        if (m.contains("by_character") && m["by_character"].is_object())
+            for (const auto& [character, profile] : m["by_character"].items())
+                if (profile.is_string())
+                    c.map_profile_by_character.emplace_back(character, profile.get<std::string>());
     }
     if (j.contains("pastes") && j["pastes"].is_array()) {
         for (const auto& p : j["pastes"]) {
@@ -109,6 +128,12 @@ bool Config::save() const {
     j["hotkeys"]["price_check"] = to_string(price_check);
     j["hotkeys"]["settings"] = to_string(settings);
     j["hotkeys"]["quick_paste"] = to_string(quick_paste);
+    j["hotkeys"]["map_check"] = to_string(map_check);
+    j["map_check"]["profiles"] = map_profiles;
+    j["map_check"]["profile"] = map_profile;
+    j["map_check"]["by_character"] = json::object();
+    for (const auto& [character, profile] : map_profile_by_character)
+        j["map_check"]["by_character"][character] = profile;
     // Written even when empty, so the file says the feature exists and where its entries go.
     j["pastes"] = json::array();
     for (const Paste& p : pastes)

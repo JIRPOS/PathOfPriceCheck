@@ -21,10 +21,12 @@ Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price 
 The overlay, Settings, the league list, the static game-data layer, the item layer (parse →
 resolve → price-relevant numbers → search plan, plus the game-styled tooltip), the trade search,
 poe.ninja reference pricing, the in-game currency exchange feed, QuickPaste, the bug reporter (with
-the relay it posts to) and the binary updater (with the Windows installer it depends on) are all
-**built and tested**.
+the relay it posts to), the binary updater (with the Windows installer it depends on) and 0.7's
+**map check** — the modifier pool, the per-profile verdict tables, the popup and the search-string
+import — are all **built and tested**.
 What is not built is [docs/roadmap.md](docs/roadmap.md) — including the fact that a language other
-than English cannot yet be selected, because the data build emits only English.
+than English cannot yet be selected, because the data build emits only English, and map check's
+"switch profile by watching `Client.txt`", whose Settings checkbox is drawn disabled and says so.
 
 Sections of any doc describing an unbuilt layer say so explicitly. Keep them honest.
 
@@ -47,7 +49,7 @@ read whole; each is one layer.
 | [docs/trade-layer.md](docs/trade-layer.md) | `src/trade/` — query building, the two-step client, the rate limiter, and how results and the filter list are drawn. |
 | [docs/ninja.md](docs/ninja.md) | `src/ninja/` — the poe.ninja reference price. |
 | [docs/exchange.md](docs/exchange.md) | `src/exchange/` — GGG's hourly in-game currency exchange digests. |
-| [docs/map-check.md](docs/map-check.md) | **Not built.** The design for 0.7 — mod domains, the map modifier pool, and the bundle and data-layer changes it needs first. Read before touching either for map check. |
+| [docs/map-check.md](docs/map-check.md) | `src/mapcheck/` and the two screens over it — mod domains, the modifier pool, the per-profile verdict tables, and PoE's item-search syntax as this reads it. |
 | [docs/localisation.md](docs/localisation.md) | Reading a translated client vs. translating our own text — two unrelated problems, two settings. |
 | [docs/external-apis.md](docs/external-apis.md) | The endpoints themselves: trade, poe.ninja, currency exchange, and GGG's rate-limit policy. |
 | [docs/conventions.md](docs/conventions.md) | Comment style, commit and PR shape, the maintainer alias, which docs are public. |
@@ -99,6 +101,12 @@ violate one of these on the strength of not having read it.
 - **A bug report is sent only by a press, and the dialog shows the whole of it first.** Nothing may
   reach the relay that the preview does not draw, and nothing about a report is gathered in the
   background. → reporting, PRIVACY.md
+- **The verdict store keys on the stat record's `ref`, never on a printed line.** A wording is
+  language-dependent the moment a localised bundle exists; resolution happens first and the verdict
+  attaches to what it resolved to. → map-check
+- **The mod pool describes; it never gates.** A modifier an item prints and the pool does not
+  contain is normal — the pool may offer and pre-fill, never reject, hide, or decide that a line
+  failed to parse. → map-check
 - **The clipboard is ours to read *and* to write.** `clipboard_set_text` owns the X selection from
   a thread of its own, because a write on X11 is a promise to answer for the text later. →
   quickpaste, platform

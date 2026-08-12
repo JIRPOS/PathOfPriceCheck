@@ -50,6 +50,18 @@ struct BaseType {
     std::string name;
     std::string ref_name;
     Namespace ns = Namespace::Item;
+    /// The pool namespace this base's modifiers are generated from — `Mods.Domain`, an integer
+    /// the game has no published name for past the first few. A base has exactly one; the
+    /// domains are mutually exclusive, so this is what says a chart rolls from a different pool
+    /// than the map it is sailed from without compiling in a list of names.
+    ///
+    /// **0 means the record does not say**, which is not the same as "no modifiers": a unique,
+    /// anything the build could not match to game data, and every bundle published before the
+    /// field existed all read as 0 — and so does trade's one "Map" entry, whose game row is a
+    /// stand-in for all 491 of them and states the wrong domain outright. Ask
+    /// `GameData::mod_domain_for` rather than this field, and it will fall back to the item
+    /// class, which is exact for that case.
+    int mod_domain = 0;
     std::string category;    ///< craftable.category, e.g. "Rings"
     std::string trade_disc;  ///< discriminator when name/type alone is ambiguous
     /// The trade `type` term, where it is not the display name. Only gems have one: trade
@@ -148,6 +160,46 @@ struct ItemClass {
     std::string item_class;     ///< as printed by the clipboard, e.g. "Rings"
     std::string id;             ///< the game's internal class id
     std::string trade_category; ///< trade `category` option; empty when unmapped
+    /// The mod domain every base of this class agrees on, or 0 where they do not — a class
+    /// holding genuinely different things (Jewels covers two) can answer for a base and never
+    /// for itself. It exists for the records whose own domain is missing, which is why `Maps`
+    /// carries one: all 511 map bases are domain 5 while the "Map" trade lists them under is a
+    /// stand-in row that says 43.
+    int mod_domain = 0;
+};
+
+/// One stat a pooled modifier grants, as the mod-pool dataset states it — the same shape a
+/// resolved `Stat` has, minus everything only a printed roll can answer.
+struct PoolStat {
+    /// The canonical '#'-placeholder wording, and the key this entry is indexed under. Present
+    /// to render and to match a regex against; it resolves to a `Stat` only where `trade_id`
+    /// is set, since the rest are wordings trade indexes under no hash at all.
+    std::string ref;
+    /// The ready-to-use stat hash. Empty means the modifier is real but not searchable, which
+    /// is the ordinary case here and costs the entry nothing: a pool is rated, not searched.
+    std::string trade_id;
+    /// The lowest tier's floor and the highest tier's ceiling, in displayed units — what a
+    /// wording has to be rendered with before a regex written against printed item text can be
+    /// tested against it. Absent together for a wording that prints no number at all.
+    std::optional<double> min, max;
+};
+
+/// One modifier a mod domain's pool can spawn — one *wording-set*, not one roll: the tiers of
+/// an affix all print the same wordings and a verdict attaches to a wording, so they collapse.
+///
+/// The pool **describes and never gates**. It is what spawns naturally, which is strictly less
+/// than what an item can print: an essence, a craft, a veiled mod or Harvest all put modifiers
+/// on an item whose weights would never have produced them, and the published list is trimmed
+/// by naming conventions besides. A printed modifier no entry covers is normal, not an error.
+struct PoolMod {
+    int domain = 0;
+    /// `Mods.GenerationType` — 1 prefix, 2 suffix, 5 a Vaal corruption implicit, and the rest
+    /// named by number because the game publishes no name for them either.
+    int gen = 0;
+    int tiers = 0;            ///< how many mod rows print these wordings
+    std::string name;         ///< the affix name, as Advanced Mod Descriptions prints it
+    std::vector<std::string> mods; ///< GGG's own mod ids; provenance, for the debug log
+    std::vector<PoolStat> stats;   ///< one per wording, in the order the modifier prints them
 };
 
 } // namespace ppc::data

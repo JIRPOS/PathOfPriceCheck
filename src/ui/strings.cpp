@@ -21,6 +21,7 @@ constexpr const char* kEnglish[]{
     "General",
     "Price check",
     "QuickPaste",
+    "Map check",
     "Application",
 
     "League and account",
@@ -72,6 +73,7 @@ constexpr const char* kEnglish[]{
     "Price check",
     "Settings",
     "QuickPaste",
+    "Map check",
     "press keys\xe2\x80\xa6",
 
     "Reduce transparency",
@@ -102,6 +104,61 @@ constexpr const char* kEnglish[]{
     "Too long to put on the clipboard \xe2\x80\x94 the ceiling is %zu bytes.",
     "No pastes enabled.",
     "Add a paste",
+
+    "Profiles",
+    "Modifiers",
+    "Profile",
+    "No profiles yet",
+    "New profile",
+    "Name",
+    "e.g. Hardcore",
+    "Start from",
+    "— an empty profile —",
+    "Create",
+    "Cancel",
+    "Delete profile",
+    "Delete the profile \"%s\"?",
+    "Its %zu ratings go with it, and nothing here can bring them back.",
+    "Auto-load",
+    "Load this profile automatically for the character you are playing. Not implemented yet.",
+    "Load this profile automatically for the character you are playing. Needs reading the "
+    "client log, which has to be turned on first.",
+    "Search, or paste a map search string",
+    "Plain words narrow the list. A search string you already use for the map device works "
+    "too — quoted terms, ! for what you refuse.",
+    "The same search the game's own stash and map-device boxes take.\n\n"
+    "monster damage \xe2\x80\x94 both words, on one modifier\n"
+    "\"pack size\" \xe2\x80\x94 quotes hold a term with a space in it\n"
+    "!reflect \xe2\x80\x94 hide every modifier saying it\n"
+    "\\d+ e \xe2\x80\x94 the terms are real regular expressions\n"
+    "ll damage$ \xe2\x80\x94 ^ and $ anchor to a printed line\n"
+    "a|b \xe2\x80\x94 either, inside quotes as well as outside\n\n"
+    "A modifier matches when any one of its lines does, its affix name included. Terms like "
+    "ilvl:84 ask about the item rather than a modifier and are ignored here.",
+    "Ignored, as questions about the item and not about a modifier: %s",
+    "Rated on a shorter modifier this one contains. Click to decide it here instead.",
+    "Propose",
+    "Apply the search to every modifier. What a ! term hits is proposed deadly, what a plain "
+    "term hits is proposed safe. Nothing in between, and nothing until you accept it.",
+    "That search names nothing in the list.",
+    "%d deadly, %d safe — shown below, and not saved until you accept.",
+    "Accept",
+    "%zu of %zu modifiers",
+    "The installed data has no modifier pool. Update the game data to fill this list.",
+    "Nothing matches that search.",
+    "No profile yet",
+    "A profile is one table of verdicts. Make one to start rating modifiers.",
+    "%zu rated",
+    "Map check",
+    "Click a modifier to rate it: safe, dangerous, deadly, back to unrated.",
+    "This wording is not one the data can identify, so there is nothing to attach a verdict to.",
+    "This map has nothing rolled to rate.",
+    "You can probably run this map but it has too many unrated modifiers.",
+    "You can run this map safely.",
+    "You can run this map safely but check the unrated modifiers.",
+    "You should be able to run this map.",
+    "You should be able to run this map but be careful.",
+    "You will most probably die in this map.",
 
     "Bundle",
     "Downloading %.1f / %.1f MB",

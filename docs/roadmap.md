@@ -49,7 +49,10 @@ One rule the plan did not have and the code now does: nine slots is a limit on t
 so storage is unbounded, `enabled` is what competes for a number, and the ceiling is enforced on
 load as well as in the UI because `config.json` is hand-editable.
 
-### 0.7, map check
+### 0.7, map check — **built**
+
+Every constraint below was honoured; what building it changed about the design, and the two
+semantics it had left open, are in [map-check.md](map-check.md).
 
 - Reuse the price-check copy path whole, and the map strategy's existing parse and resolve.
   → [strategy-map.md](strategy-map.md)
@@ -60,10 +63,15 @@ load as well as in the UI because `config.json` is hand-editable.
   threshold and neither should the UI. The store still *parses* an optional roll bound from day
   one, because a reader that accepts both shapes costs one branch and a format migration costs
   everyone's file. Do not build UI for it.
-- **Importing a map regex is PoE's search syntax, not a regex**: quoted terms, a leading `!` for
-  negation, space-separated terms ANDed, and bare trailing terms
-  (`"!a|b|c" pte`). Tokenize that first, then hand each term to the engine — feeding the whole
-  string to one is how the `!` ends up matched literally.
+- **A map search string is PoE's search syntax *around* regexes, not one regex**: quoted terms, a
+  leading `!` for negation, space-separated terms ANDed, and bare trailing terms (`"!a|b|c" pte`).
+  Each term genuinely is a regular expression — `\d+ e` and `ll damage$` mean what they look like,
+  anchor included — so tokenize the string first and hand every term to the engine as it stands.
+  Feeding the whole string to one engine is how the `!`, the quotes and the term boundaries end up
+  matched as literal text. The wiki's
+  [Guide:Regex](https://www.poewiki.net/wiki/Guide:Regex) is the written reference and confirms
+  all of it; it also documents keywords (`ilvl:`, `"rarity: rare"`, `ts:`) that ask about the item
+  and therefore cannot be asked of a modifier.
 - **Match against a rendered wording, never `placeholder_form`.** A term like `\d+ e` was written
   against printed item text and can never match a `#`. With a map in hand the printed lines are
   right there; seeding from the full known-mod list needs the wording rendered with something in

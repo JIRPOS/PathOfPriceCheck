@@ -72,8 +72,13 @@ STATS = [
     # wording — which is what the clipboard prints and what the fixture must key on.
     "Map contains Baran's Citadel\n"
     "Item Quantity increases amount of Rewards Baran drops by 20% of its value",
-    # And a map affix, which that plan must leave out without calling it unrecognised.
+    # And a map affix, which that plan must leave out without calling it unrecognised. It is
+    # also half of what covers the mod pool: the same wording is in the map's pool and in the
+    # chart's, under one trade id, which is what a domain-qualified index key is for.
     "Monsters have #% chance to Hinder on Hit with Spells",
+    # A pooled modifier that prints no number at all, so its entry carries no bounds and the
+    # reader has to tell that apart from bounds it failed to read.
+    "Area contains many Totems",
     # A blighted map's implicit, both halves of it — the plan searches every implicit a map
     # has, so leaving one out of the fixture would show up as an unrecognised modifier.
     "Area is infested with Fungal Growths\n"
@@ -288,6 +293,19 @@ UNIQUE_MODS = [
     "Bound Fate",
 ]
 
+# Keyed on the first of each entry's mod ids, which is stable and is what the debug log names.
+# Between them these cover every shape the reader has to get right: a wording with no number,
+# one shared by two domains, a modifier printing two wordings of which only one carries a
+# range, an entry whose wording trade indexes twice and so carries no id at all, and a
+# corruption implicit, whose hash is in the implicit namespace rather than the explicit one.
+MOD_POOLS = [
+    "MapTotems",
+    "MapMonstersHinderOnHitMapWorlds",
+    "MapDeepwaterChartMonstersHinderOnHit",
+    "MapDeepwaterChartMonsterCannotBeStunned",
+    "MapCorruptionItemQuantity",
+]
+
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
@@ -368,6 +386,15 @@ def main() -> int:
     write_index(out / f"{LANG}-unique-mods-name.index.bin",
                 [(f"UNIQUE::{r['name']}", off) for (_, r), off in zip(uniques, offsets)])
 
+    pools = pick(read_ndjson(src / f"{LANG}-mod-pools.ndjson"), MOD_POOLS,
+                 lambda r: r["mods"][0])
+    offsets = write_ndjson(out / f"{LANG}-mod-pools.ndjson", pools)
+    # One key per wording, qualified by domain: a map and a chart share wordings and are
+    # separate pools, so the domain is part of what is being asked for.
+    write_index(out / f"{LANG}-mod-pools-ref.index.bin",
+                [(f"{r['domain']}::{s['ref']}", off) for (_, r), off in zip(pools, offsets)
+                 for s in r["stats"]])
+
     classes = pick(read_ndjson(src / "item-classes.ndjson"), ITEM_CLASSES, lambda r: r["itemClass"])
     write_ndjson(out / "item-classes.ndjson", classes)
 
@@ -382,6 +409,10 @@ def main() -> int:
     # its item records would read as "unknown" and never be tested at all.
     if items_exchange := src_manifest.get("source", {}).get("exchange_items", 0):
         source["exchange_items"] = items_exchange
+    # Carried through the same way, though what gates the mod pools in the app is the file
+    # itself: this is the bundle's own record of how many the build emitted.
+    if pool_count := src_manifest.get("source", {}).get("mod_pools", 0):
+        source["mod_pools"] = pool_count
     manifest = {
         "schema_version": 1,
         "data_version": "fixture",
@@ -391,8 +422,8 @@ def main() -> int:
         "files": [],
     }
     (out / "manifest.json").write_bytes(json.dumps(manifest, indent=2).encode() + b"\n")
-    print(f"wrote {len(stats)} stats, {len(items)} items, {len(uniques)} unique-mod records "
-          f"and {len(classes)} item classes to {out}")
+    print(f"wrote {len(stats)} stats, {len(items)} items, {len(uniques)} unique-mod records, "
+          f"{len(pools)} pool modifiers and {len(classes)} item classes to {out}")
     return 0
 
 

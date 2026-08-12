@@ -9,9 +9,11 @@ it drives have docs of their own and are read separately: [data-layer.md](data-l
 [platform.md](platform.md).
 
 Pipeline: **hotkey → auto-copy → clipboard → parse → identify → price → render**. `App` (`src/app.cpp`)
-owns the SDL event loop and a `Screen` state machine `{ Hidden, PriceCheck, Settings, QuickPaste }`
-— the last of which is the paste list and is [quickpaste.md](quickpaste.md), the only screen that
-does not involve the copy path at all. Price-check
+owns the SDL event loop and a `Screen` state machine
+`{ Hidden, PriceCheck, Settings, QuickPaste, MapCheck }` — QuickPaste is the paste list and is
+[quickpaste.md](quickpaste.md), the only screen that does not involve the copy path at all, and
+MapCheck is [map-check.md](map-check.md), which shares the copy path *whole* and differs only in
+what it opens on the far side of it (`App::copy_target_`). Price-check
 hotkey → `simulate_copy()` → wait for the clipboard to be written → parse → show if it's an item.
 **Four steps, and they are meant to stay four.** An earlier version grew a pre-copy snapshot, a
 byte comparison against it, a latching write detector, `SDL_EVENT_CLIPBOARD_UPDATE` as a third
@@ -195,7 +197,10 @@ releases even when it finds no game window — an unmatched pair leaks the helpe
 
 `App::place_overlay()` gives each screen its own geometry: Settings is a 640×720 dialog centered over
 the game, the paste popup is sized to its own list and placed at the cursor sampled when its hotkey
-fired (see [quickpaste.md](quickpaste.md)), price-check is a **full-height panel docked beside the item's own frame** — right of the
+fired (see [quickpaste.md](quickpaste.md)), the map check popup is placed the same way but sized to
+an item nothing has laid out yet — so it draws at a generous estimate, reports the height it came
+to, and the window follows on the next frame, which is one frame either way for a window that has
+just appeared — price-check is a **full-height panel docked beside the item's own frame** — right of the
 stash if the cursor was in the left half of the game window at hotkey time, left of the inventory if
 in the right half (`App::cursor_side()`, sampled before the copy; the user has moved on by the time
 the clipboard lands). Panels straddling the middle — vendor, quest rewards — have no correct answer,
@@ -239,7 +244,7 @@ globe's lower half, so that the third line — the one an available update adds 
 glass instead of on the frame. `place_overlay` sizes the window to the text for that screen, so the idle
 overlay is a 200×48 rectangle rather than a dialog-sized one nothing is drawn into.
 
-**Settings is four tabs** — General, Price check, QuickPaste, Application — between a fixed header (the title
+**Settings is five tabs** — General, Price check, QuickPaste, Map check, Application — between a fixed header (the title
 and the close disc) and a fixed footer (Save). `kTabs` in `settings_screen.cpp` pairs each name with
 the function that draws it; `App::settings_tab()` holds which one is open, because the screen is a
 free function rebuilt every frame. The strip is buttons, not `ImGui::BeginTabBar`: the game marks
@@ -348,7 +353,8 @@ and on Linux that is an `org.freedesktop.ScreenSaver` inhibit — reason "Playin
 the life of the process, so an application that sits in the tray all day stopped the machine from
 sleeping. The game does its own inhibiting; we are a desktop app. `PPC_DEV_OVERLAY=1` opens Settings and disables
 dismiss-on-blur for local dev; add `PPC_DEV_ITEM=<file>` to open the price-check panel on a captured
-clipboard instead, `PPC_DEV_PASTE=1` to open the paste popup at the pointer, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
+clipboard instead, `PPC_DEV_MAP=<file>` to open the map check popup on a captured map at the
+pointer, `PPC_DEV_PASTE=1` to open the paste popup at the pointer, or `PPC_DEV_IDLE=1` to keep the idle status marker up (it otherwise only ever
 appears while the game is the window in front). `PPC_DEV_UPDATE_URL=<url>` points the update check
 at a `latest.json` of your own, which is the only way to see its three notice surfaces before a
 release publishes one — see [updater.md](updater.md). `PPC_REPORT_URL=<url>` points the bug

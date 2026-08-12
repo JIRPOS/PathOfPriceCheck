@@ -10,11 +10,14 @@ set -euo pipefail
 
 ver="6.7.2"
 url="https://github.com/FortAwesome/Font-Awesome/releases/download/$ver/fontawesome-free-$ver-web.zip"
-# f00c check (confirm), f0e2 arrow-rotate-left (reset), f0fe square-plus (add),
-# f304 pen (edit), f2ed trash-can (delete), f7a4 grip-lines (drag to reorder),
-# f002 magnifying-glass (search), f08e arrow-up-right-from-square (open in browser),
-# f188 bug (report a bug).
-codepoints="U+F00C,U+F0E2,U+F0FE,U+F304,U+F2ED,U+F7A4,U+F002,U+F08E,U+F188"
+# f00c check (confirm, and a safe modifier), f0e2 arrow-rotate-left (reset),
+# f0fe square-plus (add), f304 pen (edit), f2ed trash-can (delete),
+# f7a4 grip-lines (drag to reorder), f002 magnifying-glass (search),
+# f08e arrow-up-right-from-square (open in browser), f188 bug (report a bug),
+# f071 triangle-exclamation (a dangerous modifier), f714 skull-crossbones (a deadly
+# one), f128 question (an unrated one), f0d0 wand-magic (propose verdicts from a
+# search string).
+codepoints="U+F00C,U+F0E2,U+F0FE,U+F304,U+F2ED,U+F7A4,U+F002,U+F08E,U+F188,U+F071,U+F714,U+F128,U+F0D0"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dest="$root/assets/fonts"

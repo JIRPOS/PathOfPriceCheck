@@ -129,6 +129,14 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         gd->unique_mods_name_index_.attach(gd->unique_mods_name_idx_.data(),
                                            gd->unique_mods_name_idx_.size());
 
+    // Optional in the same way and for the same reason. What a domain *could* have rolled is
+    // never needed to price the item in hand, so a bundle without it loses only the ability to
+    // rate a modifier nobody is holding.
+    if (gd->mod_pools_nd_.open(dir / (p + "mod-pools.ndjson")) &&
+        gd->mod_pools_ref_idx_.open(dir / (p + "mod-pools-ref.index.bin")))
+        gd->mod_pools_ref_index_.attach(gd->mod_pools_ref_idx_.data(),
+                                        gd->mod_pools_ref_idx_.size());
+
     // Small table, read eagerly.
     std::ifstream cls(dir / "item-classes.ndjson");
     if (!cls) return fail("cannot read item-classes.ndjson");
@@ -140,6 +148,7 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         ic.item_class = j.value("itemClass", std::string());
         ic.id = j.value("id", std::string());
         ic.trade_category = j.value("tradeCategory", std::string());
+        ic.mod_domain = j.value("domain", 0);
         if (!ic.item_class.empty()) gd->classes_.emplace(ic.item_class, std::move(ic));
     }
     if (gd->classes_.empty()) return fail("item-classes.ndjson is empty");
@@ -242,6 +251,7 @@ const BaseType* GameData::base_at(uint32_t offset) const {
     b->trade_disc = j.value("tradeDisc", std::string());
     b->trade_name = j.value("tradeName", std::string());
     b->metadata_id = j.value("metadataId", std::string());
+    b->mod_domain = j.value("domain", 0);
     b->exchange = j.value("exchange", false);
     b->art = j.value("art", std::string());
     b->w = j.value("w", 0);
@@ -294,6 +304,88 @@ const UniqueMods* GameData::unique_mods_at(uint32_t offset) const {
         for (const json& s : *un)
             if (s.is_string()) u->unlisted.push_back(s.get<std::string>());
     return unique_mods_cache_.emplace(offset, std::move(u)).first->second.get();
+}
+
+const PoolMod* GameData::pool_mod_at(uint32_t offset) const {
+    if (const auto it = pool_mod_cache_.find(offset); it != pool_mod_cache_.end())
+        return it->second.get();
+
+    const std::string_view line = line_at(mod_pools_nd_, offset);
+    if (line.empty()) return nullptr;
+    const json j = json::parse(line, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) return nullptr;
+
+    auto m = std::make_unique<PoolMod>();
+    m->domain = j.value("domain", 0);
+    m->gen = j.value("gen", 0);
+    m->tiers = j.value("tiers", 0);
+    m->name = j.value("name", std::string());
+    if (const auto ids = j.find("mods"); ids != j.end() && ids->is_array())
+        for (const json& id : *ids)
+            if (id.is_string()) m->mods.push_back(id.get<std::string>());
+    if (const auto ss = j.find("stats"); ss != j.end() && ss->is_array()) {
+        for (const json& s : *ss) {
+            if (!s.is_object()) continue;
+            PoolStat ps;
+            ps.ref = s.value("ref", std::string());
+            ps.trade_id = s.value("trade", std::string());
+            // Both or neither: a wording printing no number carries no bounds, and half a pair
+            // would render as a range with an open end it does not have.
+            if (const auto lo = s.find("min"), hi = s.find("max");
+                lo != s.end() && hi != s.end() && lo->is_number() && hi->is_number()) {
+                ps.min = lo->get<double>();
+                ps.max = hi->get<double>();
+            }
+            if (!ps.ref.empty()) m->stats.push_back(std::move(ps));
+        }
+    }
+    return pool_mod_cache_.emplace(offset, std::move(m)).first->second.get();
+}
+
+std::span<const PoolMod* const> GameData::mod_pool(int domain) const {
+    if (!pools_scanned_) {
+        pools_scanned_ = true;
+        // The file has no index by domain and needs none: it is a few hundred lines and a pool
+        // is only ever wanted whole, so one walk fills every domain at once.
+        const std::string_view all = mod_pools_nd_.view();
+        for (size_t at = 0; at < all.size();) {
+            const size_t nl = all.find('\n', at);
+            if (const PoolMod* m = pool_mod_at(static_cast<uint32_t>(at)))
+                pools_by_domain_[m->domain].push_back(m);
+            if (nl == std::string_view::npos) break;
+            at = nl + 1;
+        }
+    }
+    const auto it = pools_by_domain_.find(domain);
+    return it == pools_by_domain_.end() ? std::span<const PoolMod* const>() : it->second;
+}
+
+std::vector<const PoolMod*> GameData::find_pool_mods(int domain,
+                                                     std::string_view normalized) const {
+    std::string key = std::to_string(domain);
+    key += "::";
+    key += normalized;
+
+    std::vector<uint32_t> offsets;
+    mod_pools_ref_index_.lookup(key, offsets);
+    std::vector<const PoolMod*> out;
+    for (uint32_t off : offsets) {
+        // Re-verify: fnv1a32 collides, and a run can mix distinct keys.
+        const PoolMod* m = pool_mod_at(off);
+        if (!m || m->domain != domain) continue;
+        for (const PoolStat& s : m->stats)
+            if (s.ref == normalized) {
+                out.push_back(m);
+                break;
+            }
+    }
+    return out;
+}
+
+int GameData::mod_domain_for(const BaseType* base, std::string_view item_class) const {
+    if (base && base->mod_domain) return base->mod_domain;
+    const ItemClass* ic = this->item_class(item_class);
+    return ic ? ic->mod_domain : 0;
 }
 
 const UniqueMods* GameData::find_unique_mods(std::string_view name) const {

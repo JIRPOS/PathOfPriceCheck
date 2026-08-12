@@ -13,9 +13,11 @@
 #include <imgui_stdlib.h>
 
 #include "app.hpp"
+#include "mapcheck/filter.hpp"
 #include "paths.hpp"
 #include "platform/clipboard.hpp"
 #include "quickpaste.hpp"
+#include "screens/mapcheck_screen.hpp"
 #include "ui/glyphs.hpp"
 #include "ui/strings.hpp"
 #include "ui/theme.hpp"
@@ -417,6 +419,7 @@ void general_tab(App& app, Config& c) {
 
     section(app, ui::text(ui::Msg::SectionHotkeys));
     hotkey_row(app, ui::text(ui::Msg::HotkeyPriceCheck), Action::PriceCheck, c.price_check);
+    hotkey_row(app, ui::text(ui::Msg::HotkeyMapCheck), Action::MapCheck, c.map_check);
     hotkey_row(app, ui::text(ui::Msg::HotkeySettings), Action::ToggleSettings, c.settings);
     hotkey_row(app, ui::text(ui::Msg::HotkeyQuickPaste), Action::QuickPaste, c.quick_paste);
 
@@ -784,6 +787,350 @@ void quickpaste_tab(App& app, Config& c) {
     paste_dialog(app, c);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Map check
+//
+// The bulk-editing half of the feature, and the rarely-opened one: the table is meant to fill in
+// by playing — rate what the popup shows you, on the spot — and this page exists for the one
+// session where somebody sits down to pre-fill it, usually by pasting a search string they
+// already use. Everything here is written per **domain** rather than per map, so the same page
+// serves the flask, abyss jewel or idol pool the day one is published.
+
+/// Reading `Client.txt` to know which character is logged in is 0.7's "might" and is **not
+/// built**. Both tooltips the checkbox can carry are written; this is which one it shows, and
+/// the switch that turns the row on the day the log watcher lands.
+constexpr bool kClientLogSupported = false;
+
+constexpr float kMapVerdictW = 26.0f;
+constexpr float kMapIconW = 30.0f;
+/// The syntax tooltip is a short reference and not a sentence, so it is given a width to wrap
+/// in rather than being left to run the length of its longest example.
+constexpr float kMapSyntaxTipW = 470.0f;
+
+/// One pool entry as one row: the four verdicts as buttons on the left, the wordings beside
+/// them, the affix name after those.
+///
+/// **Four buttons and not a click that cycles**, which is what the popup does. The two lists are
+/// used differently: the popup shows a handful of rows and the target is the modifier, while this
+/// one is a few hundred and the job is putting each into a particular state. One click to any
+/// state is worth the chrome here and is not worth it there.
+/// One affix: one set of buttons, all of its wordings under them.
+///
+/// **The buttons belong to the affix, not to any one of its wordings.** 21 wordings sit on more
+/// than one affix — `Monsters cannot be Stunned` is granted by `Unwavering` and by
+/// `of the Juggernaut` — so a verdict per wording cannot tell those two decisions apart. The
+/// store keys on the whole set, which is why rating one affix leaves the others alone even when
+/// they share a line.
+///
+/// **Three strengths of lit, not two.** A verdict set here is solid, a proposal is brighter
+/// still because the Accept bar above is about exactly those rows, and one *inherited* from a
+/// shorter affix is faint: it is true of this modifier and was not decided on this row, and
+/// pressing the button it is under is what turns it into a decision that was.
+void map_pool_row(App& app, const mapcheck::PoolGroup& group, App::PoolRating shown,
+                  bool proposed) {
+    // The affix's own entry: a map's where a map and a chart both grant it, since that is the
+    // pool the reader is nearly always deciding about. Its twin differs only in the range each
+    // pool rolls, which this row does not print.
+    const data::PoolMod& mod = *group.mod;
+    ImGui::PushID(&group);
+    ImGui::BeginGroup();
+    for (int i = 0; i < 4; ++i) {
+        const auto v = static_cast<mapcheck::Verdict>(i);
+        if (i) ImGui::SameLine(0.0f, 2.0f);
+        const bool on = v == shown.verdict;
+        const ImVec4 tint = ui::verdict_colour(v);
+        const float lit = proposed ? 0.75f : shown.inherited ? 0.22f : 0.55f;
+        ImGui::PushStyleColor(ImGuiCol_Button,
+                              on ? ImVec4(tint.x, tint.y, tint.z, lit) : ui::col::kTabIdle);
+        ImGui::PushStyleColor(ImGuiCol_Text,
+                              on && !shown.inherited ? ui::col::kSection : ui::col::kTextDim);
+        ImGui::PushID(i);
+        if (ImGui::Button(app.fonts().has_glyphs ? ui::verdict_glyph(v) : ui::verdict_word(v),
+                          ImVec2(kMapVerdictW, 0)))
+            app.rate_pool_group(group, v);
+        // Only on the faint one: a row lit for a reason that is not on it has to say what the
+        // reason is, or it reads as a control that moved on its own.
+        if (on && shown.inherited && ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", ui::text(ui::Msg::MapVerdictInherited));
+        ImGui::PopID();
+        ImGui::PopStyleColor(2);
+    }
+    ImGui::EndGroup();
+    ImGui::SameLine();
+
+    ImGui::BeginGroup();
+    ImGui::PushTextWrapPos(0.0f);
+    const std::shared_ptr<data::GameData> gd = app.game_data();
+    for (const data::PoolStat& s : mod.stats) {
+        // Not `s.ref`: a stat that only ever rolls below zero is printed by the game as its
+        // negated wording, and rating a line nobody is shown is rating it blind.
+        ImGui::TextUnformatted(
+            mapcheck::display_wording(gd ? gd->find_stat_by_ref(s.ref) : nullptr, s).c_str());
+    }
+    // The affix name, which is also a line the game's own search reads and therefore something
+    // a pasted term can be about.
+    if (!mod.name.empty()) ImGui::TextDisabled("%s", mod.name.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::EndGroup();
+    ImGui::PopID();
+}
+
+/// The profile row: which table is in use, whether it should follow the character, and the two
+/// buttons that make and unmake one.
+void map_profile_row(App& app, Config& c) {
+    mapcheck::Store& store = app.map_store();
+    MapCheckEdit& e = app.map_edit();
+
+    // The combo gets a width it can show a name in and the checkbox takes what is left; the two
+    // buttons are right-aligned so neither of the other two can push them off the row. Sharing
+    // the leftovers three ways put the profile's name behind an ellipsis.
+    constexpr float kProfileComboW = 260.0f;
+    row_label(ui::text(ui::Msg::MapProfile));
+    ImGui::SetNextItemWidth(kProfileComboW);
+    const std::string preview =
+        store.current().empty() ? ui::text(ui::Msg::MapProfileNone) : store.current();
+    if (ImGui::BeginCombo("##map_profile", preview.c_str())) {
+        for (const std::string& name : store.names()) {
+            const bool sel = name == store.current();
+            if (ImGui::Selectable(name.c_str(), sel)) app.select_map_profile(name);
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    // Disabled either way today, and the tooltip is the difference: one says the feature does
+    // not exist, the other says what to turn on. Writing both now costs a line and means the
+    // day the log watcher lands, only `kClientLogSupported` moves.
+    ImGui::SameLine();
+    bool follows = false;
+    ImGui::BeginDisabled(true);
+    ImGui::Checkbox(ui::text(ui::Msg::MapAutoLoad), &follows);
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("%s", ui::text(kClientLogSupported ? ui::Msg::MapAutoLoadNeedsLog
+                                                             : ui::Msg::MapAutoLoadUnbuilt));
+
+    right_align(kMapIconW * 2.0f + ImGui::GetStyle().ItemSpacing.x);
+    ImGui::BeginDisabled(store.current().empty());
+    if (icon_button(app, ui::kGlyphDelete, "X", ui::text(ui::Msg::MapProfileDelete), kMapIconW))
+        e.deleting = store.current();
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    if (icon_button(app, ui::kGlyphAdd, "+", ui::text(ui::Msg::MapProfileNew), kMapIconW)) {
+        e.adding = true;
+        e.draft_name.clear();
+        e.copy_from.clear();
+    }
+
+    row_gutter();
+    if (store.current().empty())
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::MapNoProfileHelp));
+    else
+        ImGui::TextDisabled(ui::text(ui::Msg::MapRatedCount), store.profile().rated());
+}
+
+/// Making one. A dialog rather than a field in the row, because a name has to be finished
+/// before it can be a file and "copy from" is a second decision about the same thing.
+void map_profile_dialog(App& app) {
+    MapCheckEdit& e = app.map_edit();
+    if (e.adding && !ImGui::IsPopupOpen("##map_profile_new")) ImGui::OpenPopup("##map_profile_new");
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowSize(ImVec2(display.x, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("##map_profile_new", nullptr,
+                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                    ImGuiWindowFlags_NoMove))
+        return;
+
+    section(app, ui::text(ui::Msg::MapProfileNew));
+    ImGui::InputTextWithHint(row(ui::text(ui::Msg::MapProfileName)),
+                             ui::text(ui::Msg::MapProfileNameHint), &e.draft_name);
+    // What it will actually be called, said before it is: the name is the file name, so a
+    // slash in it becomes an underscore and the user should see that here rather than later.
+    const std::string clean = mapcheck::sanitize_profile_name(e.draft_name);
+    if (!clean.empty() && clean != e.draft_name) {
+        row_gutter();
+        ImGui::TextDisabled("%s", clean.c_str());
+    }
+
+    const char* copy_preview =
+        e.copy_from.empty() ? ui::text(ui::Msg::MapProfileEmpty) : e.copy_from.c_str();
+    if (ImGui::BeginCombo(row(ui::text(ui::Msg::MapProfileCopyFrom)), copy_preview)) {
+        // Pre-selected, because a first profile has nothing to copy and a second one usually
+        // wants to be its own thing rather than a fork nobody asked for.
+        if (ImGui::Selectable(ui::text(ui::Msg::MapProfileEmpty), e.copy_from.empty()))
+            e.copy_from.clear();
+        for (const std::string& name : app.map_store().names())
+            if (ImGui::Selectable(name.c_str(), name == e.copy_from)) e.copy_from = name;
+        ImGui::EndCombo();
+    }
+
+    ImGui::Separator();
+    const std::vector<std::string>& names = app.map_store().names();
+    const bool taken = std::find(names.begin(), names.end(), clean) != names.end();
+    ImGui::BeginDisabled(clean.empty() || taken);
+    ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kButtonHovered);
+    if (ImGui::Button(ui::text(ui::Msg::MapProfileCreate), ImVec2(120, 0))) {
+        app.create_map_profile(clean, e.copy_from);
+        e.adding = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::PopStyleColor();
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button(ui::text(ui::Msg::MapProfileCancel), ImVec2(120, 0))) {
+        e.adding = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+/// Unmaking one, behind a confirmation: a table is a few hundred decisions and a misclick on a
+/// 30-pixel button is not a reason to lose them.
+void map_delete_dialog(App& app) {
+    MapCheckEdit& e = app.map_edit();
+    if (!e.deleting.empty() && !ImGui::IsPopupOpen("##map_profile_del"))
+        ImGui::OpenPopup("##map_profile_del");
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowSize(ImVec2(display.x, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("##map_profile_del", nullptr,
+                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                    ImGuiWindowFlags_NoMove))
+        return;
+
+    section(app, ui::text(ui::Msg::MapProfileDelete));
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::Text(ui::text(ui::Msg::MapProfileDeleteAsk), e.deleting.c_str());
+    ImGui::TextColored(kWarn, ui::text(ui::Msg::MapProfileDeleteWarn),
+                       app.map_store().rated_in(e.deleting));
+    ImGui::PopTextWrapPos();
+
+    ImGui::Separator();
+    ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kClose);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ui::col::kCloseHovered);
+    if (ImGui::Button(ui::text(ui::Msg::MapProfileDelete), ImVec2(140, 0))) {
+        app.delete_map_profile(e.deleting);
+        e.deleting.clear();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::PopStyleColor(2);
+    ImGui::SameLine();
+    if (ImGui::Button(ui::text(ui::Msg::MapProfileCancel), ImVec2(120, 0))) {
+        e.deleting.clear();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+/// The search box, the `?` that says what it takes, and the button that turns it into verdicts.
+void map_filter_row(App& app) {
+    MapCheckEdit& e = app.map_edit();
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    // The `?` is a text item, so its width is the glyph's rather than a frame's.
+    const float help_w = ImGui::CalcTextSize("(?)").x;
+
+    row_gutter(); // the section heading above already names this block
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - kMapIconW - help_w - spacing * 2.0f);
+    // A changed search invalidates a proposal made from the old one, which would otherwise sit
+    // there naming rows the list no longer shows.
+    if (ImGui::InputTextWithHint("##map_filter", ui::text(ui::Msg::MapFilterHint), &e.filter))
+        e.clear_proposal();
+
+    // Next to the box rather than under it: the syntax is the game's own, and somebody who does
+    // not already know that will not go looking for a paragraph to tell them.
+    ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetNextWindowSize(ImVec2(kMapSyntaxTipW, 0.0f));
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(ui::text(ui::Msg::MapSearchSyntax));
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled(e.filter.empty() || app.map_store().current().empty());
+    if (icon_button(app, ui::kGlyphApply, "=>", ui::text(ui::Msg::MapProposeTip), kMapIconW))
+        app.propose_from_search(e.filter);
+    ImGui::EndDisabled();
+
+    row_gutter();
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::MapFilterHelp));
+    // Read off the terms rather than off a built filter: this runs every frame the tab is open,
+    // and parsing a line of text is not what compiling its regexes costs. Naming them beats
+    // counting them — the user can see which of what they pasted did nothing here.
+    std::string aside;
+    for (const mapcheck::SearchTerm& t : mapcheck::parse_search(e.filter)) {
+        if (!mapcheck::asks_about_item(t.text)) continue;
+        if (!aside.empty()) aside += ", ";
+        aside += t.text;
+    }
+    if (!aside.empty()) ImGui::TextDisabled(ui::text(ui::Msg::MapFilterSetAside), aside.c_str());
+    ImGui::PopTextWrapPos();
+}
+
+void map_check_tab(App& app, Config& c) {
+    MapCheckEdit& e = app.map_edit();
+
+    section(app, ui::text(ui::Msg::SectionMapProfiles));
+    map_profile_row(app, c);
+    map_profile_dialog(app);
+    map_delete_dialog(app);
+
+    section(app, ui::text(ui::Msg::SectionMapModifiers));
+    map_filter_row(app);
+
+    const std::shared_ptr<data::GameData> gd = app.game_data();
+    if (!gd || !gd->has_mod_pools()) {
+        ImGui::Spacing();
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("%s", ui::text(ui::Msg::MapPoolNoData));
+        ImGui::PopTextWrapPos();
+        return;
+    }
+
+    // Which entries to draw, and what verdict to draw on each. A pending proposal replaces both
+    // — it *is* the preview, so the list shows exactly the rows Accept would write.
+    const std::vector<mapcheck::PoolGroup>& shown = app.map_pool_view();
+    const size_t held = app.map_pool_size();
+
+    if (!e.proposal.empty()) {
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, kWarn);
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::Text(ui::text(ui::Msg::MapProposeCounts), e.proposed_deadly, e.proposed_safe);
+        ImGui::PopTextWrapPos();
+        ImGui::PopStyleColor();
+        ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kButtonHovered);
+        if (ImGui::Button(ui::text(ui::Msg::MapProposeApply), ImVec2(140, 0)))
+            app.accept_proposal();
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        if (ImGui::Button(ui::text(ui::Msg::MapProfileCancel), ImVec2(120, 0)))
+            e.clear_proposal();
+    } else {
+        ImGui::TextDisabled(ui::text(ui::Msg::MapPoolCount), shown.size(), held);
+    }
+
+    ImGui::Separator();
+    if (shown.empty()) {
+        ImGui::TextDisabled("%s", ui::text(held ? ui::Msg::MapPoolEmpty : ui::Msg::MapPoolNoData));
+        return;
+    }
+    // A child of its own, so the list scrolls under a profile row and a search box that do not.
+    ImGui::BeginChild("##map_pool", ImVec2(0, 0));
+    for (const mapcheck::PoolGroup& g : shown)
+        map_pool_row(app, g, app.pool_verdict(g), !e.proposal.empty());
+    ImGui::EndChild();
+}
+
 void application_tab(App& app, Config& c) {
     section(app, ui::text(ui::Msg::SectionGameData));
     data_row(app);
@@ -841,6 +1188,7 @@ constexpr Tab kTabs[]{
     {ui::Msg::TabGeneral, &general_tab},
     {ui::Msg::TabPriceCheck, &price_check_tab},
     {ui::Msg::TabQuickPaste, &quickpaste_tab},
+    {ui::Msg::TabMapCheck, &map_check_tab},
     {ui::Msg::TabApplication, &application_tab},
 };
 // The paste popup's "add one" opens Settings on this tab by number, and a tab inserted above
