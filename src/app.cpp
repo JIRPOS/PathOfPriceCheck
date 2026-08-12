@@ -362,8 +362,10 @@ int App::run(bool relaunched_after_update) {
             cursor_x_ = static_cast<int>(mx);
             cursor_y_ = static_cast<int>(my);
             set_screen(Screen::QuickPaste);
-        } else if (const char* path = std::getenv("PPC_DEV_MAP") ?: std::getenv("PPC_DEV_ITEM")) {
-            const bool map = std::getenv("PPC_DEV_MAP") != nullptr;
+            // Spelled out rather than with `?:`, which is a GNU extension MSVC does not have.
+        } else if (const char* dev_map = std::getenv("PPC_DEV_MAP");
+                   const char* path = dev_map ? dev_map : std::getenv("PPC_DEV_ITEM")) {
+            const bool map = dev_map != nullptr;
             std::ifstream in(path, std::ios::binary);
             if (in) {
                 std::ostringstream ss;

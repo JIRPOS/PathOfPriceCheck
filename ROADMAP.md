@@ -114,14 +114,18 @@ A hotkey that reads a map's rolled modifiers and tells you which ones you decide
 - Rate a whole modifier, however many lines it prints, and apply that to every modifier carrying
   the same lines. Implicits included.
 
-**Also does - seed the table from a map regex you already use.** Paste
-`"!\d+ e|te of|m resistances$|ents$|r, f|ter e|ll damage$|from$|t reg|s def|h tem" pte` and every
-modifier an excluding term hits is *proposed* deadly, every one a wanted term hits *proposed*
-safe. You confirm; from then on the table is what the tool believes. It imports imperfectly on
-purpose - the game's search reads a whole item where this reads modifier wordings, and a term
-written against a printed number is being matched against a placeholder - so it is a head start,
-not an answer. The regexes come from the paste list in 0.6. The same syntax narrows the modifier
-list in Settings, and a **?** beside the box says what it takes.
+**Also does - seed the table from a map regex you already use.** Paste a regex from a tool like
+poe.re\* (for example
+`"!\d+ e|te of|m resistances$|ents$|r, f|ter e|ll damage$|from$|t reg|s def|h tem"`) and every
+modifier an excluding term hits is *proposed* deadly, every one a wanted term hits *proposed* safe.
+You confirm; from then on the table is what the tool believes. It can import imperfectly - the
+game's search reads a whole item where this reads modifier wordings, and a term written against a
+printed number is being matched against a placeholder - think of it as a head start. The real
+ratings will come from using the tool and fill up pretty quickly. The same syntax narrows the
+modifier list in Settings, and a **?** beside the box says what it takes.
+
+\* When building the regex, don't add filters for Quantity&Yield, Map State or Quality. "I don't
+want any of these mods" and "I want these mods" with match type "Any".
 
 **Dropped - switch profile automatically** by watching the client log. The log never names the
 character you selected, and the three lines that do carry a name (a level-up, a death, a chat
