@@ -124,9 +124,6 @@ enum class Msg : uint16_t {
     MapProfileDelete,
     MapProfileDeleteAsk,     ///< "%s" — the profile's name
     MapProfileDeleteWarn,    ///< "%zu" — how many ratings go with it
-    MapAutoLoad,
-    MapAutoLoadUnbuilt,
-    MapAutoLoadNeedsLog,
     MapFilterHint,
     MapFilterHelp,
     MapSearchSyntax,         ///< the `?` beside the search box: the game's own search rules

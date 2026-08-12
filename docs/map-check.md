@@ -86,14 +86,9 @@ being typed. So `persist_map_profile` re-reads the file, lays the two map-check 
 already there, and writes that. Creating and deleting go through it too, which is what makes the
 config's ordering keep up with the directory rather than waiting for a Save.
 
-**Under an auto-load rule, a switch by hand is temporary instead.** When the profile is decided by
-the character being played, picking another is a look at a second table rather than a new
-preference: it stands until the next time a screen that rates opens, and `apply_auto_profile` —
-called on the way into the popup and into Settings, both through `set_screen` — puts the
-character's own back. `auto_profile()` is what decides, and it returns nothing today, so every
-selection is the user's own to keep. Reading `Client.txt` is 0.7's "might" and is not built, which
-is what the checkbox is disabled for; the rest of the rule is written now so that landing it is a
-function body rather than a design.
+**Picking a profile is the only way one is picked**, and that is not a gap left for later — see
+"The client log cannot say which character is playing" below. There is no auto-load rule, no
+per-character mapping in `config.json` and no rule under which a hand-picked profile is temporary.
 
 There is **always at least one profile**. An empty directory is given `Default` at startup, and
 deleting the last one puts it back: a verdict is only ever put into a table, so a popup opening
@@ -350,6 +345,45 @@ hashCode and adler32 were each tested against `map_zana_influence`, over the raw
 to a printed line. This is a separate known issue, out of scope here, and named so it is not
 rediscovered as a symptom of this work.
 
+## The client log cannot say which character is playing
+
+0.7's second "might" — switch profile by watching the client log — is **not deferred. It cannot be
+built**, and the evidence is here so it is not proposed again next league.
+
+The log is `logs/LatestClient.txt` beside the game's executable, one file per launch, and
+`logs/Client.txt` is the same lines appended forever. **Selecting a character writes nothing named
+to either.** A launch that goes through character select into the game reads, whole:
+
+```text
+[SCENE] Set Source [(null)]
+Got Instance Details from login server
+Connecting to instance server at <ip>:6112
+Client-Safe Instance ID = <n>
+Generating level <n> area "<id>" with seed <n>
+: You have entered <Area>.
+```
+
+Checked against a full 1h13m session on 3.29.2, from `***** LOG FILE OPENING *****` through login,
+character select and two zones: the character's name appears in it **zero times**.
+
+Three line shapes in the whole 48 MB history do carry a character name, and each names other
+players as readily as you:
+
+- `<Name> (<Class>) is now level <N>` — also fires for party members
+- `<Name> has been slain.` — same
+- `#<>GUILD<> <Name>: text` — a channel line, identical whoever typed it
+
+Nothing distinguishes the local character from anyone else in the party or the channel, so there
+is no signal to key a profile on. State outside the log is no better: the game's
+`production_Config.ini` leaves `account_name` empty, and its minimap cache names files by hash.
+The one deterministic hook is whispering yourself, which prints `@To <YourName>:` — a name that
+can be trusted, at the cost of the user typing a whisper after every character switch, which is
+worse than the combo box they would otherwise use.
+
+So the profile in use is the one the user picked, and remembering it is the whole of the feature.
+Asking GGG's account API instead is not an alternative worth having: it needs a session cookie,
+and this program deliberately holds no account credentials — see [../PRIVACY.md](../PRIVACY.md).
+
 ## What the app gains
 
 **`src/data` — built.** `en-mod-pools.ndjson` and its index load exactly as the optional datasets
@@ -579,5 +613,3 @@ sits on.
   pool so they can be rated like anything else. This wants a **capture**, not reasoning — the same
   rule every number in this project is held to.
 - **The two import semantics above** — any-wording-hits, and whether the affix name is matchable.
-- **What a profile is keyed on**, if `LatestClient.log` watching is ever built. It is outside the
-  1.0 promise and goes in `PRIVACY.md` either way.

@@ -119,10 +119,6 @@ constexpr const char* kEnglish[]{
     "Delete profile",
     "Delete the profile \"%s\"?",
     "Its %zu ratings go with it, and nothing here can bring them back.",
-    "Auto-load",
-    "Load this profile automatically for the character you are playing. Not implemented yet.",
-    "Load this profile automatically for the character you are playing. Needs reading the "
-    "client log, which has to be turned on first.",
     "Search, or paste a map search string",
     "Plain words narrow the list. A search string you already use for the map device works "
     "too — quoted terms, ! for what you refuse.",

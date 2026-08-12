@@ -2,8 +2,6 @@
 
 #include <string>
 #include <string_view>
-#include <utility>
-
 #include <vector>
 
 #include "item/range_match.hpp"
@@ -67,13 +65,9 @@ struct Config {
     /// A record rather than the authority: `MapCheckService` also reads the directory, so a
     /// file dropped in by hand appears and one listed here that has gone is dropped.
     std::vector<std::string> map_profiles;
-    /// Which of them is in use. Empty until there is one.
+    /// Which of them is in use — the one last picked, in Settings or in the popup, and the one
+    /// the next launch opens on. Empty until there is one.
     std::string map_profile;
-    /// Character name → profile name, for the automatic switch that watching `Client.txt`
-    /// would drive. **Nothing reads it yet** — that watching is 0.7's "might" and is not built,
-    /// which is what the Settings checkbox is disabled for. Round-tripped so a hand-written
-    /// entry survives until it can be honoured.
-    std::vector<std::pair<std::string, std::string>> map_profile_by_character;
 
     /// Run the trade search as soon as the panel opens, rather than on the Search button.
     /// Off by default and deliberately so: a hotkey the user pressed to *read* an item

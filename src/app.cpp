@@ -866,18 +866,6 @@ void App::rate_map_row(size_t index, std::optional<mapcheck::Verdict> v) {
     need_redraw_ = true;
 }
 
-std::string App::auto_profile() const {
-    // Not built — see the header. This is the one body that changes the day `Client.txt` is
-    // watched, and everything reading it is already written for a name coming back.
-    return {};
-}
-
-void App::apply_auto_profile() {
-    const std::string want = auto_profile();
-    if (want.empty()) return;
-    select_map_profile(want);
-}
-
 void App::persist_map_profile() {
     Config on_disk = Config::load();
     on_disk.map_profiles = config_.map_profiles;
@@ -895,16 +883,9 @@ void App::select_map_profile(std::string_view name) {
     for (mapcheck::Row& r : map_rows_)
         if (r.rateable()) r.verdict = map_store_.verdict_of(r.refs);
     debug::log("[map]    profile -> '%s'", config_.map_profile.c_str());
-    // **A selection is remembered only when it is the user's own to make.** With no auto-load
-    // rule in force — which is every case today — the profile last picked in Settings *or* in
-    // the popup is the one the next launch opens on, and it is written now rather than waiting
-    // on a Save the popup has no button for.
-    //
-    // Under a rule, the character decides and picking by hand is a look at another table rather
-    // than a new preference: it stands until the next time a rating screen opens, when
-    // `apply_auto_profile` puts the character's own back. Writing it would let the look outlive
-    // the session that took it.
-    if (auto_profile().empty()) persist_map_profile();
+    // The profile last picked in Settings *or* in the popup is the one the next launch opens
+    // on, and it is written now rather than waiting on a Save the popup has no button for.
+    persist_map_profile();
     need_redraw_ = true;
 }
 
@@ -1640,10 +1621,6 @@ void App::set_screen(Screen s) {
     // them. `kWriteDelay` batches the clicks; this is what makes it safe to.
     if ((screen_ == Screen::MapCheck || screen_ == Screen::Settings) && s != screen_)
         map_store_.flush();
-    // And on the way in, the other half of the same rule: a profile picked by hand under an
-    // auto-load rule lasts until a rating screen opens again, and this is that moment. A no-op
-    // while `auto_profile` has nothing to say, which is every case today.
-    if ((s == Screen::MapCheck || s == Screen::Settings) && s != screen_) apply_auto_profile();
     // A fresh popup measures itself from scratch: the last map's height is not an estimate of
     // this one's, and starting from it would draw one frame at the wrong size.
     if (s == Screen::MapCheck && screen_ != Screen::MapCheck) mapcheck_h_ = 0;

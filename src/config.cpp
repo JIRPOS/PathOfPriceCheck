@@ -58,10 +58,6 @@ void read_into(Config& c, const json& j) {
                     if (!name.empty()) c.map_profiles.push_back(std::move(name));
                 }
         c.map_profile = mapcheck::sanitize_profile_name(m.value("profile", std::string()));
-        if (m.contains("by_character") && m["by_character"].is_object())
-            for (const auto& [character, profile] : m["by_character"].items())
-                if (profile.is_string())
-                    c.map_profile_by_character.emplace_back(character, profile.get<std::string>());
     }
     if (j.contains("pastes") && j["pastes"].is_array()) {
         for (const auto& p : j["pastes"]) {
@@ -131,9 +127,6 @@ bool Config::save() const {
     j["hotkeys"]["map_check"] = to_string(map_check);
     j["map_check"]["profiles"] = map_profiles;
     j["map_check"]["profile"] = map_profile;
-    j["map_check"]["by_character"] = json::object();
-    for (const auto& [character, profile] : map_profile_by_character)
-        j["map_check"]["by_character"][character] = profile;
     // Written even when empty, so the file says the feature exists and where its entries go.
     j["pastes"] = json::array();
     for (const Paste& p : pastes)

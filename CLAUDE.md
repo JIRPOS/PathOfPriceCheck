@@ -25,8 +25,10 @@ the relay it posts to), the binary updater (with the Windows installer it depend
 **map check** — the modifier pool, the per-profile verdict tables, the popup and the search-string
 import — are all **built and tested**.
 What is not built is [docs/roadmap.md](docs/roadmap.md) — including the fact that a language other
-than English cannot yet be selected, because the data build emits only English, and map check's
-"switch profile by watching `Client.txt`", whose Settings checkbox is drawn disabled and says so.
+than English cannot yet be selected, because the data build emits only English. Map check's second
+"might", switching profile by watching the client log, is **not** on that list: the log never names
+the character you selected, so it was closed rather than deferred — see that doc's **Decided
+against**, and bring a capture if you reopen it.
 
 Sections of any doc describing an unbuilt layer say so explicitly. Keep them honest.
 

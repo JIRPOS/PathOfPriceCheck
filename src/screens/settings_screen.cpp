@@ -796,11 +796,6 @@ void quickpaste_tab(App& app, Config& c) {
 // already use. Everything here is written per **domain** rather than per map, so the same page
 // serves the flask, abyss jewel or idol pool the day one is published.
 
-/// Reading `Client.txt` to know which character is logged in is 0.7's "might" and is **not
-/// built**. Both tooltips the checkbox can carry are written; this is which one it shows, and
-/// the switch that turns the row on the day the log watcher lands.
-constexpr bool kClientLogSupported = false;
-
 constexpr float kMapVerdictW = 26.0f;
 constexpr float kMapIconW = 30.0f;
 /// The syntax tooltip is a short reference and not a sentence, so it is given a width to wrap
@@ -875,15 +870,13 @@ void map_pool_row(App& app, const mapcheck::PoolGroup& group, App::PoolRating sh
     ImGui::PopID();
 }
 
-/// The profile row: which table is in use, whether it should follow the character, and the two
-/// buttons that make and unmake one.
-void map_profile_row(App& app, Config& c) {
+/// The profile row: which table is in use, and the two buttons that make and unmake one.
+void map_profile_row(App& app) {
     mapcheck::Store& store = app.map_store();
     MapCheckEdit& e = app.map_edit();
 
-    // The combo gets a width it can show a name in and the checkbox takes what is left; the two
-    // buttons are right-aligned so neither of the other two can push them off the row. Sharing
-    // the leftovers three ways put the profile's name behind an ellipsis.
+    // The combo gets a width it can show a name in; the two buttons are right-aligned so it
+    // cannot push them off the row.
     constexpr float kProfileComboW = 260.0f;
     row_label(ui::text(ui::Msg::MapProfile));
     ImGui::SetNextItemWidth(kProfileComboW);
@@ -897,18 +890,6 @@ void map_profile_row(App& app, Config& c) {
         }
         ImGui::EndCombo();
     }
-
-    // Disabled either way today, and the tooltip is the difference: one says the feature does
-    // not exist, the other says what to turn on. Writing both now costs a line and means the
-    // day the log watcher lands, only `kClientLogSupported` moves.
-    ImGui::SameLine();
-    bool follows = false;
-    ImGui::BeginDisabled(true);
-    ImGui::Checkbox(ui::text(ui::Msg::MapAutoLoad), &follows);
-    ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", ui::text(kClientLogSupported ? ui::Msg::MapAutoLoadNeedsLog
-                                                             : ui::Msg::MapAutoLoadUnbuilt));
 
     right_align(kMapIconW * 2.0f + ImGui::GetStyle().ItemSpacing.x);
     ImGui::BeginDisabled(store.current().empty());
@@ -1080,7 +1061,7 @@ void map_check_tab(App& app, Config& c) {
     MapCheckEdit& e = app.map_edit();
 
     section(app, ui::text(ui::Msg::SectionMapProfiles));
-    map_profile_row(app, c);
+    map_profile_row(app);
     map_profile_dialog(app);
     map_delete_dialog(app);
 

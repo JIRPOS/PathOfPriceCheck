@@ -77,7 +77,8 @@ semantics it had left open, are in [map-check.md](map-check.md).
   right there; seeding from the full known-mod list needs the wording rendered with something in
   the placeholder, and a term that can only match a number is one this cannot honestly resolve.
 - The import proposes and the user confirms. Nothing writes a verdict the user has not seen.
-- The store, the profiles and any `LatestClient.log` read are all `PRIVACY.md` entries.
+- The store and the profiles are `PRIVACY.md` entries. The client log is not read at all — see
+  **Decided against** below.
 
 ### 0.8, client languages
 
@@ -188,3 +189,17 @@ Known, argued, and unscheduled — except where a planned version claims one, wh
   and every unique-mod range for it is then emitted 100× too large (`40..40` for a roll of `0.4`).
   The app refuses such a range rather than believing it, so the damage is contained; the fix is
   upstream, and `examples/item_3` is the case to check it against.
+
+## Decided against
+
+Not backlog. Each of these was proposed, investigated against the real thing, and closed — the
+reason is here so it is not proposed a second time.
+
+- **Switching the map-check profile by watching the client log** — 0.7's second "might", and it
+  cannot be built rather than merely being unbuilt. The game never writes the selected character's
+  name to `logs/LatestClient.txt`, and the three line shapes that do carry a name name your party
+  as readily as you. The full evidence, the shape of a login as it is actually logged, and why the
+  account API is not an alternative are in [map-check.md](map-check.md#the-client-log-cannot-say-which-character-is-playing).
+  What replaced it is the profile last picked being remembered, which is a `persist_map_profile`
+  call and no new file, host or log line. **If this is reopened, reopen it with a capture** — a
+  client log in which a character selection is actually named — and not with reasoning.

@@ -97,32 +97,36 @@ search, a whisper you send twenty times an evening.
 
 **Might** - grow that keystroke as an option later if it turns out to be wanted.
 
-## 0.7 - Map check
+## 0.7 - Map check - **shipped**
 
 A hotkey that reads a map's rolled modifiers and tells you which ones you decided you cannot take.
 
-**Will:**
+**Does:**
 
 - Mark each modifier **safe**, **dangerous** or **deadly**, and remember it.
 - Lead with the worst verdict on the map.
 - Draw unrated modifiers as unrated, with the rating control on the spot. The table fills in by
   being used.
-- Keep a table per character profile, picked in the popup and sticky until you change it. A new
-  profile can start as a copy of an existing one.
-- Rate a modifier as a modifier, at every roll - the way a map regex does. **Will not** ask you
+- Keep a table per profile, picked in the popup or in Settings and remembered until you change
+  it. A new profile can start as a copy of an existing one.
+- Rate a modifier as a modifier, at every roll - the way a map regex does. **Does not** ask you
   for a threshold on each of a few hundred mods.
+- Rate a whole modifier, however many lines it prints, and apply that to every modifier carrying
+  the same lines. Implicits included.
 
-**Might - seed the table from a map regex you already use.** Paste
+**Also does - seed the table from a map regex you already use.** Paste
 `"!\d+ e|te of|m resistances$|ents$|r, f|ter e|ll damage$|from$|t reg|s def|h tem" pte` and every
-modifier an excluding term hits is *proposed* dangerous, every one a wanted term hits *proposed*
+modifier an excluding term hits is *proposed* deadly, every one a wanted term hits *proposed*
 safe. You confirm; from then on the table is what the tool believes. It imports imperfectly on
 purpose - the game's search reads a whole item where this reads modifier wordings, and a term
 written against a printed number is being matched against a placeholder - so it is a head start,
-not an answer. The regexes come from the paste list in 0.6.
+not an answer. The regexes come from the paste list in 0.6. The same syntax narrows the modifier
+list in Settings, and a **?** beside the box says what it takes.
 
-**Might - switch profile automatically** by watching `LatestClient.log`. Outside the 1.0 promise:
-it ships if it is cheap and is dropped without argument if it is not. Either way it goes in
-[PRIVACY.md](PRIVACY.md), as does the verdict table.
+**Dropped - switch profile automatically** by watching the client log. The log never names the
+character you selected, and the three lines that do carry a name (a level-up, a death, a chat
+message) name your party as readily as you, so there is nothing to switch on. The profile you
+pick is remembered instead, and the verdict table goes in [PRIVACY.md](PRIVACY.md) as promised.
 
 ## 0.8 - Every language the client speaks
 

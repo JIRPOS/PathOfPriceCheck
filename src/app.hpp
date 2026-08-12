@@ -321,15 +321,6 @@ public:
     void create_map_profile(const std::string& name, const std::string& copy_from);
     void delete_map_profile(const std::string& name);
 
-    /// The profile the auto-load rule says this character should be rating into, or empty when
-    /// no rule applies — which is what makes a selection the user's own to keep.
-    ///
-    /// **Always empty today.** Knowing which character is logged in means reading `Client.txt`,
-    /// which is 0.7's "might" and is not built — it is what the Settings checkbox is disabled
-    /// for. With no character there is nothing to look up in `Config::map_profile_by_character`.
-    /// Everything either side of it is written against this one day returning a name, so that
-    /// day is a function body and not a design.
-    std::string auto_profile() const;
     /// How tall the popup actually drew. Reported back by the screen because the window has to
     /// be sized before there is a frame to measure in — see `place_overlay`.
     void set_mapcheck_height(float h) { mapcheck_h_ = h; }
@@ -402,10 +393,6 @@ private:
     void place_overlay();                    ///< size + position the overlay for the current screen
     Side cursor_side() const;                ///< which half of the game window the mouse is in
     void set_screen(Screen s);
-    /// Put the auto-loaded profile back, if there is one. Called on the way into either screen
-    /// that rates, which is what makes a hand-picked profile last exactly as long as the screen
-    /// it was picked on.
-    void apply_auto_profile();
     /// Write the map-check half of the configuration, and nothing else.
     ///
     /// **Re-read from disk first, deliberately.** Settings edits `config_` in place and only its
