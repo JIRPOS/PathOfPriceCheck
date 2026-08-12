@@ -193,12 +193,24 @@ test('REPORTS_ENABLED=0 turns the relay off', async () => {
     assert.equal(res.status, 503);
 });
 
-test('the per-IP cap rejects once it is reached', async () => {
+/** A KV stand-in that counts its writes, because how many there are is part of the contract. */
+function kv() {
     const store = new Map();
-    const RL = {
+    let writes = 0;
+    return {
+        store,
+        writes: () => writes,
+        only: () => JSON.parse([...store.values()][0]),
         get: async (k) => store.get(k) ?? null,
-        put: async (k, v) => void store.set(k, v),
+        put: async (k, v) => {
+            writes++;
+            store.set(k, v);
+        },
     };
+}
+
+test('the per-IP cap rejects once it is reached', async () => {
+    const RL = kv();
     const env = { RL, MAX_PER_IP_PER_HOUR: '2' };
     for (let i = 0; i < 2; i++) {
         assert.equal((await send({ item: ITEM }, env)).res.status, 200);
@@ -206,6 +218,60 @@ test('the per-IP cap rejects once it is reached', async () => {
     const { res, json } = await send({ item: ITEM }, env);
     assert.equal(res.status, 429);
     assert.match(json.error, /too many reports/);
+});
+
+test('the whole-relay cap rejects once it is reached', async () => {
+    const RL = kv();
+    const env = { RL, MAX_PER_DAY_GLOBAL: '1' };
+    assert.equal((await send({ item: ITEM }, env)).res.status, 200);
+    const { res, json } = await send({ item: ITEM }, { ...env, ip: '198.51.100.9' });
+    assert.equal(res.status, 429);
+    assert.match(json.error, /daily limit/);
+});
+
+test('a report costs one KV write, and a refusal costs none', async () => {
+    const RL = kv();
+    const env = { RL, MAX_PER_IP_PER_HOUR: '2' };
+    await send({ item: ITEM }, env);
+    await send({ item: ITEM }, env);
+    assert.equal(RL.writes(), 2);
+    assert.equal(RL.store.size, 1); // both caps in one key, not one key each
+    assert.equal((await send({ item: ITEM }, env)).res.status, 429);
+    assert.equal(RL.writes(), 2);
+});
+
+test('the address is stored as an HMAC of it, never as itself', async () => {
+    const RL = kv();
+    const salt = 'a'.repeat(64);
+    const env = { RL, RL_SALT: salt, ip: '203.0.113.7' };
+    await send({ item: ITEM }, env);
+
+    const [key, value] = [...RL.store.entries()][0];
+    assert.ok(!key.includes('203.0.113.7') && !value.includes('203.0.113.7'), `${key} ${value}`);
+    const who = Object.keys(RL.only().ips);
+    assert.equal(who.length, 1);
+    assert.match(who[0], /^[0-9a-f]{24}$/);
+
+    // The same address has to land on the same entry or the cap counts to one forever — and a
+    // different salt on a different one, which is what makes the entry depend on the secret.
+    await send({ item: ITEM }, env);
+    assert.deepEqual(Object.keys(RL.only().ips), who);
+    assert.equal(RL.only().ips[who[0]].n, 2);
+    await send({ item: ITEM }, { ...env, RL_SALT: 'b'.repeat(64) });
+    assert.equal(Object.keys(RL.only().ips).length, 2);
+});
+
+test('an address that has gone quiet for its hour is dropped from the value', async () => {
+    const RL = kv();
+    const [key] = [`rl:${new Date().toISOString().slice(0, 10)}`];
+    const stale = 'f'.repeat(24);
+    RL.store.set(key, JSON.stringify({ total: 4, ips: { [stale]: { n: 5, at: Date.now() - 7200_000 } } }));
+    await send({ item: ITEM }, { RL });
+
+    const state = RL.only();
+    assert.equal(state.total, 5, 'the day total is not what expires');
+    assert.ok(!(stale in state.ips));
+    assert.equal(Object.keys(state.ips).length, 1);
 });
 
 test('a broken rate limiter fails open', async () => {

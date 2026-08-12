@@ -13,15 +13,21 @@ enabled = false
 # refusal the same as any other failure: the report is dropped and nothing is said.
 REPORTS_ENABLED = "1"
 MAX_PER_IP_PER_HOUR = "5"
-MAX_PER_DAY_GLOBAL = "300"
+# An accepted report costs one KV write and a refused one costs none, so this number *is* the day's
+# write budget. The free tier allows 1000, and the rest of that is not spare change: a limiter that
+# cannot write fails open, and under a real flood the counter reads stale (see README) and lets more
+# through than it says. 600 is the cap; the other 400 are what keep the cap honest.
+MAX_PER_DAY_GLOBAL = "600"
 # The webhook points at a forum channel, so each report is posted as its own thread. Set to "0" if
 # it is ever moved back to a plain text channel — a forum rejects a message with no thread name,
 # and a text channel rejects one that has it, so this has to match the channel.
 DISCORD_FORUM = "1"
 
-# Rate limiting is optional — without this binding the relay still works, it just has no brakes.
-# Create the namespace once, paste the id, uncomment:
-#   npx --yes wrangler kv namespace create ppc-reports-rl
-# [[kv_namespaces]]
-# binding = "RL"
-# id = "paste-the-id-here"
+# The caps above are read only when this binding exists, and only under this name: `env.RL` is what
+# the limiter looks for, so a binding spelled anything else deploys cleanly and caps nothing. The
+# namespace it points at can be called whatever you like — `ppc-reports-rl` is the one that was made
+# with `wrangler kv namespace create`. After deploying, set the salt the per-IP counters are hashed
+# under, once: ./rotate-rl-salt.sh
+[[kv_namespaces]]
+binding = "RL"
+id = "7cc232be372340d19361fa9629a010dd"
