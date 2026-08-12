@@ -984,14 +984,16 @@ std::string_view objective_value_of(const Property& p) {
 ///   of what a buyer is paying for. The total beside each count is exact where the site indexes
 ///   one — a blueprint's wing count varies per copy, so it is part of which item this is rather
 ///   than an amount of anything — and Total Escape Routes is left out entirely. See below.
-/// - **The objective's value** on a contract, which is the parenthetical after the target.
+/// - **The job levels**, as a floor, at the level the item demands. A requirement is what the run
+///   costs to open: a rogue short of it cannot run this copy at all, and a copy asking for less
+///   is a cheaper product rather than a better copy of the same one.
 /// - **The enchant**, on a blueprint that has one: "Heist Targets are always Enchanted
 ///   Armaments" is what the whole run is for, and somebody paid to put it there.
 ///
 /// Offered and left unticked, because they are the roll rather than the item:
-/// - **The job levels.** A requirement is a demand on the *buyer's* rogue, not a property of the
-///   thing being bought, so it is seeded as a ceiling — copies asking less are strictly more
-///   usable — and left off, because a buyer whose rogue is levelled does not care.
+/// - **The objective's value** on a contract, the parenthetical after the target. It follows from
+///   the target the copy happens to have rolled, and a buyer opening the area for its level and
+///   its jobs is not picking what sits at the end of it.
 /// - **The heist modifiers.** They are the danger the run will hold: rolled, re-rollable, and
 ///   the map argument exactly, except that the row stays and only the tick goes. A contract
 ///   carries seven of them and ticking all seven asks for one particular copy in the world.
@@ -1065,10 +1067,11 @@ void plan_heist(const data::GameData& gd, const Item& it, SearchPlan& p) {
         const int i = value.empty()
                           ? -1
                           : lex.index_of(data::TermList::HeistObjectiveValues, value);
-        if (i >= 0 && static_cast<size_t>(i) < std::size(kHeistObjectiveIds))
+        if (i >= 0 && static_cast<size_t>(i) < std::size(kHeistObjectiveIds)) {
             add_option(p, "heist_objective_value", "Objective Value",
                        std::string(kHeistObjectiveIds[i]), std::string(value), true);
-        else if (!value.empty())
+            p.options.back().enabled = false;
+        } else if (!value.empty())
             p.notes.push_back("\"" + std::string(value) +
                               "\" is not an objective value the trade site knows, so the search "
                               "does not ask what the target is worth");
@@ -1076,15 +1079,14 @@ void plan_heist(const data::GameData& gd, const Item& it, SearchPlan& p) {
         // Darnaw"), not a gap: there is no value to ask about, so nothing is said.
     }
 
-    // One row per job the item demands, seeded as a ceiling and left off. See the note above:
-    // a job level is what the run asks of the buyer, and a copy asking less still answers.
+    // One row per job the item demands, at the level it demands, ticked. See the note above: the
+    // requirement is what the run costs to open, so it is a floor and not a ceiling.
     for (const Property& prop : it.properties) {
         if (prop.key != data::PropertyKey::HeistJob || !prop.num) continue;
         const std::vector<std::string>& jobs = lex.list(data::TermList::HeistJobs);
         for (size_t i = 0; i < jobs.size() && i < std::size(kHeistJobKeys); ++i) {
             if (jobs[i].empty() || prop.value.find(jobs[i]) == std::string::npos) continue;
-            add_numeric(p, std::string(kHeistJobKeys[i]), jobs[i] + " Level", std::nullopt, false,
-                        0, {}, *prop.num);
+            add_numeric(p, std::string(kHeistJobKeys[i]), jobs[i] + " Level", *prop.num, true);
             break;
         }
     }

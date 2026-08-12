@@ -2093,11 +2093,6 @@ TEST_CASE("an ultimatum is searched on the deal it offers, not on the danger it 
 TEST_CASE("a heist item is searched on the run it opens, not on the danger it rolled") {
     auto gd = fixture();
 
-    const auto asked = [](const SearchPlan& p, std::string_view key) {
-        const OptionFilter* f = p.option(key);
-        return f && f->enabled ? f->option : std::string();
-    };
-
     SUBCASE("a magic or rare heist item gets its own strategy; a unique one does not") {
         // The rarity switch would plan a rare contract as a rare and search its seven hazards
         // as if somebody were buying them, and ask for none of the filters the site indexes it
@@ -2169,34 +2164,40 @@ TEST_CASE("a heist item is searched on the run it opens, not on the danger it ro
         CHECK(numeric_for(p, "heist_escape_routes")->min == 8);
     }
 
-    SUBCASE("the objective's value is the parenthetical, and a boss contract has none") {
-        const auto value_of = [&](const char* file) {
+    SUBCASE("the objective's value is offered as the parenthetical, and a boss contract has none") {
+        // The value follows from whatever target the copy rolled, so it is a row rather than a
+        // demand: it is drawn with what the item says, and left unticked.
+        const auto offered = [&](const char* file) {
             const Item it = resolved(*gd, capture(file));
-            return asked(build_plan(*gd, it, derive(gd.get(), it)), "heist_objective_value");
+            const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+            const OptionFilter* f = p.option("heist_objective_value");
+            if (!f) return std::string();
+            CHECK(f->shown);
+            CHECK(!f->enabled);
+            return f->option;
         };
-        CHECK(value_of("heist-contract-rare-tunnels.txt") == "high");
-        CHECK(value_of("heist-contract-rare-laboratory.txt") == "priceless");
-        CHECK(value_of("heist-contract-rare-underbelly.txt") == "precious");
+        CHECK(offered("heist-contract-rare-tunnels.txt") == "high");
+        CHECK(offered("heist-contract-rare-laboratory.txt") == "priceless");
+        CHECK(offered("heist-contract-rare-underbelly.txt") == "precious");
         // A blueprint sends the crew after a wing rather than after a thing, so it prints no
         // target line at all and there is nothing to ask.
-        CHECK(value_of("heist-blueprint-rare-tunnels-full.txt").empty());
+        CHECK(offered("heist-blueprint-rare-tunnels-full.txt").empty());
     }
 
-    SUBCASE("a job level is a ceiling and is offered rather than asked") {
-        // What the run demands of the *buyer's* rogue, not a property of the thing being
-        // bought — so a copy asking less is strictly more usable, and a buyer whose rogue is
-        // levelled does not care at all.
+    SUBCASE("a job level is a floor and is asked for at the level the item demands") {
+        // What the run costs to open: a rogue short of the requirement cannot run this copy at
+        // all, and a copy asking for less is a cheaper product rather than a better one.
         const Item it = resolved(*gd, capture("heist-blueprint-rare-underbelly.txt"));
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
         for (const char* key : {"heist_brute_force", "heist_agility", "heist_deception"}) {
             const NumericFilter* f = numeric_for(p, key);
             REQUIRE_MESSAGE(f != nullptr, key);
-            CHECK_MESSAGE(!f->enabled, key);
-            CHECK_MESSAGE(!f->min.has_value(), key);
+            CHECK_MESSAGE(f->enabled, key);
+            CHECK_MESSAGE(!f->max.has_value(), key);
         }
-        CHECK(numeric_for(p, "heist_brute_force")->max == 4);
-        CHECK(numeric_for(p, "heist_agility")->max == 3);
-        CHECK(numeric_for(p, "heist_deception")->max == 1);
+        CHECK(numeric_for(p, "heist_brute_force")->min == 4);
+        CHECK(numeric_for(p, "heist_agility")->min == 3);
+        CHECK(numeric_for(p, "heist_deception")->min == 1);
         // The six it does not demand are not rows at all.
         CHECK(numeric_for(p, "heist_engineering") == nullptr);
         CHECK(numeric_for(p, "heist_lockpicking") == nullptr);
@@ -2226,7 +2227,8 @@ TEST_CASE("a heist item is searched on the run it opens, not on the danger it ro
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
         CHECK(p.type.empty());
         CHECK(p.category == "heistmission.contract");
-        CHECK(asked(p, "heist_objective_value") == "precious");
+        REQUIRE(p.option("heist_objective_value") != nullptr);
+        CHECK(p.option("heist_objective_value")->option == "precious");
         CHECK(p.notes.front().find("is not a heist base in this data bundle") !=
               std::string::npos);
     }
