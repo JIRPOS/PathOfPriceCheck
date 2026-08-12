@@ -431,6 +431,12 @@ void general_tab(App& app, Config& c) {
     ImGui::PushTextWrapPos(0.0f);
     ImGui::TextDisabled("%s", ui::text(ui::Msg::ReduceTransparencyHelp));
     ImGui::PopTextWrapPos();
+
+    ImGui::Checkbox(row(ui::text(ui::Msg::StatusMarker)), &c.status_marker);
+    row_gutter();
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", ui::text(ui::Msg::StatusMarkerHelp));
+    ImGui::PopTextWrapPos();
 }
 
 void price_check_tab(App& app, Config& c) {
