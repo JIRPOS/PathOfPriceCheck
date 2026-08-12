@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <clocale>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -163,17 +164,26 @@ std::string update_status_line(const update::Updater::Status& st) {
     }
 }
 
-/// One centred line in yellow with a black outline, drawn straight into the draw list: the
+/// One centred line in yellow inside a light-grey halo, drawn straight into the draw list: the
 /// overlay has no background of its own here, so the text is over whatever the game is showing
-/// and needs to carry its own contrast. The outline is the same string stamped at eight offsets
-/// around the glyphs, which is cheap at two lines and needs no shader.
+/// and needs to carry its own contrast. The halo is the same string stamped at eight offsets
+/// around the glyphs, which is cheap at three lines and needs no shader. Grey and not black,
+/// because the globe behind it is dark whenever the mana is spent or fully reserved and a black
+/// outline vanished there; grey and not white, because the text still has to hold its shape
+/// against a full globe.
 void draw_outlined_line(const char* text, float centre_x, float y, float alpha) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     ImFont* font = ImGui::GetFont();
     const float size = ImGui::GetFontSize();
     const ImVec2 extent = ImGui::CalcTextSize(text);
     const ImVec2 at(centre_x - extent.x * 0.5f, y);
-    const ImU32 outline = IM_COL32(0, 0, 0, static_cast<int>(alpha * 255));
+    // The stamps composite over one another rather than adding, so a pixel the halo covers n
+    // times lands at 1-(1-s)^n. Outside the glyphs — the only part of the halo ever seen — n is
+    // three along a straight edge, since only the offsets pointing into the glyph reach it, and
+    // that is what `alpha` is solved back through here. Dividing it by eight instead assumes
+    // additive blending and a coverage no visible halo pixel has.
+    const float stamp = 1.0f - std::pow(1.0f - alpha, 1.0f / 3.0f);
+    const ImU32 outline = IM_COL32(150, 150, 150, static_cast<int>(stamp * 255));
     for (const ImVec2 d : {ImVec2(-1, -1), ImVec2(0, -1), ImVec2(1, -1), ImVec2(-1, 0),
                            ImVec2(1, 0), ImVec2(-1, 1), ImVec2(0, 1), ImVec2(1, 1)})
         dl->AddText(font, size, ImVec2(at.x + d.x, at.y + d.y), outline, text);
@@ -201,10 +211,10 @@ void draw_status_marker(App& app) {
     const float top = (io.DisplaySize.y - line_h * lines) * 0.5f;
     draw_outlined_line(version.c_str(), io.DisplaySize.x * 0.5f, top, kStatusAlpha);
     draw_outlined_line(data.c_str(), io.DisplaySize.x * 0.5f, top + line_h, kStatusAlpha);
-    // Fully opaque where the other two are half: this one is the only line here that is asking
-    // for something rather than reporting state.
+    // Drawn like the other two: what marks this line out is that it is only there at all when
+    // something is waiting.
     if (!news.empty())
-        draw_outlined_line(news.c_str(), io.DisplaySize.x * 0.5f, top + line_h * 2, 1.0f);
+        draw_outlined_line(news.c_str(), io.DisplaySize.x * 0.5f, top + line_h * 2, kStatusAlpha);
     ImGui::PopFont();
     ImGui::End();
 }
@@ -1087,7 +1097,11 @@ void App::update_overlay_placement() {
     }
 
     bool moved = g.x != game_x_ || g.y != game_y_ || g.w != game_w_ || g.h != game_h_;
-    if (game_present_ && overlay_.visible() && !moved) {
+    // With the marker off there is nothing to draw while idle, so the window stays unmapped
+    // instead of mapped over an empty rectangle. Geometry is still tracked below, so the first
+    // panel to open is placed against the game as it is now.
+    const bool want_visible = screen_ != Screen::Hidden || config_.status_marker;
+    if (game_present_ && overlay_.visible() == want_visible && !moved) {
         // Back from another application without the window having moved: still owed the
         // keyboard, since it was lost to whatever was in front and no window manager will hand
         // it to a window it does not manage.
@@ -1101,9 +1115,9 @@ void App::update_overlay_placement() {
     game_h_ = g.h;
 
     place_overlay();
-    if (!overlay_.visible()) {
-        overlay_.set_visible(true);
-        overlay_set_click_through(overlay_.window(), screen_ == Screen::Hidden);
+    if (overlay_.visible() != want_visible) {
+        overlay_.set_visible(want_visible);
+        if (want_visible) overlay_set_click_through(overlay_.window(), screen_ == Screen::Hidden);
     }
     if (screen_ != Screen::Hidden) {
         SDL_RaiseWindow(overlay_.window());
@@ -1369,6 +1383,9 @@ void App::set_screen(Screen s) {
     if (!active) copy_pending_ = false; // nothing left to fill in; stop watching the clipboard
     place_overlay();                    // each screen has its own geometry; apply before showing
     if (active && !overlay_.visible()) overlay_.set_visible(true);
+    // Closing with the marker turned off leaves nothing to show, so unmap rather than sit
+    // mapped and empty over the game.
+    if (!active && !config_.status_marker && overlay_.visible()) overlay_.set_visible(false);
     // The window stays mapped; interactivity is what changes. Idle == click-through
     // so input passes to the game; active == catch input and raise to the front.
     overlay_set_click_through(overlay_.window(), !active);
