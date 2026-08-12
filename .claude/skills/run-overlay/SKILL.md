@@ -15,6 +15,8 @@ launch it, photograph it, and look. `PPC_DEV_ITEM` is what makes that possible w
 | `PPC_DEV_OVERLAY=1` | Opens Settings and disables dismiss-on-blur. Required for every dev run. |
 | `PPC_DEV_ITEM=<file>` | Opens the price-check panel on a captured clipboard instead. |
 | `PPC_DEV_PASTE=1` | Opens the QuickPaste popup at wherever the pointer is, which is the only way to see it without the game. |
+| `PPC_DEV_MAP=<file>` | Opens the map check popup on a captured map instead, at the pointer. Takes precedence over `PPC_DEV_ITEM`. |
+| `XDG_CONFIG_HOME=<dir>` | Sends `config.json` and the map-check profile tables somewhere scratch. Set it for anything touching map check — otherwise a dev run writes a `Default.json` into the real configuration directory, and a profile with verdicts in it is the only way to photograph a rated popup. |
 | `PPC_DEV_IDLE=1` | Keeps the idle status marker up (it otherwise shows only while the game is in front). |
 | `PPC_MANAGED=1` | Lets the window manager manage the window — needed if you want it stackable/movable on a real session. |
 | `PPC_DEBUG_COPY=1` | Traces the copy timeline to stderr. |

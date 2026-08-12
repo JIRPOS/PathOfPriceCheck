@@ -32,6 +32,12 @@ changing `assets/popc_icon.png`, run `./scripts/gen-icon-data.sh` (rewrites `src
 All three write plain byte arrays through `scripts/bin2c.py`, and
 [architecture.md](architecture.md) says why they are not compressed.
 
+`XDG_CONFIG_HOME` is worth setting for any dev run that touches map check: the rating tables are
+files under `<config>/map-profiles/`, and a run with `PPC_DEV_MAP` writes a `Default.json` into the
+real configuration directory otherwise. Pointing it at a scratch directory is also how a profile
+with verdicts already in it gets in front of the popup, since there is no way to click one from a
+script.
+
 `-fsanitize=address,undefined` for debug builds is not wired into CMake yet; pass it by hand:
 
 ```sh
@@ -104,6 +110,15 @@ record at all, which is itself the point — it resolves against `ITEM::Map` lik
 which is the whole of what covers an unidentified unique: the gloves are the case only the user
 can settle and the Riveted Boots above are the one the app takes for itself. The pair is also what
 covers `en-items-base.index.bin` at all, since nothing else in the fixture reads it.
+
+The **five mod-pool entries** are chosen for the reader rather than for any item: a wording that
+prints no number (so no bounds at all, which must not read as bounds that failed to parse), one
+wording shared by the map pool and the chart pool under a trade id they agree on (which is the
+whole case for a domain-qualified index key), a modifier printing two wordings of which only one
+carries a range, an entry whose wording trade indexes under two hashes and which therefore carries
+no id at all, and a corruption implicit, whose hash is in the implicit namespace. Two of their
+wordings are in `STATS` as well, so the pool-to-stat join is covered; `Area contains many Totems`
+is there for that and for nothing else.
 
 `tests/data/exchange/digest.json` is a slice of one real hourly digest, and every market in it is
 there to be dropped or kept for a stated reason: the chaos/divine pair (the rate, read from both

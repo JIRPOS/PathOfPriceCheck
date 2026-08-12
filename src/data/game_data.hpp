@@ -78,6 +78,36 @@ public:
     /// what tells "this unique has no record" apart from "nothing here has one".
     bool has_unique_mods() const { return unique_mods_name_index_.valid(); }
 
+    /// Every modifier `domain`'s pool can spawn, in file order — the whole set, whether or not
+    /// anything is holding one. This is the one lookup here that starts from no item.
+    ///
+    /// Empty is two different answers, as it is for the unique indices: a domain the bundle
+    /// publishes no pool for, and a bundle published before the dataset existed
+    /// (`has_mod_pools()`). Parsing is one pass over the file, memoised, since a pool is only
+    /// ever asked for whole.
+    std::span<const PoolMod* const> mod_pool(int domain) const;
+
+    /// The entries in `domain`'s pool that print `normalized`, which is how a wording resolved
+    /// off an item finds what the pool says about it. Usually one; two where a prefix and a
+    /// suffix word the same thing, which the game does 42 times in the map pool alone.
+    ///
+    /// **Never a gate.** An empty answer means the pool does not mention this wording, which is
+    /// normal — see `PoolMod`.
+    std::vector<const PoolMod*> find_pool_mods(int domain, std::string_view normalized) const;
+
+    /// False for a bundle published before the mod-pool dataset existed, which is what tells
+    /// "this domain has no pool" apart from "nothing here has one".
+    bool has_mod_pools() const { return mod_pools_ref_index_.valid(); }
+
+    /// Which pool an item resolved to `base` and printing `item_class` rolls from, or 0.
+    ///
+    /// The base is asked first and the class only answers where it cannot: trade lists all 491
+    /// maps under one entry whose game row is a stand-in in the stackable-currency domain, so a
+    /// map's own record states no domain and its class is what knows the answer. The other way
+    /// round would be wrong — a class holding genuinely different things (Jewels covers two
+    /// domains) publishes none.
+    int mod_domain_for(const BaseType* base, std::string_view item_class) const;
+
     /// False for a bundle published before the currency-exchange flags existed, which is what
     /// tells "this item does not trade there" apart from "nothing here says either way".
     ///
@@ -128,18 +158,24 @@ private:
     const Stat* stat_at(uint32_t offset) const;
     const BaseType* base_at(uint32_t offset) const;
     const UniqueMods* unique_mods_at(uint32_t offset) const;
+    const PoolMod* pool_mod_at(uint32_t offset) const;
     std::string_view line_at(const MappedFile& f, uint32_t offset) const;
 
-    MappedFile stats_nd_, items_nd_, unique_mods_nd_;
+    MappedFile stats_nd_, items_nd_, unique_mods_nd_, mod_pools_nd_;
     MappedFile stats_matcher_idx_, stats_ref_idx_, items_name_idx_, items_base_idx_,
-        items_ref_idx_, unique_mods_name_idx_;
+        items_ref_idx_, unique_mods_name_idx_, mod_pools_ref_idx_;
     HashIndex stats_matcher_index_, stats_ref_index_, items_name_index_, items_base_index_,
-        items_ref_index_, unique_mods_name_index_;
+        items_ref_index_, unique_mods_name_index_, mod_pools_ref_index_;
 
     // Parsed on demand. mutable because lookups are logically const.
     mutable std::unordered_map<uint32_t, std::unique_ptr<Stat>> stat_cache_;
     mutable std::unordered_map<uint32_t, std::unique_ptr<BaseType>> base_cache_;
     mutable std::unordered_map<uint32_t, std::unique_ptr<UniqueMods>> unique_mods_cache_;
+    mutable std::unordered_map<uint32_t, std::unique_ptr<PoolMod>> pool_mod_cache_;
+    /// The whole file grouped by domain, filled on the first `mod_pool()` call. A pool is only
+    /// ever wanted entire, and there are a few hundred records, so one pass beats an index.
+    mutable std::unordered_map<int, std::vector<const PoolMod*>> pools_by_domain_;
+    mutable bool pools_scanned_ = false;
 
     // Small enough (90 rows) that parsing it up front beats indexing it. Keyed on the
     // English printed class name, which is what the file states; `by_class_id_` is the same

@@ -54,6 +54,7 @@ bool parse_manifest(std::string_view json_text, Manifest& out, std::string* err)
     if (const auto s = j.find("source"); s != j.end() && s->is_object()) {
         out.unique_mods_attribution = s->value("unique_mods_attribution", std::string());
         out.exchange_items = s->value("exchange_items", 0);
+        out.mod_pools = s->value("mod_pools", 0);
     }
 
     const auto files = j.find("files");

@@ -114,6 +114,7 @@ bool BundleStore::commit(const Manifest& m, std::string* err) const {
     // says a bundle predates the currency-exchange flags, so writing a 0 would claim the
     // opposite of what it means.
     if (m.exchange_items > 0) j["source"]["exchange_items"] = m.exchange_items;
+    if (m.mod_pools > 0) j["source"]["mod_pools"] = m.mod_pools;
     if (!write_file(staging / "manifest.json", j.dump(2) + "\n"))
         return fail("cannot write manifest.json");
 

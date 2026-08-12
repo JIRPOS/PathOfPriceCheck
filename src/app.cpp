@@ -13,6 +13,7 @@
 
 #include "icon.hpp"
 #include "item/resolve.hpp"
+#include "mapcheck/filter.hpp"
 #include "net/http.hpp"
 #include "paths.hpp"
 #include "platform/clipboard.hpp"
@@ -22,6 +23,7 @@
 #include "platform/platform.hpp"
 #include "platform/single_instance.hpp"
 #include "quickpaste.hpp"
+#include "screens/mapcheck_screen.hpp"
 #include "screens/pricecheck_screen.hpp"
 #include "screens/quickpaste_screen.hpp"
 #include "screens/report_screen.hpp"
@@ -138,6 +140,11 @@ constexpr int kNoticeW = 420, kNoticeH = 150;
 // data version at the size below, and no wider — the window is what swallows mouse input, and
 // while idle it is only click-through because nothing else is open.
 constexpr int kStatusW = 200, kStatusH = 48;
+
+/// The map check popup's width. Wide enough for the longest map modifier at the tooltip's own
+/// size without wrapping it — the panel is a reconstructed item and a wrapped affix stops
+/// reading as one line of a tooltip.
+constexpr int kMapCheckW = 500;
 constexpr int kStatusUpdateH = 68; ///< one line taller while an update is waiting
 constexpr float kStatusFontSize = 15.0f;
 constexpr float kStatusAlpha = 0.5f; ///< it sits on top of the game's own HUD
@@ -320,6 +327,10 @@ int App::run(bool relaunched_after_update) {
     currency_exchange_.init(exchange_event_);
     report_.init(report_event_);
     icons_.init();
+    // The rating tables. A file read of a handful of small files, so it happens here rather
+    // than on the first press — the popup opens on a hotkey and has nowhere to wait.
+    map_store_.open(mapcheck::profiles_dir(), config_.map_profiles, config_.map_profile);
+    map_profiles_changed();
 
     // Reclaim superseded bundles and map the installed one before anything else can hold a
     // mapping — on Windows a mapped directory cannot be removed.
@@ -358,16 +369,25 @@ int App::run(bool relaunched_after_update) {
             // without the game, since it is placed against a cursor the hotkey sampled.
             float mx = 0, my = 0;
             SDL_GetGlobalMouseState(&mx, &my);
-            paste_x_ = static_cast<int>(mx);
-            paste_y_ = static_cast<int>(my);
+            cursor_x_ = static_cast<int>(mx);
+            cursor_y_ = static_cast<int>(my);
             set_screen(Screen::QuickPaste);
-        } else if (const char* path = std::getenv("PPC_DEV_ITEM")) {
+            // Spelled out rather than with `?:`, which is a GNU extension MSVC does not have.
+        } else if (const char* dev_map = std::getenv("PPC_DEV_MAP");
+                   const char* path = dev_map ? dev_map : std::getenv("PPC_DEV_ITEM")) {
+            const bool map = dev_map != nullptr;
             std::ifstream in(path, std::ios::binary);
             if (in) {
                 std::ostringstream ss;
                 ss << in.rdbuf();
                 accept_clipboard(ss.str());
-                set_screen(Screen::PriceCheck);
+                if (map) { // at the pointer, as the hotkey would have left it
+                    float mx = 0, my = 0;
+                    SDL_GetGlobalMouseState(&mx, &my);
+                    cursor_x_ = static_cast<int>(mx);
+                    cursor_y_ = static_cast<int>(my);
+                }
+                set_screen(map ? Screen::MapCheck : Screen::PriceCheck);
             } else {
                 SDL_Log("PPC_DEV_ITEM: cannot read %s", path);
                 set_screen(Screen::Settings);
@@ -391,6 +411,7 @@ int App::run(bool relaunched_after_update) {
             } while (SDL_PollEvent(&e));
         }
         SDL_UpdateTrays();
+        map_store_.tick(); // writes what a click left buffered, once it has stopped moving
         if (!dev_mode_) update_overlay_placement();
         poll_pending_copy();
         poll_click_away();
@@ -414,12 +435,25 @@ int App::run(bool relaunched_after_update) {
                 draw_pricecheck_screen(*this);
             else if (screen_ == Screen::QuickPaste)
                 draw_quickpaste_screen(*this);
+            else if (screen_ == Screen::MapCheck)
+                draw_mapcheck_screen(*this);
             else if (screen_ == Screen::BugReport || screen_ == Screen::ReportSent)
                 draw_report_screen(*this);
             else
                 draw_status_marker(*this);
             overlay_.end_frame();
             need_redraw_ = false;
+            // The popup is the one screen whose size is its content's, and the content cannot
+            // be measured before it is laid out. One frame of correction, on a window that has
+            // just appeared — see `place_overlay`.
+            if (screen_ == Screen::MapCheck && mapcheck_h_ > 0) {
+                int ww = 0, wh = 0;
+                SDL_GetWindowSize(overlay_.window(), &ww, &wh);
+                if (std::abs(static_cast<float>(wh) - mapcheck_h_) > 1.0f) {
+                    place_overlay();
+                    need_redraw_ = true;
+                }
+            }
             // Between frames, because every part of this needs a frame boundary: the panel has
             // to be redrawn in its masked face before it can be read back, the read-back has to
             // be of a frame that is finished, and the resize the dialog brings must not land
@@ -435,6 +469,7 @@ int App::run(bool relaunched_after_update) {
     }
 
     if (tray_) SDL_DestroyTray(tray_);
+    map_store_.flush(); // nothing buffered may outlive the run
     hotkeys_.reset();
     leagues_.shutdown(); // joins + drains its events; must precede SDL_Quit
     trade_.shutdown();
@@ -525,6 +560,7 @@ void App::handle_event(const SDL_Event& e) {
             case Action::PriceCheck: config_.price_check = Hotkey{m, name}; break;
             case Action::ToggleSettings: config_.settings = Hotkey{m, name}; break;
             case Action::QuickPaste: config_.quick_paste = Hotkey{m, name}; break;
+            case Action::MapCheck: config_.map_check = Hotkey{m, name}; break;
             }
             end_capture();
         }
@@ -533,6 +569,7 @@ void App::handle_event(const SDL_Event& e) {
         // editor claimed the keyboard, and closing the whole check on it would throw away the row
         // the user was aiming at. ImGui closes its popup on the same press, so both agree.
         if (filter_edit_.open()) close_filter_edit();
+        else if (screen_ == Screen::MapCheck) set_screen(Screen::Hidden);
         else if (screen_ == Screen::BugReport) close_bug_report();
         else if (screen_ == Screen::ReportSent) dismiss_report_result();
         else set_screen(Screen::Hidden);
@@ -552,7 +589,9 @@ void App::handle_event(const SDL_Event& e) {
         // Price-check and the paste popup auto-dismiss when you click back into the game;
         // Settings stays open until closed manually (its hotkey or the X button). had_focus_
         // avoids closing before the window has actually taken focus.
-        if (!dev_mode_ && (screen_ == Screen::PriceCheck || screen_ == Screen::QuickPaste) &&
+        if (!dev_mode_ &&
+            (screen_ == Screen::PriceCheck || screen_ == Screen::QuickPaste ||
+             screen_ == Screen::MapCheck) &&
             had_focus_)
             set_screen(Screen::Hidden);
     }
@@ -624,7 +663,17 @@ void App::poll_pending_copy() {
         abandon_copy();
         return;
     }
-    set_screen(Screen::PriceCheck);
+    // The one gate on a map check, and it is about the item rather than about the data: a
+    // ring's modifiers resolve to stats like a map's do, and nothing else would stop them being
+    // rated into a map profile. Dropped silently, like every other check that finds nothing.
+    if (copy_target_ == Screen::MapCheck &&
+        !mapcheck::is_map_device_item(*item_, item_data_.get())) {
+        debug::log("[map]    dropped: '%s' is not something that opens in the map device",
+                   item_->item_class.c_str());
+        abandon_copy();
+        return;
+    }
+    set_screen(copy_target_);
 }
 
 /// Give up on the copy in flight, leaving nothing on screen. Hands back whatever the handover
@@ -783,6 +832,7 @@ void App::rebuild_plan() {
     // having opened the section the strategy's leftovers are behind.
     close_filter_edit();
     hidden_filters_shown_ = false;
+    map_rows_.clear(); // they point into the modifiers of the item being replaced
     if (!item_) {
         if (!clipboard_.empty())
             debug::log("[item]   %zu bytes on the clipboard did not parse as an item",
@@ -808,6 +858,183 @@ void App::rebuild_plan() {
         // No bundle yet: the item still parses and renders, it just cannot be priced.
         derived_ = item::derive(nullptr, *item_);
     }
+    map_rows_ = mapcheck::rate(*item_, map_store_, item_data_.get());
+    need_redraw_ = true;
+}
+
+/// Rate one row of the map on screen.
+///
+/// The row's own verdict is re-read from the store rather than assumed, which is what keeps the
+/// popup and the settings list agreeing when the same modifier is on both.
+void App::rate_map_row(size_t index, std::optional<mapcheck::Verdict> v) {
+    if (index >= map_rows_.size() || !map_rows_[index].rateable()) return;
+    const mapcheck::Row& row = map_rows_[index];
+    const mapcheck::Verdict next = v ? *v : mapcheck::next_verdict(row.verdict);
+    map_store_.set(row.refs, next);
+    // Every row, not just this one: one map can print the same affix twice, and a verdict is
+    // about the affix.
+    for (mapcheck::Row& r : map_rows_)
+        if (r.rateable()) r.verdict = map_store_.verdict_of(r.refs);
+    need_redraw_ = true;
+}
+
+void App::persist_map_profile() {
+    Config on_disk = Config::load();
+    on_disk.map_profiles = config_.map_profiles;
+    on_disk.map_profile = config_.map_profile;
+    on_disk.save();
+}
+
+void App::select_map_profile(std::string_view name) {
+    if (name == map_store_.current()) return;
+    // Whatever the last table was owed is written before the next one is in front of the user:
+    // a switch is exactly where a lost buffer would be invisible.
+    map_store_.flush();
+    map_store_.select(name);
+    config_.map_profile = map_store_.current();
+    for (mapcheck::Row& r : map_rows_)
+        if (r.rateable()) r.verdict = map_store_.verdict_of(r.refs);
+    debug::log("[map]    profile -> '%s'", config_.map_profile.c_str());
+    // The profile last picked in Settings *or* in the popup is the one the next launch opens
+    // on, and it is written now rather than waiting on a Save the popup has no button for.
+    persist_map_profile();
+    need_redraw_ = true;
+}
+
+const std::vector<mapcheck::PoolGroup>& App::map_pool_view() {
+    const std::shared_ptr<data::GameData> gd = data_;
+    // A proposal is its own view: the rows it names, and nothing else. That is what makes the
+    // list the preview the roadmap asks for rather than a count the user has to take on trust.
+    if (!map_edit_.proposal.empty()) {
+        if (map_pool_stale_) {
+            map_pool_view_.clear();
+            if (gd)
+                for (mapcheck::PoolGroup& g : mapcheck::pool_groups(*gd))
+                    if (map_edit_.proposal.count(mapcheck::affix_key(g.refs)))
+                        map_pool_view_.push_back(std::move(g));
+            map_pool_stale_ = false;
+        }
+        return map_pool_view_;
+    }
+    // Rebuilt only when something it was built from moved: compiling a regex and running it
+    // over a few hundred affixes is not work for every frame the dialog is open.
+    if (!map_pool_stale_ && map_pool_filter_ == map_edit_.filter && map_pool_data_ == gd.get())
+        return map_pool_view_;
+    map_pool_filter_ = map_edit_.filter;
+    map_pool_data_ = gd.get();
+    map_pool_stale_ = false;
+    map_pool_view_.clear();
+    map_pool_size_ = 0;
+    if (!gd) return map_pool_view_;
+    const mapcheck::SearchFilter filter(map_pool_filter_);
+    for (mapcheck::PoolGroup& g : mapcheck::pool_groups(*gd)) {
+        ++map_pool_size_;
+        if (filter.empty() || filter.matches(mapcheck::group_lines(g, gd.get())))
+            map_pool_view_.push_back(std::move(g));
+    }
+    return map_pool_view_;
+}
+
+size_t App::map_pool_size() {
+    map_pool_view(); // the count is a by-product of building the view
+    return map_pool_size_;
+}
+
+App::PoolRating App::pool_verdict(const mapcheck::PoolGroup& g) const {
+    const std::vector<std::string>& refs = g.refs;
+    if (refs.empty()) return {};
+    if (!map_edit_.proposal.empty()) {
+        const auto it = map_edit_.proposal.find(mapcheck::affix_key(refs));
+        if (it == map_edit_.proposal.end()) return {};
+        return {it->second, false};
+    }
+    // This affix's own verdict first, because that is what a button writes and what it must show
+    // itself as having written. Only when it has none does what a shorter key lends it apply,
+    // and the row says so rather than passing it off as a decision made here.
+    if (const mapcheck::Verdict own = map_store_.exact(refs); own != mapcheck::Verdict::Unrated)
+        return {own, false};
+    const mapcheck::Verdict lent = map_store_.verdict_of(refs);
+    return {lent, lent != mapcheck::Verdict::Unrated};
+}
+
+void App::rate_pool_group(const mapcheck::PoolGroup& g, mapcheck::Verdict v) {
+    const std::vector<std::string> refs = g.refs;
+    if (refs.empty()) return;
+    map_edit_.clear_proposal(); // an edit by hand is an answer to the proposal
+    map_pool_stale_ = true;
+    map_store_.set(refs, v);
+    for (mapcheck::Row& r : map_rows_)
+        if (r.rateable()) r.verdict = map_store_.verdict_of(r.refs);
+    need_redraw_ = true;
+}
+
+void App::propose_from_search(const std::string& search) {
+    map_edit_.clear_proposal();
+    map_pool_stale_ = true;
+    const std::shared_ptr<data::GameData> gd = data_;
+    if (!gd) return;
+    const mapcheck::SearchFilter filter(search);
+    if (filter.empty()) return;
+    // Per affix, and on any of its lines. A term hitting one wording is a term about the
+    // modifier printing it, and the verdict is keyed on the affix's whole set — which is what
+    // keeps a proposal off the *other* affixes granting that same wording. Asking per stat
+    // instead wrote one-wording keys, and the propagation rule then spread each of them across
+    // everything containing it.
+    for (const mapcheck::PoolGroup& g : mapcheck::pool_groups(*gd)) {
+        const mapcheck::SearchFilter::Hit hit = filter.classify(mapcheck::group_lines(g, gd.get()));
+        if (hit == mapcheck::SearchFilter::Hit::None) continue;
+        const mapcheck::Verdict v = hit == mapcheck::SearchFilter::Hit::Unwanted
+                                        ? mapcheck::Verdict::Deadly
+                                        : mapcheck::Verdict::Safe;
+        map_edit_.proposal[mapcheck::affix_key(g.refs)] = v;
+        if (v == mapcheck::Verdict::Deadly) ++map_edit_.proposed_deadly;
+        else ++map_edit_.proposed_safe;
+    }
+    debug::log("[map]    '%s' proposes %d deadly and %d safe", search.c_str(),
+               map_edit_.proposed_deadly, map_edit_.proposed_safe);
+    need_redraw_ = true;
+}
+
+void App::accept_proposal() {
+    for (const auto& [key, v] : map_edit_.proposal) map_store_.set(mapcheck::affix_refs(key), v);
+    debug::log("[map]    accepted %zu proposed verdicts into '%s'", map_edit_.proposal.size(),
+               map_store_.current().c_str());
+    map_edit_.clear_proposal();
+    map_pool_stale_ = true;
+    // A bulk edit is the one case where the throttle would be holding a lot, and the user has
+    // just pressed a button that says it happened.
+    map_store_.flush();
+    for (mapcheck::Row& r : map_rows_)
+        if (r.rateable()) r.verdict = map_store_.verdict_of(r.refs);
+    need_redraw_ = true;
+}
+
+void App::create_map_profile(const std::string& name, const std::string& copy_from) {
+    if (!map_store_.create(name, copy_from)) return;
+    debug::log("[map]    created profile '%s'%s", name.c_str(),
+               copy_from.empty() ? "" : (" from '" + copy_from + "'").c_str());
+    map_edit_.clear_proposal();
+    map_pool_stale_ = true;
+    map_profiles_changed();
+}
+
+void App::delete_map_profile(const std::string& name) {
+    if (!map_store_.remove(name)) return;
+    debug::log("[map]    deleted profile '%s'", name.c_str());
+    map_edit_.clear_proposal();
+    map_pool_stale_ = true;
+    map_profiles_changed();
+}
+
+void App::map_profiles_changed() {
+    config_.map_profiles = map_store_.names();
+    config_.map_profile = map_store_.current();
+    // The table itself is already on disk — `create` and `remove` write it there and then — so
+    // this is the list catching up. Without it a profile made and used could still be missing
+    // from the config, and `Store::open` would order it by name rather than by where it was put.
+    persist_map_profile();
+    for (mapcheck::Row& r : map_rows_)
+        if (r.rateable()) r.verdict = map_store_.verdict_of(r.refs);
     need_redraw_ = true;
 }
 
@@ -962,12 +1189,16 @@ void App::handle_action(Action a) {
     // keyboard focus itself, so the game can't be foreground while it's open, and its hotkey
     // still has to close it.
     const bool game_focused = foreground_title_contains(config_.poe_window_title);
-    if (a == Action::PriceCheck) log_state("hotkey");
-    // The exception is a hotkey closing the screen it opened. Both of those screens hold the
-    // keyboard focus themselves, so the game *cannot* be foreground while one is up, and the
-    // hotkey that opened it has to be able to take it away again.
+    // Both checks read an item off the clipboard, so both want the copy path's own state in the
+    // log beside the press.
+    const bool reads_item = a == Action::PriceCheck || a == Action::MapCheck;
+    if (reads_item) log_state("hotkey");
+    // The exception is a hotkey closing the screen it opened. All three of those screens hold
+    // the keyboard focus themselves, so the game *cannot* be foreground while one is up, and
+    // the hotkey that opened it has to be able to take it away again.
     const bool closes_own_screen = (a == Action::ToggleSettings && screen_ == Screen::Settings) ||
-                                   (a == Action::QuickPaste && screen_ == Screen::QuickPaste);
+                                   (a == Action::QuickPaste && screen_ == Screen::QuickPaste) ||
+                                   (a == Action::MapCheck && screen_ == Screen::MapCheck);
     if (!game_focused && !dev_mode_ && !closes_own_screen) {
         debug::trace("[copy] hotkey ignored: game not focused");
         return;
@@ -976,20 +1207,33 @@ void App::handle_action(Action a) {
     // fired into a browser. Whatever it finds is news for the next press, never for this one.
     refresh_checks();
 
-    if (a == Action::PriceCheck) {
+    if (reads_item) {
+        // The two checks are the same gesture on the same item and share the whole copy path;
+        // this is the only thing that differs, and it is consumed once there is something to
+        // show. See `poll_pending_copy`.
+        copy_target_ = a == Action::MapCheck ? Screen::MapCheck : Screen::PriceCheck;
         // Sample the cursor now, while it's still on the item — the user will have moved
-        // on by the time the clipboard lands.
+        // on by the time the clipboard lands. The price check docks against a frame and needs
+        // only the half; the map check opens at the pointer and needs the point.
         side_ = cursor_side();
-        debug::trace("[copy] price-check hotkey, game focused=%d", game_focused);
+        float mx = 0, my = 0;
+        SDL_GetGlobalMouseState(&mx, &my);
+        cursor_x_ = static_cast<int>(mx);
+        cursor_y_ = static_cast<int>(my);
+        debug::trace("[copy] %s hotkey, game focused=%d",
+                     a == Action::MapCheck ? "map-check" : "price-check", (int)game_focused);
         if (!game_focused) { // dev mode: no game to copy from, just show what's already there
             accept_clipboard(read_clipboard("clipboard.dev"));
-            if (item_) set_screen(Screen::PriceCheck);
+            if (item_ && (copy_target_ != Screen::MapCheck ||
+                          mapcheck::is_map_device_item(*item_, item_data_.get())))
+                set_screen(copy_target_);
             return;
         }
         // A check already on screen is about the *previous* item. Drop it before starting:
         // if this copy then fails silently, leaving the old panel up would read as a price
         // check of the item now under the cursor.
-        if (screen_ == Screen::PriceCheck) set_screen(Screen::Hidden);
+        if (screen_ == Screen::PriceCheck || screen_ == Screen::MapCheck)
+            set_screen(Screen::Hidden);
         // Take the stamp before injecting, not after — simulate_copy blocks for the length of
         // a human keypress and the copy can land inside it.
         copy_stamp_ = clipboard_stamp();
@@ -1031,8 +1275,8 @@ void App::handle_action(Action a) {
         // Where the hand is now, not where it will be when the window is placed.
         float mx = 0, my = 0;
         SDL_GetGlobalMouseState(&mx, &my);
-        paste_x_ = static_cast<int>(mx);
-        paste_y_ = static_cast<int>(my);
+        cursor_x_ = static_cast<int>(mx);
+        cursor_y_ = static_cast<int>(my);
         set_screen(Screen::QuickPaste);
     } else {
         set_screen(screen_ == Screen::Settings ? Screen::Hidden : Screen::Settings);
@@ -1141,7 +1385,7 @@ void App::update_overlay_placement() {
 void App::reclaim_keyboard() {
     if (overlay_.has_focus()) return;
     if (screen_ != Screen::Settings && screen_ != Screen::QuickPaste &&
-        screen_ != Screen::BugReport)
+        screen_ != Screen::BugReport && screen_ != Screen::MapCheck)
         return;
     debug::log("[app]    reclaiming the keyboard for screen %d", (int)screen_);
     take_keyboard();
@@ -1184,26 +1428,39 @@ void App::place_overlay() {
         return;
     }
 
-    if (screen_ == Screen::QuickPaste) {
+    if (screen_ == Screen::QuickPaste || screen_ == Screen::MapCheck) {
         int w = 0, h = 0;
-        quickpaste_size(active_pastes(config_.pastes).size(), &w, &h);
+        if (screen_ == Screen::MapCheck) {
+            // The popup's height is its content's, and the content is an item nobody has laid
+            // out yet — so this is an estimate the screen corrects. It reports what it actually
+            // drew (`set_mapcheck_height`) and the window follows on the next frame, which is
+            // one frame either way for a window that has just appeared. Over-estimating rather
+            // than under: ImGui clamps a window to the viewport, so a first frame that is too
+            // short is content that cannot be measured at all.
+            w = kMapCheckW;
+            h = mapcheck_h_ > 0 ? static_cast<int>(mapcheck_h_ + 0.5f) : gh;
+        } else {
+            quickpaste_size(active_pastes(config_.pastes).size(), &w, &h);
+        }
+        h = std::min(h, gh);
         // Right of the cursor and starting at it, which is where a menu opens — then clamped
         // into the game window, which is what turns "downwards" into "upwards" near the bottom
         // edge and into somewhere between the two in the middle. No decision of its own: a rule
         // that picks a direction and a clamp that has to override it would disagree in the
         // cases that matter.
         constexpr int kCursorGap = 14;
-        int x = paste_x_ + kCursorGap;
-        if (x + w > gx + gw) x = paste_x_ - kCursorGap - w; // no room on the right: open left
+        int x = cursor_x_ + kCursorGap;
+        if (x + w > gx + gw) x = cursor_x_ - kCursorGap - w; // no room on the right: open left
         // max(min()), not clamp: a game window narrower or shorter than the popup puts the low
         // bound above the high one, which clamp is not defined for.
         x = std::max(gx, std::min(x, gx + gw - w));
-        const int y = std::max(gy, std::min(paste_y_ - kCursorGap, gy + gh - h));
+        const int y = std::max(gy, std::min(cursor_y_ - kCursorGap, gy + gh - h));
         SDL_SetWindowSize(overlay_.window(), w, h);
         SDL_SetWindowPosition(overlay_.window(), x, y);
         layout_ = PanelLayout{0, float(w), 0, 0};
-        debug::log("[paste]  placed %dx%d+%d+%d for a cursor at %d,%d", w, h, x, y, paste_x_,
-                   paste_y_);
+        debug::log("[%s] placed %dx%d+%d+%d for a cursor at %d,%d",
+                   screen_ == Screen::MapCheck ? "map]   " : "paste] ", w, h, x, y, cursor_x_,
+                   cursor_y_);
         return;
     }
 
@@ -1375,6 +1632,14 @@ void App::dismiss_report_result() {
 
 void App::set_screen(Screen s) {
     debug::log("[app]    screen %d -> %d", (int)screen_, (int)s);
+    // Every way out of a screen that can rate — its own X, Escape, the hotkey, a click into the
+    // game, a focus-out — arrives here, which is why the write is here rather than on any of
+    // them. `kWriteDelay` batches the clicks; this is what makes it safe to.
+    if ((screen_ == Screen::MapCheck || screen_ == Screen::Settings) && s != screen_)
+        map_store_.flush();
+    // A fresh popup measures itself from scratch: the last map's height is not an estimate of
+    // this one's, and starting from it would draw one frame at the wrong size.
+    if (s == Screen::MapCheck && screen_ != Screen::MapCheck) mapcheck_h_ = 0;
     screen_ = s;
     // The card is re-measured on the first frame of the new screen, and poll_click_away runs
     // before that frame: without this it would spend one iteration on the last check's card.
@@ -1396,7 +1661,12 @@ void App::set_screen(Screen s) {
     // Settings needs keyboard focus immediately (text fields); a price check takes it only when
     // something on it has to be typed into (edit_filter) or the copy stalls
     // (nudge_clipboard_handover). Closing hands focus back to the game.
-    if (s == Screen::QuickPaste) {
+    if (s == Screen::MapCheck) {
+        // For Escape, and so that clicking back into the game is a focus-out this can dismiss
+        // on. The same claim the paste popup makes, and not the window manager's activation —
+        // see `take_keyboard`.
+        take_keyboard();
+    } else if (s == Screen::QuickPaste) {
         // The number keys are the feature; without the keyboard the popup is a menu you have to
         // aim at. This is the server's input focus and not the window manager's activation —
         // the same thing the range editor takes, and the same reason it is not a violation of
@@ -1466,7 +1736,8 @@ void App::apply_and_save_config() {
 void App::rebind_hotkeys() {
     hotkeys_->rebind({{config_.price_check, Action::PriceCheck},
                       {config_.settings, Action::ToggleSettings},
-                      {config_.quick_paste, Action::QuickPaste}});
+                      {config_.quick_paste, Action::QuickPaste},
+                      {config_.map_check, Action::MapCheck}});
 }
 
 } // namespace ppc

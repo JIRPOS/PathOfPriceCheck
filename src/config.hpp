@@ -2,7 +2,6 @@
 
 #include <string>
 #include <string_view>
-
 #include <vector>
 
 #include "item/range_match.hpp"
@@ -47,11 +46,28 @@ struct Config {
     /// modifier: this fires while the game has the keyboard, so it has to be a combination
     /// nobody arrives at by accident mid-fight.
     Hotkey quick_paste{Mod::Alt, "V"};
+    /// Reads the map under the cursor and says what you decided about its modifiers. Three
+    /// keys, and the price check's own letter: the two are the same gesture on the same item
+    /// and are worth being neighbours, and the extra modifier is what keeps a check the user
+    /// wanted from being the one they got.
+    Hotkey map_check{Mod::Ctrl | Mod::Shift, "D"};
 
     /// The saved snippets that hotkey offers, in the order the popup lists them. No more than
     /// `kMaxActivePastes` of them may be enabled at once — enforced on load as well as in
     /// Settings, since this file is hand-editable.
     std::vector<Paste> pastes;
+
+    /// The map-check rating tables, by name, in the order Settings lists them. **The verdicts
+    /// themselves are not here** — each profile is a file of its own beside this one, because a
+    /// few hundred ratings per profile would swamp a file somebody is meant to be able to open
+    /// and read. See `mapcheck::Profile`.
+    ///
+    /// A record rather than the authority: `MapCheckService` also reads the directory, so a
+    /// file dropped in by hand appears and one listed here that has gone is dropped.
+    std::vector<std::string> map_profiles;
+    /// Which of them is in use — the one last picked, in Settings or in the popup, and the one
+    /// the next launch opens on. Empty until there is one.
+    std::string map_profile;
 
     /// Run the trade search as soon as the panel opens, rather than on the Search button.
     /// Off by default and deliberately so: a hotkey the user pressed to *read* an item

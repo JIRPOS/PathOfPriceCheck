@@ -38,6 +38,10 @@ struct Manifest {
     /// which is not the same answer as "this item does not trade there" — see
     /// `GameData::has_exchange_flags()`.
     int exchange_items = 0;
+    /// How many pooled modifiers the data build emitted, and so whether this bundle has the
+    /// dataset at all. Written through on install like the two above; 0 is "no pool", which is
+    /// the only honest reading when there is no file behind it either.
+    int mod_pools = 0;
     std::vector<ManifestFile> files;
 
     const ManifestFile* find(std::string_view name) const;

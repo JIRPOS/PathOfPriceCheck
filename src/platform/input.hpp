@@ -26,7 +26,7 @@ struct Hotkey {
     bool valid() const { return !key.empty(); }
 };
 
-enum class Action { PriceCheck, ToggleSettings, QuickPaste };
+enum class Action { PriceCheck, ToggleSettings, QuickPaste, MapCheck };
 
 std::string to_string(const Hotkey& h);      ///< e.g. "Ctrl+D"
 Hotkey parse_hotkey(const std::string& s);   ///< inverse of to_string

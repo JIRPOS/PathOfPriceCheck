@@ -30,6 +30,7 @@ enum class Msg : uint16_t {
     TabGeneral,
     TabPriceCheck,
     TabQuickPaste,
+    TabMapCheck,
     TabApplication,
 
     SectionAccount,
@@ -78,6 +79,7 @@ enum class Msg : uint16_t {
     HotkeyPriceCheck,
     HotkeySettings,
     HotkeyQuickPaste,
+    HotkeyMapCheck,
     PressKeys,
 
     ReduceTransparency,
@@ -92,8 +94,8 @@ enum class Msg : uint16_t {
 
     PasteListHelp,
     PasteNone,            ///< Settings, with nothing in the list yet
-    PasteSlotsLeft,       ///< "%zu", "%zu" â active pastes and the ceiling
-    PasteSlotsFull,       ///< "%zu" â the ceiling
+    PasteSlotsLeft,       ///< "%zu", "%zu" — active pastes and the ceiling
+    PasteSlotsFull,       ///< "%zu" — the ceiling
     PasteUntitled,
     PasteEmptyBody,
     PasteNew,
@@ -106,9 +108,50 @@ enum class Msg : uint16_t {
     PasteBodyHint,
     PasteDone,
     PasteCancel,
-    PasteTooLong,         ///< "%zu" â the byte ceiling
+    PasteTooLong,         ///< "%zu" — the byte ceiling
     QuickPasteNone,       ///< the popup, with nothing enabled to offer
     QuickPasteAdd,
+
+    SectionMapProfiles,
+    SectionMapModifiers,
+    MapProfile,
+    MapProfileNone,
+    MapProfileNew,
+    MapProfileName,
+    MapProfileNameHint,
+    MapProfileCopyFrom,
+    MapProfileEmpty,
+    MapProfileCreate,
+    MapProfileCancel,
+    MapProfileDelete,
+    MapProfileDeleteAsk,     ///< "%s" — the profile's name
+    MapProfileDeleteWarn,    ///< "%zu" — how many ratings go with it
+    MapFilterHint,
+    MapFilterHelp,
+    MapSearchSyntax,         ///< the `?` beside the search box: the game's own search rules
+    MapFilterSetAside,       ///< "%s" — the terms that ask about the item, not a modifier
+    MapVerdictInherited,     ///< a row lit by a rating made on a shorter affix inside it
+    MapPropose,
+    MapProposeTip,
+    MapProposeNothing,
+    MapProposeCounts,        ///< "%d", "%d" — deadly and safe
+    MapProposeApply,
+    MapPoolCount,            ///< "%zu", "%zu" — shown and held
+    MapPoolNoData,
+    MapPoolEmpty,
+    MapNoProfile,
+    MapNoProfileHelp,
+    MapRatedCount,           ///< "%zu"
+    MapCheckTitle,
+    MapRateHint,
+    MapUnresolved,
+    MapOutlookNoMods,
+    MapOutlookUnrated,
+    MapOutlookSafe,
+    MapOutlookSafeUnrated,
+    MapOutlookLikely,
+    MapOutlookCareful,
+    MapOutlookFatal,
 
     Bundle,
     Downloading,        ///< "%.1f", "%.1f" — megabytes done and total

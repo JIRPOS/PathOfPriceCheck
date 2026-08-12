@@ -1,0 +1,5 @@
+{"domain":5,"gen":1,"mods":["MapTotems","CorruptedSideAreaTotems","MapTotemsMap2Tier","MapTotemsMapWorlds"],"name":"Ceremonial","stats":[{"ref":"Area contains many Totems","trade":"explicit.stat_1000591322"}],"tiers":4}
+{"domain":5,"gen":2,"mods":["MapMonstersHinderOnHitMapWorlds","MapMonstersHinderOnHitMapWorldsMaven","MapMonstersHinderOnHitMapWorldsExpedition"],"name":"of Impedance","stats":[{"max":100,"min":100,"ref":"Monsters have #% chance to Hinder on Hit with Spells","trade":"explicit.stat_962720646"}],"tiers":3}
+{"domain":39,"gen":2,"mods":["MapDeepwaterChartMonstersHinderOnHit"],"name":"of Impedance","stats":[{"max":100,"min":100,"ref":"Monsters have #% chance to Hinder on Hit with Spells","trade":"explicit.stat_962720646"}],"tiers":1}
+{"domain":39,"gen":1,"mods":["MapDeepwaterChartMonsterCannotBeStunned"],"name":"Unwavering","stats":[{"ref":"Monsters cannot be Stunned","trade":"explicit.stat_1041951480"},{"max":20,"min":10,"ref":"#% more Monster Life"}],"tiers":1}
+{"domain":5,"gen":5,"mods":["MapCorruptionItemQuantity"],"stats":[{"max":20,"min":10,"ref":"#% Item Quantity","trade":"implicit.stat_2023217031"}],"tiers":1}

@@ -95,7 +95,8 @@ The whole tool works by reading the clipboard, so this is worth being precise ab
 
 | path | what |
 |---|---|
-| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, panel opacity, whether the status indicator is shown, whether to update automatically - **and your QuickPaste entries, in full**, since they are text you typed for this tool to hold |
+| `<config>/config.json` | your settings: league, hotkeys, panel geometry, listing status, result count, filter ranges, client and interface language, panel opacity, whether the status indicator is shown, whether to update automatically, the names of your map-check profiles and which one is in use - **and your QuickPaste entries, in full**, since they are text you typed for this tool to hold |
+| `<config>/map-profiles/<name>.json` | one file per map-check profile: which modifiers you marked safe, dangerous or deadly. Written as you rate them, and one empty `Default.json` is created on first run so the feature has somewhere to put a verdict. Nothing here leaves your machine |
 | `<config>/cookies.txt` | the cookie jar above |
 | `<cache>/data/<version>/` | the downloaded game-data bundle, plus a `current` pointer |
 | `<cache>/update/` | a downloaded release of the application, waiting for the restart that applies it. One file, consumed as it is applied; absent whenever no update is pending |

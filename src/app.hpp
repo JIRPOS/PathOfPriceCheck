@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -13,6 +14,8 @@
 #include "item/derive.hpp"
 #include "item/plan.hpp"
 #include "icon_cache.hpp"
+#include "mapcheck/rate.hpp"
+#include "mapcheck/store.hpp"
 #include "league_service.hpp"
 #include "exchange_service.hpp"
 #include "ninja_service.hpp"
@@ -27,7 +30,7 @@ union SDL_Event;
 
 namespace ppc {
 
-enum class Screen { Hidden, PriceCheck, Settings, QuickPaste, BugReport, ReportSent };
+enum class Screen { Hidden, PriceCheck, Settings, QuickPaste, MapCheck, BugReport, ReportSent };
 
 /// How long a price check waits for the game to publish its copy before dropping it. Past this
 /// the user has moved on, and a panel that opens late is a panel about the wrong item.
@@ -96,6 +99,33 @@ struct PasteEdit {
     bool adding = false; ///< appended on Done, rather than written back over `index`
     size_t index = 0;
     Paste draft;
+};
+
+/// What the Map Check settings tab is in the middle of. Held on `App` for the same reason
+/// `paste_edit_` is — the screen is a free function rebuilt from scratch every frame.
+struct MapCheckEdit {
+    /// The search box. Narrows the list, and is what the propose button reads.
+    std::string filter;
+
+    bool adding = false;         ///< the new-profile dialog is open
+    std::string draft_name;
+    std::string copy_from;       ///< empty for an empty profile, which is the default
+
+    std::string deleting;        ///< the profile the confirmation is about; empty for none
+
+    /// Verdicts the search proposed and the user has not accepted yet, by **affix key** — the
+    /// same key `Store::set` writes, so the preview is the write.
+    ///
+    /// **Nothing here is in the table**: this is the whole of "the import proposes and the user
+    /// confirms", and the list draws these instead of the stored verdicts, and only these rows,
+    /// for as long as it is non-empty.
+    std::map<std::string, mapcheck::Verdict, std::less<>> proposal;
+    int proposed_deadly = 0, proposed_safe = 0;
+
+    void clear_proposal() {
+        proposal.clear();
+        proposed_deadly = proposed_safe = 0;
+    }
 };
 
 /// The bug report being written, and the exact bytes it would send.
@@ -240,6 +270,61 @@ public:
     /// the same frame.
     PasteEdit& paste_edit() { return paste_edit_; }
 
+    // Map check. The rating tables, the map in hand as a list of rateable rows, and the one
+    // thing pressing a row does.
+    mapcheck::Store& map_store() { return map_store_; }
+    const mapcheck::Store& map_store() const { return map_store_; }
+    /// The rows of the map on screen, rebuilt whenever a rating or the profile changes — a few
+    /// dozen rows against a map that is already parsed, so there is nothing to cache.
+    const std::vector<mapcheck::Row>& map_rows() const { return map_rows_; }
+    /// Rate the row at `index` as `v`, or walk it to the next verdict when `v` is absent.
+    /// Buffered; see `mapcheck::Store`.
+    void rate_map_row(size_t index, std::optional<mapcheck::Verdict> v = std::nullopt);
+    /// Switch the table in use, from the popup's dropdown or from Settings. Re-reads every row.
+    void select_map_profile(std::string_view name);
+    /// Take up the profile list Settings has been editing and rebuild the rows behind it.
+    void map_profiles_changed();
+    /// What the Map Check settings tab is in the middle of. Mutable: the tab reads and writes
+    /// it in the same frame.
+    MapCheckEdit& map_edit() { return map_edit_; }
+
+    // The pool browser. Everything here is per domain rather than per map — see mapcheck/rate.
+    /// The pool entries the search box leaves, rebuilt only when the search or the bundle
+    /// changes: matching a few hundred entries against a regex is not per-frame work. While a
+    /// proposal is pending this is the proposal's own rows and nothing else, so the list *is*
+    /// the preview of what accepting would write.
+    const std::vector<mapcheck::PoolGroup>& map_pool_view();
+    /// How many affixes the pool holds at all, for the "%zu of %zu" line.
+    size_t map_pool_size();
+    /// What a pool row shows, and on whose authority.
+    ///
+    /// `inherited` is the propagation rule made visible: a verdict set on a *shorter* affix
+    /// speaks for every affix whose wordings contain it, and a page that drew only what was set
+    /// on this exact row would leave that rule invisible until a map opened. The row still
+    /// distinguishes the two — pressing a button always writes this affix's own verdict, so a
+    /// control never moves except by being pressed.
+    struct PoolRating {
+        mapcheck::Verdict verdict = mapcheck::Verdict::Unrated;
+        bool inherited = false; ///< lent by a shorter key, not set on this affix
+    };
+    /// What to draw on a pool row: the pending proposal where there is one, otherwise this
+    /// affix's own verdict, otherwise whatever a shorter one lends it.
+    PoolRating pool_verdict(const mapcheck::PoolGroup& g) const;
+    /// Rate one affix of the pool: the verdict is keyed on its whole set of wordings, so an
+    /// affix sharing one with another is not the same decision as that other.
+    void rate_pool_group(const mapcheck::PoolGroup& g, mapcheck::Verdict v);
+    /// Run the search over the whole pool and hold what it proposes. Writes nothing.
+    void propose_from_search(const std::string& search);
+    /// Write the proposal into the table in use. The one place a bulk edit lands.
+    void accept_proposal();
+
+    void create_map_profile(const std::string& name, const std::string& copy_from);
+    void delete_map_profile(const std::string& name);
+
+    /// How tall the popup actually drew. Reported back by the screen because the window has to
+    /// be sized before there is a frame to measure in — see `place_overlay`.
+    void set_mapcheck_height(float h) { mapcheck_h_ = h; }
+
     // Bug reports. The panel's own button opens the dialog; nothing here sends anything until
     // the dialog's Send is pressed, and the dialog shows the whole payload first.
     /// Capture the panel as it stands and open the report dialog on it. Called from the panel
@@ -308,6 +393,13 @@ private:
     void place_overlay();                    ///< size + position the overlay for the current screen
     Side cursor_side() const;                ///< which half of the game window the mouse is in
     void set_screen(Screen s);
+    /// Write the map-check half of the configuration, and nothing else.
+    ///
+    /// **Re-read from disk first, deliberately.** Settings edits `config_` in place and only its
+    /// Save button was ever meant to commit that, so saving the live object here would push out
+    /// a league or an account name the user is still typing. What goes to disk is the last saved
+    /// state with the profile fields laid over it.
+    void persist_map_profile();
     void log_state(const char* when);        ///< dump everything the copy path depends on
     void log_session_start();                ///< the run's configuration, once
     void rebind_hotkeys();
@@ -351,6 +443,19 @@ private:
     int settings_tab_ = 0;        ///< which Settings tab is open
     FilterEdit filter_edit_;      ///< which filter row has its range editor open
     PasteEdit paste_edit_;        ///< the paste Settings has open in its editor
+    mapcheck::Store map_store_;   ///< the rating tables, and the throttle in front of them
+    MapCheckEdit map_edit_;       ///< what the Map Check settings tab is in the middle of
+    /// The pool browser's list, and what it was built for. Rebuilt when either moves — see
+    /// `map_pool_view`.
+    std::vector<mapcheck::PoolGroup> map_pool_view_;
+    std::string map_pool_filter_;
+    const data::GameData* map_pool_data_ = nullptr;
+    size_t map_pool_size_ = 0;
+    bool map_pool_stale_ = true;
+    /// The map on screen as rateable rows. Rebuilt rather than kept in step: it points into
+    /// `item_`, so every place that replaces the item clears it.
+    std::vector<mapcheck::Row> map_rows_;
+    float mapcheck_h_ = 0;        ///< the popup's drawn height (see set_mapcheck_height)
     ReportDraft report_draft_;    ///< the bug report being written
     /// How far along opening the report dialog is. Two frames pass between the press and the
     /// dialog, and both of them are the point — see `open_bug_report`.
@@ -360,9 +465,13 @@ private:
         Capturing, ///< that redraw is being read back at the end of this frame
     };
     Opening report_opening_ = Opening::No;
-    /// Where the cursor was when the paste hotkey fired. Sampled there rather than read at
-    /// placement time for the same reason `side_` is: by then the hand has moved.
-    int paste_x_ = 0, paste_y_ = 0;
+    /// Where the cursor was when a hotkey that opens at it fired — the paste list and the map
+    /// check. Sampled there rather than read at placement time for the same reason `side_` is:
+    /// by then the hand has moved.
+    int cursor_x_ = 0, cursor_y_ = 0;
+    /// Which screen the copy in flight is for. The two checks share the whole copy path and
+    /// part company only once there is an item — see `poll_pending_copy`.
+    Screen copy_target_ = Screen::PriceCheck;
     bool hidden_filters_shown_ = false; ///< the filters the strategy left out are expanded
     std::string clipboard_;
     bool running_ = true;

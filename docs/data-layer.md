@@ -31,6 +31,40 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   bundle-level signal saying whether `BaseType::exchange` means anything, because unlike a whole
   missing file an absent boolean cannot tell "no data" from "no". `install` writes it only when
   non-zero, since a 0 would claim the opposite of what it means. See the currency-exchange section.
+  `en-mod-pools.ndjson` and its index are optional in the same way `en-unique-mods.ndjson` is —
+  see the mod-pool section. `source.mod_pools` is written through beside the other two so the
+  installed bundle records what the build produced, but it is **not** what gates anything: a
+  whole missing file says that already, and `has_mod_pools()` reads the index.
+- **The mod pools** are the one thing here that does not start from an item in hand.
+  `en-mod-pools.ndjson` is, per **mod domain**, every modifier that domain can spawn — the whole
+  set, whether or not anything is holding one. It exists so a modifier can be rated in Settings
+  before it has ever been rolled; see [map-check.md](map-check.md), which owns the feature.
+  **The pool describes and never gates.** What it lists is what spawns *naturally*, which is
+  strictly less than what an item can print: an essence, a craft, a veiled mod or Harvest all put
+  modifiers on an item whose weights would never have produced them, and the published list is
+  trimmed by naming conventions besides. A printed modifier no entry covers is normal, renders as
+  it always did, and is rateable on the spot. Nothing may use a pool to reject a line, hide one,
+  or decide it failed to parse.
+  One record — `PoolMod` — is one **wording-set**, not one roll: the tiers of an affix print the
+  same wordings and a verdict attaches to a wording, so they collapse, and `min`/`max` span the
+  lowest tier's floor to the highest tier's ceiling in displayed units. `tiers` and `mods` are
+  provenance for the debug log. A `PoolStat` with no `trade_id` is the ordinary case and not a
+  gap — the pool is rated, not searched, and a wording trade indexes under two hashes is one the
+  build refuses to pick between, here as everywhere else.
+  Two lookups, because the feature needs both directions: `mod_pool(domain)` is the whole pool,
+  for the settings list, filled by one pass over the file the first time it is asked for (a few
+  hundred records, and a pool is only ever wanted entire); `find_pool_mods(domain, wording)` goes
+  the other way, from a wording resolved off an item, through an index keyed on
+  `"{domain}::{wording}"`. **The domain is part of the key**, because a map and a chart are
+  separate pools that word 42 modifiers identically, and an answer mixing them would offer a
+  chart's affix for a map.
+  **Which domain an item rolls from is `mod_domain_for(base, item_class)`, not
+  `BaseType::mod_domain`.** The base is asked first and its class answers where it cannot, and
+  that fallback is not a nicety: trade lists all 491 maps under one entry whose game row is a
+  *stand-in* sitting with the stackable currency in domain 43, so a map's own record deliberately
+  states no domain at all and the `Maps` class is what knows the answer is 5. The other way round
+  would be wrong — a class holding genuinely different things (Jewels covers two domains)
+  publishes none, and only a base can answer for those.
 - **`data/lexicon`** is every word the *client* prints, for one language: the section labels
   (`Item Class`, `Rarity`, `Requirements`, `Sockets`, `Note`), the flag lines, the rarity and
   influence names, the mod-type suffixes and Advanced Mod Descriptions generation words, the
