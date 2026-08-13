@@ -43,11 +43,12 @@ int map_domain_of(const item::Item& it, const data::GameData* gd) {
     // The bundle said nothing — it predates the field, or the base did not resolve. The
     // clipboard still did, and these are the same items read from the other side.
     if (it.is_chart()) return kChartDomain;
+    if (it.is_heist()) return kHeistDomain;
     if (it.is_map() || it.is_logbook() || it.is_map_fragment()) return kMapDomain;
     return 0;
 }
 
-bool is_map_device_item(const item::Item& it, const data::GameData* gd) {
+bool is_rateable_item(const item::Item& it, const data::GameData* gd) {
     const int d = map_domain_of(it, gd);
     return std::find(std::begin(kDomains), std::end(kDomains), d) != std::end(kDomains);
 }

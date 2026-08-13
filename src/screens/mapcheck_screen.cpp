@@ -1,6 +1,7 @@
 #include "screens/mapcheck_screen.hpp"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <imgui.h>
@@ -152,22 +153,71 @@ void draw_plate(App& app, const item::Item& it) {
     ImGui::PopFont();
 }
 
+/// A lexicon term as a label: the game writes "Requires " with the space that joins it to what
+/// follows, and a label is followed by its own colon instead.
+std::string as_label(std::string_view term) {
+    while (!term.empty() && term.back() == ' ') term.remove_suffix(1);
+    return std::string(term);
+}
+
+/// The job levels a heist item demands, as one pair: `Requires: Deception 5, Engineering 4`.
+///
+/// The game writes one sentence per job and a fully revealed blueprint asks for several — six on
+/// the Tunnels capture — so drawn as the game writes them they are the longest thing on the panel
+/// and most of it is the word "Requires". Folded here into the label the rest of the block has,
+/// keeping whatever the client annotated the level with — "(unmet)" is the reason to read the line
+/// at all. Both wordings come out of the lexicon, so a translated client folds the same way.
+std::string heist_jobs_value(const item::Item& it, const data::Lexicon& lex) {
+    const std::string_view prefix = lex.term(data::Term::HeistJobPrefix);
+    const std::string_view level = lex.term(data::Term::HeistJobLevel);
+    std::string out;
+    for (const item::Property& p : it.properties) {
+        if (p.key != data::PropertyKey::HeistJob) continue;
+        std::string_view line = p.value;
+        if (line.starts_with(prefix)) line.remove_prefix(prefix.size());
+        if (!out.empty()) out += ", ";
+        // "Deception (Level 5 (unmet))" -> "Deception 5 (unmet)". A line the terms do not fit
+        // is kept whole rather than cut at a guess: it is still the job and the level.
+        const size_t at = line.find(level);
+        if (at == std::string_view::npos || line.back() != ')') {
+            out += line;
+            continue;
+        }
+        out += line.substr(0, at);
+        out += ' ';
+        out += line.substr(at + level.size(), line.size() - at - level.size() - 1);
+    }
+    return out;
+}
+
 /// The numbers a map is opened for, laid out across the panel instead of one to a line.
 ///
 /// The game prints "Item Quantity: +107%" on three lines of its own; here they are a run that
 /// wraps, which is the whole of what "compact" means for this block. The labels are the ones
 /// the client printed rather than shortened ones — a shorter word would have to be invented per
 /// language, and the wrap already buys the space.
-void draw_properties(const item::Item& it) {
+void draw_properties(const item::Item& it, const data::Lexicon& lex) {
     const float avail = ImGui::GetContentRegionAvail().x;
     const float gap = ImGui::GetStyle().ItemSpacing.x * 2.0f;
+    const std::string jobs = heist_jobs_value(it, lex);
     float x = 0.0f;
     bool first = true;
+    bool jobs_drawn = false;
     for (const item::Property& p : it.properties) {
-        if (p.label.empty()) continue; // prose the game prints among the properties
-        const std::string label = p.label + ": ";
+        std::string value = p.value;
+        std::string label = p.label;
+        if (p.key == data::PropertyKey::HeistJob) {
+            // All of them at once, where the first one was printed, so the block still reads in
+            // the order the game wrote it.
+            if (jobs_drawn || jobs.empty()) continue;
+            jobs_drawn = true;
+            label = as_label(lex.term(data::Term::HeistJobPrefix));
+            value = jobs;
+        }
+        if (label.empty()) continue; // prose the game prints among the properties
+        label += ": ";
         const float w =
-            ImGui::CalcTextSize(label.c_str()).x + ImGui::CalcTextSize(p.value.c_str()).x;
+            ImGui::CalcTextSize(label.c_str()).x + ImGui::CalcTextSize(value.c_str()).x;
         // Measured against what is left on the line rather than against the pair's own width:
         // a pair that does not fit starts a new line, and one that has never fitted anywhere
         // still gets one to itself and is wrapped by ImGui.
@@ -183,7 +233,14 @@ void draw_properties(const item::Item& it) {
         ImGui::PopStyleColor();
         ImGui::SameLine(0.0f, 0.0f);
         ImGui::PushStyleColor(ImGuiCol_Text, p.augmented ? kColAugmented : kColValue);
-        ImGui::TextUnformatted(p.value.c_str());
+        // Wrapped, not clipped. Every pair the block was first written for was a number and
+        // fitted; the folded job list on a fully revealed blueprint is longer than the panel is
+        // wide, and without a wrap position ImGui cuts it off at the edge instead. `x` is left
+        // holding the unwrapped width on purpose — it is then wider than the line can be, so the
+        // next pair starts a line of its own rather than being placed against a stale cursor.
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(value.c_str());
+        ImGui::PopTextWrapPos();
         ImGui::PopStyleColor();
     }
 }
@@ -395,7 +452,7 @@ void draw_mapcheck_screen(App& app) {
     draw_plate(app, *it);
     if (!it->properties.empty() || it->item_level) {
         draw_rule();
-        draw_properties(*it);
+        draw_properties(*it, app.item_lexicon());
     }
     ImGui::PopFont();
 

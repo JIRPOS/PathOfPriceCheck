@@ -132,6 +132,12 @@ STATS = [
     # Life" above is a hazard too — the same stat an ultimatum stakes on.
     "Heist Targets are always Enchanted Armaments",
     "Players are Cursed with Temporal Chains",
+    # The one wording a map's pool and a contract's both grant, which is what the heist half of
+    # the mod pool below is sliced for. It prints no number on either.
+    "Area has patches of Burning Ground",
+    # And a contract affix nothing else words: the pool entry behind it grants two more stats
+    # that no contract prints, so this is the wording an expansion has to grow from.
+    "Patrol Packs have #% increased chance to be replaced by an Elite Patrol Pack",
     # A sanctum's two shapes of modifier, both of them only searchable in the `sanctum`
     # namespace — which is what the parser has to type them as, and the reason they are here at
     # all. The first pair is the ordinary affix; the boons and afflictions after it are stats
@@ -298,12 +304,23 @@ UNIQUE_MODS = [
 # one shared by two domains, a modifier printing two wordings of which only one carries a
 # range, an entry whose wording trade indexes twice and so carries no id at all, and a
 # corruption implicit, whose hash is in the implicit namespace rather than the explicit one.
+#
+# The last four are the heist pool. `MapBurningGround` and `HeistContractBurningGround` word one
+# wording identically and grant nothing else, so they fold into one row the way a chart's twin
+# does — the whole of what a third domain had to be shown not to break. `HeistContractBurningGround1`
+# is the same wording plus the two alert-level stats no contract prints, which is why the fold
+# leaves it alone. `HeistContractMonsterPatrolAdditionalElite1` is that shape with nothing to share:
+# one printed wording, two unprinted, and the entry an expansion from the printed one has to reach.
 MOD_POOLS = [
     "MapTotems",
     "MapMonstersHinderOnHitMapWorlds",
     "MapDeepwaterChartMonstersHinderOnHit",
     "MapDeepwaterChartMonsterCannotBeStunned",
     "MapCorruptionItemQuantity",
+    "MapBurningGround",
+    "HeistContractBurningGround",
+    "HeistContractBurningGround1",
+    "HeistContractMonsterPatrolAdditionalElite1",
 ]
 
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",

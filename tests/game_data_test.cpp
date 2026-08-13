@@ -220,13 +220,17 @@ TEST_CASE("a pool answers for a whole mod domain, not for an item") {
     auto gd = fixture();
     CHECK(gd->has_mod_pools());
     const std::span<const PoolMod* const> maps = gd->mod_pool(5);
-    REQUIRE(maps.size() == 3);
+    REQUIRE(maps.size() == 4);
     // File order, which is the order the game's own table holds the modifiers in.
     CHECK(maps.front()->name == "Ceremonial");
     CHECK(maps.front()->gen == 1);
     // Every row behind the wording, tiers and side-area twin alike: it is provenance.
     CHECK(maps.front()->tiers == 4);
     CHECK(maps.front()->mods.front() == "MapTotems");
+    // Three pools, one file: the domain is what separates them, and asking for one of them
+    // never brings back another's entries even where the wording is the same string.
+    CHECK(gd->mod_pool(39).size() == 2);
+    CHECK(gd->mod_pool(22).size() == 3);
     // A domain the bundle publishes no pool for is empty, which is not the same answer as a
     // bundle that has no pools at all — `has_mod_pools()` is what tells those apart.
     CHECK(gd->mod_pool(1).empty());

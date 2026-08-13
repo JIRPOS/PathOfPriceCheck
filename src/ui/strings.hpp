@@ -145,6 +145,8 @@ enum class Msg : uint16_t {
     MapCheckTitle,
     MapRateHint,
     MapUnresolved,
+    /// The banner's sentence. **It never names the thing**: a heist contract and a chart are rated
+    /// by the same popup as a map, so "run this" is the word that is true of all of them.
     MapOutlookNoMods,
     MapOutlookUnrated,
     MapOutlookSafe,

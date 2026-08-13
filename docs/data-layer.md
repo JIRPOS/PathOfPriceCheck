@@ -55,9 +55,10 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   for the settings list, filled by one pass over the file the first time it is asked for (a few
   hundred records, and a pool is only ever wanted entire); `find_pool_mods(domain, wording)` goes
   the other way, from a wording resolved off an item, through an index keyed on
-  `"{domain}::{wording}"`. **The domain is part of the key**, because a map and a chart are
-  separate pools that word 42 modifiers identically, and an answer mixing them would offer a
-  chart's affix for a map.
+  `"{domain}::{wording}"`. **The domain is part of the key**, because a map, a chart and a heist
+  area are separate pools — a map and a chart word 42 modifiers identically, and 58 of the heist
+  pool's 90 entries word their printed stat as a map's does — and an answer mixing them would offer
+  a chart's affix for a map.
   **Which domain an item rolls from is `mod_domain_for(base, item_class)`, not
   `BaseType::mod_domain`.** The base is asked first and its class answers where it cannot, and
   that fallback is not a nicety: trade lists all 491 maps under one entry whose game row is a

@@ -10,13 +10,18 @@
 
 namespace ppc::mapcheck {
 
-/// The two pools map check reads: the map device's, and the charts'.
+/// The three pools map check reads: the map device's, the charts', and the heist areas'.
 ///
 /// One list rather than a hard-coded name anywhere, because everything above it is written per
-/// domain — the settings page, the lookups, the store. A third pool costs an entry here.
+/// domain — the settings page, the lookups, the store. A fourth pool costs an entry here.
+///
+/// **Order is precedence**, and the map comes first: where two pools word one affix the same, the
+/// row is drawn with the map's wording and its affix name. Heist is last for no reason but that
+/// it arrived last — it shares nothing with the chart pool that the map pool does not also share.
 inline constexpr int kMapDomain = 5;
 inline constexpr int kChartDomain = 39;
-inline constexpr int kDomains[]{kMapDomain, kChartDomain};
+inline constexpr int kHeistDomain = 22;
+inline constexpr int kDomains[]{kMapDomain, kChartDomain, kHeistDomain};
 
 /// Which pool this item rolls from, or 0 when nothing says.
 ///
@@ -26,12 +31,20 @@ inline constexpr int kDomains[]{kMapDomain, kChartDomain};
 /// the clipboard instead of from the data.
 int map_domain_of(const item::Item& it, const data::GameData* gd);
 
-/// True for anything that opens in the map device: ordinary, nightmare and Originator maps,
-/// unique maps, charts, expedition logbooks and invitations.
+/// True for an item that rolls from one of `kDomains`: everything that opens in the map device —
+/// ordinary, nightmare and Originator maps, unique maps, expedition logbooks and invitations —
+/// plus charts, and heist contracts and blueprints.
 ///
 /// The gate on the hotkey, and the only one there is. It keeps a ring's modifiers out of a map
 /// profile — the rating table is keyed on stats, so nothing would stop them going in.
-bool is_map_device_item(const item::Item& it, const data::GameData* gd);
+///
+/// **A bundle with no pool for the domain still passes.** The gate is about the item, and the
+/// pool is a convenience: an affix that resolves to a stat can be rated whether or not anything
+/// describes the pool it came from. What such a bundle costs is the expansion in
+/// `pool_refs_for` — a verdict set against a printed line alone, which the pool would have keyed
+/// on the affix's whole wording set. Those two keys are not each other, so ratings made on a
+/// bundle predating a domain's pool are not found again once it arrives.
+bool is_rateable_item(const item::Item& it, const data::GameData* gd);
 
 /// One line of the popup's rateable list: **an affix** the item printed, and what the profile in
 /// use says about it.

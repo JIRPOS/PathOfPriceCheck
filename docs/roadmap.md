@@ -203,3 +203,18 @@ reason is here so it is not proposed a second time.
   What replaced it is the profile last picked being remembered, which is a `persist_map_profile`
   call and no new file, host or log line. **If this is reopened, reopen it with a capture** — a
   client log in which a character selection is actually named — and not with reasoning.
+
+- **Rating Crucible maps in map check** — the two `Misc Map Items` bases `Primeval Remnant` and
+  `Primordial Remnant`, domain 33 `CRUCIBLE_MAP`. Nothing technical is in the way: the pool is
+  real (49 prefixes, 51 suffixes), and the work is one entry in `mapcheck::kDomains` and one in
+  the data repo's `POOL_GENERATIONS`, exactly as heist was. It is closed because the league is
+  over and the items cannot drop — what is left is a handful on Standard, and the gate splitting
+  one item class in two is a smaller oddity than a pool nobody can obtain. **Reopen it only if
+  the content returns**, and note that it is the one place the domain gate disagrees with an item
+  class it otherwise accepts. → [map-check.md](map-check.md)
+
+- **Rating delve areas, and any other domain whose name says AREA.** There are exactly three —
+  5 `AREA`, 17 `DELVE_AREA`, 22 `HEIST_AREA` — and 17 has no base item in the game behind it. A
+  delve biome's modifiers exist and are generated, but nobody holds a copy of one to copy, which
+  is the Vaal side area argument and closes it the same way. Nothing is deferred here: with heist
+  built, every area pool a player can put on the clipboard is read.

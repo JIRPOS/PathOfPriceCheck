@@ -667,8 +667,8 @@ void App::poll_pending_copy() {
     // ring's modifiers resolve to stats like a map's do, and nothing else would stop them being
     // rated into a map profile. Dropped silently, like every other check that finds nothing.
     if (copy_target_ == Screen::MapCheck &&
-        !mapcheck::is_map_device_item(*item_, item_data_.get())) {
-        debug::log("[map]    dropped: '%s' is not something that opens in the map device",
+        !mapcheck::is_rateable_item(*item_, item_data_.get())) {
+        debug::log("[map]    dropped: '%s' rolls from no pool map check reads",
                    item_->item_class.c_str());
         abandon_copy();
         return;
@@ -1225,7 +1225,7 @@ void App::handle_action(Action a) {
         if (!game_focused) { // dev mode: no game to copy from, just show what's already there
             accept_clipboard(read_clipboard("clipboard.dev"));
             if (item_ && (copy_target_ != Screen::MapCheck ||
-                          mapcheck::is_map_device_item(*item_, item_data_.get())))
+                          mapcheck::is_rateable_item(*item_, item_data_.get())))
                 set_screen(copy_target_);
             return;
         }
