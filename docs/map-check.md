@@ -19,15 +19,32 @@ the spot. Nothing about the feature requires knowing what a map *could* have rol
 only once there is an item — one flag, `App::copy_target_`, consumed in `poll_pending_copy`. The
 popup opens at the cursor, exactly as the paste list does and through the same placement code.
 
-The **one gate** is `is_map_device_item`: nothing else opens the popup, and an item that fails it
+The **one gate** is `is_rateable_item`: nothing else opens the popup, and an item that fails it
 is dropped in silence like any other check that finds nothing. It is not a data question but an
 item one — a ring's modifiers resolve to stats as a map's do, and without the gate they would be
-rated into a map profile with nothing to stop them.
+rated into a map profile with nothing to stop them. It asks one thing: does this item roll from a
+domain in `kDomains`? So a heist contract passes and a Crucible remnant does not, both of them for
+the same reason and neither of them by name.
 
-The popup, top to bottom: the **outlook** (below), the name plate and the map's own numbers laid
+**It passes an item whose pool the bundle does not carry**, deliberately: the gate is about the
+item and the pool is a convenience, so an affix that resolves to a stat is rateable either way.
+The cost is that `pool_refs_for` cannot expand — a verdict lands on the printed wording alone
+where the pool would have keyed it on the affix's whole set — and those two keys are not each
+other. Ratings made on a bundle predating a domain's pool are therefore not found again once that
+pool arrives. It shows as an unrated row, never as a wrong verdict, and it is the price of not
+having the hotkey do nothing.
+
+The popup, top to bottom: the **outlook** (below), the name plate and the item's own numbers laid
 out across the panel rather than one to a line, the profile in use, and then one row per modifier
 with its verdict. A click walks a row through the four states; a right-click puts it straight back
 to unrated, which is otherwise three clicks away from deadly and is the one a misclick needs.
+
+The numbers block is a **wrapping run of label-value pairs**, and a heist item is what it was
+worth compacting for: a fully revealed blueprint prints fifteen property lines, six of which are
+`Requires <job> (Level N)` sentences. Those fold into one pair — `Requires: Brute Force 5,
+Demolition 5, …`, keeping any `(unmet)` the client annotated, both wordings out of the lexicon —
+and the whole block comes to five lines. The banner's sentence names nothing for the same reason:
+"You can run this safely" is true of a map, a chart and a contract alike.
 
 **Nothing is split and nothing is merged.** A hybrid modifier keeps both its lines in one row, and
 two modifiers wording the same thing stay two rows. The item printed them that way and the popup is
@@ -120,6 +137,22 @@ they are still rollable and still carry modifiers a player wants a verdict on. *
 are out**: there is no copy of a side area to read, and reading one off the screen is not something
 this project does.
 
+**And it means a heist contract or blueprint too.** A contract goes to Adiyah rather than into the
+map device, so it is outside that sentence on the letter of it and inside on every other count: it
+is an area you decide to open, it rolls prefixes and suffixes from a pool of its own, and the
+decision a player makes about `Players have 60% reduced effect of Non-Curse Auras from Skills` is
+the same decision they make about it on a map. The pool is `HEIST_AREA`, domain 22, and it costs
+one entry in `kDomains` — which is the whole reason that list exists. What it does *not* cost is a
+second feature: the store, the profiles, the popup, the settings page and the import were written
+per domain, and none of them learned anything about heists.
+
+**Crucible maps — `Primeval Remnant` and `Primordial Remnant`, domain 33 `CRUCIBLE_MAP` — are
+out**, and the reason is not the code. Their pool is real (49 prefixes, 51 suffixes) and the two
+bases are `Misc Map Items`, the same class as the 26 that pass the gate on domain 5, so this is the
+one place the gate splits an item class. But the league is over, the items cannot drop, and what is
+left is a handful on Standard: not worth an entry. Note the shape if it is ever reopened — it is
+one line in `kDomains` and one in the data repo's `POOL_GENERATIONS`.
+
 Every layer built so far starts from the item in hand, so nothing in the bundle describes a pool
 except the per-unique dataset, which is built from poewiki rather than from the client. Map check
 is the first feature where the client's own data expresses one directly.
@@ -151,9 +184,17 @@ Leaving roughly **155 rateable wordings**, which is small enough that the settin
 with a search box rather than a data-management problem.
 
 **The other map-adjacent domains.** Charts are **39** (49 prefixes, 32 suffixes), a domain
-dat-schema does not name. **12** `LEAGUESTONE` holds legacy map mods that still collide with
-domain-5 wordings. **14** `MAP_DEVICE` holds invitation implicits. **11** `ATLAS` holds
-atlas-side mods.
+dat-schema does not name. Heist areas are **22** `HEIST_AREA` — the section below. **12**
+`LEAGUESTONE` holds legacy map mods that still collide with domain-5 wordings. **14** `MAP_DEVICE`
+holds the fixed implicit each map fragment carries (`VaalFragmentImplicit1`,
+`ShaperFragmentImplicit`; all 274 rows are generation 3 and not one of them names an invitation —
+invitations are domain 5, as the table below says). **11** `ATLAS` holds atlas-side mods.
+
+**Only three domain names contain the word AREA**, which is the question worth asking once: **5**
+`AREA`, **17** `DELVE_AREA` and **22** `HEIST_AREA`. Delve is closed rather than deferred — its
+155 rows are all generation type 14 and **no base item in the game carries the domain**, because a
+delve biome is an area nobody holds a copy of. That is the Vaal side area argument again, and it
+is why heist is the only reachable area pool outside the map device's own.
 
 **Domain 5 is the map device.** Every kind of thing that opens in it shares the domain and carries
 a tag on its base saying which kind it is. The tags are recorded here because they are what proves
@@ -209,6 +250,32 @@ that because domain 5 is effectively one slot with one pool.
 discriminator is generation type 3, except that 276 of the mod rows the unique dataset references
 are ordinary generation 1/2 anyway. The unique→mod link is a relation, not a property of the mod,
 which is what [UNIQUE-MODS.md](../UNIQUE-MODS.md) exists for.
+
+**Domain 22, the heist pool.** 146 prefixes + 153 suffixes = 299 rows, **90 wording-sets**, and
+nothing else: no implicits, no legacy generation types, nothing the hygiene rules drop. It is
+behind 18 bases — 9 contracts and 9 blueprints, which share the one pool. The quest contracts
+(`Vigilante Contract` and its kin) are domain **43** with the stackable currency and roll nothing,
+which is why the `Contracts` item class publishes no domain of its own: its bases disagree, so a
+contract is placed by its base and by `is_heist()` if the base did not resolve.
+
+**Every heist affix grants two stats no contract prints**, and this is the thing to know about the
+pool. Alongside its own wording each one carries `#% more raising of Alert Level` and `#% increased
+time before Lockdown`, which the client does not print as lines — it sums them into the properties
+`Alert Level Reduction` and `Time Before Lockdown`. Measured on a real capture: six affixes
+carrying -7, -6, -6, -5, -6 and -4, and the item printing `Alert Level Reduction: +34%`. So the
+`pool_refs_for` expansion is not an optimisation here but the ordinary case — 88 of the 90 entries
+need it — and it is the same mechanism the Nightmare map's unprinted `#% more Currency found in
+Area` already needed. The two entries that are *only* the alert pair are affixes that print no line
+at all: rateable in Settings, never on a popup, and harmless.
+
+**The wordings mostly do not collide with a map's, and that is data rather than design.** 58 of
+the 90 entries word their printed stat exactly as a domain-5 entry does — heist `Chaining` and map
+`Chaining` are the same sentence — but the alert pair makes the *sets* different, so `pool_groups`
+folds only **one** group across the two domains (`Area has patches of Burning Ground`, where a
+legacy heist row grants nothing else). Rating a map's `Chaining` therefore does not rate a
+contract's. That is arguable either way and was left as the data has it: the two affixes genuinely
+differ, and the alternative is dropping stats from a set to make keys collide, which is a lie about
+what the affix is. If it is ever revisited, revisit it in `pool_groups`, not in the bundle.
 
 ## The rule this whole design hangs on
 
@@ -404,7 +471,9 @@ Three entry points, and [data-layer.md](data-layer.md) owns them now:
 
 **The pool browser in Settings — built, and pool-agnostic.** `map_check_tab` reads
 `mapcheck::kDomains` and nothing else knows the number 5, so the same page serves 246 flask mods,
-511 abyss jewel mods or 552 idol mods the day one is published.
+511 abyss jewel mods or 552 idol mods the day one is published. Heist was the first test of that
+claim and it held: adding domain 22 was one entry in `kDomains`, one `is_heist()` line in the
+fallback, and no change to this page at all.
 
 The page is **rarely opened** by design. The table fills in by playing; this exists for the one
 session where somebody sits down to pre-fill it. So the row carries **four buttons rather than a
@@ -428,10 +497,14 @@ file unreadable.
 identically and roll them from pools of their own, so `Resistant` arrives as two entries differing
 only in range — `10-25` chaos on a map, `0-40` on a chart. The verdict key is the sorted ref set
 with no domain in it, so those two can never hold different verdicts: one click lit both, and the
-list was showing 39 decisions as 82 rows. `pool_groups` collapses them, **270 entries to 227 rows**,
+list was showing 39 decisions as 82 rows. `pool_groups` collapses them, **360 entries to 315 rows**,
 and the row draws the entry from the first domain in `kDomains` — a map's, which is what the reader
 is nearly always deciding about. A search is still asked about every entry in the group, so a term
-naming a number hits if either pool's range would print it.
+naming a number hits if either pool's range would print it. Of the 40 groups holding more than one
+entry, **35 are a map and a chart, 4 are two entries of one pool** (domain 5 words `Area has
+patches of Burning Ground` as both `of Flames` and `of Fire`) **and 1 is a map and a contract** —
+the heist pool barely folds in, for the data reason given above, and the mechanism did not have to
+change to say so.
 
 Putting the domain into the key instead was the alternative and was rejected: it is a format change
 to every profile file, and it would make rating a map's `Resistant` stop speaking for a chart's,

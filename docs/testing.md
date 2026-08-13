@@ -111,14 +111,22 @@ which is the whole of what covers an unidentified unique: the gloves are the cas
 can settle and the Riveted Boots above are the one the app takes for itself. The pair is also what
 covers `en-items-base.index.bin` at all, since nothing else in the fixture reads it.
 
-The **five mod-pool entries** are chosen for the reader rather than for any item: a wording that
-prints no number (so no bounds at all, which must not read as bounds that failed to parse), one
-wording shared by the map pool and the chart pool under a trade id they agree on (which is the
-whole case for a domain-qualified index key), a modifier printing two wordings of which only one
-carries a range, an entry whose wording trade indexes under two hashes and which therefore carries
-no id at all, and a corruption implicit, whose hash is in the implicit namespace. Two of their
-wordings are in `STATS` as well, so the pool-to-stat join is covered; `Area contains many Totems`
-is there for that and for nothing else.
+The **nine mod-pool entries** are chosen for the reader rather than for any item, and cover all
+three domains. Five are the original set: a wording that prints no number (so no bounds at all,
+which must not read as bounds that failed to parse), one wording shared by the map pool and the
+chart pool under a trade id they agree on (which is the whole case for a domain-qualified index
+key), a modifier printing two wordings of which only one carries a range, an entry whose wording
+trade indexes under two hashes and which therefore carries no id at all, and a corruption implicit,
+whose hash is in the implicit namespace.
+
+The other four are the heist pool and are two wordings between them. `MapBurningGround` and
+`HeistContractBurningGround` say the same thing and grant nothing else, so they fold into one row
+across *different pools* — which is the whole of what a third domain had to be shown not to break.
+`HeistContractBurningGround1` is that wording plus the two alert-level stats no contract prints, so
+the fold leaves it alone, and `HeistContractMonsterPatrolAdditionalElite1` is that shape with
+nothing to share: one printed wording, two unprinted, and the entry a printed line has to be
+expanded to reach. Four of the nine entries' wordings are in `STATS` as well, so the pool-to-stat
+join is covered; `Area contains many Totems` is there for that and for nothing else.
 
 `tests/data/exchange/digest.json` is a slice of one real hourly digest, and every market in it is
 there to be dropped or kept for a stated reason: the chaos/divine pair (the rate, read from both

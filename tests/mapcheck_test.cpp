@@ -23,8 +23,9 @@ std::vector<std::string> lines(std::initializer_list<const char*> l) {
     return std::vector<std::string>(l.begin(), l.end());
 }
 
-/// The committed bundle slice, which carries five pool entries — one of them the two-wording
-/// `Unwavering`, which is the whole reason the affix key is a set.
+/// The committed bundle slice, which carries nine pool entries across all three domains — among
+/// them the two-wording `Unwavering`, which is the whole reason the affix key is a set, and the
+/// heist `Elite`, whose two unprinted wordings are why a printed line has to be expanded.
 std::shared_ptr<ppc::data::GameData> fixture() {
     std::string err;
     auto gd = ppc::data::GameData::open(fs::path(PPC_TEST_DATA_DIR) / "bundle", "en", &err);
@@ -458,7 +459,7 @@ TEST_CASE("what a map printed is keyed on the pool entry covering it") {
 TEST_CASE("a map's rolled affixes are rated, its implicits are printed and left alone") {
     const auto gd = fixture();
     const ppc::item::Item map = resolved(*gd, "map-magic-t16.txt");
-    REQUIRE(is_map_device_item(map, gd.get()));
+    REQUIRE(is_rateable_item(map, gd.get()));
 
     const TempDir tmp("rate");
     Store store;
@@ -490,14 +491,83 @@ TEST_CASE("a map's rolled affixes are rated, its implicits are printed and left 
     CHECK(assess(tally(rows)) == Outlook::Fatal);
 }
 
+TEST_CASE("a heist contract is rated from the heist pool, not from the map's") {
+    const auto gd = fixture();
+    const ppc::item::Item contract = resolved(*gd, "heist-contract-rare-mansion-advanced.txt");
+    // "Contract: Mansion" is not a base in the slice, so this is also the fallback: the bundle
+    // could not say, the clipboard could, and a contract is a heist area either way.
+    REQUIRE(contract.base == nullptr);
+    CHECK(map_domain_of(contract, gd.get()) == kHeistDomain);
+    REQUIRE(is_rateable_item(contract, gd.get()));
+
+    const TempDir tmp("heist");
+    Store store;
+    store.open(tmp.path, {}, "");
+
+    // Advanced Mod Descriptions is on in this capture, so the six affixes are six rows. Only
+    // `Elite` and `of Flames` resolve against the slice; the rest are drawn and cannot be rated,
+    // which is what an unresolved wording is supposed to do rather than vanish.
+    const std::vector<Row> rows = rate(contract, store, gd.get());
+    REQUIRE(rows.size() == 6);
+    CHECK(std::count_if(rows.begin(), rows.end(), [](const Row& r) { return r.rateable(); }) == 2);
+
+    // The expansion, and the reason it exists here: the affix also raises alert level and delays
+    // lockdown, the contract prints neither — it folds them into `Alert Level Reduction: +34%` —
+    // and a verdict set in Settings is keyed on all three.
+    CHECK(rows[0].refs ==
+          std::vector<std::string>{
+              "#% increased time before Lockdown", "#% more raising of Alert Level",
+              "Patrol Packs have #% increased chance to be replaced by an Elite Patrol Pack"});
+
+    const std::vector<PoolGroup> groups = pool_groups(*gd);
+    const auto elite = std::find_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
+        return g.mod->domain == kHeistDomain && g.mod->name == "Elite";
+    });
+    REQUIRE(elite != groups.end());
+    store.set(elite->refs, Verdict::Deadly);
+    CHECK(rate(contract, store, gd.get())[0].verdict == Verdict::Deadly);
+    CHECK(assess(tally(rate(contract, store, gd.get()))) == Outlook::Fatal);
+}
+
+TEST_CASE("a heist item the bundle knows the base of is placed by the bundle") {
+    const auto gd = fixture();
+    // "Contract: Tunnels" is in the slice and its record states domain 22, so nothing here
+    // depends on the item class at all.
+    const ppc::item::Item contract = resolved(*gd, "heist-contract-rare-tunnels.txt");
+    REQUIRE(contract.base != nullptr);
+    CHECK(contract.base->mod_domain == kHeistDomain);
+    CHECK(map_domain_of(contract, gd.get()) == kHeistDomain);
+    CHECK(is_rateable_item(contract, gd.get()));
+
+    const ppc::item::Item blueprint = resolved(*gd, "heist-blueprint-rare-tunnels-full.txt");
+    CHECK(map_domain_of(blueprint, gd.get()) == kHeistDomain);
+    CHECK(is_rateable_item(blueprint, gd.get()));
+}
+
 TEST_CASE("an affix two pools both grant is one row, because it is one decision") {
     const auto gd = fixture();
     const std::vector<PoolGroup> groups = pool_groups(*gd);
 
-    // The slice holds five entries and `of Impedance` is in it twice — the map's and the
-    // chart's, identically worded. The store keys on the ref set with no domain in it, so the
-    // two can never hold different verdicts and drawing them apart is drawing one decision twice.
-    CHECK(groups.size() == 4);
+    // The slice holds nine entries in seven groups: `of Impedance` is in it twice — the map's and
+    // the chart's, identically worded — and `Area has patches of Burning Ground` three times, of
+    // which the map's and one contract's are the same set. The store keys on the ref set with no
+    // domain in it, so entries sharing one can never hold different verdicts and drawing them
+    // apart is drawing one decision twice.
+    CHECK(groups.size() == 7);
+    const auto flames = std::find_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
+        return g.refs == std::vector<std::string>{"Area has patches of Burning Ground"};
+    });
+    REQUIRE(flames != groups.end());
+    // Across two *different* pools this time, and the map's still leads.
+    CHECK(flames->all.size() == 2);
+    CHECK(flames->mod->domain == kMapDomain);
+    CHECK(flames->all[1]->domain == kHeistDomain);
+    // The contract entry granting the same wording *plus* the alert-level pair is not folded in:
+    // it is a bigger affix, and one decision about it is not the same decision.
+    CHECK(std::count_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
+              return g.mod->domain == kHeistDomain;
+          }) == 2);
+
     const auto imp = std::find_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
         return g.mod->name == "of Impedance";
     });

@@ -1,0 +1,34 @@
+Item Class: Contracts
+Rarity: Rare
+Rage Scripture
+Contract: Mansion
+--------
+Client: Kondor Larcius
+Heist Target: The Goddess of Water (High Value)
+Area Level: 83
+Requires Deception (Level 5 (unmet))
+Item Quantity: +90% (augmented)
+Item Rarity: +52% (augmented)
+Alert Level Reduction: +34% (augmented)
+Time Before Lockdown: +34% (augmented)
+Maximum Alive Reinforcements: +34% (augmented)
+--------
+Item Level: 83
+--------
+{ Prefix Modifier "Elite" (Tier: 1) }
+Patrol Packs have 29(26-30)% increased chance to be replaced by an Elite Patrol Pack
+{ Prefix Modifier "Secure" (Tier: 1) — Damage }
+Patrolling Monsters deal 29(27-30)% increased Damage
+{ Prefix Modifier "Indifferent" (Tier: 1) — Damage }
+Guards deal 29(27-30)% increased Damage
+{ Suffix Modifier "of Doubt" (Tier: 1) }
+Players have 60% reduced effect of Non-Curse Auras from Skills
+{ Suffix Modifier "of Wavering Will" (Tier: 1) — Defences, Energy Shield }
+Players have 16% less Energy Shield Recovery Rate per 25% Alert Level
+{ Suffix Modifier "of Flames" (Tier: 1) — Damage, Elemental, Fire }
+Area has patches of Burning Ground
+--------
+"The relief depicts some sort of forgotten Maraketh goddess. I have no idea what
+the context is. The important thing is that you steal it before Bazira does."
+--------
+Give this Contract to Adiyah in the Rogue Harbour to embark on the Heist.
