@@ -125,6 +125,28 @@ TEST_CASE("an unscalable suffix is stripped and recorded") {
     CHECK(m->value == doctest::Approx(42.0));
 }
 
+TEST_CASE("a modifier with no roll at all gets the em-dash unscalable suffix instead") {
+    // A Heist Contract's own boolean effects: "Monsters are Hexproof \xe2\x80\x94 Unscalable
+    // Value" is the em-dash, title-case form the numeric "(unscalable value)" parenthetical
+    // never covered — both spellings mean the same thing and are looked up from the same
+    // lexicon list, see UnscalableSuffixes.
+    auto gd = fixture();
+    const auto m = match(*gd, {"Monsters are Hexproof \xe2\x80\x94 Unscalable Value"});
+    REQUIRE(m.has_value());
+    CHECK(m->stat->ref == "Monsters are Hexproof");
+    CHECK(m->unscalable);
+}
+
+TEST_CASE("Wine's plain-hyphen clipboard fallback is accepted for the same suffix") {
+    // The same fallback risk parse.cpp's info-line tags carry: right after a copy PoE has
+    // often rendered only CF_TEXT, and every em dash arrives as a plain hyphen.
+    auto gd = fixture();
+    const auto m = match(*gd, {"Monsters are Hexproof - Unscalable Value"});
+    REQUIRE(m.has_value());
+    CHECK(m->stat->ref == "Monsters are Hexproof");
+    CHECK(m->unscalable);
+}
+
 TEST_CASE("roll_incr scales the roll, but never an unscalable one") {
     auto gd = fixture();
     const auto scaled = match(*gd, {"+100 to maximum Life"}, ModType::Explicit, 20.0);

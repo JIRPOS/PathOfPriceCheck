@@ -122,6 +122,8 @@ enum class Term : uint8_t {
     NoteLabel,        ///< "Note"
     SuperiorPrefix,   ///< "Superior ", worn by a quality item nothing else has named — a white
                       ///< one or any unidentified one — and known to no lookup
+    SynthesisedPrefix,///< "Synthesised ", how the client prints a synthesised base's own type
+                      ///< line — the bundle knows the base only under the name beneath it
     MapTierPrefix,    ///< " (Tier ", closed by ')' — "Map (Tier 16)"
     BlightedMap,      ///< the whole base line of a blighted map
     BlightRavagedMap,
@@ -200,6 +202,13 @@ enum class TermList : uint8_t {
     /// the game prints in the parenthetical after the target's name, so "Precious" and not
     /// "(Precious)".
     HeistObjectiveValues,
+    /// free — what the game appends to a roll item level cannot scale: a numeric one gets a
+    /// lowercase parenthetical, a modifier with no roll at all (a Heist Contract's own boolean
+    /// effects among them, "Monsters are Hexproof") gets an em-dash "Unscalable Value" instead,
+    /// and Wine's clipboard fallback can turn that em dash into a plain hyphen the same way it
+    /// does for an info line's tags (see `kEmDash` in parse.cpp) — three spellings of one
+    /// wording, so a suffix can be added here without touching the code that checks for it.
+    UnscalableSuffixes,
     Count
 };
 

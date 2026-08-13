@@ -1,0 +1,40 @@
+Item Class: Sceptres
+Rarity: Unique
+Nebulis
+Synthesised Void Sceptre
+--------
+Sceptre
+Physical Damage: 50-76
+Critical Strike Chance: 8.83% (augmented)
+Attacks per Second: 1.25
+Weapon Range: 1.1 metres
+--------
+Requirements:
+Level: 68
+Str: 104 (unmet)
+Int: 122 (unmet)
+--------
+Sockets: W W W
+--------
+Item Level: 87
+--------
+{ Implicit Modifier — Attack, Critical  — 118% Increased }
+10(9-10)% increased Critical Strike Chance
+{ Implicit Modifier — Damage, Chaos  — 118% Increased }
+20(18-20)% increased Chaos Damage
+{ Implicit Modifier — Damage, Physical, Attack, Ailment  — 118% Increased }
+Bleeding you inflict deals Damage 16(15-20)% faster
+(They will deal the same total damage over a shorter duration)
+--------
+{ Unique Modifier }
+118(60-120)% increased Implicit Modifier magnitudes
+(Implicit Modifiers are those that come from an item's type, rather than its random properties)
+{ Unique Modifier — Caster, Speed }
+20(15-20)% increased Cast Speed
+{ Unique Modifier — Damage }
+8(6-8)% increased Elemental Damage per 1% Fire, Cold, or Lightning Resistance above 75%
+--------
+The vastness of the cosmos holds energies beyond comprehension,
+should one have the fortitude to grasp them.
+--------
+Synthesised Item

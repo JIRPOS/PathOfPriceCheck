@@ -1,0 +1,30 @@
+Item Class: Contracts
+Rarity: Rare
+Rapture Manifesto
+Contract: Smuggler's Den
+--------
+Client: Count Geonor
+Heist Target: Urn of the Original Ashes (Moderate Value)
+Area Level: 83
+Requires Deception (Level 5)
+Item Quantity: +45% (augmented)
+Item Rarity: +26% (augmented)
+Alert Level Reduction: +17% (augmented)
+Time Before Lockdown: +17% (augmented)
+Maximum Alive Reinforcements: +17% (augmented)
+--------
+Item Level: 83
+--------
+{ Prefix Modifier "Hexproof" (Tier: 1) — Caster, Curse }
+Monsters are Hexproof — Unscalable Value
+{ Prefix Modifier "Deployed" (Tier: 1) }
+Reward Rooms have 29(27-30)% increased Monsters
+{ Suffix Modifier "of Venom" (Tier: 1) — Chaos, Ailment }
+Monsters Poison on Hit — Unscalable Value
+{ Suffix Modifier "of Selfishness" (Tier: 1) }
+The Ring takes no Cut — Unscalable Value
+--------
+"A great fire once swept the land, and our leaders were turned to ash where they stood.
+The urn contains exactly what you think it does, and serves as proof of our long lineage."
+--------
+Give this Contract to Adiyah in the Rogue Harbour to embark on the Heist.

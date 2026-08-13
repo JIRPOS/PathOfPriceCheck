@@ -1,0 +1,26 @@
+Item Class: Heist Gear
+Rarity: Rare
+Oblivion Gear
+Precise Arrowhead
+--------
+Any Heist member can equip this item.
+--------
+Requirements:
+Level 5 in Any Job
+--------
+Item Level: 85
+--------
+{ Implicit Modifier — Damage, Attack }
+30(26-30)% increased Projectile Attack Damage
+--------
+{ Prefix Modifier "Buzzing" (Tier: 3) — Damage, Elemental, Lightning }
+1 to 46(41-47) added Lightning Damage
+Players and their Minions have 1 to 46(41-47) added Lightning Damage
+{ Prefix Modifier "Poacher's" (Tier: 3) — Damage, Attack }
+29(26-30)% increased Projectile Attack Damage
+{ Suffix Modifier "of Coordination" (Tier: 2) — Aura }
+Grants Level 10 Purity of Ice Skill
+{ Suffix Modifier "of Personality" (Tier: 4) }
+7(7-6)% reduced Hiring Fee
+--------
+Can only be equipped to Heist members.

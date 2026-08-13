@@ -529,6 +529,23 @@ TEST_CASE("a heist contract is rated from the heist pool, not from the map's") {
     CHECK(assess(tally(rate(contract, store, gd.get()))) == Outlook::Fatal);
 }
 
+TEST_CASE("an affix with no roll at all is still rated, past its em-dash unscalable suffix") {
+    // Four boolean affixes ("Monsters are Hexproof \xe2\x80\x94 Unscalable Value" among them)
+    // reported as unrateable: the suffix a numeric roll gets is a lowercase parenthetical, and
+    // this one is not, so the wording it was glued to matched nothing in the pool.
+    const auto gd = fixture();
+    const ppc::item::Item contract = resolved(*gd, "heist-contract-rare-smugglers-den.txt");
+    REQUIRE(is_rateable_item(contract, gd.get()));
+
+    const TempDir tmp("heist-unscalable");
+    Store store;
+    store.open(tmp.path, {}, "");
+
+    const std::vector<Row> rows = rate(contract, store, gd.get());
+    REQUIRE(rows.size() == 4);
+    CHECK(std::count_if(rows.begin(), rows.end(), [](const Row& r) { return r.rateable(); }) == 4);
+}
+
 TEST_CASE("a heist item the bundle knows the base of is placed by the bundle") {
     const auto gd = fixture();
     // "Contract: Tunnels" is in the slice and its record states domain 22, so nothing here
@@ -548,12 +565,12 @@ TEST_CASE("an affix two pools both grant is one row, because it is one decision"
     const auto gd = fixture();
     const std::vector<PoolGroup> groups = pool_groups(*gd);
 
-    // The slice holds nine entries in seven groups: `of Impedance` is in it twice — the map's and
-    // the chart's, identically worded — and `Area has patches of Burning Ground` three times, of
-    // which the map's and one contract's are the same set. The store keys on the ref set with no
-    // domain in it, so entries sharing one can never hold different verdicts and drawing them
-    // apart is drawing one decision twice.
-    CHECK(groups.size() == 7);
+    // The slice holds thirteen entries in eleven groups: `of Impedance` is in it twice — the
+    // map's and the chart's, identically worded — and `Area has patches of Burning Ground` three
+    // times, of which the map's and one contract's are the same set. The store keys on the ref
+    // set with no domain in it, so entries sharing one can never hold different verdicts and
+    // drawing them apart is drawing one decision twice.
+    CHECK(groups.size() == 11);
     const auto flames = std::find_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
         return g.refs == std::vector<std::string>{"Area has patches of Burning Ground"};
     });
@@ -563,10 +580,12 @@ TEST_CASE("an affix two pools both grant is one row, because it is one decision"
     CHECK(flames->mod->domain == kMapDomain);
     CHECK(flames->all[1]->domain == kHeistDomain);
     // The contract entry granting the same wording *plus* the alert-level pair is not folded in:
-    // it is a bigger affix, and one decision about it is not the same decision.
+    // it is a bigger affix, and one decision about it is not the same decision. Six, not two: the
+    // four "Unscalable Value" heist affixes above (Hexproof, Deployed, of Venom, of Selfishness)
+    // are each their own group too.
     CHECK(std::count_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
               return g.mod->domain == kHeistDomain;
-          }) == 2);
+          }) == 6);
 
     const auto imp = std::find_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
         return g.mod->name == "of Impedance";

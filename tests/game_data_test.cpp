@@ -230,7 +230,7 @@ TEST_CASE("a pool answers for a whole mod domain, not for an item") {
     // Three pools, one file: the domain is what separates them, and asking for one of them
     // never brings back another's entries even where the wording is the same string.
     CHECK(gd->mod_pool(39).size() == 2);
-    CHECK(gd->mod_pool(22).size() == 3);
+    CHECK(gd->mod_pool(22).size() == 7);
     // A domain the bundle publishes no pool for is empty, which is not the same answer as a
     // bundle that has no pools at all — `has_mod_pools()` is what tells those apart.
     CHECK(gd->mod_pool(1).empty());

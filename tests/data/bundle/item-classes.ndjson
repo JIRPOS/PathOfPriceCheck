@@ -18,3 +18,5 @@
 {"domain":1,"id":"Helmet","itemClass":"Helmets","tradeCategory":"armour.helmet"}
 {"domain":1,"id":"Amulet","itemClass":"Amulets","tradeCategory":"accessory.amulet"}
 {"domain":1,"id":"Belt","itemClass":"Belts","tradeCategory":"accessory.belt"}
+{"domain":1,"id":"Sceptre","itemClass":"Sceptres","tradeCategory":"weapon.sceptre"}
+{"domain":23,"id":"HeistEquipmentWeapon","itemClass":"Heist Gear","tradeCategory":"heistequipment.heistweapon"}
