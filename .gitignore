@@ -23,3 +23,7 @@ worker/.env
 worker/.dev.vars
 worker/node_modules/
 worker/.wrangler/
+
+# Discord report ingestion: local-only bot credential and pre-processed report content.
+discord-reports/.env
+discord-reports/inbox/

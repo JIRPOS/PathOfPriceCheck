@@ -62,8 +62,11 @@ read whole; each is one layer.
 
 Skills carry the recurring workflows: **commit-work** (commit and PR messages), **item-capture** (a
 clipboard capture that parses, prices or searches wrong), **clipboard-debug** (a copy that hung or
-came back stale), **run-overlay** (build and drive the app without the game). Invoke the skill
-rather than reconstructing the procedure.
+came back stale), **run-overlay** (build and drive the app without the game),
+**discord-reports-ingest** / **discord-reports-resolve** (pull bug reports out of the Discord relay
+channel into a local, gitignored inbox, and close them out once resolved — see
+[discord-reports/README.md](discord-reports/README.md)). Invoke the skill rather than
+reconstructing the procedure.
 
 ## Locked technical decisions (do not relitigate without asking)
 
