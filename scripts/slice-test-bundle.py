@@ -187,6 +187,24 @@ STATS = [
     "# to Dexterity",
     "# to Intelligence",
     "#% increased Stun and Block Recovery",
+    # Nebulis on a synthesised base: three implicits with a per-unique fixed magnitude and two
+    # unique-only explicits, one of them shared by no other stat in the slice at all. The case
+    # for the base line's "Synthesised " prefix, which is not part of any base's own name and
+    # has to come off before "Void Sceptre" resolves.
+    "#% increased Critical Strike Chance",
+    "#% increased Chaos Damage",
+    "Bleeding you inflict deals Damage #% faster",
+    "#% increased Implicit Modifier magnitudes",
+    "#% increased Cast Speed",
+    "#% increased Elemental Damage per 1% Fire, Cold, or Lightning Resistance above 75%",
+    # A rare Heist Gear item's affixes. Grants Level # is what proves the suffix reads past its
+    # own tier line; the other two also cover the two boilerplate lines Heist Gear prints around
+    # its affixes ("Any Heist member can equip this item.", "Can only be equipped to Heist
+    # members."), which carry no roll and must not be read as unmatched modifiers.
+    "#% increased Projectile Attack Damage",
+    "# to # added Lightning Damage\n"
+    "Players and their Minions have # to # added Lightning Damage",
+    "Grants Level # Purity of Ice Skill",
 ]
 
 ITEMS = [
@@ -288,6 +306,15 @@ ITEMS = [
     "ITEM::Onyx Amulet",
     "UNIQUE::Bound Fate",
     "ITEM::Cloth Belt",
+    # A synthesised base and the unique that rolls on it. The base line the client prints is
+    # "Synthesised Void Sceptre", never a name of its own — the record here is filed under
+    # "Void Sceptre" alone, which is the case for stripping the prefix before lookup.
+    "ITEM::Void Sceptre",
+    "UNIQUE::Nebulis",
+    # A Heist Gear base, rare rather than unique — the case for the class's own boilerplate
+    # lines ("Any Heist member can equip this item.", "Can only be equipped to Heist members.")
+    # reading as usage text rather than as unmatched modifiers.
+    "ITEM::Precise Arrowhead",
 ]
 
 UNIQUE_MODS = [
@@ -297,6 +324,7 @@ UNIQUE_MODS = [
     "The Dark Monarch",
     "Replica Dragonfang's Flight",
     "Bound Fate",
+    "Nebulis",
 ]
 
 # Keyed on the first of each entry's mod ids, which is stable and is what the debug log names.
@@ -326,7 +354,8 @@ MOD_POOLS = [
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
-                "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts"]
+                "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
+                "Sceptres", "Heist Gear"]
 
 LANG = "en"
 

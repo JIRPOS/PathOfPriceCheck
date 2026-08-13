@@ -2608,3 +2608,57 @@ TEST_CASE("a modifier that enumerates its alternatives is one modifier, however 
     CHECK(filter_for(p, "implicit.stat_2511217560") != nullptr); // the belt's implicit
 }
 
+TEST_CASE("a synthesised base resolves under the name beneath its prefix") {
+    auto gd = fixture();
+    // The client prints a synthesised weapon or armour's type line as "Synthesised <base>", and
+    // no bundle carries a base under that whole name — only "Void Sceptre" itself. Reported as
+    // Nebulis coming back with no base record at all.
+    const Item it = resolved(*gd, capture("unique-nebulis-synthesised.txt"));
+
+    CHECK(it.synthesised);
+    REQUIRE(it.base != nullptr);
+    CHECK(it.base->name == "Void Sceptre");
+    REQUIRE(it.unique_entry != nullptr);
+    CHECK(it.unique_entry->name == "Nebulis");
+
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+    CHECK(p.name == "Nebulis");
+    // The base's own name, not the printed line: trade's type filter takes "Void Sceptre" and
+    // the "Synthesised Item" checkbox separately, which `synthesised_item` above already ticks.
+    CHECK(p.type == "Void Sceptre");
+    for (const std::string& n : p.notes)
+        CHECK(n.find("unrecognised modifier") == std::string::npos);
+}
+
+TEST_CASE("Heist Gear's own boilerplate lines are not unrecognised modifiers") {
+    auto gd = fixture();
+    // "Any Heist member can equip this item." sits above the requirements and "Can only be
+    // equipped to Heist members." sits at the bottom — neither carries a roll, and before the
+    // needle both came back as unrecognised modifiers of their own.
+    const Item it = resolved(*gd, capture("heist-gear-rare-oblivion.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.strategy == Strategy::Modifiers);
+    CHECK(p.category == "heistequipment.heistweapon");
+    for (const std::string& n : p.notes) {
+        CHECK(n.find("Heist member") == std::string::npos);
+        CHECK(n.find("equipped") == std::string::npos);
+    }
+
+    CHECK(filter_for(p, "implicit.stat_2162876159") != nullptr); // Projectile Attack Damage
+    CHECK(filter_for(p, "explicit.stat_2162876159") != nullptr); // the Poacher's prefix
+    CHECK(filter_for(p, "explicit.stat_2697534676") != nullptr); // the Buzzing prefix
+    CHECK(filter_for(p, "explicit.stat_4193390599") != nullptr); // Grants Level 10 Purity of Ice
+
+    // "of Personality"'s reduced Hiring Fee is real and still unmatched: the bundle only names
+    // job-specific variants ("... for Deception Jobs", "... of Rogues"), not a bare one, and
+    // that gap is in the data build rather than in anything this layer decides.
+    const bool hiring_fee_noted =
+        std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+            return n.find("reduced Hiring Fee") != std::string::npos;
+        });
+    CHECK(hiring_fee_noted);
+}
+

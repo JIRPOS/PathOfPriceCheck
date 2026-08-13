@@ -122,6 +122,8 @@ enum class Term : uint8_t {
     NoteLabel,        ///< "Note"
     SuperiorPrefix,   ///< "Superior ", worn by a quality item nothing else has named — a white
                       ///< one or any unidentified one — and known to no lookup
+    SynthesisedPrefix,///< "Synthesised ", how the client prints a synthesised base's own type
+                      ///< line — the bundle knows the base only under the name beneath it
     MapTierPrefix,    ///< " (Tier ", closed by ')' — "Map (Tier 16)"
     BlightedMap,      ///< the whole base line of a blighted map
     BlightRavagedMap,

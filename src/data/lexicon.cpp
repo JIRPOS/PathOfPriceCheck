@@ -13,7 +13,7 @@ namespace {
 /// translates and nothing else, so these are the whole of its vocabulary.
 constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKeys{
     "item_class_label", "rarity_label",  "requirements_label", "sockets_label",
-    "note_label",       "superior_prefix", "map_tier_prefix",  "blighted_map",
+    "note_label",       "superior_prefix", "synthesised_prefix", "map_tier_prefix",  "blighted_map",
     "blight_ravaged_map", "foulborn_prefix", "foulborn_word",  "vaal_prefix",
     "influence_suffix", "tier_prefix",   "rank_prefix",        "modifier_word",
     "prefix_word",      "suffix_word",   "unique_word",        "increased_word",
@@ -123,6 +123,7 @@ void Lexicon::assign_english() {
     set(terms_, Term::SocketsLabel, "Sockets");
     set(terms_, Term::NoteLabel, "Note");
     set(terms_, Term::SuperiorPrefix, "Superior ");
+    set(terms_, Term::SynthesisedPrefix, "Synthesised ");
     set(terms_, Term::MapTierPrefix, " (Tier ");
     set(terms_, Term::BlightedMap, "Blighted Map");
     set(terms_, Term::BlightRavagedMap, "Blight-ravaged Map");
@@ -188,7 +189,12 @@ void Lexicon::assign_english() {
         // opening with "Take this item", the same shape a chart's does — and without a needle
         // of its own it came back as a fourth unrecognised modifier, since a logbook is gear
         // and gear needs a positive signal before prose is read as anything but a mod.
-        "Dannig"};
+        "Dannig",
+        // Heist Gear prints two of its own boilerplate lines that carry no roll: "Any Heist
+        // member can equip this item." above the requirements, and "Can only be equipped to
+        // Heist members." at the bottom. Neither reads as a mod section on its own signal, so
+        // both came back as unrecognised modifiers — one needle catches both.
+        "Heist member"};
     // "Quest Item" and "Divination Card" are printed with a trailing noun on some items, so
     // the rarity line is matched on a prefix as well as whole.
     lists_[static_cast<size_t>(TermList::QuestRarity)] = {"Quest"};

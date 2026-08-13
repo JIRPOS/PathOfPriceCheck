@@ -48,3 +48,6 @@
 {"craftable":{"category":"Amulets"},"domain":1,"dropLevel":25,"h":1,"metadataId":"Metadata/Items/Amulets/Amulet7","name":"Onyx Amulet","namespace":"ITEM","refName":"Onyx Amulet","w":1}
 {"art":"Art/2DItems/Belts/HinekoraBelt.png","name":"Bound Fate","namespace":"UNIQUE","refName":"Bound Fate","unique":{"base":"Cloth Belt"}}
 {"craftable":{"category":"Belts"},"domain":1,"dropLevel":20,"h":1,"metadataId":"Metadata/Items/Belts/Belt5","name":"Cloth Belt","namespace":"ITEM","refName":"Cloth Belt","w":2}
+{"craftable":{"category":"Sceptres"},"domain":1,"dropLevel":68,"h":3,"metadataId":"Metadata/Items/Weapons/OneHandWeapons/OneHandMaces/Sceptre22","name":"Void Sceptre","namespace":"ITEM","refName":"Void Sceptre","w":2}
+{"art":"Art/2DItems/Weapons/OneHandWeapons/Scepters/SceptreOfMemories.png","name":"Nebulis","namespace":"UNIQUE","refName":"Nebulis","unique":{"base":"Void Sceptre"}}
+{"craftable":{"category":"Heist Gear"},"domain":23,"dropLevel":83,"h":2,"metadataId":"Metadata/Items/Heist/HeistEquipmentRanged4","name":"Precise Arrowhead","namespace":"ITEM","refName":"Precise Arrowhead","w":2}

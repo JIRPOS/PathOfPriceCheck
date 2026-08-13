@@ -320,6 +320,13 @@ void parse_header(const Section& sec, Item& it, const data::Lexicon& lex) {
     const std::string_view superior = lex.term(data::Term::SuperiorPrefix);
     if (!superior.empty() && it.base_type.starts_with(superior))
         it.base_type.erase(0, superior.size());
+    // A synthesised weapon or armour piece prints "Synthesised " ahead of its base's own type
+    // line, and the bundle carries the base only under the name beneath it — "Void Sceptre",
+    // never "Synthesised Void Sceptre". Superior can still be outermost ("Superior Synthesised
+    // Void Sceptre"), which is why this runs after that strip rather than instead of it.
+    const std::string_view synthesised = lex.term(data::Term::SynthesisedPrefix);
+    if (!synthesised.empty() && it.base_type.starts_with(synthesised))
+        it.base_type.erase(0, synthesised.size());
     // A map prints its tier on the base line — "Map (Tier 16)", and on a magic one after the
     // affixes, "Map of Impedance (Tier 16)". It is the thing the map is searched on and it is
     // not part of the base's name, which is a bare "Map" in every bundle and on trade.
