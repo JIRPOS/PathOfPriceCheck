@@ -2631,6 +2631,24 @@ TEST_CASE("a synthesised base resolves under the name beneath its prefix") {
         CHECK(n.find("unrecognised modifier") == std::string::npos);
 }
 
+TEST_CASE("a modifier with no roll at all is not read past its em-dash unscalable suffix") {
+    auto gd = fixture();
+    // A Heist Contract's own boolean affixes print no number, and Advanced Mod Descriptions
+    // marks them "\xe2\x80\x94 Unscalable Value" rather than the numeric "(unscalable value)"
+    // parenthetical — a spelling nothing stripped, so all four affixes came back unrecognised.
+    const Item it = resolved(*gd, capture("heist-contract-rare-smugglers-den.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    for (const std::string& n : p.notes)
+        CHECK(n.find("unrecognised modifier") == std::string::npos);
+
+    CHECK(filter_for(p, "explicit.stat_4154059009") != nullptr); // Monsters are Hexproof
+    CHECK(filter_for(p, "explicit.stat_4056408881") != nullptr); // Reward Rooms increased Monsters
+    CHECK(filter_for(p, "explicit.stat_3350803563") != nullptr); // Monsters Poison on Hit
+    CHECK(filter_for(p, "explicit.stat_616993076") != nullptr);  // The Ring takes no Cut
+}
+
 TEST_CASE("Heist Gear's own boilerplate lines are not unrecognised modifiers") {
     auto gd = fixture();
     // "Any Heist member can equip this item." sits above the requirements and "Can only be

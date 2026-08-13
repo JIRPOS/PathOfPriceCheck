@@ -205,6 +205,13 @@ STATS = [
     "# to # added Lightning Damage\n"
     "Players and their Minions have # to # added Lightning Damage",
     "Grants Level # Purity of Ice Skill",
+    # Four Heist Contract affixes with no roll at all, which is what the game marks with a
+    # title-case, em-dash "Unscalable Value" rather than the lowercase, parenthesized suffix a
+    # numeric roll gets — a wording no matcher above already covers.
+    "Monsters are Hexproof",
+    "Reward Rooms have #% increased Monsters",
+    "Monsters Poison on Hit",
+    "The Ring takes no Cut",
 ]
 
 ITEMS = [
@@ -349,6 +356,12 @@ MOD_POOLS = [
     "HeistContractBurningGround",
     "HeistContractBurningGround1",
     "HeistContractMonsterPatrolAdditionalElite1",
+    # The four "Unscalable Value" affixes above, so map check can rate a contract that rolls
+    # them rather than drawing it unrateable.
+    "HeistContractHexproof",
+    "HeistContractSideAreaIncreasedMonsters1_",
+    "HeistContractPoisoning",
+    "HeistContractNoGangCut1",
 ]
 
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",

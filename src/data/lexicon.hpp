@@ -202,6 +202,13 @@ enum class TermList : uint8_t {
     /// the game prints in the parenthetical after the target's name, so "Precious" and not
     /// "(Precious)".
     HeistObjectiveValues,
+    /// free — what the game appends to a roll item level cannot scale: a numeric one gets a
+    /// lowercase parenthetical, a modifier with no roll at all (a Heist Contract's own boolean
+    /// effects among them, "Monsters are Hexproof") gets an em-dash "Unscalable Value" instead,
+    /// and Wine's clipboard fallback can turn that em dash into a plain hyphen the same way it
+    /// does for an info line's tags (see `kEmDash` in parse.cpp) — three spellings of one
+    /// wording, so a suffix can be added here without touching the code that checks for it.
+    UnscalableSuffixes,
     Count
 };
 

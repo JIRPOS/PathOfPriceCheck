@@ -26,7 +26,7 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
     "rarities", "influences", "flags", "mod_suffixes", "generations", "value_annotations",
     "usage_needles", "quest_rarity", "chart_shapes", "ultimatum_challenges",
-    "ultimatum_rewards", "heist_jobs", "heist_objective_values"};
+    "ultimatum_rewards", "heist_jobs", "heist_objective_values", "unscalable_suffixes"};
 
 struct PropertyName {
     std::string_view key;
@@ -211,6 +211,8 @@ void Lexicon::assign_english() {
         "Trap Disarmament", "Agility", "Deception", "Engineering"};
     lists_[static_cast<size_t>(TermList::HeistObjectiveValues)] = {
         "Moderate Value", "High Value", "Precious", "Priceless"};
+    lists_[static_cast<size_t>(TermList::UnscalableSuffixes)] = {
+        " (unscalable value)", " \xe2\x80\x94 Unscalable Value", " - Unscalable Value"};
 
     quality_prefix_ = "Quality (";
     properties_ = {

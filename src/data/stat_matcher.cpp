@@ -18,8 +18,18 @@ namespace {
 /// always wins, because the loop returns at the first `end` that resolves.
 constexpr size_t kMaxModLines = 8;
 
-/// The game appends this to a roll that item level cannot scale.
-constexpr std::string_view kUnscalableSuffix = " (unscalable value)";
+/// Strips whichever spelling of "this roll is fixed" the lexicon's `UnscalableSuffixes` list
+/// carries `line` ending in — see that list for why there is more than one. Sets `unscalable`
+/// and shortens `line` when found.
+bool strip_unscalable_suffix(std::string_view& line, const Lexicon& lex) {
+    for (const std::string& suffix : lex.list(TermList::UnscalableSuffixes)) {
+        if (!suffix.empty() && line.size() > suffix.size() && line.ends_with(suffix)) {
+            line.remove_suffix(suffix.size());
+            return true;
+        }
+    }
+    return false;
+}
 
 double pow10i(int n) {
     double p = 1.0;
@@ -54,10 +64,7 @@ std::optional<StatMatch> match_stat(const GameData& gd, std::span<const std::str
     for (size_t end = start; end < lines.size() && end - start < kMaxModLines; ++end) {
         std::string_view line = lines[end];
         if (is_reminder_text(line)) continue;
-        if (line.size() > kUnscalableSuffix.size() && line.ends_with(kUnscalableSuffix)) {
-            line.remove_suffix(kUnscalableSuffix.size());
-            unscalable = true;
-        }
+        if (strip_unscalable_suffix(line, gd.lexicon())) unscalable = true;
         if (!join.empty()) join.push_back('\n');
         join.append(line);
 
