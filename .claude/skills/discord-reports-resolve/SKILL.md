@@ -27,6 +27,11 @@ For every folder marked `resolved`, this archives and locks the matching Discord
 hand — then flips the local `status` to `"closed"` and stamps `closed_at`. The Discord thread is
 never deleted, only archived: it stays the permanent, searchable record.
 
+If `resolution` names a commit hash that actually exists in this repo (`"fixed in a1b2c3d: ..."`),
+a plain message — `Fixed in commit `a1b2c3d` — https://github.com/JIRPOS/PathOfPriceCheck/commit/...`
+— is posted to the thread first, before it's archived. A `resolution` with no verifiable hash
+(`"wontfix: ..."`, `"duplicate of ..."`) just archives as before — nothing is guessed or posted.
+
 ```sh
 ./resolve.sh --cleanup
 ```

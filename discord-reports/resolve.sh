@@ -3,7 +3,10 @@
 # copies. See .claude/skills/discord-reports-resolve/SKILL.md.
 #
 #   ./resolve.sh                  archive+lock the Discord thread for every inbox/*/meta.json with
-#                                  status "resolved", then flip that status to "closed"
+#                                  status "resolved", then flip that status to "closed". If
+#                                  "resolution" names a commit hash that exists in this repo, a
+#                                  "Fixed in commit ..." message with a GitHub link is posted to
+#                                  the thread first.
 #   ./resolve.sh --cleanup        also list local folders closed longer than DISCORD_REPORTS_CLEANUP_DAYS
 #   ./resolve.sh --cleanup --yes  ...and actually delete them (Discord thread is never touched)
 set -euo pipefail
@@ -29,12 +32,32 @@ done
 
 CLEANUP_DAYS=${DISCORD_REPORTS_CLEANUP_DAYS:-90}
 
+GITHUB_REPO="https://github.com/JIRPOS/PathOfPriceCheck"
+
 closed=0
 for dir in inbox/*/; do
     [[ -f "$dir/meta.json" ]] || continue
     [[ $(jq -r '.status' "$dir/meta.json") == "resolved" ]] || continue
 
     thread_id=$(jq -r '.thread_id' "$dir/meta.json")
+
+    # If the resolution names a real commit in this repo, post it to the thread before archiving —
+    # only a hash git can actually verify counts, never a bare guess out of the resolution text.
+    resolution=$(jq -r '.resolution // empty' "$dir/meta.json")
+    commit=""
+    if [[ -n $resolution ]]; then
+        for candidate in $(grep -oE '\b[0-9a-f]{7,40}\b' <<<"$resolution"); do
+            commit=$(git -C .. rev-parse --verify --quiet "${candidate}^{commit}" 2>/dev/null) && break
+            commit=""
+        done
+    fi
+    if [[ -n $commit ]]; then
+        note_body=$(jq -n --arg c "Fixed in commit \`${commit:0:7}\` — $GITHUB_REPO/commit/$commit" \
+            '{content: $c}')
+        api POST "/channels/$thread_id/messages" "$note_body" >/dev/null \
+            || echo "failed to post fixed-in-commit message to $thread_id ($dir), archiving anyway" >&2
+    fi
+
     if ! api PATCH "/channels/$thread_id" '{"archived":true,"locked":true}' >/dev/null; then
         echo "failed to archive thread $thread_id ($dir), leaving it marked resolved" >&2
         continue

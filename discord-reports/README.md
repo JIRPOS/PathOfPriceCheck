@@ -3,7 +3,8 @@
 A local-only maintainer tool: pulls bug reports out of the private `#ppc-reports` Discord forum
 (see [worker/README.md](../worker/README.md) for how a report gets there) into `inbox/`, so they
 can be triaged without a Discord client open. The only things it ever writes back to Discord are a
-reaction, to mark a report as pulled, and — once a report is marked resolved locally — archiving
+reaction, to mark a report as pulled, and — once a report is marked resolved locally — a
+"fixed in commit ..." message (only when `resolution` names a real commit) followed by archiving
 that report's own thread.
 
 Two Claude Code skills drive it day to day: **discord-reports-ingest** and
