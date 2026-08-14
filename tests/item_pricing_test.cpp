@@ -1086,6 +1086,52 @@ TEST_CASE("an unidentified unique on a base with several is a question, not a se
     }
 }
 
+TEST_CASE("a unique that drops on two bases is two candidates, and two records") {
+    auto gd = fixture();
+    // Stormblood drops on both the Sapphire and the Topaz Flask under one name. The bundle
+    // used to carry one record per name, so the Topaz Flask answered with Vessel of Vinktar
+    // alone — one candidate, which is taken as the name rather than asked about, and an
+    // unidentified Topaz Flask was priced as somebody else's unique.
+    const Item it = resolved(*gd, R"(Item Class: Utility Flasks
+Rarity: Unique
+Topaz Flask
+--------
+Lasts 4.00 Seconds
+Consumes 20 of 50 Charges on use
+Currently has 0 Charges
+--------
+Item Level: 85
+--------
+Unidentified
+)");
+    REQUIRE(it.unique_candidates.size() == 2);
+    CHECK(it.needs_unique_choice());
+    CHECK(build_plan(*gd, it, derive(gd.get(), it)).name.empty());
+
+    SUBCASE("the identified one resolves to the record for the base it is on") {
+        // Both records answer to "Stormblood", so the base is what tells them apart — and the
+        // search is sent for this flask rather than for the cold one of the same name.
+        const Item id = resolved(*gd, capture("unique-flask-stormblood-topaz.txt"));
+        REQUIRE(id.unique_entry != nullptr);
+        CHECK(id.unique_entry->unique_base == "Topaz Flask");
+        const SearchPlan p = build_plan(*gd, id, derive(gd.get(), id));
+        CHECK(p.name == "Stormblood");
+        CHECK(p.type == "Topaz Flask");
+    }
+
+    SUBCASE("and the other base's copy is the other record") {
+        const Item other = resolved(*gd, R"(Item Class: Utility Flasks
+Rarity: Unique
+Stormblood
+Sapphire Flask
+--------
+Item Level: 85
+)");
+        REQUIRE(other.unique_entry != nullptr);
+        CHECK(other.unique_entry->unique_base == "Sapphire Flask");
+    }
+}
+
 TEST_CASE("an identified unique is not read off its base") {
     auto gd = fixture();
     // The candidate list is only ever about the gap an unidentified item leaves: an identified
@@ -1113,7 +1159,8 @@ TEST_CASE("a magic item's base is found under its affixes") {
     CHECK(strip_magic_affixes(*gd, "Surgeon's Two-Stone Ring of the Cheetah", "Rings") ==
           "Two-Stone Ring");
     // Nothing in the bundle matches, and inventing a base is worse than admitting it.
-    CHECK(strip_magic_affixes(*gd, "Surgeon's Sapphire Flask of Heat", "Utility Flasks").empty());
+    CHECK(strip_magic_affixes(*gd, "Surgeon's Quicksilver Flask of Heat", "Utility Flasks")
+              .empty());
 
     const Item it = resolved(*gd, R"(Item Class: Rings
 Rarity: Magic

@@ -68,7 +68,10 @@ lists at the top of that script, never writing a record by hand. It copies every
 rebuilds the indices from the offsets it just wrote, which is the point: the `.index.bin` files
 address the ndjson by byte offset, so one extra byte per line silently shifts every record out from
 under every lookup and fails as null lookups rather than as a diff. Keep the ndjson **LF and
-byte-exact**; `.gitattributes` pins that down and those entries must stay.
+byte-exact**; `.gitattributes` pins that down and those entries must stay. A key naming more than
+one record is refused rather than resolved, so a unique that drops on two bases is asked for by
+both — `"UNIQUE::Stormblood::Topaz Flask"` — and an item class two game classes print the name of
+by its id, `"Maps::MapKey"`.
 
 The slice has **no `(Local)` stat record**, so the local/global disambiguation in `item/resolve` is
 not covered offline — it is verified against an installed bundle by hand. Adding one such record (and
