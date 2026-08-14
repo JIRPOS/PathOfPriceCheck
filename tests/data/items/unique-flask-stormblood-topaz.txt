@@ -1,0 +1,30 @@
+Item Class: Utility Flasks
+Rarity: Unique
+Stormblood
+Topaz Flask
+--------
+Lasts 4 (augmented) Seconds
+Consumes 20 of 50 Charges on use
+Currently has 0 Charges
++5% to maximum Lightning Resistance
+(Maximum Resistances cannot be raised above 90%)
++40% to Lightning Resistance
+--------
+Requirements:
+Level: 36
+--------
+Item Level: 85
+--------
+{ Unique Modifier — Critical }
+31(20-40)% chance to gain a Flask Charge when you deal a Critical Strike
+{ Unique Modifier — Elemental, Lightning, Critical, Ailment }
+All Damage from Critical Strikes can apply Lightning Ailments during effect
+(Lightning Ailments are Shocked and Sapped. Critical Strikes inherently have 100% chance to inflict Shock)
+{ Unique Modifier }
+50% reduced Duration
+--------
+On that fateful day, beset by tempest, Captain Brinehook Vex
+came face to face with the blustering Karui god of thunder,
+Valako himself. A wager was had, and a wager was won.
+--------
+Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.

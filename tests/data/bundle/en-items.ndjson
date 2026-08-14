@@ -18,6 +18,11 @@
 {"art":"Art/2DItems/Armours/Gloves/Hrimsorrow.png","name":"Hrimsorrow","namespace":"UNIQUE","refName":"Hrimsorrow","unique":{"base":"Goathide Gloves"}}
 {"armour":{"ev":[32,42]},"craftable":{"category":"Gloves"},"domain":1,"dropLevel":9,"h":2,"metadataId":"Metadata/Items/Armours/Gloves/GlovesDex2","name":"Goathide Gloves","namespace":"ITEM","refName":"Goathide Gloves","w":2}
 {"art":"Art/2DItems/Armours/Gloves/Hrimsorrow.png","name":"Hrimburn","namespace":"UNIQUE","refName":"Hrimburn","unique":{"base":"Goathide Gloves"}}
+{"craftable":{"category":"Utility Flasks"},"domain":2,"dropLevel":18,"h":2,"metadataId":"Metadata/Items/Flasks/FlaskUtility4","name":"Topaz Flask","namespace":"ITEM","refName":"Topaz Flask","w":1}
+{"craftable":{"category":"Utility Flasks"},"domain":2,"dropLevel":18,"h":2,"metadataId":"Metadata/Items/Flasks/FlaskUtility3","name":"Sapphire Flask","namespace":"ITEM","refName":"Sapphire Flask","w":1}
+{"art":"Art/2DItems/Flasks/StormbloodSapphire.png","name":"Stormblood","namespace":"UNIQUE","refName":"Stormblood","unique":{"base":"Topaz Flask"}}
+{"art":"Art/2DItems/Flasks/StormbloodSapphire.png","name":"Stormblood","namespace":"UNIQUE","refName":"Stormblood","unique":{"base":"Sapphire Flask"}}
+{"art":"Art/2DItems/Flasks/VinktarFlask.png","name":"Vessel of Vinktar","namespace":"UNIQUE","refName":"Vessel of Vinktar","unique":{"base":"Topaz Flask"}}
 {"craftable":{"category":"Divination Cards"},"domain":43,"dropLevel":62,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheBlazingFire","name":"The Blazing Fire","namespace":"DIVINATION_CARD","refName":"The Blazing Fire","w":1}
 {"craftable":{"category":"Stackable Currency"},"domain":43,"dropLevel":26,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyEssenceHatred3","name":"Weeping Essence of Hatred","namespace":"ITEM","refName":"Weeping Essence of Hatred","w":1}
 {"craftable":{"category":"Support Gems"},"domain":43,"dropLevel":38,"h":1,"metadataId":"Metadata/Items/Gems/SupportGemAdditionalLevel","name":"Empower Support","namespace":"GEM","refName":"Empower Support","w":1}

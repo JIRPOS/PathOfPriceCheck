@@ -248,6 +248,16 @@ ITEMS = [
     # `en-items-base.index.bin`, so the pair is also what covers that index at all.
     "ITEM::Goathide Gloves",
     "UNIQUE::Hrimburn",
+    # A unique that drops on **two bases** under one name, and the second unique of one of
+    # them. Both halves matter: the name addresses two records, so the base is what tells them
+    # apart, and the Topaz Flask is what an unidentified one is read through — a bundle
+    # carrying only the Sapphire record leaves that base with a single candidate, which is
+    # taken as the name rather than asked about.
+    "ITEM::Topaz Flask",
+    "ITEM::Sapphire Flask",
+    "UNIQUE::Stormblood::Topaz Flask",
+    "UNIQUE::Stormblood::Sapphire Flask",
+    "UNIQUE::Vessel of Vinktar",
     # A second card, because the capture that proves a card resolves at all is a real one.
     "DIVINATION_CARD::The Blazing Fire",
     # An essence, for the other half of that: both are traded in bulk on the in-game exchange,
@@ -364,8 +374,10 @@ MOD_POOLS = [
     "HeistContractNoGangCut1",
 ]
 
+# "Maps" is qualified because two game classes print that name — the map itself and the
+# stand-in row trade lists every map under.
 ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency",
-                "Divination Cards", "Jewels", "Utility Flasks", "Maps", "Skill Gems",
+                "Divination Cards", "Jewels", "Utility Flasks", "Maps::MapKey", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
                 "Sceptres", "Heist Gear"]
@@ -389,12 +401,36 @@ def read_ndjson(path: Path) -> list[tuple[bytes, dict]]:
 
 
 def pick(records: list[tuple[bytes, dict]], wanted: list[str], key) -> list[tuple[bytes, dict]]:
-    """The wanted records, in the order listed above — the fixture's line order is ours."""
-    by_key = {key(r): (line, r) for line, r in records}
-    missing = [w for w in wanted if w not in by_key]
-    if missing:
+    """The wanted records, in the order listed above — the fixture's line order is ours.
+
+    `key` returns every name a record answers to, because one name can address two records: a
+    unique is its name *and* its base, and Stormblood drops on both the Sapphire and the Topaz
+    Flask. A wanted key that names more than one record is refused rather than resolved —
+    taking either would put a record in the fixture that nobody asked for.
+    """
+    by_key: dict[str, list[tuple[bytes, dict]]] = {}
+    for line, r in records:
+        for k in key(r):
+            by_key.setdefault(k, []).append((line, r))
+    if missing := [w for w in wanted if w not in by_key]:
         sys.exit(f"not in the source bundle: {', '.join(missing)}")
-    return [by_key[w] for w in wanted]
+    if several := [w for w in wanted if len(by_key[w]) > 1]:
+        sys.exit("names more than one record, so qualify it with the base or the id "
+                 f"(\"UNIQUE::Stormblood::Topaz Flask\"): {', '.join(several)}")
+    return [by_key[w][0] for w in wanted]
+
+
+def item_keys(r: dict) -> list[str]:
+    """`"{namespace}::{name}"`, plus `"::{base}"` again for a unique — see `pick`."""
+    key = f"{r['namespace']}::{r['name']}"
+    if base := r.get("unique", {}).get("base"):
+        return [key, f"{key}::{base}"]
+    return [key]
+
+
+def class_keys(r: dict) -> list[str]:
+    """The class name, plus `"::{id}"` — two game classes can print one name ("Maps")."""
+    return [r["itemClass"], f"{r['itemClass']}::{r['id']}"]
 
 
 def write_ndjson(path: Path, chosen: list[tuple[bytes, dict]]) -> list[int]:
@@ -422,15 +458,14 @@ def main() -> int:
     src, out = args.source, args.out
     out.mkdir(parents=True, exist_ok=True)
 
-    stats = pick(read_ndjson(src / f"{LANG}-stats.ndjson"), STATS, lambda r: r["ref"])
+    stats = pick(read_ndjson(src / f"{LANG}-stats.ndjson"), STATS, lambda r: [r["ref"]])
     offsets = write_ndjson(out / f"{LANG}-stats.ndjson", stats)
     write_index(out / f"{LANG}-stats-ref.index.bin",
                 [(r["ref"], off) for (_, r), off in zip(stats, offsets)])
     write_index(out / f"{LANG}-stats-matcher.index.bin",
                 [(m["string"], off) for (_, r), off in zip(stats, offsets) for m in r["matchers"]])
 
-    items = pick(read_ndjson(src / f"{LANG}-items.ndjson"), ITEMS,
-                 lambda r: f"{r['namespace']}::{r['name']}")
+    items = pick(read_ndjson(src / f"{LANG}-items.ndjson"), ITEMS, item_keys)
     offsets = write_ndjson(out / f"{LANG}-items.ndjson", items)
     write_index(out / f"{LANG}-items-name.index.bin",
                 [(f"{r['namespace']}::{r['name']}", off) for (_, r), off in zip(items, offsets)])
@@ -440,13 +475,14 @@ def main() -> int:
                 [(f"UNIQUE::{r['unique']['base']}", off) for (_, r), off in zip(items, offsets)
                  if r["namespace"] == "UNIQUE" and r.get("unique", {}).get("base")])
 
-    uniques = pick(read_ndjson(src / f"{LANG}-unique-mods.ndjson"), UNIQUE_MODS, lambda r: r["name"])
+    uniques = pick(read_ndjson(src / f"{LANG}-unique-mods.ndjson"), UNIQUE_MODS,
+                   lambda r: [r["name"]])
     offsets = write_ndjson(out / f"{LANG}-unique-mods.ndjson", uniques)
     write_index(out / f"{LANG}-unique-mods-name.index.bin",
                 [(f"UNIQUE::{r['name']}", off) for (_, r), off in zip(uniques, offsets)])
 
     pools = pick(read_ndjson(src / f"{LANG}-mod-pools.ndjson"), MOD_POOLS,
-                 lambda r: r["mods"][0])
+                 lambda r: [r["mods"][0]])
     offsets = write_ndjson(out / f"{LANG}-mod-pools.ndjson", pools)
     # One key per wording, qualified by domain: a map and a chart share wordings and are
     # separate pools, so the domain is part of what is being asked for.
@@ -454,7 +490,7 @@ def main() -> int:
                 [(f"{r['domain']}::{s['ref']}", off) for (_, r), off in zip(pools, offsets)
                  for s in r["stats"]])
 
-    classes = pick(read_ndjson(src / "item-classes.ndjson"), ITEM_CLASSES, lambda r: r["itemClass"])
+    classes = pick(read_ndjson(src / "item-classes.ndjson"), ITEM_CLASSES, class_keys)
     write_ndjson(out / "item-classes.ndjson", classes)
 
     # Not the source's manifest: the fixture is not a release, and nothing may mistake it for
