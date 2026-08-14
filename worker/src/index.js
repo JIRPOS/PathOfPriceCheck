@@ -197,33 +197,73 @@ function webhook_ok(u) {
 }
 
 /**
- * Per-IP and whole-relay caps, both in KV. Optional: with no KV binding the relay still works, it
- * just has no brakes. Failures here fail *open* — losing a real report to a KV blip is worse than
- * letting one extra through.
+ * Per-IP and whole-relay caps. Optional: with no KV binding the relay still works, it just has no
+ * brakes. Failures here fail *open* — losing a real report to a KV blip is worse than letting one
+ * extra through.
+ *
+ * Both caps live in **one** key, and it costs one read and one write. Two keys would be the obvious
+ * shape and is the wrong one: the free tier's thousand writes a day are the thing the daily cap
+ * exists to protect, and a cap that spends two of them per report is guarding a budget it is the
+ * largest consumer of. A refusal writes nothing at all.
+ *
+ * The read-then-write is not atomic and a KV read can be a minute stale, so reports landing together
+ * lose increments and a sustained flood is counted against a total that lags it. Both caps are
+ * therefore approximate, and approximate in the direction of letting too much through — which is why
+ * the daily cap is set well under the write quota rather than up against it.
  */
 async function rate_limit(env, ip) {
     if (!env.RL) return null;
     const per_ip = Number(env.MAX_PER_IP_PER_HOUR || 5);
     const per_day = Number(env.MAX_PER_DAY_GLOBAL || 300);
+    const now = Date.now();
     try {
-        const day = new Date().toISOString().slice(0, 10);
-        if (ip && !(await bump(env.RL, `ip:${ip}`, 3600, per_ip))) {
-            return 'too many reports from this address, try again later';
+        const key = `rl:${new Date(now).toISOString().slice(0, 10)}`;
+        const state = JSON.parse((await env.RL.get(key)) || '{}');
+        const total = Number(state.total) || 0;
+        if (total >= per_day) return 'the relay is over its daily limit, try again tomorrow';
+
+        // The whole value is rewritten anyway, so an address whose hour has run out is dropped here
+        // rather than kept until the day rolls over. This is also what bounds the value's size: it
+        // holds the last hour's reporters, not the day's.
+        const ips = {};
+        for (const [k, v] of Object.entries(state.ips || {})) {
+            if (now - v.at < 3600_000) ips[k] = v;
         }
-        if (!(await bump(env.RL, `all:${day}`, 86400, per_day))) {
-            return 'the relay is over its daily limit, try again tomorrow';
-        }
+
+        const who = ip ? await ip_key(env, ip) : null;
+        const mine = who ? ips[who] : null;
+        if (mine && mine.n >= per_ip) return 'too many reports from this address, try again later';
+        if (who) ips[who] = { n: (mine ? mine.n : 0) + 1, at: mine ? mine.at : now };
+
+        const next = JSON.stringify({ total: total + 1, ips });
+        await env.RL.put(key, next, { expirationTtl: 86400 });
     } catch (e) {
         console.error(`rate limiter unavailable: ${e}`);
     }
     return null;
 }
 
-async function bump(kv, key, ttl, max) {
-    const cur = Number((await kv.get(key)) || 0);
-    if (cur >= max) return false;
-    await kv.put(key, String(cur + 1), { expirationTtl: ttl });
-    return true;
+/**
+ * What stands in for an address in KV. HMAC and not a digest on purpose: an IPv4 address is 32 bits,
+ * so a plain hash of one is a lookup table away from being the address again. The key is a
+ * Cloudflare secret and is never itself written to KV, so the namespace holds counts against strings
+ * that cannot be turned back into anyone. Set it with `./rotate-rl-salt.sh`; unset, this degrades to
+ * exactly that reversible digest rather than to no cap at all.
+ */
+async function ip_key(env, ip) {
+    if (!env.RL_SALT) console.error('RL_SALT is unset — per-IP keys are reversible');
+    const bytes = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        'raw',
+        bytes.encode(env.RL_SALT || 'ppc-reports'),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+    );
+    const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, bytes.encode(ip)));
+    // 12 of the 32 bytes: a counter key, not a signature. Collisions at this width would mean two
+    // reporters sharing an hourly allowance, and there are not 2^48 reporters.
+    return [...mac.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function post_to_discord(env, report, id, at) {

@@ -177,15 +177,24 @@ still worth checking before you tick the box, and is why the preview is the size
 ### Where it goes
 
 To `ppc-reports.jirpos.workers.dev`, a Cloudflare Worker operated by the maintainer, which forwards
-it to a private channel the maintainer reads and does nothing else with it. The Worker keeps no
-database, writes no log of requests, and stores nothing: the report is relayed and the request is
-over. Its source is in [`worker/`](worker/) in this repository, so what it does is readable rather
-than promised.
+it to a private channel the maintainer reads and does nothing else with it. The Worker writes no log
+of requests and keeps no part of a report: once it is relayed the request is over. The only thing it
+stores is two counters, described below. Its source is in [`worker/`](worker/) in this repository, so
+what it does is readable rather than promised.
 
 Cloudflare sits in front of it and sees your IP address, as any host you make a request to does;
 their [privacy policy](https://www.cloudflare.com/privacypolicy/) applies. The Worker uses that
 address for one thing - an hourly cap, so the endpoint cannot be flooded - and it is never part of
-what reaches the channel.
+what reaches the channel. Applying that cap is what the counters are: one is the number of reports
+sent in the last hour by whoever you are, and the other is the relay's total for the day, which is
+tied to nobody. Neither records what you sent, or when, or that a particular report was yours.
+
+The Worker does not store your address in order to count against it. It stores a keyed hash of it -
+`HMAC-SHA-256`, under a key that exists only in Cloudflare's secret store and is never written
+alongside the counter - which is enough to recognise a repeat and not enough to name anyone: without
+that key, the stored value cannot be worked back to an address, and it is not a value anything else
+in the world uses. It stops counting an hour after the first report it counted, is dropped the next
+time anyone sends one, and expires within a day whether or not anyone does.
 
 A report stays in that channel until it is dealt with. If you want one removed, quote its id: the
 dialog shows it after a successful send and it is the only handle either of us has on it.
