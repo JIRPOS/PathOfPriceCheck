@@ -73,6 +73,11 @@ one record is refused rather than resolved, so a unique that drops on two bases 
 both — `"UNIQUE::Stormblood::Topaz Flask"` — and an item class two game classes print the name of
 by its id, `"Maps::MapKey"`.
 
+A 3.30 release no longer carries every record the slice names (some stat refs were reworded), so
+a straight re-slice from one refuses. To add a record without re-cutting the rest, copy
+`tests/data/bundle/` somewhere scratch, append the new records' lines **verbatim** from the
+release's ndjson, and slice that — still real records, still indices the script built.
+
 The slice has **no `(Local)` stat record**, so the local/global disambiguation in `item/resolve` is
 not covered offline — it is verified against an installed bundle by hand. Adding one such record (and
 one weapon base) to `STATS`/`ITEMS` in the slicer would close that gap. `tests/data/examples/` and

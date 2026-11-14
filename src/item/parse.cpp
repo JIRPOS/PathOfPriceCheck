@@ -766,6 +766,12 @@ std::optional<Item> parse_item(std::string_view clipboard, const data::Lexicon& 
 
         if (is_flag_section(sec, lex)) {
             parse_flags(sec, it, lex);
+        } else if (const int slot = lex.index_of(data::TermList::VisceraSlots, first);
+                   it.is_viscera() && sec.size() == 1 && slot >= 0) {
+            // A viscera's body part, alone under its name: "Head". It is the trade category, and
+            // the type line is where the item card draws it.
+            it.viscera_slot = slot;
+            it.type_line = first;
         } else if (first == req_label) {
             parse_requirements(sec, it, lex);
         } else if (first.starts_with(sockets_label)) {

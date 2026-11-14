@@ -7,9 +7,12 @@
 #include <sstream>
 #include <string>
 
+#include <nlohmann/json.hpp>
+
 #include "item/derive.hpp"
 #include "item/plan.hpp"
 #include "item/resolve.hpp"
+#include "trade/query.hpp"
 #include "parse_en.hpp"
 
 namespace fs = std::filesystem;
@@ -1027,6 +1030,51 @@ TEST_CASE("a Fated item resolves to its base and is not searched on being Fated"
     const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), Strategy::BaseItem);
     CHECK(p.type == "Vaal Regalia");
     CHECK(p.option("fated") == nullptr);
+}
+
+TEST_CASE("a viscera is searched on its slot and its implicit, not its base") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, capture("viscera-voltaic-skull.txt"));
+    REQUIRE(it.base != nullptr);
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), std::nullopt, kWholeTier);
+    CHECK(p.strategy == Strategy::Viscera);
+    CHECK(p.category == "viscera.head");
+    CHECK(p.type.empty());
+    CHECK(p.numerics.empty());
+    CHECK(p.notes.empty());
+    CHECK(p.options.empty());
+    REQUIRE(p.stats.size() == 1);
+    const StatFilter& f = p.stats.front();
+    CHECK(f.id == "implicit.stat_3240769289");
+    CHECK(f.enabled);
+    CHECK(f.min == std::optional<double>(20));
+    CHECK(f.max == std::optional<double>(30));
+
+    SUBCASE("on the wire it is the slot, the implicit, and nothing else") {
+        const nlohmann::json q = nlohmann::json::parse(ppc::trade::build_query(p))["query"];
+        const nlohmann::json& tf = q["filters"]["type_filters"]["filters"];
+        CHECK(tf.size() == 2);
+        CHECK(tf["category"]["option"] == "viscera.head");
+        CHECK(tf["rarity"]["option"] == "nonunique");
+        CHECK(q["filters"].size() == 1);
+        CHECK_FALSE(q.contains("type"));
+        REQUIRE(q["stats"][0]["filters"].size() == 1);
+        CHECK(q["stats"][0]["filters"][0]["id"] == "implicit.stat_3240769289");
+    }
+    SUBCASE("the range setting decides the bounds") {
+        const SearchPlan q =
+            build_plan(*gd, it, derive(gd.get(), it), std::nullopt, kFloorOnly);
+        REQUIRE(q.stats.size() == 1);
+        CHECK(q.stats.front().min == std::optional<double>(29));
+        CHECK_FALSE(q.stats.front().max.has_value());
+    }
+    SUBCASE("an unread slot falls back to every viscera, and says so") {
+        Item any = it;
+        any.viscera_slot.reset();
+        const SearchPlan q = build_plan(*gd, any, derive(gd.get(), any));
+        CHECK(q.category == "viscera");
+        CHECK(q.notes.size() == 1);
+    }
 }
 
 TEST_CASE("an unidentified rare's tier is a ticked floor beside the identified flag") {

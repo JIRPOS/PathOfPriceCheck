@@ -27,6 +27,7 @@ enum class Strategy : uint8_t {
     Heist,       ///< a contract or blueprint: the area, what is revealed, and what it demands
     Sanctum,     ///< a run in progress: how far it has got, and the boons and afflictions it holds
     Logbook,     ///< an expedition: one of its destinations, and what the whole book grants
+    Viscera,     ///< its body part and its implicit — never its base
     Unsupported
 };
 

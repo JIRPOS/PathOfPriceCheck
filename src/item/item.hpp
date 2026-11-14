@@ -145,6 +145,8 @@ struct Item {
     /// "Unidentified (Tier 2)": an unidentified magic or rare item's tier, 2–5. The game prints
     /// it only while the item is unidentified; Ruthless items and anything before Act 6 have none.
     std::optional<int> unidentified_tier;
+    /// 3.30. Index into `TermList::VisceraSlots` — "Head", "Upper Limb", "Torso", "Lower Limb".
+    std::optional<int> viscera_slot;
     bool corrupted = false;
     bool twice_corrupted = false; ///< 3.30; always also `corrupted`
     bool fated = false;           ///< 3.30; "Fated " on an unidentified item's base line
@@ -267,6 +269,9 @@ struct Item {
     /// the player picks exactly one. Which of them is being priced is a question no clipboard
     /// text can answer, so the plan asks it — see `SearchPlan::choices`.
     bool is_logbook() const;
+    /// 3.30's Viscera, attached to a minion by the Wickerman. No rarity line, one body part, and
+    /// an implicit that is the whole of what tells two of one slot apart.
+    bool is_viscera() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is

@@ -1,0 +1,12 @@
+Item Class: Viscera
+Lesser Voidbearer's Leg
+--------
+Lower Limb
+--------
+Item Level: 29
+--------
+9% increased Movement Speed while on Burning Ground (implicit)
+--------
+Take this to the Wickerman in a town or hideout to attach it.
+--------
+Note: ~price 1 alch

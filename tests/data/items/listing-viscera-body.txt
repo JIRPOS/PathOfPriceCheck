@@ -1,0 +1,12 @@
+Item Class: Viscera
+Lesser Elemental Essence
+--------
+Torso
+--------
+Item Level: 45
+--------
++16% to Cold Resistance (implicit)
+--------
+Take this to the Wickerman in a town or hideout to attach it.
+--------
+Note: ~price 1 alch

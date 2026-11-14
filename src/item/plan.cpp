@@ -16,7 +16,12 @@ namespace {
 
 constexpr std::array<std::string_view, static_cast<size_t>(Strategy::Unsupported) + 1>
     kStrategies{"Base item", "Modifiers", "Unique",    "Currency", "Gem",     "Map",
-                "Beast",     "Ultimatum", "Heist",     "Sanctum",  "Logbook", "Unsupported"};
+                "Beast",     "Ultimatum", "Heist",     "Sanctum",  "Logbook", "Viscera",
+                "Unsupported"};
+
+/// Trade's category per `TermList::VisceraSlots` entry, in that order.
+constexpr std::string_view kVisceraSlotCategories[]{"viscera.head", "viscera.arm",
+                                                    "viscera.body", "viscera.leg"};
 
 /// How many decimals `v` needs to survive being printed. Rolls are at most hundredths.
 int decimals_needed(double v) {
@@ -360,6 +365,7 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
             // are offered and not imposed — seven ticked hazards ask for one copy in the world.
             f.enabled = m.type == data::ModType::Enchant;
             break;
+        case Strategy::Viscera:
         case Strategy::Sanctum:
             // A sanctum's affixes are not a roll somebody could redo — the run is already under
             // way and nothing can be applied to it again, which is what "Unmodifiable" on the
@@ -1574,7 +1580,8 @@ void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
 /// foulborn, but asking a gem, a currency item, a rare or a map not to be one narrows nothing
 /// (655/655 gems, 1299 Facetor's Lenses either way).
 void add_item_flags(const Item& it, SearchPlan& p) {
-    if (p.strategy == Strategy::Unsupported) return;
+    // A viscera is asked its slot and its implicit and nothing else, imposed or not.
+    if (p.strategy == Strategy::Unsupported || p.strategy == Strategy::Viscera) return;
     // Corruption is never incidental: it fixes the item's mods forever and splits the market in
     // two, so it is matched exactly whatever the strategy.
     add_flag(p, "corrupted", "Corrupted", it.corrupted, it.corrupted);
@@ -1725,6 +1732,8 @@ Strategy default_strategy(const Item& it) {
     // below has nowhere to put, and which would leave the faction as an unmatchable line of
     // prose and the price as whatever a logbook of that item level goes for.
     if (it.is_logbook()) return Strategy::Logbook;
+    // A viscera prints no rarity line at all, so the switch below has nothing to go on.
+    if (it.is_viscera()) return Strategy::Viscera;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1817,6 +1826,15 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         case Strategy::Heist: plan_heist(gd, it, p); break;
         case Strategy::Sanctum: plan_sanctum(gd, it, p); break;
         case Strategy::Logbook: plan_logbook(gd, it, p); break;
+        case Strategy::Viscera:
+            // The slot and the implicit, and deliberately not the base: what a viscera does is
+            // its implicit, and the base is only the monster it was taken from.
+            if (it.viscera_slot && static_cast<size_t>(*it.viscera_slot) <
+                                       std::size(kVisceraSlotCategories))
+                p.category = std::string(kVisceraSlotCategories[*it.viscera_slot]);
+            else
+                p.notes.emplace_back("the body part was not read, so every viscera is searched");
+            break;
         default:
             // Currency is priced by poe.ninja and by the in-game exchange rather than by a stat
             // query — bulk is what it sells in, and a stat filter has nothing to say about a
