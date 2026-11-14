@@ -497,8 +497,20 @@ void parse_properties(const Section& sec, Item& it, const data::Lexicon& lex) {
     }
 }
 
+/// The tier on an "Unidentified (Tier 2)" line, or nothing when the line is not one.
+std::optional<int> unidentified_tier(std::string_view line, const data::Lexicon& lex) {
+    const std::string_view prefix = lex.term(data::Term::UnidentifiedTierPrefix);
+    if (!line.starts_with(prefix) || !line.ends_with(")")) return std::nullopt;
+    return first_int(line.substr(prefix.size()));
+}
+
 void parse_flags(const Section& sec, Item& it, const data::Lexicon& lex) {
     for (const std::string& line : sec) {
+        if (const std::optional<int> tier = unidentified_tier(line, lex)) {
+            it.identified = false;
+            it.unidentified_tier = tier;
+            continue;
+        }
         const int f = lex.index_of(data::TermList::Flags, line);
         if (f < 0) {
             if (const std::optional<Influence> i = influence_from_line(line, lex))
@@ -522,6 +534,7 @@ void parse_flags(const Section& sec, Item& it, const data::Lexicon& lex) {
 
 bool is_flag_line(const std::string& line, const data::Lexicon& lex) {
     return lex.contains(data::TermList::Flags, line) ||
+           unidentified_tier(line, lex).has_value() ||
            influence_from_line(line, lex).has_value();
 }
 

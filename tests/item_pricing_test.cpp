@@ -977,6 +977,21 @@ Used when Charges reach full (enchant)
     }));
 }
 
+TEST_CASE("an unidentified rare's tier is a ticked floor beside the identified flag") {
+    auto gd = fixture();
+    const Item it = resolved(*gd, capture("rare-unidentified-tier2-rapier.txt"));
+    const Derived d = derive(gd.get(), it);
+    const SearchPlan p = build_plan(*gd, it, d);
+
+    CHECK(p.strategy == Strategy::Modifiers);
+    CHECK(flag_of(p, "identified") == std::optional<bool>(false));
+    const NumericFilter* tier = numeric_for(p, "unidentified_tier");
+    REQUIRE(tier != nullptr);
+    CHECK(tier->enabled);
+    CHECK(tier->min == doctest::Approx(2));
+    CHECK_FALSE(tier->max.has_value());
+}
+
 TEST_CASE("an unidentified unique on a base with one unique is that unique") {
     auto gd = fixture();
     // Riveted Boots roll into Ralakesh's Impatience and nothing else, so the name is not a

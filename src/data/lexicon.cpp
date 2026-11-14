@@ -21,7 +21,7 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
     "req_int",          "cosmetic_prefix", "cosmetic_suffix",  "heist_job_prefix",
     "heist_job_level",  "sanctum_effect_prefix", "logbook_faction_prefix",
     "logbook_area_prefix", "augmented",  "adds_prefix",
-    "fire_damage",      "cold_damage",   "lightning_damage"};
+    "fire_damage",      "cold_damage",   "lightning_damage",   "unidentified_tier_prefix"};
 
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
     "rarities", "influences", "flags", "mod_suffixes", "generations", "value_annotations",
@@ -155,6 +155,7 @@ void Lexicon::assign_english() {
     set(terms_, Term::FireDamage, "Fire Damage");
     set(terms_, Term::ColdDamage, "Cold Damage");
     set(terms_, Term::LightningDamage, "Lightning Damage");
+    set(terms_, Term::UnidentifiedTierPrefix, "Unidentified (Tier ");
 
     lists_[static_cast<size_t>(TermList::Rarities)] = {
         "Unknown", "Normal", "Magic", "Rare", "Unique", "Gem", "Currency", "Divination Card",

@@ -142,6 +142,9 @@ struct Item {
     std::string type_line;  ///< the property block's leading prose line: "Bow", "Spell, AoE, Fire"
 
     bool identified = true;
+    /// "Unidentified (Tier 2)": an unidentified magic or rare item's tier, 2–5. The game prints
+    /// it only while the item is unidentified; Ruthless items and anything before Act 6 have none.
+    std::optional<int> unidentified_tier;
     bool corrupted = false;
     bool mirrored = false;
     bool split = false;

@@ -316,6 +316,11 @@ bundle, and only the third and fourth encode pricing judgement.
   under `category: gem` and **0** for a Facetor's Lens, against 10000 and 177 without it, because
   trade indexes the flag only for what can be unidentified. `mirrored: false` was checked the
   same way and is safe everywhere.
+  **An unidentified magic or rare item from Act 6 on prints its tier** — `Unidentified (Tier 2)`
+  in place of the bare flag (3.30). It is read as the flag plus `Item::unidentified_tier`, and it
+  is the one thing such an item says about what it will turn out to be, so it is a ticked
+  `unidentified_tier` floor with no ceiling beside the `identified` row. A tier is never printed
+  once the item is identified, and Ruthless items have none.
   **Foulborn is one of those booleans and the site's key for it is `mutated`.** Chayula's
   mutation is a different item at a different price — measured on Tulfall: 3855 listings in all,
   1896 not foulborn and 1960 foulborn, and the mutated ones *cheaper* — so a search that leaves
