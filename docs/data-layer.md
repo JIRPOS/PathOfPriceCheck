@@ -75,7 +75,7 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   client and nothing else.
   **It is game data, so the bundle is the authority** — `<lang>-lexicon.json`, read by
   `GameData::open` and reachable as `GameData::lexicon()`. The English table is *compiled in*
-  as the default because every bundle published so far carries no lexicon at all, and a
+  as the default because no published bundle carries a translated lexicon, and a
   lexicon **overlays** rather than replaces: an entry it does not name stays English, so a
   partial translation degrades to English instead of to a blank rule that matches every line.
   `has_lexicon()` is what says which of the two happened. Three shapes, and the difference is

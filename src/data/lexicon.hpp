@@ -12,9 +12,9 @@
 /// Everything in `item/parse` used to match these as literals, which is why the app reads an
 /// English client and nothing else. They are not strings we author: they are game text, so the
 /// authority is the bundle (`<lang>-lexicon.json`), the same rule the rest of `data/` follows.
-/// The English table is compiled in as the default because every bundle published so far
-/// carries no lexicon at all, and a lexicon overrides only the entries it names — so a partial
-/// or absent one degrades to English rather than to nothing.
+/// The English table is compiled in as the default because no published bundle carries a
+/// translated lexicon, and a lexicon overrides only the entries it names — so a partial or
+/// absent one degrades to English rather than to nothing.
 namespace ppc::data {
 
 /// What a property line *is*, independent of the words it was printed with.

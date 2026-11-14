@@ -155,9 +155,10 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
     for (const auto& [name, ic] : gd->classes_)
         if (!ic.id.empty()) gd->by_class_id_.emplace(ic.id, &ic);
 
-    // The client's own vocabulary for this language. Optional, and absent from every bundle
-    // published so far, which is why English is compiled in rather than required here: a
-    // bundle without one still reads an English client exactly as it always did.
+    // The client's own vocabulary for this language. Optional — older bundles have none, and
+    // an English one carries only what English cannot compile in — which is why English is
+    // compiled in rather than required here: a bundle without one reads an English client
+    // exactly as it always did.
     if (std::ifstream lex(dir / (p + "lexicon.json")); lex) {
         const std::string text((std::istreambuf_iterator<char>(lex)),
                                std::istreambuf_iterator<char>());
