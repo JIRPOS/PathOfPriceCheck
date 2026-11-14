@@ -123,8 +123,9 @@ wording. `current_ref` carries an old ref to its new name, and the file takes th
 next time it is written. **The table is the bundle's**: `renamed-refs.json`, curated in the data
 repo, where `notes` proposes every ref that disappeared from a modifier whose mod ids stayed and
 was replaced by exactly one wording added nowhere else — so a new league's rewording is a data
-build. The compiled-in `kRenamed` (3.30's six) is only the fallback for a bundle without the
-file. Tables are read before the bundle is mapped and a bundle can land mid-session, so the
+build. The compiled-in `kRenamed` (3.30's six) is applied as a table is read, before any bundle
+is mapped, so the bundle's table can add to it but never retract one of its entries; the data
+repo's list is kept a superset of it. Tables are read before the bundle is mapped and a bundle can land mid-session, so the
 bundle's table is applied by `Store::rekey` in memory each time one lands — never by reopening
 the store, which would drop ratings not yet written. It covers only rewordings of the same
 stat. 3.30 turned a chart's essence-imprisoned rares into Calcified ones under the

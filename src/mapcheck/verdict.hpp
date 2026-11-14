@@ -108,8 +108,9 @@ std::string affix_key(std::vector<std::string> refs);
 /// whose effect changed under its old modifier: carrying a verdict onto that is the confident
 /// wrong answer.
 ///
-/// `data` is the bundle's own table (`renamed-refs.json`, chains already collapsed), and wins;
-/// the compiled-in one is what a bundle without that file falls back to.
+/// `data` is the bundle's own table (`renamed-refs.json`, chains already collapsed), consulted
+/// first. The compiled-in one is applied as a table is read, before any bundle exists, so the
+/// bundle's can add to it but never retract one of its entries.
 using RenamedRefs = std::map<std::string, std::string, std::less<>>;
 std::string_view current_ref(std::string_view ref, const RenamedRefs* data = nullptr);
 std::vector<std::string> affix_refs(std::string_view key);
