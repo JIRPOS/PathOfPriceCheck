@@ -154,6 +154,12 @@ void Store::write(const std::string& name) {
     out << profile_to_json(profiles_[static_cast<size_t>(it - names_.begin())]);
 }
 
+bool Store::rekey(const RenamedRefs& renamed) {
+    bool any = false;
+    for (Profile& p : profiles_) any |= p.rekey(renamed);
+    return any;
+}
+
 void Store::flush() {
     for (const std::string& name : dirty_) write(name);
     dirty_.clear();

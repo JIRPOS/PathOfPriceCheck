@@ -107,7 +107,12 @@ std::string affix_key(std::vector<std::string> refs);
 /// keys on the stat's current name. Only renames of the *same* stat belong here, never a stat
 /// whose effect changed under its old modifier: carrying a verdict onto that is the confident
 /// wrong answer.
-std::string_view current_ref(std::string_view ref);
+///
+/// `data` is the bundle's own table (`renamed-refs.json`, chains already collapsed), consulted
+/// first. The compiled-in one is applied as a table is read, before any bundle exists, so the
+/// bundle's can add to it but never retract one of its entries.
+using RenamedRefs = std::map<std::string, std::string, std::less<>>;
+std::string_view current_ref(std::string_view ref, const RenamedRefs* data = nullptr);
 std::vector<std::string> affix_refs(std::string_view key);
 
 /// A named table of affix → verdict.
@@ -142,6 +147,9 @@ public:
     size_t rated() const { return ratings_.size(); }
     const std::map<std::string, Rating, std::less<>>& ratings() const { return ratings_; }
     void put(std::string key, Rating r);
+    /// Moves every row onto the refs its stats go by today. A renamed row never overwrites one
+    /// already on the current wording. Returns whether anything moved.
+    bool rekey(const RenamedRefs& renamed);
 
 private:
     /// A stored key, split once so that a lookup is not re-parsing the whole table.

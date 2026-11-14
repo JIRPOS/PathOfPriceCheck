@@ -338,6 +338,7 @@ int App::run(bool relaunched_after_update) {
     ui::set_language(config_.ui_language, config_.client_language);
     updater_.set_language(config_.client_language);
     data_ = updater_.load_installed();
+    rekey_map_profiles();
     check_for_data(); // background; the panel degrades gracefully until it lands
 
     app_updater_.init(cache_dir() / "update", update_event_);
@@ -531,6 +532,7 @@ void App::handle_event(const SDL_Event& e) {
     } else if (e.type == data_event_) {
         if (auto gd = updater_.take_ready_bundle()) {
             data_ = std::move(gd);
+            rekey_map_profiles();
             // The first bundle often lands after the first price check of a session; the item
             // on screen was parsed without one and is not priceable until it is re-resolved.
             if (item_ && item_data_ != data_) rebuild_plan();
@@ -1028,6 +1030,15 @@ void App::delete_map_profile(const std::string& name) {
     map_edit_.clear_proposal();
     map_pool_stale_ = true;
     map_profiles_changed();
+}
+
+/// A bundle can name rewordings the tables were rated before. Re-keyed in memory only, and
+/// never by reopening the store, which would drop ratings not yet written.
+void App::rekey_map_profiles() {
+    if (!data_ || !map_store_.rekey(data_->renamed_refs())) return;
+    for (mapcheck::Row& r : map_rows_)
+        if (r.rateable()) r.verdict = map_store_.verdict_of(r.refs);
+    need_redraw_ = true;
 }
 
 void App::map_profiles_changed() {

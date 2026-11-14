@@ -167,6 +167,16 @@ std::shared_ptr<GameData> GameData::open(const fs::path& dir, std::string_view l
         gd->has_lexicon_ = lex_err.empty();
     }
 
+    // Not per language: a ref is the stat record's identity, not the client's printed line.
+    if (std::ifstream rf(dir / "renamed-refs.json"); rf) {
+        const json j = json::parse(rf, nullptr, false);
+        if (j.is_object())
+            if (const auto r = j.find("renamed"); r != j.end() && r->is_object())
+                for (const auto& [was, now] : r->items())
+                    if (now.is_string() && !was.empty() && !now.get<std::string>().empty())
+                        gd->renamed_refs_.emplace(was, now.get<std::string>());
+    }
+
     std::ifstream mf(dir / "manifest.json");
     if (mf) {
         const json j = json::parse(mf, nullptr, false);
