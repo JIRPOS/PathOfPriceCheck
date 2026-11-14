@@ -187,6 +187,10 @@ enum class Msg : uint16_t {
 
     Save,
     OpenTheFolder,
+    SettingsUnsaved,    ///< closing Settings with changes never saved
+    SettingsUnsavedAsk,
+    DontSave,
+    Cancel,
     Count
 };
 

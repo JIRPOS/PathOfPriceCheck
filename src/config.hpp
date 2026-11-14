@@ -132,6 +132,9 @@ struct Config {
     static std::string path(); ///< platform config-file path
     static Config load();      ///< load from disk, or defaults if absent/invalid
     bool save() const;
+    /// The file `save` would write, as text. Two configurations are the same settings exactly
+    /// when this is the same, which is what tells Settings it has something unsaved.
+    std::string serialize() const;
 };
 
 } // namespace ppc

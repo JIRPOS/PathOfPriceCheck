@@ -116,6 +116,14 @@ Config Config::load() {
 
 bool Config::save() const {
     ensure_dir(config_dir());
+    const std::string text = serialize();
+    std::ofstream out(path());
+    if (!out) return false;
+    out << text;
+    return true;
+}
+
+std::string Config::serialize() const {
     json j;
     j["league"] = league;
     j["account_name"] = account_name;
@@ -148,10 +156,7 @@ bool Config::save() const {
     j["reduce_transparency"] = reduce_transparency;
     j["auto_update"] = auto_update;
     j["debug_log"] = debug_log;
-    std::ofstream out(path());
-    if (!out) return false;
-    out << j.dump(2) << "\n";
-    return true;
+    return j.dump(2) + "\n";
 }
 
 } // namespace ppc

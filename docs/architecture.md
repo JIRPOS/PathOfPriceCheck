@@ -257,6 +257,11 @@ the function that draws it; `App::settings_tab()` holds which one is open, becau
 free function rebuilt every frame. The strip is buttons, not `ImGui::BeginTabBar`: the game marks
 the open tab by lighting its *name*, and ImGui has no colour for a selected tab's label. Only the
 open tab draws, so only it is measured — see the height rule below.
+Settings edits `config_` in place, so a change is live at once and lasts only until the next
+start unless it is saved. **Closing with something unsaved asks first** — the X, Escape and the
+hotkey all go through `App::close_settings`. Unsaved is `Config::serialize()` differing from the
+file *and* from what Settings opened on. The second check means a change the user chose not to
+save is not asked about again at every later close.
 
 **Settings** lays every row out on one grid via `row()` in `settings_screen.cpp` — ImGui draws a
 control's own label to its *right*, which is why nothing passes a visible label. `row_label()` is

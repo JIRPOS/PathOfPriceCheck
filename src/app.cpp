@@ -572,7 +572,11 @@ void App::handle_event(const SDL_Event& e) {
         else if (screen_ == Screen::MapCheck) set_screen(Screen::Hidden);
         else if (screen_ == Screen::BugReport) close_bug_report();
         else if (screen_ == Screen::ReportSent) dismiss_report_result();
-        else set_screen(Screen::Hidden);
+        else if (screen_ == Screen::Settings) {
+            // Escape on the question is "Cancel", as it is on every dialog.
+            if (settings_confirm_close_) settings_confirm_close_ = false;
+            else close_settings();
+        } else set_screen(Screen::Hidden);
     } else if (e.type == SDL_EVENT_KEY_DOWN && screen_ == Screen::QuickPaste) {
         // The whole reason the popup claims the keyboard. A slot nothing is in is not a miss to
         // report — the popup stays up and the mouse still works.
@@ -1279,8 +1283,22 @@ void App::handle_action(Action a) {
         cursor_y_ = static_cast<int>(my);
         set_screen(Screen::QuickPaste);
     } else {
-        set_screen(screen_ == Screen::Settings ? Screen::Hidden : Screen::Settings);
+        if (screen_ == Screen::Settings) close_settings();
+        else set_screen(Screen::Settings);
     }
+}
+
+/// Unsaved means different from the file *and* from what Settings opened on: the second is what
+/// keeps a change the user already chose not to save from being asked about at every close.
+void App::close_settings() {
+    if (screen_ != Screen::Settings) return;
+    const std::string now = config_.serialize();
+    if (now != settings_opened_as_ && now != Config::load().serialize()) {
+        settings_confirm_close_ = true;
+        need_redraw_ = true;
+        return;
+    }
+    set_screen(Screen::Hidden);
 }
 
 /// Put a paste on the clipboard and close, which is the whole of what the popup does.
@@ -1637,6 +1655,9 @@ void App::set_screen(Screen s) {
     // them. `kWriteDelay` batches the clicks; this is what makes it safe to.
     if ((screen_ == Screen::MapCheck || screen_ == Screen::Settings) && s != screen_)
         map_store_.flush();
+    if (s == Screen::Settings && screen_ != Screen::Settings)
+        settings_opened_as_ = config_.serialize();
+    if (s != Screen::Settings) settings_confirm_close_ = false;
     // A fresh popup measures itself from scratch: the last map's height is not an estimate of
     // this one's, and starting from it would draw one frame at the wrong size.
     if (s == Screen::MapCheck && screen_ != Screen::MapCheck) mapcheck_h_ = 0;
