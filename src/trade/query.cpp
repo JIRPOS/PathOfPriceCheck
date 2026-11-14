@@ -21,7 +21,7 @@ namespace {
 /// between `item/plan` and the wire format.
 std::string_view group_for(std::string_view key) {
     if (key == "ilvl" || key == "quality" || key == "gem_level" || key == "memory_level" ||
-        key == "intangibility" || key == "stored_experience")
+        key == "intangibility" || key == "stored_experience" || key == "unidentified_tier")
         return "misc_filters";
     if (key == "ar" || key == "ev" || key == "es" || key == "ward" ||
         key == "base_defence_percentile")

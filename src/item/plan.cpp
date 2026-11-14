@@ -1579,8 +1579,13 @@ void add_item_flags(const Item& it, SearchPlan& p) {
     // all, 1896 of them not foulborn and 1960 foulborn, the mutated ones cheaper.
     add_flag(p, "mutated", "Foulborn", it.foulborn, it.foulborn);
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||
-        p.strategy == Strategy::Unique || p.strategy == Strategy::Map)
+        p.strategy == Strategy::Unique || p.strategy == Strategy::Map) {
         add_flag(p, "identified", "Identified", it.identified, !it.identified);
+        // The one thing an unidentified magic or rare item says about what it will turn out to
+        // be, and a higher tier is the better gamble — so a floor, ticked, with no ceiling.
+        if (!it.identified && it.unidentified_tier)
+            add_numeric(p, "unidentified_tier", "Unidentified Tier", *it.unidentified_tier, true);
+    }
     if (it.synthesised) add_flag(p, "synthesised_item", "Synthesised", true, false);
     if (it.fractured_item) add_flag(p, "fractured_item", "Fractured", true, false);
 }

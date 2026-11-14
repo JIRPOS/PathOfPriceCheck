@@ -77,6 +77,33 @@ TEST_CASE("decimals survive a locale whose separator is not a dot") {
     std::setlocale(LC_NUMERIC, saved.c_str());
 }
 
+TEST_CASE("3.30's tiered unidentified flag is read as unidentified, with its tier") {
+    const Item it = parse("items", "rare-unidentified-tier2-rapier.txt");
+
+    CHECK(it.rarity == Rarity::Rare);
+    CHECK(it.base_type == "Primeval Rapier");
+    CHECK_FALSE(it.identified);
+    CHECK(it.unidentified_tier == std::optional<int>(2));
+    // The flag line is not a modifier: only the implicit is.
+    REQUIRE(it.mods.size() == 1);
+    CHECK(it.mods[0].type == ModType::Implicit);
+}
+
+TEST_CASE("the bare unidentified flag carries no tier") {
+    const Item it = parse_item_en(R"(Item Class: Boots
+Rarity: Unique
+Riveted Boots
+--------
+Evasion Rating: 30
+--------
+Item Level: 84
+--------
+Unidentified
+)").value();
+    CHECK_FALSE(it.identified);
+    CHECK_FALSE(it.unidentified_tier.has_value());
+}
+
 TEST_CASE("a rare weapon's header, properties and mods") {
     const Item it = parse("items", "rare-rapier.txt");
 

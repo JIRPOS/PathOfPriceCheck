@@ -165,6 +165,9 @@ enum class Term : uint8_t {
     FireDamage,
     ColdDamage,
     LightningDamage,
+    /// "Unidentified (Tier " — 3.30's flag line on an unidentified magic or rare item from Act 6
+    /// on, which carries the item's tier where the bare "Unidentified" flag carries nothing.
+    UnidentifiedTierPrefix,
     Count
 };
 

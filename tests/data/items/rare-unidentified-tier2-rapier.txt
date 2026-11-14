@@ -1,0 +1,21 @@
+Item Class: Thrusting One Hand Swords
+Rarity: Rare
+Primeval Rapier
+--------
+One Handed Sword
+Physical Damage: 18-73
+Critical Strike Chance: 6.50%
+Attacks per Second: 1.30
+Weapon Range: 1.4 metres
+--------
+Requirements:
+Dexterity: 158 (unmet)
+--------
+Sockets: W-W-W 
+--------
+Item Level: 52
+--------
+{ Implicit Modifier — Damage, Critical }
++25% to Global Critical Strike Multiplier
+--------
+Unidentified (Tier 2)

@@ -573,6 +573,15 @@ TEST_CASE("the three misc properties are filed under misc_filters, one-sided as 
     CHECK(misc["stored_experience"]["min"] == 42420246);
 }
 
+TEST_CASE("an unidentified item's tier is filed under misc_filters as a floor") {
+    SearchPlan p = rare_plan();
+    p.numerics = {{"unidentified_tier", "Unidentified Tier", 2, std::nullopt, true, 0, {}}};
+    const json misc = query_of(p)["filters"]["misc_filters"]["filters"];
+
+    CHECK(misc["unidentified_tier"]["min"] == 2);
+    CHECK_FALSE(misc["unidentified_tier"].contains("max"));
+}
+
 TEST_CASE("a chart's options and intervals go under map_filters, beside a map's") {
     SearchPlan p;
     p.strategy = Strategy::Map;
