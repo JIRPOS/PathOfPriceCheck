@@ -837,6 +837,20 @@ std::optional<Item> parse_item(std::string_view clipboard, const data::Lexicon& 
         }
     }
 
+    // 3.30's "Fated " on an unidentified item's base line, "Fated Crusader Chainmail". Here and not
+    // beside "Superior " in the header, because it is gated on the flag line, which is parsed
+    // last: "Fated Siren" is a captured beast's whole name and a beast is never unidentified.
+    // Which of the two prefixes is outermost is not yet in a capture, so either order comes off.
+    if (const std::string_view fated = lex.term(data::Term::FatedPrefix);
+        !it.identified && !fated.empty() && it.base_type.starts_with(fated)) {
+        it.base_type.erase(0, fated.size());
+        it.fated = true;
+        if (const std::string_view sup = lex.term(data::Term::SuperiorPrefix);
+            !sup.empty() && it.base_type.starts_with(sup))
+            it.base_type.erase(0, sup.size());
+        it.base_name = it.base_type;
+    }
+
     // A flask enchantment ("Used when Charges reach full") carries no suffix and sits in its
     // own section ahead of the explicit mods, so on a flask the earlier of two unsuffixed
     // sections is the enchant.

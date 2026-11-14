@@ -111,6 +111,38 @@ TEST_CASE("3.30's Atlas Drops is a property beside the old quantity key") {
     CHECK(found);
 }
 
+TEST_CASE("3.30's Fated prefix comes off the base line and is remembered") {
+    const Item it = parse("items", "rare-unidentified-fated-chainmail.txt");
+    CHECK(it.base_type == "Crusader Chainmail");
+    CHECK(it.base_name == "Crusader Chainmail");
+    CHECK(it.fated);
+    CHECK_FALSE(it.identified);
+}
+
+TEST_CASE("an identified item's line that starts with Fated is left alone") {
+    // "Fated Siren" is a captured beast, whose one name line is the whole name.
+    std::string text = capture("items", "beast-croaker.txt");
+    const std::string from = "Chrome-touched Croaker";
+    text.replace(text.find(from), from.size(), "Fated Siren");
+    const Item it = parse_item_en(text).value();
+    CHECK(it.base_type == "Fated Siren");
+    CHECK_FALSE(it.fated);
+}
+
+TEST_CASE("Fated and Superior come off in either order") {
+    std::string text = capture("items", "rare-unidentified-fated-chainmail.txt");
+    for (const char* line :
+         {"Superior Fated Crusader Chainmail", "Fated Superior Crusader Chainmail"}) {
+        CAPTURE(line);
+        std::string t = text;
+        const std::string from = "Fated Crusader Chainmail";
+        t.replace(t.find(from), from.size(), line);
+        const Item it = parse_item_en(t).value();
+        CHECK(it.base_type == "Crusader Chainmail");
+        CHECK(it.fated);
+    }
+}
+
 TEST_CASE("the bare unidentified flag carries no tier") {
     const Item it = parse_item_en(R"(Item Class: Boots
 Rarity: Unique
