@@ -111,6 +111,7 @@ std::string_view type_code(data::ModType t) {
         case data::ModType::Veiled: return "Veil";
         case data::ModType::Scourge: return "Scrg";
         case data::ModType::Crucible: return "Cruc";
+        case data::ModType::Imbued: return "Imbu";
         default: return {};
     }
 }
