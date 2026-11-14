@@ -1885,11 +1885,39 @@ Strategy default_strategy(const Item& it) {
     }
 }
 
+/// The flag lines the bundle knows as item states and nothing above has a field for.
+///
+/// **Only ever asked for as present, on the item that printed it, with a row.** Never imposed
+/// as absent on everything else: whether `false` is safe has to be measured filter by filter
+/// (`identified: true` matched 0 gems), and a state this code has never seen has not been
+/// measured. A state with no filter is said, not silently dropped — that silence is how a
+/// twice-corrupted item was priced as a once-corrupted one.
+void add_item_states(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    if (p.strategy == Strategy::Unsupported) return;
+    for (const std::string& line : it.states) {
+        const data::ItemState* st = gd.lexicon().item_state(line);
+        if (!st) continue;
+        if (st->filter) {
+            if (!p.option(st->trade_filter)) add_flag(p, st->trade_filter, st->text, true, true);
+            continue;
+        }
+        if (st->trade_filter.empty())
+            p.notes.push_back("\"" + st->text +
+                              "\" is printed on this item and the search does not ask for it");
+    }
+}
+
 SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d,
                       std::optional<Strategy> force, const RangeMatch& rm) {
     SearchPlan p;
     p.strategy = force.value_or(default_strategy(it));
     p.category = std::string(gd.trade_category_for(it.item_class));
+    // A class nothing here has rules for, but which the bundle files under a trade category and
+    // whose base it knows: a new league's item, most likely. The base in its category is a real
+    // search, and coarse, which is said — "not implemented" would price nothing until a release.
+    const bool fallback = !force && p.strategy == Strategy::Unsupported && !p.category.empty() &&
+                          it.base != nullptr;
+    if (fallback) p.strategy = Strategy::BaseItem;
     // Not for a beast or an ultimatum: both override the category outright — one to a category of
     // its own, one to none — so a bundle that could not map their item class would leave a note
     // about a gap that was about to be filled.
@@ -1899,6 +1927,11 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                           "\" maps to no trade category in this data bundle");
 
     add_item_flags(it, p);
+    add_item_states(gd, it, p);
+    if (fallback)
+        p.notes.push_back("there are no pricing rules for \"" + it.item_class +
+                          "\" yet, so this is every " + it.base_name +
+                          " the site lists, whatever else it has");
     p.rarity = p.strategy == Strategy::Unique ? "unique" : "nonunique";
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers)
         p.influences = it.influences;

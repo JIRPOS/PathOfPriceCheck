@@ -2967,6 +2967,75 @@ TEST_CASE("an Enshrouded item is searched as its base, and says it cannot ask fo
     CHECK(p.notes.front().find("\"Perfidy\"") != std::string::npos);
 }
 
+namespace {
+
+/// The fixture bundle with a lexicon beside it, as a data build that emits one would ship it.
+std::shared_ptr<GameData> fixture_with_lexicon(std::string_view lexicon) {
+    const fs::path dir = fs::temp_directory_path() / "ppc-lexicon-bundle";
+    fs::remove_all(dir);
+    fs::copy(fs::path(PPC_TEST_DATA_DIR) / "bundle", dir, fs::copy_options::recursive);
+    std::ofstream(dir / "en-lexicon.json", std::ios::binary) << lexicon;
+    std::string err;
+    auto gd = GameData::open(dir, "en", &err);
+    REQUIRE_MESSAGE(gd != nullptr, err);
+    return gd;
+}
+
+} // namespace
+
+TEST_CASE("a state the bundle maps is asked for, and one it does not is said") {
+    const std::shared_ptr<GameData> gd = fixture_with_lexicon(R"({"language":"en","item_states":[
+        {"text":"Dredge"},
+        {"text":"Hinekora's Lock","trade_filter":"hinekora_locked","filter":true},
+        {"text":"Fated","trade_filter":"fated","filter":false},
+        {"text":"Twice Corrupted","trade_filter":"twice_corrupted","filter":true}]})");
+    REQUIRE(gd->has_lexicon());
+    const std::string text = std::string(kRareChest) + "--------\nDredge\nHinekora's Lock\nFated\n";
+    std::optional<Item> it = ppc::item::parse_item(text, gd->lexicon());
+    REQUIRE(it.has_value());
+    resolve_item(*gd, *it);
+    const SearchPlan p = build_plan(*gd, *it, derive(gd.get(), *it));
+
+    const OptionFilter* lock = p.option("hinekora_locked");
+    REQUIRE(lock != nullptr);
+    CHECK(lock->option == "true");
+    CHECK(lock->shown);
+    // Recognised and deliberately not asked for: no row, and no note either.
+    CHECK(p.option("fated") == nullptr);
+    CHECK(std::count_if(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+              return n.find("\"Dredge\" is printed") != std::string::npos;
+          }) == 1);
+    CHECK(std::none_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("Fated") != std::string::npos;
+    }));
+
+    // A line the parser already has a field for keeps it, and gets no second filter.
+    std::optional<Item> twice =
+        ppc::item::parse_item(std::string(kRareChest) + "--------\nTwice Corrupted\n", gd->lexicon());
+    REQUIRE(twice.has_value());
+    CHECK(twice->twice_corrupted);
+    CHECK(twice->states.empty());
+}
+
+TEST_CASE("a class with no rules but a category and a known base is searched as that base") {
+    const std::shared_ptr<GameData> gd = fixture();
+    Item it = resolved(*gd, capture("enshrouded-body-armour-perfidy.txt"));
+    // As an app that has no rules for the class would read it.
+    it.class_kind = ppc::data::ClassKind::Other;
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(p.strategy == Strategy::BaseItem);
+    CHECK(p.category == "enshrouded");
+    CHECK(p.type == "Enshrouded Body Armour");
+    CHECK(std::any_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("no pricing rules for \"Enshrouded Items\"") != std::string::npos;
+    }));
+
+    // Nothing to search on without a base: still unsupported, still saying so.
+    it.base = nullptr;
+    const SearchPlan q = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(q.strategy == Strategy::Unsupported);
+}
+
 TEST_CASE("an unidentified unique says nothing about modifiers it is not showing") {
     const std::shared_ptr<GameData> gd = fixture();
     // The one unique that drops on a Walnut Spirit Shield. Its modifiers are not on the item and

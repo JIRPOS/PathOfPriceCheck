@@ -53,6 +53,15 @@ disposition, or you will misread "still running" as a hang.
 The item parser must be runnable and tested without any windowing or network dependency; that is
 what `ppc_core` is for.
 
+## Diffing a data build against the app
+
+`plan_dump <bundle dir> <capture>...` (built beside the tests, not installed) parses, resolves and
+plans each capture against a real bundle and prints what did not parse or match, the strategy,
+the notes and the trade query. Run it over `tests/data/items/*.txt tests/data/examples/*.txt`
+with the released bundle and with a local data build, and `diff` the two: that is how a data
+change is checked against every capture before it is pushed — and, from a worktree of an older
+tag, how it is checked against the apps already installed.
+
 ## Regenerating the test fixtures
 
 `tests/parse_en.hpp` is where every test states that its captures came from an English client —

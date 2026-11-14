@@ -399,7 +399,26 @@ Lexicon Lexicon::parse(std::string_view json_text, std::string* err) {
                 if (ck.key == kind) lex.class_kinds_[printed] = ck.value;
         }
     }
+
+    // New behaviour rides a new key, never a change to the ones above: every installed copy
+    // reads every data release, and the old keys replace English tables outright.
+    if (const auto s = j.find("item_states"); s != j.end() && s->is_array()) {
+        for (const json& e : *s) {
+            if (!e.is_object()) continue;
+            ItemState st;
+            st.text = e.value("text", std::string());
+            st.trade_filter = e.value("trade_filter", std::string());
+            st.filter = e.value("filter", false) && !st.trade_filter.empty();
+            if (!st.text.empty()) lex.item_states_.push_back(std::move(st));
+        }
+    }
     return lex;
+}
+
+const ItemState* Lexicon::item_state(std::string_view line) const {
+    for (const ItemState& s : item_states_)
+        if (s.text == line) return &s;
+    return nullptr;
 }
 
 } // namespace ppc::data
