@@ -76,7 +76,7 @@ TEST_CASE("a lexicon overlays English rather than replacing it") {
     // Everything it did not name is still English, which is what keeps a partial translation
     // usable instead of leaving blank rules that match every line.
     CHECK(lex.term(Term::ItemClassLabel) == "Item Class");
-    CHECK(lex.list(TermList::Flags).size() == 9);
+    CHECK(lex.list(TermList::Flags).size() == static_cast<size_t>(ppc::data::ItemFlag::Count));
     CHECK(lex.property_key("Armour") == PropertyKey::Armour);
 }
 

@@ -115,6 +115,7 @@ three ordinary booleans — returned **983 listings** in Allflame. So the catego
 it, the area level and the faction pseudo are all indexed for this category and none of them is a
 filter the site accepts and answers with nothing.
 
-`map_iiq`, `map_packsize` and `map_iir` are **not** measured, and are not waiting on a
+`map_iiq` (`map_bonus` once a logbook prints 3.30's `Atlas Drops`), `map_packsize` and `map_iir`
+are **not** measured, and are not waiting on a
 measurement either: they are unticked because a logbook is not bought for them, and a measurement
 would only decide whether a row the search does not send is safe to send.

@@ -28,8 +28,8 @@ std::string_view group_for(std::string_view key) {
         return "armour_filters";
     if (key == "dps" || key == "pdps" || key == "edps" || key == "aps" || key == "crit")
         return "weapon_filters";
-    if (key == "map_tier" || key == "map_iiq" || key == "map_iir" || key == "map_packsize" ||
-        key == "area_level" || key == "chart_sulphur")
+    if (key == "map_tier" || key == "map_iiq" || key == "map_bonus" || key == "map_iir" ||
+        key == "map_packsize" || key == "area_level" || key == "chart_sulphur")
         return "map_filters";
     // The site's group also takes per-colour counts (`r`, `g`, `b`, `w`) under the same two
     // names. Nothing plans those: a socket colour is one Chromatic Orb away and pricing on it

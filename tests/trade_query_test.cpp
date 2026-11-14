@@ -573,6 +573,12 @@ TEST_CASE("the three misc properties are filed under misc_filters, one-sided as 
     CHECK(misc["stored_experience"]["min"] == 42420246);
 }
 
+TEST_CASE("Atlas Drops is filed under map_filters") {
+    SearchPlan p = rare_plan();
+    p.numerics = {{"map_bonus", "Atlas Drops", 81, std::nullopt, true, 0, {}}};
+    CHECK(query_of(p)["filters"]["map_filters"]["filters"]["map_bonus"]["min"] == 81);
+}
+
 TEST_CASE("an unidentified item's tier is filed under misc_filters as a floor") {
     SearchPlan p = rare_plan();
     p.numerics = {{"unidentified_tier", "Unidentified Tier", 2, std::nullopt, true, 0, {}}};

@@ -977,6 +977,44 @@ Used when Charges reach full (enchant)
     }));
 }
 
+TEST_CASE("a twice-corrupted item asks for that, and a once-corrupted one rules it out") {
+    auto gd = fixture();
+    {
+        const Item it = resolved(*gd, capture("listing-rare-ring-twice-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(flag_of(p, "corrupted") == std::optional<bool>(true));
+        CHECK(flag_of(p, "twice_corrupted") == std::optional<bool>(true));
+        REQUIRE(p.option("twice_corrupted") != nullptr);
+        CHECK(p.option("twice_corrupted")->shown);
+    }
+    {
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(flag_of(p, "twice_corrupted") == std::optional<bool>(false));
+        REQUIRE(p.option("twice_corrupted") != nullptr);
+        CHECK_FALSE(p.option("twice_corrupted")->shown);
+    }
+    {
+        const Item it = resolved(*gd, capture("rare-rapier.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.option("twice_corrupted") == nullptr);
+    }
+}
+
+TEST_CASE("Atlas Drops is offered on a map and a logbook, unticked while trade indexes no map") {
+    auto gd = fixture();
+    for (const char* file : {"listing-map-rare-t12-atlas-drops.txt",
+                             "listing-logbook-rare-atlas-drops.txt"}) {
+        CAPTURE(file);
+        const Item it = resolved(*gd, capture(file));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const NumericFilter* f = numeric_for(p, "map_bonus");
+        REQUIRE(f != nullptr);
+        CHECK_FALSE(f->enabled);
+        CHECK(numeric_for(p, "map_iiq") == nullptr);
+    }
+}
+
 TEST_CASE("an unidentified rare's tier is a ticked floor beside the identified flag") {
     auto gd = fixture();
     const Item it = resolved(*gd, capture("rare-unidentified-tier2-rapier.txt"));

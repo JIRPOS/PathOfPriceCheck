@@ -1,0 +1,20 @@
+Item Class: Rings
+Rarity: Rare
+Honour Loop
+Amethyst Ring
+--------
+Requirements:
+Level: 38
+--------
+Item Level: 54
+--------
+4% increased Dexterity
+5% increased Intelligence
+10% increased Cast Speed
+--------
++11 to Strength
+Adds 6 to 13 Physical Damage to Attacks
+22% increased Mana Regeneration Rate
++35% to Fire Resistance
+--------
+Twice Corrupted

@@ -49,6 +49,7 @@ constexpr PropertyName kPropertyNames[]{
     {"level", PropertyKey::Level},
     {"stack_size", PropertyKey::StackSize},
     {"item_quantity", PropertyKey::ItemQuantity},
+    {"atlas_drops", PropertyKey::AtlasDrops},
     {"item_rarity", PropertyKey::ItemRarity},
     {"monster_pack_size", PropertyKey::MonsterPackSize},
     {"more_maps", PropertyKey::MoreMaps},
@@ -165,7 +166,7 @@ void Lexicon::assign_english() {
         "Eater of Worlds"};
     lists_[static_cast<size_t>(TermList::Flags)] = {
         "Corrupted", "Unidentified", "Mirrored", "Split", "Synthesised Item", "Fractured Item",
-        "Veiled", "Unmodifiable", "Transfigured"};
+        "Veiled", "Unmodifiable", "Transfigured", "Twice Corrupted"};
     lists_[static_cast<size_t>(TermList::ModSuffixes)].assign(std::begin(kEnglishModSuffixes),
                                                              std::end(kEnglishModSuffixes));
     lists_[static_cast<size_t>(TermList::Generations)].assign(std::begin(kEnglishGenerations),
@@ -234,6 +235,7 @@ void Lexicon::assign_english() {
         {"Level", PropertyKey::Level},
         {"Stack Size", PropertyKey::StackSize},
         {"Item Quantity", PropertyKey::ItemQuantity},
+        {"Atlas Drops", PropertyKey::AtlasDrops},
         {"Item Rarity", PropertyKey::ItemRarity},
         {"Monster Pack Size", PropertyKey::MonsterPackSize},
         {"More Maps", PropertyKey::MoreMaps},

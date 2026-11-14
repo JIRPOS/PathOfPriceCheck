@@ -40,6 +40,9 @@ enum class PropertyKey : uint8_t {
     Level, ///< a gem's own level; the character level to socket it is under Requirements
     StackSize,
     ItemQuantity,
+    /// 3.30's name for a map's quantity bonus, at the same values; the old wording stays for
+    /// maps that still print it.
+    AtlasDrops,
     ItemRarity,
     MonsterPackSize,
     MoreMaps,
@@ -110,6 +113,8 @@ enum class ItemFlag : uint8_t {
     Veiled,
     Unmodifiable,
     Transfigured,
+    /// 3.30. Printed *instead of* "Corrupted", never beside it, so it is corruption as well.
+    TwiceCorrupted,
     Count
 };
 
