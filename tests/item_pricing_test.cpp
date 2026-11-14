@@ -2966,3 +2966,17 @@ TEST_CASE("an Enshrouded item is searched as its base, and says it cannot ask fo
     REQUIRE(p.notes.size() == 1);
     CHECK(p.notes.front().find("\"Perfidy\"") != std::string::npos);
 }
+
+TEST_CASE("an unidentified unique says nothing about modifiers it is not showing") {
+    const std::shared_ptr<GameData> gd = fixture();
+    // The one unique that drops on a Walnut Spirit Shield. Its modifiers are not on the item and
+    // none is searched, so what the per-unique data cannot enumerate is not this copy's business.
+    const Item it = resolved(*gd, capture("unique-unidentified-ordered-fate.txt"));
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(p.name == "Ordered Fate");
+    CHECK(std::none_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("does not enumerate") != std::string::npos;
+    }));
+    CHECK(std::none_of(p.stats.begin(), p.stats.end(),
+                       [](const StatFilter& f) { return !f.caveat.empty(); }));
+}

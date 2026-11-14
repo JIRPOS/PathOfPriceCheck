@@ -222,6 +222,8 @@ STATS = [
     "Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing",
     # What an unanointed seed is asked to have none of.
     "# Enchant Modifiers",
+    # Walnut Spirit Shield's implicit, which an unidentified Ordered Fate is searched on.
+    "#% increased Spell Damage",
 ]
 
 ITEMS = [
@@ -230,6 +232,8 @@ ITEMS = [
     "ITEM::Voltaic Skull",
     "ITEM::Two-Toned Boots",
     "ITEM::Enshrouded Body Armour",
+    "UNIQUE::Ordered Fate",
+    "ITEM::Walnut Spirit Shield",
     "UNIQUE::Putrid Seed",
     "ITEM::Mycelium Core",
     "UNIQUE::Abberath's Hooves",
@@ -357,6 +361,7 @@ UNIQUE_MODS = [
     "Replica Dragonfang's Flight",
     "Bound Fate",
     "Nebulis",
+    "Ordered Fate",
 ]
 
 # Keyed on the first of each entry's mod ids, which is stable and is what the debug log names.

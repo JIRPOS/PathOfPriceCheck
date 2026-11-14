@@ -451,6 +451,10 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
                        const RangeMatch& rm) {
     // Unidentified, or a name the bundle does not know; both already have their own note.
     if (p.name.empty()) return;
+    // Unidentified but resolved — the one unique that drops on this base. Its modifiers are
+    // not on the item and none of them is searched, so a note per one the data cannot spell
+    // out says nothing about this copy: on an Ordered Fate it was six of them.
+    if (!it.identified) return;
 
     const data::UniqueMods* um = gd.find_unique_mods(p.name);
     if (!um) {

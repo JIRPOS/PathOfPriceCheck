@@ -1,0 +1,18 @@
+Item Class: Shields
+Rarity: Unique
+Walnut Spirit Shield
+--------
+Chance to Block: 24%
+Energy Shield: 37
+--------
+Requirements:
+Intelligence: 92
+--------
+Sockets: B-B 
+--------
+Item Level: 67
+--------
+{ Implicit Modifier — Damage, Caster }
+7(5-10)% increased Spell Damage
+--------
+Unidentified
