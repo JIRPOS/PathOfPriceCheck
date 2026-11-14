@@ -1873,6 +1873,41 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
         CHECK(p.notes.empty());
     }
 
+    SUBCASE("an imbued gem is searched as imbued, and with the support it carries") {
+        const Item it = resolved(*gd, capture("gem-imbued-boneshatter.txt"));
+        CHECK(it.imbued);
+        REQUIRE(it.mods.size() == 1);
+        CHECK(it.mods.front().type == ppc::data::ModType::Imbued);
+        // Read out of the skill's own lines, which the rest of them stay.
+        CHECK(std::none_of(it.inherent_lines.begin(), it.inherent_lines.end(),
+                           [](const std::string& l) { return l.starts_with("Supported by"); }));
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Boneshatter");
+        const OptionFilter* imbued = p.option("gem_imbued");
+        REQUIRE(imbued != nullptr);
+        CHECK(imbued->option == "true");
+        CHECK(imbued->shown);
+        REQUIRE(p.stats.size() == 1);
+        const StatFilter& support = p.stats.front();
+        CHECK(support.id == "imbued.pseudo_built_in_support|2571880157");
+        CHECK(support.enabled);
+        // The level is the same on every copy, so the support is asked for, not compared.
+        CHECK_FALSE(support.min.has_value());
+        CHECK_FALSE(support.max.has_value());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("an ordinary gem rules the imbued ones out without a row") {
+        const Item it = resolved(*gd, capture("gem-tornado-shot.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const OptionFilter* imbued = p.option("gem_imbued");
+        REQUIRE(imbued != nullptr);
+        CHECK(imbued->option == "false");
+        CHECK(imbued->enabled);
+        CHECK_FALSE(imbued->shown);
+    }
+
     SUBCASE("a gem the bundle cannot name is not searched for something else") {
         Item it = resolved(*gd, capture("gem-support-empower.txt"));
         it.base = nullptr; // a bundle published before the gem existed

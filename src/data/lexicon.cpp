@@ -170,7 +170,7 @@ void Lexicon::assign_english() {
         "Eater of Worlds"};
     lists_[static_cast<size_t>(TermList::Flags)] = {
         "Corrupted", "Unidentified", "Mirrored", "Split", "Synthesised Item", "Fractured Item",
-        "Veiled", "Unmodifiable", "Transfigured", "Twice Corrupted"};
+        "Veiled", "Unmodifiable", "Transfigured", "Twice Corrupted", "Imbued"};
     lists_[static_cast<size_t>(TermList::ModSuffixes)].assign(std::begin(kEnglishModSuffixes),
                                                              std::end(kEnglishModSuffixes));
     lists_[static_cast<size_t>(TermList::Generations)].assign(std::begin(kEnglishGenerations),

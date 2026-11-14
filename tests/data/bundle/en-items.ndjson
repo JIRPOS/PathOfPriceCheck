@@ -30,6 +30,7 @@
 {"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":28,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemTornadoShot","name":"Tornado Shot","namespace":"GEM","refName":"Tornado Shot","w":1}
 {"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemVaalBlight","name":"Vaal Blight","namespace":"GEM","refName":"Vaal Blight","w":1}
 {"name":"Raise Zombie of Falling","namespace":"GEM","refName":"Raise Zombie of Falling","tradeDisc":"alt_y","tradeName":"Raise Zombie"}
+{"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":28,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemBoneshatter","name":"Boneshatter","namespace":"GEM","refName":"Boneshatter","w":1}
 {"craftable":{"category":"Chart"},"domain":39,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Deepwater/ChartCoralReef","name":"Coral Reef Chart","namespace":"ITEM","refName":"Coral Reef Chart","w":1}
 {"name":"SeafloorRidges","namespace":"ITEM","refName":"SeafloorRidges","tradeDisc":"chart"}
 {"name":"Wild Hellion Alpha","namespace":"CAPTURED_BEAST","refName":"Wild Hellion Alpha"}

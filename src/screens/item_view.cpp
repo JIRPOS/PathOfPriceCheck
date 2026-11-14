@@ -409,7 +409,8 @@ void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& font
           {data::ModType::Explicit, data::ModType::Fractured, data::ModType::Crafted,
            data::ModType::Veiled},
           {data::ModType::Scourge},
-          {data::ModType::Crucible}}) {
+          {data::ModType::Crucible},
+          {data::ModType::Imbued}}) {
         if (it.is_logbook() && in(block, data::ModType::Implicit)) continue;
         if (!has_mods(it, block)) continue;
         draw_rule();
@@ -421,9 +422,10 @@ void draw_item_tooltip(const Item& it, const item::Derived& d, const Fonts& font
         draw_line("Unidentified", kColCorrupted);
     }
     if (it.corrupted || it.mirrored || it.split || !it.influences.empty() || it.synthesised ||
-        it.fractured_item || it.transfigured) {
+        it.fractured_item || it.transfigured || it.imbued) {
         draw_rule();
         if (it.transfigured) draw_line("Transfigured", kColGem);
+        if (it.imbued) draw_line("Imbued", kColGem);
         if (it.synthesised) draw_line("Synthesised Item", kColMod);
         if (it.fractured_item) draw_line("Fractured Item", kColFractured);
         for (const item::Influence i : it.influences)

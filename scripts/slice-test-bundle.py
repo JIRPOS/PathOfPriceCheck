@@ -212,6 +212,8 @@ STATS = [
     "The Ring takes no Cut",
     # A viscera's implicit, which is the whole of what one is searched on beside its slot.
     "#% of Physical Damage Converted to Lightning Damage",
+    # An imbued gem's built-in support, which trade files in an `imbued` namespace of its own.
+    "Supported by Level # Concentrated Effect",
 ]
 
 ITEMS = [
@@ -273,6 +275,7 @@ ITEMS = [
     "GEM::Tornado Shot",
     "GEM::Vaal Blight",
     "GEM::Raise Zombie of Falling",
+    "GEM::Boneshatter",
     # A chart and the area it covers, which are two different records: the base is what the
     # clipboard's base line says, and the area is what trade files the chart under — under its
     # internal id, with the "chart" discriminator and no display name anywhere on it.

@@ -268,6 +268,32 @@ std::string find_known_name(const data::GameData& gd, std::string_view printed,
     return {};
 }
 
+/// An imbued gem's built-in support, out of the lines the parser kept as the skill's own.
+///
+/// The parser cannot tell it apart: a gem's every other section is what the skill does, and
+/// the "Imbued" flag that says one of them is a support comes last. The trade site's `imbued`
+/// namespace holds nothing but these supports, so a line that matches in it is one, without the
+/// wording itself being spelled out anywhere here.
+void resolve_imbued(const data::GameData& gd, Item& it) {
+    if (!it.imbued) return;
+    std::vector<std::string> kept;
+    for (std::string& line : it.inherent_lines) {
+        const std::array<std::string, 1> one{line};
+        std::optional<data::StatMatch> m =
+            data::match_stat(gd, one, 0, data::MatchContext{data::ModType::Imbued});
+        if (!m || !m->stat) {
+            kept.push_back(std::move(line));
+            continue;
+        }
+        Modifier mod;
+        mod.type = data::ModType::Imbued;
+        mod.lines = {std::move(line)};
+        mod.match = std::move(m);
+        it.mods.push_back(std::move(mod));
+    }
+    it.inherent_lines = std::move(kept);
+}
+
 } // namespace
 
 std::string strip_magic_affixes(const data::GameData& gd, std::string_view printed,
@@ -308,6 +334,7 @@ void resolve_item(const data::GameData& gd, Item& it) {
         i = end;
     }
     it.mods = std::move(out);
+    resolve_imbued(gd, it);
 }
 
 } // namespace ppc::item

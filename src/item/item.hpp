@@ -150,6 +150,7 @@ struct Item {
     bool corrupted = false;
     bool twice_corrupted = false; ///< 3.30; always also `corrupted`
     bool fated = false;           ///< 3.30; "Fated " on an unidentified item's base line
+    bool imbued = false;          ///< a gem with a built-in support; see `resolve_imbued`
     bool mirrored = false;
     bool split = false;
     bool synthesised = false;

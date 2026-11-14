@@ -115,6 +115,8 @@ enum class ItemFlag : uint8_t {
     Transfigured,
     /// 3.30. Printed *instead of* "Corrupted", never beside it, so it is corruption as well.
     TwiceCorrupted,
+    /// A gem carrying a support of its own, which it prints as "Supported by Level 1 …".
+    Imbued,
     Count
 };
 

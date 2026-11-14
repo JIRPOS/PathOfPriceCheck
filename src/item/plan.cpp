@@ -317,7 +317,9 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
     // magnitude comes from the tier of the currency that put it there, so the clipboard prints
     // no range and states the rank instead: `{ Eater of Worlds Implicit Modifier (Lesser) }`.
     const bool ranked = m.tier > 0 || m.rank > 0 || !m.qualifier.empty();
-    const bool fixed = !variable && !ranked && (s == Strategy::Map || ranges_printed);
+    // An imbued support's level is the same on every copy, and a gem prints no ranges to say so.
+    const bool fixed =
+        !variable && !ranked && (s == Strategy::Map || s == Strategy::Gem || ranges_printed);
 
     // How wide the asking is around that roll is the user's setting, not this layer's: see
     // `seed_bounds`. All this decides is whether there is a roll to seed from at all, and what
@@ -365,6 +367,7 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
             // are offered and not imposed — seven ticked hazards ask for one copy in the world.
             f.enabled = m.type == data::ModType::Enchant;
             break;
+        case Strategy::Gem: // only an imbued gem has a modifier, and it is the support
         case Strategy::Viscera:
         case Strategy::Sanctum:
             // A sanctum's affixes are not a roll somebody could redo — the run is already under
@@ -1596,6 +1599,9 @@ void add_item_flags(const Item& it, SearchPlan& p) {
     // that leaves it open prices the two together. Measured on Tulfall: 3855 listings in
     // all, 1896 of them not foulborn and 1960 foulborn, the mutated ones cheaper.
     add_flag(p, "mutated", "Foulborn", it.foulborn, it.foulborn);
+    // A gem only: trade has the flag nowhere else. An imbued gem is its own market, and
+    // `false` is safe on the rest — 297 of 299 Boneshatters, the other two imbued.
+    if (p.strategy == Strategy::Gem) add_flag(p, "gem_imbued", "Imbued", it.imbued, it.imbued);
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||
         p.strategy == Strategy::Unique || p.strategy == Strategy::Map) {
         add_flag(p, "identified", "Identified", it.identified, !it.identified);
