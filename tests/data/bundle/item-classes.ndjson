@@ -22,3 +22,4 @@
 {"domain":23,"id":"HeistEquipmentWeapon","itemClass":"Heist Gear","tradeCategory":"heistequipment.heistweapon"}
 {"domain":45,"id":"Viscera","itemClass":"Viscera","tradeCategory":"viscera"}
 {"domain":45,"id":"CocoonedItem","itemClass":"Enshrouded Items","tradeCategory":"enshrouded"}
+{"domain":1,"id":"Shield","itemClass":"Shields","tradeCategory":"armour.shield"}

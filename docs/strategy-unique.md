@@ -35,6 +35,16 @@ So `UniqueMods::unlisted` is a caveat on the row wherever the item actually prin
 modifier, and stays a **note** only for prose with nothing on screen behind it ("4 random
 Charm modifiers") — which is the case the note exists for, since there is no other way to
 say the app is leaving something out.
+**"On screen" is decided by `comparable_line`, not by exact text.** The record and the item
+state one modifier in different spellings. A brand-new unique's record is often all prose,
+and Ordered Fate's differs from the item in four ways: a range where the item prints its roll
+(`(12-24)%` against `17(12-24)%`), no `— Unscalable Value`, its own capitalisation ("all
+hits"), and numbers as such. Compared exactly, all six of its lines missed their rows and
+became six notes.
+**None of it runs on an unidentified unique**, even one resolved to a single name. Its modifiers
+are not printed and none is searched, so every unlisted entry was prose with nothing on screen
+behind it, and an unidentified Ordered Fate came out as six notes about modifiers it was not
+showing.
 [UNIQUE-MODS.md](../UNIQUE-MODS.md) is the dataset's contract, including what it does not cover.
 
 ## An unidentified unique
