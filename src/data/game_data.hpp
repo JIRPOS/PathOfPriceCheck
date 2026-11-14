@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <span>
 #include <string>
@@ -151,6 +152,11 @@ public:
     /// 3.0". It travels with the bundle rather than being hardcoded, because it describes
     /// the data that is installed and not the build that renders it.
     std::string_view unique_mods_attribution() const { return unique_mods_attribution_; }
+    /// Pool wordings a patch reworded, old ref -> current ref (`renamed-refs.json`); empty for a
+    /// bundle without that file. What carries a map-check verdict across a rewording.
+    const std::map<std::string, std::string, std::less<>>& renamed_refs() const {
+        return renamed_refs_;
+    }
 
 private:
     /// Parses the ndjson line at `offset`, memoising it. Records are stable for the
@@ -187,6 +193,7 @@ private:
     std::vector<std::string> languages_{"en"};
     std::string data_version_;
     std::string unique_mods_attribution_;
+    std::map<std::string, std::string, std::less<>> renamed_refs_;
     /// How many items the data build's crawl found trading on the currency exchange. 0 means
     /// no dataset, never "none trade" — see `has_exchange_flags()`.
     int exchange_items_ = 0;

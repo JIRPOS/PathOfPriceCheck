@@ -76,6 +76,9 @@ public:
     /// Write every table that has changed. Called when a screen that can rate closes and on the
     /// way out, so nothing depends on the throttle having fired.
     void flush();
+    /// `Profile::rekey` on every table, in memory only: the files keep the wording they were
+    /// written in until something else saves them. Returns whether anything moved.
+    bool rekey(const RenamedRefs& renamed);
     /// Write anything that has been waiting longer than `kWriteDelay`. From the main loop.
     void tick();
     bool dirty() const { return !dirty_.empty(); }

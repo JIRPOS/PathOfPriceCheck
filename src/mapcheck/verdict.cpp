@@ -113,7 +113,9 @@ std::string affix_key(std::vector<std::string> refs) {
     return out;
 }
 
-std::string_view current_ref(std::string_view ref) {
+std::string_view current_ref(std::string_view ref, const RenamedRefs* data) {
+    if (data)
+        if (const auto it = data->find(ref); it != data->end()) return it->second;
     for (const Renamed& r : kRenamed)
         if (ref == r.was) return r.is;
     return ref;
@@ -135,6 +137,28 @@ void Profile::reindex() {
     index_.clear();
     index_.reserve(ratings_.size());
     for (const auto& [key, rating] : ratings_) index_.push_back({affix_refs(key), rating});
+}
+
+bool Profile::rekey(const RenamedRefs& renamed) {
+    std::map<std::string, Rating, std::less<>> kept, moved;
+    for (const auto& [key, rating] : ratings_) {
+        std::vector<std::string> refs = affix_refs(key);
+        bool changed = false;
+        for (std::string& ref : refs) {
+            const std::string_view now = current_ref(ref, &renamed);
+            if (now != ref) {
+                ref = std::string(now);
+                changed = true;
+            }
+        }
+        if (changed) moved.emplace(affix_key(std::move(refs)), rating);
+        else kept.emplace(key, rating);
+    }
+    if (moved.empty()) return false;
+    for (auto& [key, rating] : moved) kept.emplace(key, rating); // emplace: kept rows win
+    ratings_ = std::move(kept);
+    reindex();
+    return true;
 }
 
 void Profile::put(std::string key, Rating r) {

@@ -284,6 +284,7 @@ public:
     void select_map_profile(std::string_view name);
     /// Take up the profile list Settings has been editing and rebuild the rows behind it.
     void map_profiles_changed();
+    void rekey_map_profiles();
     /// What the Map Check settings tab is in the middle of. Mutable: the tab reads and writes
     /// it in the same frame.
     MapCheckEdit& map_edit() { return map_edit_; }

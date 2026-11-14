@@ -199,6 +199,44 @@ TEST_CASE("a verdict rated since the patch wins over the one carried from before
     }
 }
 
+TEST_CASE("a rewording the bundle names moves a loaded table onto the new wording") {
+    // Not in the compiled-in table: only the bundle knows it.
+    const RenamedRefs renamed{{"Area has # waves of Oldworld monsters",
+                               "Area contains # waves of Newworld monsters"}};
+    Profile p = profile_from_json("Data", R"({"verdicts":[
+        {"verdict":"deadly","mods":["Area has # waves of Oldworld monsters",
+                                    "#% increased Atlas Drops in this Area"]},
+        {"verdict":"safe","mods":["Monsters cannot be Stunned"]}
+    ]})");
+    const std::vector<std::string> now{"Area contains # waves of Newworld monsters",
+                                       "#% increased Atlas Drops in this Area"};
+    CHECK(p.verdict_of(now) == Verdict::Unrated);
+    CHECK(p.rekey(renamed));
+    CHECK(p.verdict_of(now) == Verdict::Deadly);
+    CHECK(p.verdict_of({"Monsters cannot be Stunned"}) == Verdict::Safe);
+    CHECK(p.rated() == 2);
+    // Applied on every bundle that lands, so a second pass must be a no-op.
+    CHECK_FALSE(p.rekey(renamed));
+    CHECK(p.verdict_of(now) == Verdict::Deadly);
+}
+
+TEST_CASE("a row rated on the new wording survives the re-key that follows loading") {
+    const RenamedRefs renamed{{"Old wording", "New wording"}};
+    Profile p = profile_from_json("Both", R"({"verdicts":[
+        {"verdict":"deadly","mods":["Old wording"]},
+        {"verdict":"safe","mods":["New wording"]}]})");
+    CHECK(p.rekey(renamed));
+    CHECK(p.rated() == 1);
+    CHECK(p.verdict_of({"New wording"}) == Verdict::Safe);
+}
+
+TEST_CASE("the bundle's table wins over the compiled-in one") {
+    const RenamedRefs renamed{{"#% more Scarabs found in Area", "#% more Embers found in Area"}};
+    CHECK(current_ref("#% more Scarabs found in Area", &renamed) == "#% more Embers found in Area");
+    CHECK(current_ref("#% more Scarabs found in Area") == "#% more Threads found in Area");
+    CHECK(current_ref("Monsters cannot be Stunned", &renamed) == "Monsters cannot be Stunned");
+}
+
 TEST_CASE("a profile file the user broke costs the ratings, never the run") {
     CHECK(profile_from_json("Boom", "{\"verdicts\": {").rated() == 0);
     CHECK(profile_from_json("Boom", "").rated() == 0);

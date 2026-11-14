@@ -3068,3 +3068,17 @@ TEST_CASE("a unique whose record is all prose says so on the rows, not in a note
         CHECK_MESSAGE(f->caveat.find("does not enumerate") != std::string::npos, row);
     }
 }
+
+TEST_CASE("a bundle's renamed refs are read, whatever language it was opened in") {
+    const fs::path dir = fs::temp_directory_path() / "ppc-renamed-bundle";
+    fs::remove_all(dir);
+    fs::copy(fs::path(PPC_TEST_DATA_DIR) / "bundle", dir, fs::copy_options::recursive);
+    std::ofstream(dir / "renamed-refs.json", std::ios::binary)
+        << R"({"renamed":{"#% more Scarabs found in Area":"#% more Threads found in Area","":"x"}})";
+    std::string err;
+    const std::shared_ptr<GameData> gd = GameData::open(dir, "en", &err);
+    REQUIRE_MESSAGE(gd != nullptr, err);
+    REQUIRE(gd->renamed_refs().size() == 1);
+    CHECK(gd->renamed_refs().at("#% more Scarabs found in Area") == "#% more Threads found in Area");
+    CHECK(fixture()->renamed_refs().empty());
+}
