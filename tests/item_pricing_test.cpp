@@ -1873,6 +1873,41 @@ TEST_CASE("a gem is searched as its name, its level and its quality, and nothing
         CHECK(p.notes.empty());
     }
 
+    SUBCASE("an imbued gem is searched as imbued, and with the support it carries") {
+        const Item it = resolved(*gd, capture("gem-imbued-boneshatter.txt"));
+        CHECK(it.imbued);
+        REQUIRE(it.mods.size() == 1);
+        CHECK(it.mods.front().type == ppc::data::ModType::Imbued);
+        // Read out of the skill's own lines, which the rest of them stay.
+        CHECK(std::none_of(it.inherent_lines.begin(), it.inherent_lines.end(),
+                           [](const std::string& l) { return l.starts_with("Supported by"); }));
+
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type == "Boneshatter");
+        const OptionFilter* imbued = p.option("gem_imbued");
+        REQUIRE(imbued != nullptr);
+        CHECK(imbued->option == "true");
+        CHECK(imbued->shown);
+        REQUIRE(p.stats.size() == 1);
+        const StatFilter& support = p.stats.front();
+        CHECK(support.id == "imbued.pseudo_built_in_support|2571880157");
+        CHECK(support.enabled);
+        // The level is the same on every copy, so the support is asked for, not compared.
+        CHECK_FALSE(support.min.has_value());
+        CHECK_FALSE(support.max.has_value());
+        CHECK(p.notes.empty());
+    }
+
+    SUBCASE("an ordinary gem rules the imbued ones out without a row") {
+        const Item it = resolved(*gd, capture("gem-tornado-shot.txt"));
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        const OptionFilter* imbued = p.option("gem_imbued");
+        REQUIRE(imbued != nullptr);
+        CHECK(imbued->option == "false");
+        CHECK(imbued->enabled);
+        CHECK_FALSE(imbued->shown);
+    }
+
     SUBCASE("a gem the bundle cannot name is not searched for something else") {
         Item it = resolved(*gd, capture("gem-support-empower.txt"));
         it.base = nullptr; // a bundle published before the gem existed
@@ -2380,7 +2415,14 @@ TEST_CASE("a heist item is searched on the run it opens, not on the danger it ro
         CHECK(ench->type == ppc::data::ModType::Enchant);
         CHECK(ench->enabled);
         for (const StatFilter& f : p.stats)
-            if (f.type != ppc::data::ModType::Enchant) CHECK_MESSAGE(!f.enabled, f.text);
+            if (f.type != ppc::data::ModType::Enchant && f.type != ppc::data::ModType::Pseudo)
+                CHECK_MESSAGE(!f.enabled, f.text);
+        // And how many enchants it has, which is the same statement counted.
+        const StatFilter* count = filter_saying(p, "# Enchant Modifiers");
+        REQUIRE(count != nullptr);
+        CHECK(count->enabled);
+        CHECK(count->min == 1);
+        CHECK(count->max == 1);
     }
 
     SUBCASE("an area the bundle does not know is still a search, and says what it is not") {
@@ -2857,4 +2899,70 @@ TEST_CASE("3.30 capitalises the bleed modifier's Faster, and the capture says so
     REQUIRE(it.mods[0].match);
     REQUIRE(it.mods[0].match->stat != nullptr);
     CHECK(it.mods[0].match->stat->ref == "Bleeding you inflict deals Damage #% Faster");
+}
+
+TEST_CASE("a Putrid Seed is searched on the passives anointing grew on it, or on having none") {
+    const std::shared_ptr<GameData> gd = fixture();
+    const std::string text = capture("unique-putrid-seed.txt");
+
+    const Item it = resolved(*gd, text);
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(p.name == "Putrid Seed");
+    CHECK(p.type == "Mycelium Core");
+    // Four of a large pool, so the passives are what one seed has that another does not. All
+    // four together usually match only this copy, which is why each is a row of its own.
+    int passives = 0;
+    for (const StatFilter& f : p.stats) {
+        if (f.type != ppc::data::ModType::Enchant) continue;
+        ++passives;
+        CHECK(f.enabled);
+        CHECK_FALSE(f.hidden);
+    }
+    CHECK(passives == 4);
+    CHECK(std::none_of(p.stats.begin(), p.stats.end(), [](const StatFilter& f) { return f.negated; }));
+    // Exactly four, ticked: 719 Covens seeds.
+    const auto count = std::find_if(p.stats.begin(), p.stats.end(), [](const StatFilter& f) {
+        return f.id == "pseudo.pseudo_number_of_enchant_mods";
+    });
+    REQUIRE(count != p.stats.end());
+    CHECK(count->enabled);
+    CHECK(count->min == 4);
+    CHECK(count->max == 4);
+
+    // Not anointed yet: nothing grown, and the anointed seeds are a different market.
+    std::string bare = text;
+    const size_t from = bare.find("1 added passive skill");
+    const size_t to = bare.find("--------\n{ Unique Modifier }");
+    REQUIRE(from != std::string::npos);
+    REQUIRE(to != std::string::npos);
+    bare.erase(from, to - from + std::string("--------\n").size());
+    const Item seed = resolved(*gd, bare);
+    const SearchPlan q = build_plan(*gd, seed, derive(gd.get(), seed));
+    CHECK(q.name == "Putrid Seed");
+    CHECK(std::none_of(q.stats.begin(), q.stats.end(), [](const StatFilter& f) {
+        return f.type == ppc::data::ModType::Enchant;
+    }));    // Asked to have none, since trade cannot count to zero: 1954 seeds, not all 2788.
+    const auto none = std::find_if(q.stats.begin(), q.stats.end(),
+                                   [](const StatFilter& f) { return f.negated; });
+    REQUIRE(none != q.stats.end());
+    CHECK(none->id == "pseudo.pseudo_number_of_enchant_mods");
+    CHECK(none->enabled);
+}
+
+TEST_CASE("an Enshrouded item is searched as its base, and says it cannot ask for the unique") {
+    const std::shared_ptr<GameData> gd = fixture();
+    const Item it = resolved(*gd, capture("enshrouded-body-armour-perfidy.txt"));
+    CHECK(it.is_enshrouded());
+    CHECK(it.unparsed.empty());
+
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(p.strategy == Strategy::BaseItem);
+    CHECK(p.category == "enshrouded");
+    CHECK(p.type == "Enshrouded Body Armour");
+    // Offered, not imposed: three Body Armours were listed, at item levels 84 and 85.
+    REQUIRE(numeric_for(p, "ilvl") != nullptr);
+    CHECK_FALSE(numeric_for(p, "ilvl")->enabled);
+    // "Perfidy" matched nothing as a name, a term or under the category, so it is a note.
+    REQUIRE(p.notes.size() == 1);
+    CHECK(p.notes.front().find("\"Perfidy\"") != std::string::npos);
 }

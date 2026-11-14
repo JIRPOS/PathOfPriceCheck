@@ -99,6 +99,15 @@ struct Rating {
 inline constexpr char kKeySep = '\x1f';
 
 std::string affix_key(std::vector<std::string> refs);
+
+/// The ref a stat goes by today, for one a patch renamed; `ref` itself otherwise.
+///
+/// A table outlives the bundle it was rated against, and a ref is the wording, so a patch that
+/// rewords a stat orphans every verdict on it. Read through this, a row written before the patch
+/// keys on the stat's current name. Only renames of the *same* stat belong here, never a stat
+/// whose effect changed under its old modifier: carrying a verdict onto that is the confident
+/// wrong answer.
+std::string_view current_ref(std::string_view ref);
 std::vector<std::string> affix_refs(std::string_view key);
 
 /// A named table of affix → verdict.

@@ -91,6 +91,8 @@ enum class PropertyKey : uint8_t {
     /// needs is the name, because every one of them is its own trade stat.
     Boons,
     Afflictions,
+    /// 3.30. An Enshrouded item's "Original Unique: Perfidy" — what it transforms back into.
+    OriginalUnique,
     Count
 };
 
@@ -98,7 +100,7 @@ enum class PropertyKey : uint8_t {
 /// comes from the bundle and needs no enum here.
 enum class ClassKind : uint8_t {
     Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint, SanctumResearch,
-    ExpeditionLogbook, Viscera
+    ExpeditionLogbook, Viscera, Enshrouded
 };
 
 /// A flag the game prints on a line of its own. Influence lines are not among them: they are
@@ -115,6 +117,8 @@ enum class ItemFlag : uint8_t {
     Transfigured,
     /// 3.30. Printed *instead of* "Corrupted", never beside it, so it is corruption as well.
     TwiceCorrupted,
+    /// A gem carrying a support of its own, which it prints as "Supported by Level 1 …".
+    Imbued,
     Count
 };
 

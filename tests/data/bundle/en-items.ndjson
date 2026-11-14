@@ -2,6 +2,9 @@
 {"armour":{"es":[171,197]},"craftable":{"category":"Body Armours"},"domain":1,"dropLevel":68,"h":3,"metadataId":"Metadata/Items/Armours/BodyArmours/BodyInt17","name":"Vaal Regalia","namespace":"ITEM","refName":"Vaal Regalia","w":2}
 {"craftable":{"category":"Viscera"},"domain":45,"dropLevel":1,"h":2,"metadataId":"Metadata/Items/Viscera/VisceraGeneralAdus","name":"Voltaic Skull","namespace":"ITEM","refName":"Voltaic Skull","w":2}
 {"armour":{"es":[26,30],"ev":[126,145]},"craftable":{"category":"Boots"},"domain":1,"dropLevel":70,"h":2,"metadataId":"Metadata/Items/Armours/Boots/BootsAtlas1","name":"Two-Toned Boots","namespace":"ITEM","refName":"Two-Toned Boots","w":2}
+{"craftable":{"category":"Enshrouded Items"},"domain":45,"dropLevel":1,"h":3,"metadataId":"Metadata/Items/Legion/CocoonedBodyArmour","name":"Enshrouded Body Armour","namespace":"ITEM","refName":"Enshrouded Body Armour","w":2}
+{"art":"Art/2DItems/Jewels/BlightcoreJewel.png","name":"Putrid Seed","namespace":"UNIQUE","refName":"Putrid Seed","unique":{"base":"Mycelium Core"}}
+{"craftable":{"category":"Jewels"},"domain":10,"dropLevel":20,"h":1,"metadataId":"Metadata/Items/Jewels/JewelBlighted","name":"Mycelium Core","namespace":"ITEM","refName":"Mycelium Core","w":1}
 {"art":"Art/2DItems/Armours/Boots/AbberathsHooves.png","name":"Abberath's Hooves","namespace":"UNIQUE","refName":"Abberath's Hooves","unique":{"base":"Goathide Boots"}}
 {"craftable":{"category":"Divination Cards"},"domain":45,"dropLevel":75,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheDoctor","name":"The Doctor","namespace":"DIVINATION_CARD","refName":"The Doctor","w":1}
 {"craftable":{"category":"Stackable Currency"},"domain":45,"dropLevel":12,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollRare","name":"Chaos Orb","namespace":"ITEM","refName":"Chaos Orb","w":1}
@@ -30,6 +33,7 @@
 {"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":28,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemTornadoShot","name":"Tornado Shot","namespace":"GEM","refName":"Tornado Shot","w":1}
 {"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemVaalBlight","name":"Vaal Blight","namespace":"GEM","refName":"Vaal Blight","w":1}
 {"name":"Raise Zombie of Falling","namespace":"GEM","refName":"Raise Zombie of Falling","tradeDisc":"alt_y","tradeName":"Raise Zombie"}
+{"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":28,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemBoneshatter","name":"Boneshatter","namespace":"GEM","refName":"Boneshatter","w":1}
 {"craftable":{"category":"Chart"},"domain":39,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Deepwater/ChartCoralReef","name":"Coral Reef Chart","namespace":"ITEM","refName":"Coral Reef Chart","w":1}
 {"name":"SeafloorRidges","namespace":"ITEM","refName":"SeafloorRidges","tradeDisc":"chart"}
 {"name":"Wild Hellion Alpha","namespace":"CAPTURED_BEAST","refName":"Wild Hellion Alpha"}

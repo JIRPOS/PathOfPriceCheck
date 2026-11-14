@@ -79,6 +79,7 @@ constexpr PropertyName kPropertyNames[]{
     {"aureus", PropertyKey::Aureus},
     {"boons", PropertyKey::Boons},
     {"afflictions", PropertyKey::Afflictions},
+    {"original_unique", PropertyKey::OriginalUnique},
 };
 
 struct ClassKindName {
@@ -95,6 +96,7 @@ constexpr ClassKindName kClassKindNames[]{
     {"sanctum_research", ClassKind::SanctumResearch},
     {"expedition_logbook", ClassKind::ExpeditionLogbook},
     {"viscera", ClassKind::Viscera},
+    {"enshrouded", ClassKind::Enshrouded},
 };
 
 /// The mod-type suffix the game prints in a parenthetical, indexed by `ModType`. In English
@@ -170,7 +172,7 @@ void Lexicon::assign_english() {
         "Eater of Worlds"};
     lists_[static_cast<size_t>(TermList::Flags)] = {
         "Corrupted", "Unidentified", "Mirrored", "Split", "Synthesised Item", "Fractured Item",
-        "Veiled", "Unmodifiable", "Transfigured", "Twice Corrupted"};
+        "Veiled", "Unmodifiable", "Transfigured", "Twice Corrupted", "Imbued"};
     lists_[static_cast<size_t>(TermList::ModSuffixes)].assign(std::begin(kEnglishModSuffixes),
                                                              std::end(kEnglishModSuffixes));
     lists_[static_cast<size_t>(TermList::Generations)].assign(std::begin(kEnglishGenerations),
@@ -275,6 +277,7 @@ void Lexicon::assign_english() {
         {"Major Boons", PropertyKey::Boons},
         {"Minor Afflictions", PropertyKey::Afflictions},
         {"Major Afflictions", PropertyKey::Afflictions},
+        {"Original Unique", PropertyKey::OriginalUnique},
     };
 
     class_kinds_ = {
@@ -290,6 +293,7 @@ void Lexicon::assign_english() {
         {"Sanctum Research", ClassKind::SanctumResearch},
         {"Expedition Logbooks", ClassKind::ExpeditionLogbook},
         {"Viscera", ClassKind::Viscera},
+        {"Enshrouded Items", ClassKind::Enshrouded},
     };
 }
 

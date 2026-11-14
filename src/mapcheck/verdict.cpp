@@ -20,9 +20,44 @@ constexpr std::string_view kReserved[]{"CON", "PRN", "AUX", "NUL",  "COM1", "COM
                                        "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8",
                                        "LPT9"};
 
+struct Renamed {
+    std::string_view was, is;
+};
+/// 3.29 → 3.30, from diffing the two bundles' map pools: a ref that disappeared on a modifier
+/// whose ids stayed. Left out on purpose: a chart's essence-imprisoned rares became Calcified ones,
+/// which is a different decision rather than a new wording for the same one.
+constexpr Renamed kRenamed[]{
+    {"#% more Scarabs found in Area", "#% more Threads found in Area"},
+    {"Final Boss drops # additional Scarab Items", "Final Boss drops # additional Threads"},
+    {"Area contains an additional Abyss", "Area contains # additional Abysses"},
+    {"Areas contain a Mirror of Delirium", "Area contains a Mirror of Delirium"},
+    {"Players in Area take #% increased Damage per nearby Ally",
+     "Players in Area take #% increased Damage per Ally within 6 metres"},
+    {"This Map's Modifiers to Quantity of Items found also apply to Rarity",
+     "This Map's Modifiers to Atlas Drops also apply to Item Rarity"},
+};
+
 bool forbidden(unsigned char c) {
     return c < 0x20 || c == '<' || c == '>' || c == ':' || c == '"' || c == '/' || c == '\\' ||
            c == '|' || c == '?' || c == '*' || c == 0x7F;
+}
+
+/// One row read from a file, under the refs its stats go by today. A row that had to be renamed
+/// never overwrites one already keyed on the current wording: that one was rated since the
+/// patch, and is the newer decision. Either may come first in the file.
+void put_current(Profile& p, std::vector<std::string> refs, const Rating& r) {
+    bool renamed = false;
+    for (std::string& ref : refs) {
+        const std::string_view now = current_ref(ref);
+        if (now != ref) {
+            ref = std::string(now);
+            renamed = true;
+        }
+    }
+    std::string key = affix_key(std::move(refs));
+    if (key.empty()) return;
+    if (renamed && p.ratings().contains(key)) return;
+    p.put(std::move(key), r);
 }
 
 std::optional<double> number_or_none(const json& j, const char* key) {
@@ -76,6 +111,12 @@ std::string affix_key(std::vector<std::string> refs) {
         out += r;
     }
     return out;
+}
+
+std::string_view current_ref(std::string_view ref) {
+    for (const Renamed& r : kRenamed)
+        if (ref == r.was) return r.is;
+    return ref;
 }
 
 std::vector<std::string> affix_refs(std::string_view key) {
@@ -219,7 +260,7 @@ Profile profile_from_json(std::string name, std::string_view text) {
                 // Not a row: an unrated affix is one nothing was said about, and writing it back
                 // would grow the file by every modifier somebody clicked past.
                 if (r.verdict == Verdict::Unrated) continue;
-                p.put(affix_key({ref}), r);
+                put_current(p, {ref}, r);
             }
             return p;
         }
@@ -234,9 +275,7 @@ Profile profile_from_json(std::string name, std::string_view text) {
             r.min = number_or_none(row, "min");
             r.max = number_or_none(row, "max");
             if (r.verdict == Verdict::Unrated) continue;
-            std::string key = affix_key(std::move(refs));
-            if (key.empty()) continue;
-            p.put(std::move(key), r);
+            put_current(p, std::move(refs), r);
         }
     } catch (...) {
         // Hand-editable, so a stray comma must cost the ratings and never the run.

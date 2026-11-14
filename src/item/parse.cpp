@@ -531,6 +531,7 @@ void parse_flags(const Section& sec, Item& it, const data::Lexicon& lex) {
             it.corrupted = true;
             it.twice_corrupted = true;
             break;
+        case data::ItemFlag::Imbued: it.imbued = true; break;
         case data::ItemFlag::Count: break;
         }
     }

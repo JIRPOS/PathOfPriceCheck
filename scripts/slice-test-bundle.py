@@ -212,6 +212,16 @@ STATS = [
     "The Ring takes no Cut",
     # A viscera's implicit, which is the whole of what one is searched on beside its slot.
     "#% of Physical Damage Converted to Lightning Damage",
+    # An imbued gem's built-in support, which trade files in an `imbued` namespace of its own.
+    "Supported by Level # Concentrated Effect",
+    # Putrid Seed: what anointing it grew, one enchant per passive, and the unique's own mod.
+    "# added passive skill is Righteous Decree",
+    "# added passive skill is Weathered Hunter",
+    "# added passive skill is Clever Thief",
+    "# added passive skill is Mind Drinker",
+    "Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing",
+    # What an unanointed seed is asked to have none of.
+    "# Enchant Modifiers",
 ]
 
 ITEMS = [
@@ -219,6 +229,9 @@ ITEMS = [
     "ITEM::Vaal Regalia",
     "ITEM::Voltaic Skull",
     "ITEM::Two-Toned Boots",
+    "ITEM::Enshrouded Body Armour",
+    "UNIQUE::Putrid Seed",
+    "ITEM::Mycelium Core",
     "UNIQUE::Abberath's Hooves",
     "DIVINATION_CARD::The Doctor",
     "ITEM::Chaos Orb",
@@ -273,6 +286,7 @@ ITEMS = [
     "GEM::Tornado Shot",
     "GEM::Vaal Blight",
     "GEM::Raise Zombie of Falling",
+    "GEM::Boneshatter",
     # A chart and the area it covers, which are two different records: the base is what the
     # clipboard's base line says, and the area is what trade files the chart under — under its
     # internal id, with the "chart" discriminator and no display name anywhere on it.
@@ -381,7 +395,7 @@ ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency"
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps::MapKey", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
-                "Sceptres", "Heist Gear", "Viscera"]
+                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items"]
 
 LANG = "en"
 

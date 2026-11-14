@@ -118,6 +118,17 @@ The file format **parses an optional roll bound from day one and shows no UI for
 bare word since that is every row this version can produce. Accepting both shapes costs one branch
 now and a format migration costs every user's file later.
 
+**A patch that rewords a stat would orphan every verdict on it**, because a ref is the
+wording. `current_ref` carries an old ref to its new name as a table is read, and the file
+takes the new name the next time it is written. Its table is built by diffing two bundles'
+pools: a ref that disappeared from a modifier whose mod ids stayed. It covers only rewordings
+of the same stat. 3.30 turned a chart's essence-imprisoned rares into Calcified ones under the
+same mod, which is a different decision, so that one is left behind. A row carried over never
+overwrites one already keyed on the new wording, since that one was rated after the patch.
+Most of 3.30's map changes needed nothing: they *added* a line (`#% increased Atlas Drops in
+this Area`) beside the old ones, and a stored key covers any affix whose lines include all of
+its own.
+
 Ratings are **buffered and written 1.5 seconds after the last one**, and flushed outright whenever
 a screen that can rate closes, when a profile is switched, when a bulk import is accepted, and on
 the way out. The throttle is a ceiling on batching, never on durability — walking one modifier

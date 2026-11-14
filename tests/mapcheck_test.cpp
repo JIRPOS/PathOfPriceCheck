@@ -163,6 +163,42 @@ TEST_CASE("a table round-trips through its file, bounds and all") {
     CHECK_FALSE(r->max.has_value());
 }
 
+TEST_CASE("a table rated before 3.30 keeps its verdicts on the reworded stats") {
+    // The pool rows these must land on, as the 3.30 bundle has them.
+    const std::vector<std::string> volatile_{"Rare Monsters have #% chance to have a Volatile Core",
+                                             "#% increased Atlas Drops in this Area",
+                                             "#% more Threads found in Area"};
+    const std::vector<std::string> kiracs{"This Map's Modifiers to Atlas Drops also apply to Item Rarity",
+                                          "#% increased Atlas Drops in this Area"};
+    const Profile p = profile_from_json("Old", R"({"verdicts":[
+        {"verdict":"deadly","mods":["Rare Monsters have #% chance to have a Volatile Core",
+                                    "#% more Scarabs found in Area"]},
+        {"verdict":"safe","mods":["This Map's Modifiers to Quantity of Items found also apply to Rarity"]},
+        {"verdict":"dangerous","mods":["Rare monsters that are natural inhabitants are imprisoned by Essences"]}
+    ]})");
+    CHECK(p.verdict_of(volatile_) == Verdict::Deadly);
+    CHECK(p.verdict_of(kiracs) == Verdict::Safe);
+    // A stat that does something else now keeps its old key, which nothing resolves to any more.
+    CHECK(p.verdict_of({"Rare monsters that are natural inhabitants are Calcified"}) ==
+          Verdict::Unrated);
+
+    // The object form, written before keys became sets, is carried over the same way.
+    CHECK(profile_from_json("Older", R"({"verdicts":{"#% more Scarabs found in Area":"safe"}})")
+              .verdict_of({"#% more Threads found in Area"}) == Verdict::Safe);
+}
+
+TEST_CASE("a verdict rated since the patch wins over the one carried from before it") {
+    for (const char* text :
+         {R"({"verdicts":[{"verdict":"safe","mods":["#% more Threads found in Area"]},
+                          {"verdict":"deadly","mods":["#% more Scarabs found in Area"]}]})",
+          R"({"verdicts":[{"verdict":"deadly","mods":["#% more Scarabs found in Area"]},
+                          {"verdict":"safe","mods":["#% more Threads found in Area"]}]})"}) {
+        const Profile p = profile_from_json("Both", text);
+        CHECK(p.rated() == 1);
+        CHECK(p.verdict_of({"#% more Threads found in Area"}) == Verdict::Safe);
+    }
+}
+
 TEST_CASE("a profile file the user broke costs the ratings, never the run") {
     CHECK(profile_from_json("Boom", "{\"verdicts\": {").rated() == 0);
     CHECK(profile_from_json("Boom", "").rated() == 0);

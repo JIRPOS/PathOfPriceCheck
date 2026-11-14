@@ -317,7 +317,9 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
     // magnitude comes from the tier of the currency that put it there, so the clipboard prints
     // no range and states the rank instead: `{ Eater of Worlds Implicit Modifier (Lesser) }`.
     const bool ranked = m.tier > 0 || m.rank > 0 || !m.qualifier.empty();
-    const bool fixed = !variable && !ranked && (s == Strategy::Map || ranges_printed);
+    // An imbued support's level is the same on every copy, and a gem prints no ranges to say so.
+    const bool fixed =
+        !variable && !ranked && (s == Strategy::Map || s == Strategy::Gem || ranges_printed);
 
     // How wide the asking is around that roll is the user's setting, not this layer's: see
     // `seed_bounds`. All this decides is whether there is a roll to seed from at all, and what
@@ -365,6 +367,7 @@ std::optional<StatFilter> to_filter(const Item& it, size_t index, Strategy s, bo
             // are offered and not imposed — seven ticked hazards ask for one copy in the world.
             f.enabled = m.type == data::ModType::Enchant;
             break;
+        case Strategy::Gem: // only an imbued gem has a modifier, and it is the support
         case Strategy::Viscera:
         case Strategy::Sanctum:
             // A sanctum's affixes are not a roll somebody could redo — the run is already under
@@ -1378,6 +1381,80 @@ void add_void_rule(const data::GameData& gd, const Item& it, SearchPlan& p) {
     p.stats.push_back(std::move(f));
 }
 
+/// What an Enshrouded item holds is what it is worth — a Perfidy listed at 2 chaos beside a
+/// Cherrubim's Maleficence at a divine — and trade cannot be asked for it: as `name`, as `term`
+/// and under the `enshrouded` category alike, "Perfidy" matched 0. So the search is the base,
+/// and the panel says what it could not narrow on.
+void note_original_unique(const Item& it, SearchPlan& p) {
+    const Property* held = property_of(it, data::PropertyKey::OriginalUnique);
+    const std::string what = held && !held->value.empty() ? "\"" + held->value + "\"" : "the unique";
+    p.notes.push_back("trade cannot search on the original unique, so this is every " +
+                      it.base_name + ", whichever unique it holds, not " + what + " alone");
+}
+
+/// The trade stat counting an item's enchant modifiers, or null on a bundle without it.
+const data::Stat* enchant_count_stat(const data::GameData& gd) {
+    const data::Stat* stat = gd.find_stat_by_ref("# Enchant Modifiers");
+    return stat && !stat->trade_ids(data::ModType::Pseudo).empty() ? stat : nullptr;
+}
+
+/// How many enchants the item carries, asked for exactly and ticked.
+///
+/// An enchant is something done to this copy — an anointment, a lab enchant, a Putrid Seed's
+/// grown passives — so a copy with more of them is a different item from one with fewer, even
+/// where each one is also its own row. Counted as modifiers rather than lines, because that is
+/// what trade counts: 719 Covens Putrid Seeds have exactly four.
+///
+/// **Not on a cluster jewel**, whose enchant is one affix printed over several lines: trade
+/// counts no cluster above two, and without Advanced Mod Descriptions nothing here says where
+/// one affix ends, so the count could come out higher than any listing.
+void add_enchant_count(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    if (p.category == "jewel.cluster") return;
+    const auto n = std::count_if(it.mods.begin(), it.mods.end(), [](const Modifier& m) {
+        return m.type == data::ModType::Enchant && !m.continuation;
+    });
+    if (n == 0) return;
+    const data::Stat* stat = enchant_count_stat(gd);
+    if (!stat) return;
+
+    StatFilter f;
+    f.id = stat->trade_ids(data::ModType::Pseudo).front();
+    f.text = stat->ref;
+    f.type = data::ModType::Pseudo;
+    f.min = static_cast<double>(n);
+    f.max = static_cast<double>(n);
+    f.enabled = true;
+    p.stats.push_back(std::move(f));
+}
+
+/// A Putrid Seed nobody has anointed yet: asked to have **no** enchants, ticked.
+///
+/// What anointing grows on one is the whole of what sets it apart, and an anointed seed carries
+/// those passives as enchants, which the plan already asks for one row each. One with none is a
+/// different item — the gamble is still to come — and leaving it open prices it among the
+/// anointed copies. Trade counts enchants only on items that have some (`max: 0` matched 0 of
+/// 2788 Covens seeds), so the absence goes in a `not` group: 1954 unanointed against 836 with at
+/// least one enchant.
+void add_unanointed_rule(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    static constexpr std::string_view kGrows =
+        "Grows four random Passive Skills when Anointed\n"
+        "Passive Skills grown are influenced by Oils used when Anointing";
+    const auto has = [&it](auto pred) { return std::any_of(it.mods.begin(), it.mods.end(), pred); };
+    if (!has([](const Modifier& m) { return m.match && m.match->stat && m.match->stat->ref == kGrows; }))
+        return;
+    if (has([](const Modifier& m) { return m.type == data::ModType::Enchant; })) return;
+    const data::Stat* stat = enchant_count_stat(gd);
+    if (!stat) return;
+
+    StatFilter f;
+    f.id = stat->trade_ids(data::ModType::Pseudo).front();
+    f.text = stat->ref;
+    f.type = data::ModType::Pseudo;
+    f.negated = true;
+    f.enabled = true;
+    p.stats.push_back(std::move(f));
+}
+
 /// The key an area's own record is filed under, from the name the game prints.
 ///
 /// Trade files a chart under **the area it covers**, as a `type` option carrying the `chart`
@@ -1596,6 +1673,9 @@ void add_item_flags(const Item& it, SearchPlan& p) {
     // that leaves it open prices the two together. Measured on Tulfall: 3855 listings in
     // all, 1896 of them not foulborn and 1960 foulborn, the mutated ones cheaper.
     add_flag(p, "mutated", "Foulborn", it.foulborn, it.foulborn);
+    // A gem only: trade has the flag nowhere else. An imbued gem is its own market, and
+    // `false` is safe on the rest — 297 of 299 Boneshatters, the other two imbued.
+    if (p.strategy == Strategy::Gem) add_flag(p, "gem_imbued", "Imbued", it.imbued, it.imbued);
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||
         p.strategy == Strategy::Unique || p.strategy == Strategy::Map) {
         add_flag(p, "identified", "Identified", it.identified, !it.identified);
@@ -1734,6 +1814,8 @@ Strategy default_strategy(const Item& it) {
     if (it.is_logbook()) return Strategy::Logbook;
     // A viscera prints no rarity line at all, so the switch below has nothing to go on.
     if (it.is_viscera()) return Strategy::Viscera;
+    // Nor does an Enshrouded item, which trade lists as a normal-rarity base.
+    if (it.is_enshrouded()) return Strategy::BaseItem;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1788,8 +1870,12 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         case Strategy::BaseItem:
             p.type = base_wire_name(it);
             if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+            // An Enshrouded item's level is offered, not imposed: nothing says it changes what
+            // it turns back into, and on Covens' third day there were three Body Armours listed.
             add_numeric(p, "ilvl", "Item Level",
-                        it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
+                        it.item_level ? std::optional<double>(*it.item_level) : std::nullopt,
+                        !it.is_enshrouded());
+            if (it.is_enshrouded()) note_original_unique(it, p);
             break;
         case Strategy::Modifiers:
             // Deliberately not constrained to this base: a rare is bought for its mods, and
@@ -1924,13 +2010,17 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                 p.notes.push_back("unrecognised modifier: " + one_line(m));
         }
         // Before the merge, while every filter still points at the modifier it came from.
-        if (p.strategy == Strategy::Unique) apply_unique_mods(gd, it, p, rm);
+        if (p.strategy == Strategy::Unique) {
+            apply_unique_mods(gd, it, p, rm);
+            add_unanointed_rule(gd, it, p);
+        }
         if (p.strategy == Strategy::Map) add_map_pseudo(it, p);
         // Before the merge as well, and for the same reason `apply_unique_mods` is: it reads
         // `mod_index`, and merging is what makes one filter stand for several modifiers. It is
         // also what tells the merge which rows are alternatives rather than repeats.
         if (p.strategy == Strategy::Logbook) group_logbook_mods(it, p);
         merge_same_stat(p.stats);
+        add_enchant_count(gd, it, p);
     }
 
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||

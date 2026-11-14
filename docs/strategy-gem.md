@@ -9,7 +9,7 @@ The shortest search here. How a gem's name is resolved is under `item/resolve` i
 filters are *all* numeric: the name, `misc_filters.gem_level`, `misc_filters.quality`, and the
 corruption every strategy already matches exactly. Everything a gem prints is what the skill
 does and is identical on every copy of it, so there is nothing to turn into a stat filter and
-nothing to leave a note about either.
+nothing to leave a note about either — **except on an imbued gem**, below.
 **Level and quality are exact — `min == max`, the same reasoning as a map's tier.** A level 21
 gem is not a better level 20 one, it is what the gem sells as; a floor would put 21/23
 corrupted gems into the results for a 20/20 and price a different item. Quality is filtered at
@@ -25,3 +25,14 @@ every gem in the game at this level, whose cheapest listing would read as this g
 poe.ninja still prices it, so the check is not empty. In practice this only happens on a
 bundle older than `data-20260807.23`, the release that keys gems on their printed names, and
 then only for transfigured gems.
+
+**An imbued gem** carries a support of its own: it prints `Supported by Level 1 Concentrated
+Effect` in a section of its own and an `Imbued` flag line at the end. It is its own market on
+both counts. The `gem_imbued` flag is imposed on every gem, `true` with a row on an imbued one and
+`false` without a row on the rest; trade has the flag on gems only, and `false` costs an ordinary
+search nothing (297 of 299 Boneshatters, the other two imbued). The support is a stat in trade's
+`imbued` namespace, asked for by presence, because its level is the same on every copy.
+**Nothing here spells the support's wording.** The parser cannot tell the section from the
+skill's own lines: the flag that says one of them is a support comes last. So it keeps them all
+as the skill's, and `resolve_imbued` moves out whichever line matches in the `imbued` namespace.
+That namespace holds nothing but these supports, so a match is the proof.
