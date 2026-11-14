@@ -1015,6 +1015,20 @@ TEST_CASE("Atlas Drops is offered on a map and a logbook, unticked while trade i
     }
 }
 
+TEST_CASE("a Fated item resolves to its base and is not searched on being Fated") {
+    auto gd = fixture();
+    // The slice has no Crusader Chainmail; the prefix is what is under test, not the base.
+    std::string text = capture("rare-unidentified-fated-chainmail.txt");
+    const std::string from = "Fated Crusader Chainmail";
+    text.replace(text.find(from), from.size(), "Fated Vaal Regalia");
+    const Item it = resolved(*gd, text);
+    REQUIRE(it.base != nullptr);
+    CHECK(it.base->name == "Vaal Regalia");
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it), Strategy::BaseItem);
+    CHECK(p.type == "Vaal Regalia");
+    CHECK(p.option("fated") == nullptr);
+}
+
 TEST_CASE("an unidentified rare's tier is a ticked floor beside the identified flag") {
     auto gd = fixture();
     const Item it = resolved(*gd, capture("rare-unidentified-tier2-rapier.txt"));

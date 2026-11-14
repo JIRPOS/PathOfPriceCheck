@@ -173,6 +173,8 @@ enum class Term : uint8_t {
     /// "Unidentified (Tier " — 3.30's flag line on an unidentified magic or rare item from Act 6
     /// on, which carries the item's tier where the bare "Unidentified" flag carries nothing.
     UnidentifiedTierPrefix,
+    /// "Fated " — 3.30's mark on an unidentified item's base line, "Fated Crusader Chainmail".
+    FatedPrefix,
     Count
 };
 

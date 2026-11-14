@@ -1,0 +1,16 @@
+Item Class: Body Armours
+Rarity: Rare
+Fated Crusader Chainmail
+--------
+Armour: 264
+Energy Shield: 55
+--------
+Requirements:
+Str: 64
+Int: 64
+--------
+Sockets: W-W-W 
+--------
+Item Level: 54
+--------
+Unidentified

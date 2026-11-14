@@ -320,6 +320,12 @@ bundle, and only the third and fourth encode pricing judgement.
   `twice_corrupted` is asked of every corrupted item: shown and true on a twice-corrupted one,
   imposed false without a row on the rest. It takes out only those copies — 464 corrupted rings,
   460 without them — and it does not empty a gem search.
+  **`Fated ` (3.30) prefixes an unidentified item's base line** — "Fated Crusader Chainmail" —
+  and comes off it the way `Superior ` does, in either order, so the base still resolves. It is
+  remembered as `Item::fated` but not searched on, in either direction: whether trade indexes it,
+  and whether this prefix is even the Fated GGG's filter means, is unknown until a listing is
+  captured. Only on an unidentified item, so it is taken off after the flag lines: "Fated Siren"
+  is a captured beast's whole name.
   **An unidentified magic or rare item from Act 6 on prints its tier** — `Unidentified (Tier 2)`
   in place of the bare flag (3.30). It is read as the flag plus `Item::unidentified_tier`, and it
   is the one thing such an item says about what it will turn out to be, so it is a ticked

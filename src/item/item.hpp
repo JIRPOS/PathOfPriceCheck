@@ -147,6 +147,7 @@ struct Item {
     std::optional<int> unidentified_tier;
     bool corrupted = false;
     bool twice_corrupted = false; ///< 3.30; always also `corrupted`
+    bool fated = false;           ///< 3.30; "Fated " on an unidentified item's base line
     bool mirrored = false;
     bool split = false;
     bool synthesised = false;
