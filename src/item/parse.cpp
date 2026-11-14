@@ -527,6 +527,10 @@ void parse_flags(const Section& sec, Item& it, const data::Lexicon& lex) {
         case data::ItemFlag::Veiled: it.veiled = true; break;
         case data::ItemFlag::Unmodifiable: it.unmodifiable = true; break;
         case data::ItemFlag::Transfigured: it.transfigured = true; break;
+        case data::ItemFlag::TwiceCorrupted:
+            it.corrupted = true;
+            it.twice_corrupted = true;
+            break;
         case data::ItemFlag::Count: break;
         }
     }

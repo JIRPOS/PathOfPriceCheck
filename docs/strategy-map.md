@@ -27,6 +27,11 @@ What is searched instead:
 - **What the map does for you.** `map_iiq` and `map_packsize` on by default, `map_iir` off —
   rarity is a preference, and imposing it drops the cheaper copies of the same map. All three
   come off the game's own property lines.
+  **3.30 renamed the quantity line `Atlas Drops`**, at the same values, and trade files it under
+  `map_bonus`. Both keys are kept and the row follows what the map printed. `map_bonus` is
+  **unticked** for now, because trade does not index it on a map yet: on Covens' first day it
+  matched 0 of 209 rare maps (so did `map_iiq`), against 340 for pack size and 375 for rarity,
+  while it does match logbooks. Tick it once a search on it finds maps.
 - **The four drop bonuses a Maven's chisel adds** — `More Maps`, `More Scarabs`, `More Currency`,
   `More Divination Cards` — which the game also prints as *properties* and which trade has no
   `map_filters` entry for. They are `pseudo.*` stats (`pseudo_map_more_map_drops` and its three

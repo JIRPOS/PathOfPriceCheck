@@ -1,0 +1,31 @@
+Item Class: Expedition Logbooks
+Rarity: Rare
+Iron Panorama
+Expedition Logbook
+--------
+Atlas Drops: +61% (augmented)
+Item Rarity: +36% (augmented)
+Monster Pack Size: +23% (augmented)
+Area Level: 67
+--------
+Item Level: 67
+--------
+Sarn Slums
+Druids of the Broken Circle
+Area contains 28% increased number of Monster Markers (implicit)
+Area contains an additional Underground Area (implicit)
+--------
+Bluffs
+Order of the Chalice
+38% increased number of Explosives (implicit)
+50% increased Explosive Placement Range (implicit)
+--------
+Players have -7% to all maximum Resistances
+Monsters Poison on Hit
++10% Monster Chaos Resistance
++10% Monster Elemental Resistances
+Monsters have +20% chance to Suppress Spell Damage
+--------
+Take this item to Dannig in your Hideout to open portals to an expedition.
+--------
+Note: ~price 2 chaos

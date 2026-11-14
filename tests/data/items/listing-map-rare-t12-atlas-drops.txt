@@ -1,0 +1,25 @@
+Item Class: Maps
+Rarity: Rare
+Hate Hustle
+Map (Tier 12)
+--------
+Atlas Drops: +81% (augmented)
+Item Rarity: +48% (augmented)
+Monster Pack Size: +31% (augmented)
+--------
+Item Level: 80
+--------
+Monster Level: 79
+--------
+22% increased Magic Monsters
+Players are Cursed with Elemental Weakness
+Rare Monsters have Elemental Thorns reflecting 1500 Elemental Damage
+Monsters fire 2 additional Projectiles
+Monsters gain a Power Charge on Hit
+Monsters' Attacks have 60% chance to Impale on Hit
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 
+--------
+Corrupted
+--------
+Note: ~b/o 2 chaos

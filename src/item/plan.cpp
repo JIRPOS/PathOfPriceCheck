@@ -1252,6 +1252,7 @@ void plan_logbook(const data::GameData& gd, const Item& it, SearchPlan& p) {
                 it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, false);
     static constexpr std::pair<data::PropertyKey, const char*> kBonuses[]{
         {data::PropertyKey::ItemQuantity, "map_iiq"},
+        {data::PropertyKey::AtlasDrops, "map_bonus"},
         {data::PropertyKey::MonsterPackSize, "map_packsize"},
         {data::PropertyKey::ItemRarity, "map_iir"},
     };
@@ -1538,6 +1539,11 @@ void plan_map(const data::GameData& gd, const Item& it, SearchPlan& p) {
     // would drop the cheaper copies of the same map that most buyers are actually after.
     static constexpr Bonus kBonuses[]{
         {data::PropertyKey::ItemQuantity, "map_iiq", true},
+        // The same bonus under 3.30's name, filed under its own key — and unticked for now, because
+        // trade does not index it on a map yet: on Covens' first day `map_bonus` (and `map_iiq`)
+        // matched 0 of 209 rare maps, against 340 for pack size and 375 for rarity, while it does
+        // match logbooks. Ticked, it would make every 3.30 map read as nobody selling one.
+        {data::PropertyKey::AtlasDrops, "map_bonus", false},
         {data::PropertyKey::MonsterPackSize, "map_packsize", true},
         {data::PropertyKey::ItemRarity, "map_iir", false},
     };
@@ -1572,6 +1578,11 @@ void add_item_flags(const Item& it, SearchPlan& p) {
     // Corruption is never incidental: it fixes the item's mods forever and splits the market in
     // two, so it is matched exactly whatever the strategy.
     add_flag(p, "corrupted", "Corrupted", it.corrupted, it.corrupted);
+    // 3.30. A twice-corrupted copy carries a second corruption outcome, so it is its own market
+    // on either side: asked of a once-corrupted item it takes out only those (464 corrupted
+    // rings, 460 without them), and it matches gems and maps as readily as the flag above.
+    if (it.corrupted)
+        add_flag(p, "twice_corrupted", "Twice Corrupted", it.twice_corrupted, it.twice_corrupted);
     add_flag(p, "mirrored", "Mirrored", it.mirrored, it.mirrored);
     // Foulborn — the site's own key for it is `mutated` — is the same shape and the same
     // argument: Chayula's mutation is a different item at a different price, and a search

@@ -146,6 +146,7 @@ struct Item {
     /// it only while the item is unidentified; Ruthless items and anything before Act 6 have none.
     std::optional<int> unidentified_tier;
     bool corrupted = false;
+    bool twice_corrupted = false; ///< 3.30; always also `corrupted`
     bool mirrored = false;
     bool split = false;
     bool synthesised = false;
