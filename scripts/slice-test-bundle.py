@@ -214,6 +214,12 @@ STATS = [
     "#% of Physical Damage Converted to Lightning Damage",
     # An imbued gem's built-in support, which trade files in an `imbued` namespace of its own.
     "Supported by Level # Concentrated Effect",
+    # Putrid Seed: what anointing it grew, one enchant per passive, and the unique's own mod.
+    "# added passive skill is Righteous Decree",
+    "# added passive skill is Weathered Hunter",
+    "# added passive skill is Clever Thief",
+    "# added passive skill is Mind Drinker",
+    "Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing",
 ]
 
 ITEMS = [
@@ -221,6 +227,8 @@ ITEMS = [
     "ITEM::Vaal Regalia",
     "ITEM::Voltaic Skull",
     "ITEM::Two-Toned Boots",
+    "UNIQUE::Putrid Seed",
+    "ITEM::Mycelium Core",
     "UNIQUE::Abberath's Hooves",
     "DIVINATION_CARD::The Doctor",
     "ITEM::Chaos Orb",

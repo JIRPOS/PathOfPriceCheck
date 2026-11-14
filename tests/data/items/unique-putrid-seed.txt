@@ -1,0 +1,20 @@
+Item Class: Jewels
+Rarity: Unique
+Putrid Seed
+Mycelium Core
+--------
+Item Level: 74
+--------
+1 added passive skill is Righteous Decree (enchant)
+1 added passive skill is Weathered Hunter (enchant)
+1 added passive skill is Clever Thief (enchant)
+1 added passive skill is Mind Drinker (enchant)
+--------
+{ Unique Modifier }
+Grows four random Passive Skills when Anointed
+Passive Skills grown are influenced by Oils used when Anointing — Unscalable Value
+--------
+From unassuming seed sprang a putrefying plague –
+consigning its host to death, and supplanting their very being.
+--------
+Place into an allocated Large Jewel Socket on the Passive Skill Tree. Added passives do not interact with jewel radiuses. Right click to remove from the Socket.

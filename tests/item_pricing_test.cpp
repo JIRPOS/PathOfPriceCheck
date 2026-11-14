@@ -2893,3 +2893,37 @@ TEST_CASE("3.30 capitalises the bleed modifier's Faster, and the capture says so
     REQUIRE(it.mods[0].match->stat != nullptr);
     CHECK(it.mods[0].match->stat->ref == "Bleeding you inflict deals Damage #% Faster");
 }
+
+TEST_CASE("a Putrid Seed is searched on the passives anointing grew on it, each one untickable") {
+    const std::shared_ptr<GameData> gd = fixture();
+    const std::string text = capture("unique-putrid-seed.txt");
+
+    const Item it = resolved(*gd, text);
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(p.name == "Putrid Seed");
+    CHECK(p.type == "Mycelium Core");
+    // Four of a large pool, so the passives are what one seed has that another does not. All
+    // four together usually match only this copy, which is why each is a row of its own.
+    int passives = 0;
+    for (const StatFilter& f : p.stats) {
+        if (f.type != ppc::data::ModType::Enchant) continue;
+        ++passives;
+        CHECK(f.enabled);
+        CHECK_FALSE(f.hidden);
+    }
+    CHECK(passives == 4);
+
+    // Not anointed yet: nothing grown, nothing to ask for, and every seed is the market.
+    std::string bare = text;
+    const size_t from = bare.find("1 added passive skill");
+    const size_t to = bare.find("--------\n{ Unique Modifier }");
+    REQUIRE(from != std::string::npos);
+    REQUIRE(to != std::string::npos);
+    bare.erase(from, to - from + std::string("--------\n").size());
+    const Item seed = resolved(*gd, bare);
+    const SearchPlan q = build_plan(*gd, seed, derive(gd.get(), seed));
+    CHECK(q.name == "Putrid Seed");
+    CHECK(std::none_of(q.stats.begin(), q.stats.end(), [](const StatFilter& f) {
+        return f.type == ppc::data::ModType::Enchant;
+    }));
+}
