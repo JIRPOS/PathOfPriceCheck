@@ -222,6 +222,12 @@ STATS = [
     "Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing",
     # What an unanointed seed is asked to have none of.
     "# Enchant Modifiers",
+    # Walnut Spirit Shield's implicit, which an unidentified Ordered Fate is searched on.
+    "#% increased Spell Damage",
+    # An identified Ordered Fate, whose record lists every modifier as prose rather than stats.
+    "Every fourth time you cast each Spell, Damage of its Hits is Lucky",
+    "Every second time you cast each Spell, gain Mana equal to its Upfront Cost",
+    "Every sixth time you cast each Spell, All Hits are Critically Strikes\nThese effects do not apply to Reservation, Duration or Channelling Spells",
 ]
 
 ITEMS = [
@@ -230,6 +236,8 @@ ITEMS = [
     "ITEM::Voltaic Skull",
     "ITEM::Two-Toned Boots",
     "ITEM::Enshrouded Body Armour",
+    "UNIQUE::Ordered Fate",
+    "ITEM::Walnut Spirit Shield",
     "UNIQUE::Putrid Seed",
     "ITEM::Mycelium Core",
     "UNIQUE::Abberath's Hooves",
@@ -357,6 +365,7 @@ UNIQUE_MODS = [
     "Replica Dragonfang's Flight",
     "Bound Fate",
     "Nebulis",
+    "Ordered Fate",
 ]
 
 # Keyed on the first of each entry's mod ids, which is stable and is what the debug log names.
@@ -395,7 +404,7 @@ ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency"
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps::MapKey", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
-                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items"]
+                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items", "Shields"]
 
 LANG = "en"
 

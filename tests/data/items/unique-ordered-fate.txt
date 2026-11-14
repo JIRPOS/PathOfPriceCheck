@@ -1,0 +1,34 @@
+Item Class: Shields
+Rarity: Unique
+Ordered Fate
+Walnut Spirit Shield
+--------
+Chance to Block: 24%
+Energy Shield: 132 (augmented)
+--------
+Requirements:
+Level: 48
+Int: 92
+--------
+Sockets: B-B 
+--------
+Item Level: 67
+--------
+{ Implicit Modifier — Damage, Caster }
+7(5-10)% increased Spell Damage
+--------
+{ Unique Modifier — Caster, Speed }
+17(12-24)% increased Cast Speed
+{ Unique Modifier — Defences, Energy Shield }
++95(80-110) to maximum Energy Shield
+{ Unique Modifier }
+Every second time you cast each Spell, gain Mana equal to its Upfront Cost — Unscalable Value
+(Upfront Costs are all Costs that are not paid per-second)
+{ Unique Modifier }
+Every fourth time you cast each Spell, Damage of its Hits is Lucky — Unscalable Value
+{ Unique Modifier }
+Every sixth time you cast each Spell, All Hits are Critically Strikes
+These effects do not apply to Reservation, Duration or Channelling Spells — Unscalable Value
+--------
+"Prophecy is malleable. It is the clay, not the kiln."
+- The Coven Queen
