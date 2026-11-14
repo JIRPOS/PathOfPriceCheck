@@ -2980,3 +2980,22 @@ TEST_CASE("an unidentified unique says nothing about modifiers it is not showing
     CHECK(std::none_of(p.stats.begin(), p.stats.end(),
                        [](const StatFilter& f) { return !f.caveat.empty(); }));
 }
+
+TEST_CASE("a unique whose record is all prose says so on the rows, not in a note per line") {
+    const std::shared_ptr<GameData> gd = fixture();
+    // Ordered Fate's record states every modifier as prose, in its own spelling: a range for the
+    // roll, no "Unscalable Value", "all hits" in lower case. Each one is a row on screen already.
+    const Item it = resolved(*gd, capture("unique-ordered-fate.txt"));
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(p.name == "Ordered Fate");
+    CHECK(std::none_of(p.notes.begin(), p.notes.end(), [](const std::string& n) {
+        return n.find("does not enumerate") != std::string::npos;
+    }));
+    for (const char* row : {"increased Cast Speed", "to maximum Energy Shield",
+                            "Damage of its Hits is Lucky", "gain Mana equal to its Upfront Cost",
+                            "All Hits are Critically Strikes"}) {
+        const StatFilter* f = filter_saying(p, row);
+        REQUIRE_MESSAGE(f != nullptr, row);
+        CHECK_MESSAGE(f->caveat.find("does not enumerate") != std::string::npos, row);
+    }
+}

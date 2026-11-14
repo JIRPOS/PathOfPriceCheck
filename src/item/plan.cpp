@@ -409,14 +409,58 @@ Roll unique_range(const data::UniqueModFilter& uf, const Modifier& m, bool avera
     return r;
 }
 
+/// A line as the two sides of `filter_saying` can agree on it. They state one modifier
+/// differently in four ways, all seen on a single unique (Ordered Fate): the record prints a
+/// range where the item prints its roll ("(12-24)%" against "17%"), the client appends
+/// "— Unscalable Value" to a fixed one, the two capitalise differently ("all hits" against
+/// "All Hits"), and the number goes the way every stat wording's does.
+std::string comparable_line(std::string_view line, const data::Lexicon& lex) {
+    for (const std::string& suffix : lex.list(data::TermList::UnscalableSuffixes)) {
+        if (!suffix.empty() && line.size() > suffix.size() && line.ends_with(suffix)) {
+            line.remove_suffix(suffix.size());
+            break;
+        }
+    }
+    // A range in parentheses stands for one number, so it becomes one before the numbers go.
+    std::string flat;
+    flat.reserve(line.size());
+    for (size_t i = 0; i < line.size(); ++i) {
+        if (line[i] == '(') {
+            const size_t close = line.find(')', i);
+            const std::string_view inside =
+                close == std::string_view::npos ? std::string_view{} : line.substr(i + 1, close - i - 1);
+            const bool range = !inside.empty() && inside.find('-', 1) != std::string_view::npos &&
+                               std::all_of(inside.begin(), inside.end(), [](char c) {
+                                   return std::isdigit(static_cast<unsigned char>(c)) || c == '-' ||
+                                          c == '.' || c == '+';
+                               });
+            if (range) {
+                // Glued to a number it is that number's Advanced Mod Descriptions range, and
+                // goes; on its own it is the record's stand-in for the roll.
+                if (flat.empty() || !std::isdigit(static_cast<unsigned char>(flat.back())))
+                    flat += '0';
+                i = close;
+                continue;
+            }
+        }
+        flat += line[i];
+    }
+    std::string out = data::placeholder_form(flat);
+    for (char& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out;
+}
+
 /// The filter whose modifier printed `line`, or null. The join is the game's own wording,
 /// which is what both sides have: the per-unique data's unlisted pools are stated as the lines
-/// the client prints, and so are the modifiers the parser read off the clipboard.
-StatFilter* filter_saying(SearchPlan& p, const Item& it, std::string_view line) {
+/// the client prints, and so are the modifiers the parser read off the clipboard — near enough
+/// that `comparable_line` is all it takes to line them up.
+StatFilter* filter_saying(SearchPlan& p, const Item& it, std::string_view line,
+                          const data::Lexicon& lex) {
+    const std::string want = comparable_line(line, lex);
     for (StatFilter& f : p.stats) {
         if (!f.mod_index) continue;
         for (const std::string& l : it.mods[*f.mod_index].lines)
-            if (l == line) return &f;
+            if (comparable_line(l, lex) == want) return &f;
     }
     return nullptr;
 }
@@ -559,7 +603,7 @@ void apply_unique_mods(const data::GameData& gd, const Item& it, SearchPlan& p,
         // job requirement as modifiers, and the game prints all four in the property block. Four
         // notes saying they are not searched, beside four lines already saying what they are.
         if (printed_as_property(it, u)) continue;
-        if (StatFilter* f = filter_saying(p, it, u)) {
+        if (StatFilter* f = filter_saying(p, it, u, gd.lexicon())) {
             f->caveat = "the modifier data states this but does not enumerate it, so nothing "
                         "here knows what it can roll";
             continue;

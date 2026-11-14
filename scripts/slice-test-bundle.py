@@ -224,6 +224,10 @@ STATS = [
     "# Enchant Modifiers",
     # Walnut Spirit Shield's implicit, which an unidentified Ordered Fate is searched on.
     "#% increased Spell Damage",
+    # An identified Ordered Fate, whose record lists every modifier as prose rather than stats.
+    "Every fourth time you cast each Spell, Damage of its Hits is Lucky",
+    "Every second time you cast each Spell, gain Mana equal to its Upfront Cost",
+    "Every sixth time you cast each Spell, All Hits are Critically Strikes\nThese effects do not apply to Reservation, Duration or Channelling Spells",
 ]
 
 ITEMS = [
@@ -400,7 +404,7 @@ ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency"
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps::MapKey", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
-                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items"]
+                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items", "Shields"]
 
 LANG = "en"
 
