@@ -220,6 +220,8 @@ STATS = [
     "# added passive skill is Clever Thief",
     "# added passive skill is Mind Drinker",
     "Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing",
+    # What an unanointed seed is asked to have none of.
+    "# Enchant Modifiers",
 ]
 
 ITEMS = [

@@ -2415,7 +2415,14 @@ TEST_CASE("a heist item is searched on the run it opens, not on the danger it ro
         CHECK(ench->type == ppc::data::ModType::Enchant);
         CHECK(ench->enabled);
         for (const StatFilter& f : p.stats)
-            if (f.type != ppc::data::ModType::Enchant) CHECK_MESSAGE(!f.enabled, f.text);
+            if (f.type != ppc::data::ModType::Enchant && f.type != ppc::data::ModType::Pseudo)
+                CHECK_MESSAGE(!f.enabled, f.text);
+        // And how many enchants it has, which is the same statement counted.
+        const StatFilter* count = filter_saying(p, "# Enchant Modifiers");
+        REQUIRE(count != nullptr);
+        CHECK(count->enabled);
+        CHECK(count->min == 1);
+        CHECK(count->max == 1);
     }
 
     SUBCASE("an area the bundle does not know is still a search, and says what it is not") {
@@ -2894,7 +2901,7 @@ TEST_CASE("3.30 capitalises the bleed modifier's Faster, and the capture says so
     CHECK(it.mods[0].match->stat->ref == "Bleeding you inflict deals Damage #% Faster");
 }
 
-TEST_CASE("a Putrid Seed is searched on the passives anointing grew on it, each one untickable") {
+TEST_CASE("a Putrid Seed is searched on the passives anointing grew on it, or on having none") {
     const std::shared_ptr<GameData> gd = fixture();
     const std::string text = capture("unique-putrid-seed.txt");
 
@@ -2912,8 +2919,17 @@ TEST_CASE("a Putrid Seed is searched on the passives anointing grew on it, each 
         CHECK_FALSE(f.hidden);
     }
     CHECK(passives == 4);
+    CHECK(std::none_of(p.stats.begin(), p.stats.end(), [](const StatFilter& f) { return f.negated; }));
+    // Exactly four, ticked: 719 Covens seeds.
+    const auto count = std::find_if(p.stats.begin(), p.stats.end(), [](const StatFilter& f) {
+        return f.id == "pseudo.pseudo_number_of_enchant_mods";
+    });
+    REQUIRE(count != p.stats.end());
+    CHECK(count->enabled);
+    CHECK(count->min == 4);
+    CHECK(count->max == 4);
 
-    // Not anointed yet: nothing grown, nothing to ask for, and every seed is the market.
+    // Not anointed yet: nothing grown, and the anointed seeds are a different market.
     std::string bare = text;
     const size_t from = bare.find("1 added passive skill");
     const size_t to = bare.find("--------\n{ Unique Modifier }");
@@ -2925,5 +2941,10 @@ TEST_CASE("a Putrid Seed is searched on the passives anointing grew on it, each 
     CHECK(q.name == "Putrid Seed");
     CHECK(std::none_of(q.stats.begin(), q.stats.end(), [](const StatFilter& f) {
         return f.type == ppc::data::ModType::Enchant;
-    }));
+    }));    // Asked to have none, since trade cannot count to zero: 1954 seeds, not all 2788.
+    const auto none = std::find_if(q.stats.begin(), q.stats.end(),
+                                   [](const StatFilter& f) { return f.negated; });
+    REQUIRE(none != q.stats.end());
+    CHECK(none->id == "pseudo.pseudo_number_of_enchant_mods");
+    CHECK(none->enabled);
 }

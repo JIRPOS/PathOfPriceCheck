@@ -1381,6 +1381,69 @@ void add_void_rule(const data::GameData& gd, const Item& it, SearchPlan& p) {
     p.stats.push_back(std::move(f));
 }
 
+/// The trade stat counting an item's enchant modifiers, or null on a bundle without it.
+const data::Stat* enchant_count_stat(const data::GameData& gd) {
+    const data::Stat* stat = gd.find_stat_by_ref("# Enchant Modifiers");
+    return stat && !stat->trade_ids(data::ModType::Pseudo).empty() ? stat : nullptr;
+}
+
+/// How many enchants the item carries, asked for exactly and ticked.
+///
+/// An enchant is something done to this copy — an anointment, a lab enchant, a Putrid Seed's
+/// grown passives — so a copy with more of them is a different item from one with fewer, even
+/// where each one is also its own row. Counted as modifiers rather than lines, because that is
+/// what trade counts: 719 Covens Putrid Seeds have exactly four.
+///
+/// **Not on a cluster jewel**, whose enchant is one affix printed over several lines: trade
+/// counts no cluster above two, and without Advanced Mod Descriptions nothing here says where
+/// one affix ends, so the count could come out higher than any listing.
+void add_enchant_count(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    if (p.category == "jewel.cluster") return;
+    const auto n = std::count_if(it.mods.begin(), it.mods.end(), [](const Modifier& m) {
+        return m.type == data::ModType::Enchant && !m.continuation;
+    });
+    if (n == 0) return;
+    const data::Stat* stat = enchant_count_stat(gd);
+    if (!stat) return;
+
+    StatFilter f;
+    f.id = stat->trade_ids(data::ModType::Pseudo).front();
+    f.text = stat->ref;
+    f.type = data::ModType::Pseudo;
+    f.min = static_cast<double>(n);
+    f.max = static_cast<double>(n);
+    f.enabled = true;
+    p.stats.push_back(std::move(f));
+}
+
+/// A Putrid Seed nobody has anointed yet: asked to have **no** enchants, ticked.
+///
+/// What anointing grows on one is the whole of what sets it apart, and an anointed seed carries
+/// those passives as enchants, which the plan already asks for one row each. One with none is a
+/// different item — the gamble is still to come — and leaving it open prices it among the
+/// anointed copies. Trade counts enchants only on items that have some (`max: 0` matched 0 of
+/// 2788 Covens seeds), so the absence goes in a `not` group: 1954 unanointed against 836 with at
+/// least one enchant.
+void add_unanointed_rule(const data::GameData& gd, const Item& it, SearchPlan& p) {
+    static constexpr std::string_view kGrows =
+        "Grows four random Passive Skills when Anointed\n"
+        "Passive Skills grown are influenced by Oils used when Anointing";
+    const auto has = [&it](auto pred) { return std::any_of(it.mods.begin(), it.mods.end(), pred); };
+    if (!has([](const Modifier& m) { return m.match && m.match->stat && m.match->stat->ref == kGrows; }))
+        return;
+    if (has([](const Modifier& m) { return m.type == data::ModType::Enchant; })) return;
+    const data::Stat* stat = enchant_count_stat(gd);
+    if (!stat) return;
+
+    StatFilter f;
+    f.id = stat->trade_ids(data::ModType::Pseudo).front();
+    f.text = stat->ref;
+    f.type = data::ModType::Pseudo;
+    f.negated = true;
+    f.enabled = true;
+    p.stats.push_back(std::move(f));
+}
+
 /// The key an area's own record is filed under, from the name the game prints.
 ///
 /// Trade files a chart under **the area it covers**, as a `type` option carrying the `chart`
@@ -1930,13 +1993,17 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                 p.notes.push_back("unrecognised modifier: " + one_line(m));
         }
         // Before the merge, while every filter still points at the modifier it came from.
-        if (p.strategy == Strategy::Unique) apply_unique_mods(gd, it, p, rm);
+        if (p.strategy == Strategy::Unique) {
+            apply_unique_mods(gd, it, p, rm);
+            add_unanointed_rule(gd, it, p);
+        }
         if (p.strategy == Strategy::Map) add_map_pseudo(it, p);
         // Before the merge as well, and for the same reason `apply_unique_mods` is: it reads
         // `mod_index`, and merging is what makes one filter stand for several modifiers. It is
         // also what tells the merge which rows are alternatives rather than repeats.
         if (p.strategy == Strategy::Logbook) group_logbook_mods(it, p);
         merge_same_stat(p.stats);
+        add_enchant_count(gd, it, p);
     }
 
     if (p.strategy == Strategy::BaseItem || p.strategy == Strategy::Modifiers ||

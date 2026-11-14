@@ -101,3 +101,4 @@
 {"better":1,"matchers":[{"string":"# added passive skill is Clever Thief"}],"ref":"# added passive skill is Clever Thief","trade":{"ids":{"enchant":["enchant.stat_3599615742|8001"]}}}
 {"better":1,"matchers":[{"string":"# added passive skill is Mind Drinker"}],"ref":"# added passive skill is Mind Drinker","trade":{"ids":{"enchant":["enchant.stat_3599615742|42804"]}}}
 {"better":1,"matchers":[{"string":"Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing","value":1.0}],"ref":"Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing","trade":{"ids":{"explicit":["explicit.stat_2255402066"]}}}
+{"better":1,"matchers":[{"string":"# Enchant Modifiers"}],"ref":"# Enchant Modifiers","trade":{"ids":{"pseudo":["pseudo.pseudo_number_of_enchant_mods"]}}}
