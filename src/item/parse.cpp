@@ -100,13 +100,25 @@ std::optional<DamageRange> parse_damage(std::string_view s) {
     return r;
 }
 
+// Zero-width characters the client prints inside a wording (3.30: a U+200B before the gem name
+// in "Supported by Level 5 \u200bConcentrated Effect Support"). Invisible, never part of a stat
+// wording, and enough on their own to make an exact lookup miss.
+constexpr std::string_view kInvisibles[] = {"\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"};
+
+std::string drop_invisibles(std::string_view line) {
+    std::string out(line);
+    for (std::string_view z : kInvisibles)
+        for (size_t at; (at = out.find(z)) != std::string::npos;) out.erase(at, z.size());
+    return out;
+}
+
 std::vector<std::string> split_lines(std::string_view text) {
     std::vector<std::string> out;
     size_t pos = 0;
     while (true) {
         const size_t nl = text.find('\n', pos);
-        out.emplace_back(trim(
-            text.substr(pos, nl == std::string_view::npos ? std::string_view::npos : nl - pos)));
+        out.emplace_back(trim(drop_invisibles(
+            text.substr(pos, nl == std::string_view::npos ? std::string_view::npos : nl - pos))));
         if (nl == std::string_view::npos) break;
         pos = nl + 1;
     }

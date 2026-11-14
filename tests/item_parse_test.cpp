@@ -1044,3 +1044,18 @@ TEST_CASE("each viscera slot prints a word of its own, not trade's") {
         CHECK(it.unparsed.empty());
     }
 }
+
+TEST_CASE("a zero-width space the client prints inside a wording is dropped") {
+    // Wyrmsign prints U+200B before the gem name: "Supported by Level 5 ​Concentrated…".
+    const std::string text = capture("items", "unique-wyrmsign.txt");
+    REQUIRE(text.find("​") != std::string::npos);
+    const Item it = parse("items", "unique-wyrmsign.txt");
+    bool found = false;
+    for (const Modifier& m : it.mods)
+        for (const std::string& line : m.lines) {
+            CHECK(line.find("​") == std::string::npos);
+            if (line.starts_with("Socketed Gems are Supported by Level 5 Concentrated Effect"))
+                found = true;
+        }
+    CHECK(found);
+}
