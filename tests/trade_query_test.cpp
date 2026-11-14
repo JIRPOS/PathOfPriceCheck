@@ -758,3 +758,25 @@ TEST_CASE("a logbook sends one destination of several, and the others are simply
     REQUIRE(q["stats"][0]["filters"].size() == 1);
     CHECK(q["stats"][0]["filters"][0]["id"] == "pseudo.pseudo_logbook_faction_order");
 }
+
+TEST_CASE("a viscera is searched on its slot's category alone, with no type") {
+    SearchPlan p;
+    p.strategy = Strategy::Viscera;
+    p.category = "viscera.head";
+    p.rarity = "nonunique";
+    ppc::item::StatFilter f;
+    f.id = "implicit.stat_3240769289";
+    f.type = ppc::data::ModType::Implicit;
+    f.min = 29;
+    f.enabled = true;
+    p.stats.push_back(f);
+
+    CHECK(searchable(p));
+    const json q = query_of(p);
+    CHECK(q["filters"]["type_filters"]["filters"]["category"]["option"] == "viscera.head");
+    CHECK_FALSE(q.contains("type"));
+    CHECK(q["stats"][0]["filters"][0]["id"] == "implicit.stat_3240769289");
+
+    p.category.clear();
+    CHECK_FALSE(searchable(p));
+}

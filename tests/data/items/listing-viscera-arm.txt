@@ -1,0 +1,12 @@
+Item Class: Viscera
+Lesser Spined Claws
+--------
+Upper Limb
+--------
+Item Level: 24
+--------
+Attacks have 13% chance to cause Bleeding (implicit)
+--------
+Take this to the Wickerman in a town or hideout to attach it.
+--------
+Note: ~b/o 1 alch

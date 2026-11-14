@@ -80,6 +80,13 @@ bundle, and only the third and fourth encode pricing judgement.
     note, exactly where a rare's wordy modifier would, so `is_bottom_prose` takes the *last*
     prose block and only that one — several sanctum affixes carry no number ("Cannot have Boons")
     and taking the first would swallow them.
+    A **viscera** (3.30, `ClassKind::Viscera`) prints **no `Rarity:` line at all** — the header
+    is the item class and the base — and then its body part alone in a section of its own:
+    `Head`, `Upper Limb`, `Torso` or `Lower Limb` (`TermList::VisceraSlots`) — **not** trade's
+    Head/Arm/Body/Leg, which is only the category list's wording. That line is
+    `Item::viscera_slot` and also the `type_line`, which is where the card draws it. Its usage
+    note names the Wickerman and nothing a needle already caught, so **"Wickerman"** is one.
+    `Head` is from a game capture, the other three from Covens listings' generated text.
   - Mod type comes from the ` (implicit)` / ` (crafted)` / … suffix, else from an Advanced Mod
     Descriptions info line's generation words, else Explicit — except on a sanctum, above. A flask
     enchant carries no suffix, so on a flask the earlier of two unsuffixed sections is the enchant.
@@ -482,6 +489,15 @@ bundle, and only the third and fourth encode pricing judgement.
   them is a `heist_max_escape_routes`. What could **not** be measured is how narrow any of them
   is: the whole `sanctum.research` category held **1** listing in the league at the time, so
   every count from "type and category alone" up to the full eleven-filter plan was the same 1.
+- **`item/plan`'s viscera strategy** searches the **slot and the implicit, and nothing else**:
+  `viscera.head` / `.arm` / `.body` / `.leg` as the category, the implicit through the ordinary
+  mod path, ticked and bounded by the range-match setting. No type, no item level, and none of
+  the flags `add_item_flags` imposes on every other strategy (`corrupted`, `mirrored`,
+  `mutated` false) — what a
+  viscera does is its implicit, and the base is only the monster it was taken from. A slot that
+  was not read falls back to `viscera`, every slot, and says so. Measured in Covens:
+  `viscera.head` alone 10000+, with `implicit.stat_3240769289` at `min: 20` 211, and the same with
+  `rarity: nonunique` still 211 — so the generic rarity term is left on.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is

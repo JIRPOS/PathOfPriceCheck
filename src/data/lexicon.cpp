@@ -27,7 +27,8 @@ constexpr std::array<std::string_view, static_cast<size_t>(Term::Count)> kTermKe
 constexpr std::array<std::string_view, static_cast<size_t>(TermList::Count)> kListKeys{
     "rarities", "influences", "flags", "mod_suffixes", "generations", "value_annotations",
     "usage_needles", "quest_rarity", "chart_shapes", "ultimatum_challenges",
-    "ultimatum_rewards", "heist_jobs", "heist_objective_values", "unscalable_suffixes"};
+    "ultimatum_rewards", "heist_jobs", "heist_objective_values", "unscalable_suffixes",
+    "viscera_slots"};
 
 struct PropertyName {
     std::string_view key;
@@ -93,6 +94,7 @@ constexpr ClassKindName kClassKindNames[]{
     {"heist_blueprint", ClassKind::HeistBlueprint},
     {"sanctum_research", ClassKind::SanctumResearch},
     {"expedition_logbook", ClassKind::ExpeditionLogbook},
+    {"viscera", ClassKind::Viscera},
 };
 
 /// The mod-type suffix the game prints in a parenthetical, indexed by `ModType`. In English
@@ -198,7 +200,10 @@ void Lexicon::assign_english() {
         // member can equip this item." above the requirements, and "Can only be equipped to
         // Heist members." at the bottom. Neither reads as a mod section on its own signal, so
         // both came back as unrecognised modifiers — one needle catches both.
-        "Heist member"};
+        "Heist member",
+        // 3.30's Wickerman, whom a viscera is handed to: "Take this to the Wickerman in a town
+        // or hideout to attach it." No "item" in it, so the chart and logbook needles miss it.
+        "Wickerman"};
     // "Quest Item" and "Divination Card" are printed with a trailing noun on some items, so
     // the rarity line is matched on a prefix as well as whole.
     lists_[static_cast<size_t>(TermList::QuestRarity)] = {"Quest"};
@@ -217,6 +222,7 @@ void Lexicon::assign_english() {
         "Moderate Value", "High Value", "Precious", "Priceless"};
     lists_[static_cast<size_t>(TermList::UnscalableSuffixes)] = {
         " (unscalable value)", " \xe2\x80\x94 Unscalable Value", " - Unscalable Value"};
+    lists_[static_cast<size_t>(TermList::VisceraSlots)] = {"Head", "Upper Limb", "Torso", "Lower Limb"};
 
     quality_prefix_ = "Quality (";
     properties_ = {
@@ -283,6 +289,7 @@ void Lexicon::assign_english() {
         {"Blueprints", ClassKind::HeistBlueprint},
         {"Sanctum Research", ClassKind::SanctumResearch},
         {"Expedition Logbooks", ClassKind::ExpeditionLogbook},
+        {"Viscera", ClassKind::Viscera},
     };
 }
 

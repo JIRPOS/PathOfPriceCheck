@@ -212,11 +212,14 @@ STATS = [
     "Reward Rooms have #% increased Monsters",
     "Monsters Poison on Hit",
     "The Ring takes no Cut",
+    # A viscera's implicit, which is the whole of what one is searched on beside its slot.
+    "#% of Physical Damage Converted to Lightning Damage",
 ]
 
 ITEMS = [
     "ITEM::Two-Stone Ring",
     "ITEM::Vaal Regalia",
+    "ITEM::Voltaic Skull",
     "ITEM::Two-Toned Boots",
     "UNIQUE::Abberath's Hooves",
     "DIVINATION_CARD::The Doctor",
@@ -380,7 +383,7 @@ ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency"
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps::MapKey", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
-                "Sceptres", "Heist Gear"]
+                "Sceptres", "Heist Gear", "Viscera"]
 
 LANG = "en"
 

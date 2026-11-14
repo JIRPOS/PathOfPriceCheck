@@ -1,0 +1,11 @@
+Item Class: Viscera
+Voltaic Skull
+--------
+Head
+--------
+Item Level: 63
+--------
+{ Implicit Modifier }
+29(20-30)% of Physical Damage Converted to Lightning Damage
+--------
+Take this to the Wickerman in a town or hideout to attach it.

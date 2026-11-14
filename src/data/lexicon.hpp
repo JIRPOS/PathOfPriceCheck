@@ -98,7 +98,7 @@ enum class PropertyKey : uint8_t {
 /// comes from the bundle and needs no enum here.
 enum class ClassKind : uint8_t {
     Other, Flask, Map, MapFragment, Chart, HeistContract, HeistBlueprint, SanctumResearch,
-    ExpeditionLogbook
+    ExpeditionLogbook, Viscera
 };
 
 /// A flag the game prints on a line of its own. Influence lines are not among them: they are
@@ -219,6 +219,10 @@ enum class TermList : uint8_t {
     /// does for an info line's tags (see `kEmDash` in parse.cpp) — three spellings of one
     /// wording, so a suffix can be added here without touching the code that checks for it.
     UnscalableSuffixes,
+    /// A viscera's body part, the one-line section under its name, in the order of
+    /// `kVisceraSlotCategories`: "Head", "Upper Limb", "Torso", "Lower Limb" are trade's
+    /// `viscera.head`, `.arm`, `.body`, `.leg` — the site's words are not the game's.
+    VisceraSlots,
     Count
 };
 

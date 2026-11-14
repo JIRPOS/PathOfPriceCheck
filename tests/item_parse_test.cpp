@@ -1015,3 +1015,33 @@ TEST_CASE("an Expedition Logbook's destinations are structure, not modifiers") {
         CHECK(it.mods.back().type == ModType::Explicit);
     }
 }
+
+TEST_CASE("a viscera's body part is its slot, and only its implicit is a modifier") {
+    const Item it = parse("items", "viscera-voltaic-skull.txt");
+    CHECK(it.is_viscera());
+    CHECK(it.rarity == Rarity::Unknown);
+    CHECK(it.base_type == "Voltaic Skull");
+    CHECK(it.viscera_slot == std::optional<int>(0));
+    CHECK(it.type_line == "Head");
+    CHECK(it.item_level == std::optional<int>(63));
+    REQUIRE(it.mods.size() == 1);
+    CHECK(it.mods[0].type == ppc::data::ModType::Implicit);
+    CHECK(it.mods[0].lines.front().starts_with("29(20-30)%"));
+    REQUIRE(it.help_text.size() == 1);
+    CHECK(it.help_text[0].find("Wickerman") != std::string::npos);
+    CHECK(it.unparsed.empty());
+}
+
+TEST_CASE("each viscera slot prints a word of its own, not trade's") {
+    const std::pair<const char*, int> cases[]{{"listing-viscera-arm.txt", 1},
+                                              {"listing-viscera-body.txt", 2},
+                                              {"listing-viscera-leg.txt", 3}};
+    for (const auto& [file, slot] : cases) {
+        CAPTURE(file);
+        const Item it = parse("items", file);
+        CHECK(it.viscera_slot == std::optional<int>(slot));
+        REQUIRE(it.mods.size() == 1);
+        CHECK(it.mods[0].type == ppc::data::ModType::Implicit);
+        CHECK(it.unparsed.empty());
+    }
+}

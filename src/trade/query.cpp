@@ -138,6 +138,8 @@ bool searchable(const item::SearchPlan& p) {
         // search is still a real question — "some logbook at area level 83" is a market — so
         // the type is not required to have brought a filter with it.
         case item::Strategy::Logbook: return !p.type.empty() || !p.category.empty();
+        // The category is the slot; without the implicit it is still the floor for that slot.
+        case item::Strategy::Viscera: return !p.category.empty();
         case item::Strategy::Gem: return !p.type.empty();
         // Currency is bought in bulk and has nothing a stat query could ask about — except the
         // one kind that is not interchangeable, which the plan says so about by naming a type.
