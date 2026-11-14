@@ -368,6 +368,11 @@ public:
     /// Which screen is up. Read by the one renderer that serves two of them.
     Screen screen() const { return screen_; }
     void close_overlay() { set_screen(Screen::Hidden); }
+    /// Close Settings, or ask first when it holds changes that were never saved. Every way out
+    /// the user takes — its X, Escape, its hotkey — comes through here.
+    void close_settings();
+    /// Whether Settings is asking to save before it closes. Mutable: the dialog clears it.
+    bool& settings_confirm_close() { return settings_confirm_close_; }
     void quit() { running_ = false; }
 
 private:
@@ -441,6 +446,10 @@ private:
     PanelLayout layout_;          ///< set by place_overlay, read by the price-check renderer
     float card_h_ = 0;            ///< height the item card drew at, in the gutter (see set_card_height)
     int settings_tab_ = 0;        ///< which Settings tab is open
+    /// The configuration as Settings opened on it. A change declined at one close is not asked
+    /// about again at the next.
+    std::string settings_opened_as_;
+    bool settings_confirm_close_ = false; ///< the save-before-closing question is up
     FilterEdit filter_edit_;      ///< which filter row has its range editor open
     PasteEdit paste_edit_;        ///< the paste Settings has open in its editor
     mapcheck::Store map_store_;   ///< the rating tables, and the throttle in front of them

@@ -193,6 +193,11 @@ constexpr const char* kEnglish[]{
 
     "Save",
     "Click to open the folder",
+    "The changes you made to settings are unsaved and will be lost the next time Path of Price "
+    "Check starts.",
+    "Save unsaved changes?",
+    "Don't save",
+    "Cancel",
 };
 
 /// Every compiled-in table. English is index 0 and is the fallback, so it is the one entry

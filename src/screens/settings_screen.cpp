@@ -1160,7 +1160,7 @@ void draw_header(App& app) {
     ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kClose);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ui::col::kCloseHovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ui::col::kCloseHovered);
-    if (ImGui::Button("X", ImVec2(h, h))) app.close_overlay();
+    if (ImGui::Button("X", ImVec2(h, h))) app.close_settings();
     ImGui::PopStyleColor(3);
     ImGui::PopStyleVar();
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", ui::text(ui::Msg::Close));
@@ -1194,6 +1194,51 @@ void draw_tabs(App& app) {
         if (ImGui::Button(ui::text(kTabs[i].name))) app.set_settings_tab(i);
         ImGui::PopStyleColor(2);
     }
+}
+
+/// Asked on the way out when something was changed and not saved. "Don't save" closes and keeps
+/// the change for the rest of the run, which is what the question says will happen to it.
+void draw_unsaved_prompt(App& app) {
+    bool& asking = app.settings_confirm_close();
+    if (asking && !ImGui::IsPopupOpen("##settings_unsaved")) ImGui::OpenPopup("##settings_unsaved");
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowSize(ImVec2(display.x, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(display.x * 0.5f, display.y * 0.5f), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("##settings_unsaved", nullptr,
+                                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                    ImGuiWindowFlags_NoMove))
+        return;
+    // Escape clears the flag from outside the popup, and the popup follows it.
+    if (!asking) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted(ui::text(ui::Msg::SettingsUnsaved));
+    ImGui::TextUnformatted(ui::text(ui::Msg::SettingsUnsavedAsk));
+    ImGui::PopTextWrapPos();
+
+    ImGui::Separator();
+    bool close = false;
+    ImGui::PushStyleColor(ImGuiCol_Button, ui::col::kButtonHovered);
+    if (ImGui::Button(ui::text(ui::Msg::Save), ImVec2(140, 0))) {
+        app.apply_and_save_config();
+        close = true;
+    }
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    if (ImGui::Button(ui::text(ui::Msg::DontSave), ImVec2(140, 0))) close = true;
+    ImGui::SameLine();
+    if (ImGui::Button(ui::text(ui::Msg::Cancel), ImVec2(120, 0))) asking = false;
+    if (close || !asking) {
+        asking = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+    if (close) app.close_overlay();
 }
 
 /// The fixed footer: Save, and where it is saved to.
@@ -1237,6 +1282,7 @@ void draw_settings_screen(App& app) {
     ImGui::EndChild();
 
     draw_footer(app);
+    draw_unsaved_prompt(app);
     ImGui::End();
 }
 
