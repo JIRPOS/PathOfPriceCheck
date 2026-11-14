@@ -100,13 +100,27 @@ std::optional<DamageRange> parse_damage(std::string_view s) {
     return r;
 }
 
+// Zero-width characters the client prints inside a wording (3.30: a U+200B before the gem name
+// in "Supported by Level 5 \u200bConcentrated Effect Support"). Invisible, never part of a stat
+// wording, and enough on their own to make an exact lookup miss.
+// As UTF-8 bytes: MSVC encodes a "\u200b" escape in a narrow literal to its code page, as "?".
+constexpr std::string_view kInvisibles[] = {"\xE2\x80\x8B", "\xE2\x80\x8C", "\xE2\x80\x8D",
+                                            "\xE2\x81\xA0", "\xEF\xBB\xBF"};
+
+std::string drop_invisibles(std::string_view line) {
+    std::string out(line);
+    for (std::string_view z : kInvisibles)
+        for (size_t at; (at = out.find(z)) != std::string::npos;) out.erase(at, z.size());
+    return out;
+}
+
 std::vector<std::string> split_lines(std::string_view text) {
     std::vector<std::string> out;
     size_t pos = 0;
     while (true) {
         const size_t nl = text.find('\n', pos);
-        out.emplace_back(trim(
-            text.substr(pos, nl == std::string_view::npos ? std::string_view::npos : nl - pos)));
+        out.emplace_back(trim(drop_invisibles(
+            text.substr(pos, nl == std::string_view::npos ? std::string_view::npos : nl - pos))));
         if (nl == std::string_view::npos) break;
         pos = nl + 1;
     }

@@ -1,0 +1,35 @@
+Item Class: Gloves
+Rarity: Unique
+Wyrmsign
+Wyrmscale Gauntlets
+--------
+Armour: 222 (augmented)
+Evasion Rating: 222 (augmented)
+--------
+Requirements:
+Level: 49
+Str: 38
+Dex: 38
+--------
+Sockets: W-W W 
+--------
+Item Level: 74
+--------
+{ Unique Modifier — Mana }
+10% increased Mana Cost Efficiency per Endurance Charge
+{ Unique Modifier }
+Gain Rampage while at Maximum Endurance Charges — Unscalable Value
+(You gain Rampage bonuses for Killing multiple Enemies in quick succession)
+{ Unique Modifier }
+Lose all Endurance Charges when Rampage ends — Unscalable Value
+{ Unique Modifier — Defences, Armour, Evasion }
+147(120-160)% increased Armour and Evasion
+{ Unique Modifier — Life }
++66(50-70) to maximum Life
+{ Unique Modifier }
+Socketed Gems are Supported by Level 5 ​Concentrated Effect Support — Unscalable Value
+--------
+Those who witness the shimmering scales of the wyrm
+know only fear for the rest of their lives.
+Fortunately, the rest of their lives
+can be measured in seconds.
