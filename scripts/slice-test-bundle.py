@@ -229,6 +229,7 @@ ITEMS = [
     "ITEM::Vaal Regalia",
     "ITEM::Voltaic Skull",
     "ITEM::Two-Toned Boots",
+    "ITEM::Enshrouded Body Armour",
     "UNIQUE::Putrid Seed",
     "ITEM::Mycelium Core",
     "UNIQUE::Abberath's Hooves",
@@ -394,7 +395,7 @@ ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency"
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps::MapKey", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
-                "Sceptres", "Heist Gear", "Viscera"]
+                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items"]
 
 LANG = "en"
 

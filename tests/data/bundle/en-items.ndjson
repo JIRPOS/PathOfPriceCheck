@@ -2,6 +2,7 @@
 {"armour":{"es":[171,197]},"craftable":{"category":"Body Armours"},"domain":1,"dropLevel":68,"h":3,"metadataId":"Metadata/Items/Armours/BodyArmours/BodyInt17","name":"Vaal Regalia","namespace":"ITEM","refName":"Vaal Regalia","w":2}
 {"craftable":{"category":"Viscera"},"domain":45,"dropLevel":1,"h":2,"metadataId":"Metadata/Items/Viscera/VisceraGeneralAdus","name":"Voltaic Skull","namespace":"ITEM","refName":"Voltaic Skull","w":2}
 {"armour":{"es":[26,30],"ev":[126,145]},"craftable":{"category":"Boots"},"domain":1,"dropLevel":70,"h":2,"metadataId":"Metadata/Items/Armours/Boots/BootsAtlas1","name":"Two-Toned Boots","namespace":"ITEM","refName":"Two-Toned Boots","w":2}
+{"craftable":{"category":"Enshrouded Items"},"domain":45,"dropLevel":1,"h":3,"metadataId":"Metadata/Items/Legion/CocoonedBodyArmour","name":"Enshrouded Body Armour","namespace":"ITEM","refName":"Enshrouded Body Armour","w":2}
 {"art":"Art/2DItems/Jewels/BlightcoreJewel.png","name":"Putrid Seed","namespace":"UNIQUE","refName":"Putrid Seed","unique":{"base":"Mycelium Core"}}
 {"craftable":{"category":"Jewels"},"domain":10,"dropLevel":20,"h":1,"metadataId":"Metadata/Items/Jewels/JewelBlighted","name":"Mycelium Core","namespace":"ITEM","refName":"Mycelium Core","w":1}
 {"art":"Art/2DItems/Armours/Boots/AbberathsHooves.png","name":"Abberath's Hooves","namespace":"UNIQUE","refName":"Abberath's Hooves","unique":{"base":"Goathide Boots"}}

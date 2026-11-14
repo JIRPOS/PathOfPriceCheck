@@ -87,6 +87,9 @@ bundle, and only the third and fourth encode pricing judgement.
     `Item::viscera_slot` and also the `type_line`, which is where the card draws it. Its usage
     note names the Wickerman and nothing a needle already caught, so **"Wickerman"** is one.
     `Head` is from a game capture, the other three from Covens listings' generated text.
+    An **Enshrouded item** (3.30, `ClassKind::Enshrouded`) has no `Rarity:` line either, and
+    states the unique it holds as a property, `Original Unique: Perfidy`
+    (`PropertyKey::OriginalUnique`).
   - Mod type comes from the ` (implicit)` / ` (crafted)` / … suffix, else from an Advanced Mod
     Descriptions info line's generation words, else Explicit — except on a sanctum, above. A flask
     enchant carries no suffix, so on a flask the earlier of two unsuffixed sections is the enchant.
@@ -498,6 +501,17 @@ bundle, and only the third and fourth encode pricing judgement.
   was not read falls back to `viscera`, every slot, and says so. Measured in Covens:
   `viscera.head` alone 10000+, with `implicit.stat_3240769289` at `min: 20` 211, and the same with
   `rarity: nonunique` still 211 — so the generic rarity term is left on.
+- **An Enshrouded item is planned as a base item**, because trade lists one as a normal-rarity
+  base under `enshrouded`. The item level is offered, not imposed. The unique it holds is what it
+  is worth (in Covens, a Perfidy at 2 chaos beside a Cherrubim's Maleficence at a divine), but
+  trade cannot be asked for it: as `name`, as `term` and under the category alike, "Perfidy"
+  matched 0. So the panel notes that it could not narrow on it.
+- **Enchants are counted, exactly and ticked**, on any plan that has them, through
+  `pseudo.pseudo_number_of_enchant_mods` (`add_enchant_count`). Trade counts modifiers, not
+  lines: 719 Covens Putrid Seeds have exactly four. **Not on a cluster jewel**, whose enchant is
+  one affix over several lines; trade counts none above two, and without Advanced Mod
+  Descriptions nothing says where its affix ends. Trade cannot count to zero (`max: 0` matches
+  nothing), so an unanointed Putrid Seed asks for the same pseudo in a `not` group instead.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).
 - **`item/plan`'s map strategy** (`plan_map`, `plan_chart`, `add_map_pseudo`) is

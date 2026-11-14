@@ -136,6 +136,7 @@ bool Item::is_sanctum() const { return class_kind == data::ClassKind::SanctumRes
 bool Item::is_logbook() const { return class_kind == data::ClassKind::ExpeditionLogbook; }
 
 bool Item::is_viscera() const { return class_kind == data::ClassKind::Viscera; }
+bool Item::is_enshrouded() const { return class_kind == data::ClassKind::Enshrouded; }
 
 bool Item::has_defences() const {
     return armour || evasion || energy_shield || ward;

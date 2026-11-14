@@ -2948,3 +2948,21 @@ TEST_CASE("a Putrid Seed is searched on the passives anointing grew on it, or on
     CHECK(none->id == "pseudo.pseudo_number_of_enchant_mods");
     CHECK(none->enabled);
 }
+
+TEST_CASE("an Enshrouded item is searched as its base, and says it cannot ask for the unique") {
+    const std::shared_ptr<GameData> gd = fixture();
+    const Item it = resolved(*gd, capture("enshrouded-body-armour-perfidy.txt"));
+    CHECK(it.is_enshrouded());
+    CHECK(it.unparsed.empty());
+
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+    CHECK(p.strategy == Strategy::BaseItem);
+    CHECK(p.category == "enshrouded");
+    CHECK(p.type == "Enshrouded Body Armour");
+    // Offered, not imposed: three Body Armours were listed, at item levels 84 and 85.
+    REQUIRE(numeric_for(p, "ilvl") != nullptr);
+    CHECK_FALSE(numeric_for(p, "ilvl")->enabled);
+    // "Perfidy" matched nothing as a name, a term or under the category, so it is a note.
+    REQUIRE(p.notes.size() == 1);
+    CHECK(p.notes.front().find("\"Perfidy\"") != std::string::npos);
+}

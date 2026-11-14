@@ -1381,6 +1381,17 @@ void add_void_rule(const data::GameData& gd, const Item& it, SearchPlan& p) {
     p.stats.push_back(std::move(f));
 }
 
+/// What an Enshrouded item holds is what it is worth — a Perfidy listed at 2 chaos beside a
+/// Cherrubim's Maleficence at a divine — and trade cannot be asked for it: as `name`, as `term`
+/// and under the `enshrouded` category alike, "Perfidy" matched 0. So the search is the base,
+/// and the panel says what it could not narrow on.
+void note_original_unique(const Item& it, SearchPlan& p) {
+    const Property* held = property_of(it, data::PropertyKey::OriginalUnique);
+    const std::string what = held && !held->value.empty() ? "\"" + held->value + "\"" : "the unique";
+    p.notes.push_back("trade cannot search on the original unique, so this is every " +
+                      it.base_name + ", whichever unique it holds, not " + what + " alone");
+}
+
 /// The trade stat counting an item's enchant modifiers, or null on a bundle without it.
 const data::Stat* enchant_count_stat(const data::GameData& gd) {
     const data::Stat* stat = gd.find_stat_by_ref("# Enchant Modifiers");
@@ -1803,6 +1814,8 @@ Strategy default_strategy(const Item& it) {
     if (it.is_logbook()) return Strategy::Logbook;
     // A viscera prints no rarity line at all, so the switch below has nothing to go on.
     if (it.is_viscera()) return Strategy::Viscera;
+    // Nor does an Enshrouded item, which trade lists as a normal-rarity base.
+    if (it.is_enshrouded()) return Strategy::BaseItem;
     // A map item splits on whether it prints an **item level**, which is what says whether it
     // is a bulk good or an item. A scarab, an ember, a splinter or a breachstone prints none:
     // every copy is identical, there is nothing to filter on, and they change hands on the
@@ -1857,8 +1870,12 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         case Strategy::BaseItem:
             p.type = base_wire_name(it);
             if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+            // An Enshrouded item's level is offered, not imposed: nothing says it changes what
+            // it turns back into, and on Covens' third day there were three Body Armours listed.
             add_numeric(p, "ilvl", "Item Level",
-                        it.item_level ? std::optional<double>(*it.item_level) : std::nullopt, true);
+                        it.item_level ? std::optional<double>(*it.item_level) : std::nullopt,
+                        !it.is_enshrouded());
+            if (it.is_enshrouded()) note_original_unique(it, p);
             break;
         case Strategy::Modifiers:
             // Deliberately not constrained to this base: a rare is bought for its mods, and

@@ -273,6 +273,9 @@ struct Item {
     /// 3.30's Viscera, attached to a minion by the Wickerman. No rarity line, one body part, and
     /// an implicit that is the whole of what tells two of one slot apart.
     bool is_viscera() const;
+    /// 3.30's Enshrouded items: a unique wrapped up, to be transformed back in the Domain of
+    /// Timeless Conflict. No rarity line, and the unique it holds is a property.
+    bool is_enshrouded() const;
     bool has_defences() const;
     /// True while the item is an unidentified unique that could be several different items and
     /// nobody has said which. There is nothing to search until that is answered — the name is
