@@ -225,7 +225,7 @@ TEST_CASE("a pool answers for a whole mod domain, not for an item") {
     CHECK(maps.front()->name == "Ceremonial");
     CHECK(maps.front()->gen == 1);
     // Every row behind the wording, tiers and side-area twin alike: it is provenance.
-    CHECK(maps.front()->tiers == 4);
+    CHECK(maps.front()->tiers == 3);
     CHECK(maps.front()->mods.front() == "MapTotems");
     // Three pools, one file: the domain is what separates them, and asking for one of them
     // never brings back another's entries even where the wording is the same string.
@@ -241,8 +241,11 @@ TEST_CASE("a pooled modifier carries the span of its tiers, or no bounds at all"
     const std::vector<const PoolMod*> hinder =
         gd->find_pool_mods(5, "Monsters have #% chance to Hinder on Hit with Spells");
     REQUIRE(hinder.size() == 1);
-    REQUIRE(hinder.front()->stats.size() == 1);
-    const PoolStat& s = hinder.front()->stats.front();
+    // 3.30: every map affix also grants Atlas Drops, which the client folds into the map's
+    // property rather than printing, and a set keeps what the tooltip folds away.
+    REQUIRE(hinder.front()->stats.size() == 2);
+    CHECK(hinder.front()->stats[0].ref == "#% increased Atlas Drops in this Area");
+    const PoolStat& s = hinder.front()->stats[1];
     CHECK(s.trade_id == "explicit.stat_962720646");
     CHECK(s.min == doctest::Approx(100));
     CHECK(s.max == doctest::Approx(100));
@@ -251,7 +254,9 @@ TEST_CASE("a pooled modifier carries the span of its tiers, or no bounds at all"
     // bounds it failed to read.
     const std::vector<const PoolMod*> totems = gd->find_pool_mods(5, "Area contains many Totems");
     REQUIRE(totems.size() == 1);
-    CHECK_FALSE(totems.front()->stats.front().min.has_value());
+    REQUIRE(totems.front()->stats.size() == 2);
+    CHECK(totems.front()->stats[1].ref == "Area contains many Totems");
+    CHECK_FALSE(totems.front()->stats[1].min.has_value());
 }
 
 TEST_CASE("the domain is part of what a pool lookup asks for") {

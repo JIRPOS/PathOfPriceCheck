@@ -3,8 +3,8 @@
 {"craftable":{"category":"Viscera"},"domain":45,"dropLevel":1,"h":2,"metadataId":"Metadata/Items/Viscera/VisceraGeneralAdus","name":"Voltaic Skull","namespace":"ITEM","refName":"Voltaic Skull","w":2}
 {"armour":{"es":[26,30],"ev":[126,145]},"craftable":{"category":"Boots"},"domain":1,"dropLevel":70,"h":2,"metadataId":"Metadata/Items/Armours/Boots/BootsAtlas1","name":"Two-Toned Boots","namespace":"ITEM","refName":"Two-Toned Boots","w":2}
 {"art":"Art/2DItems/Armours/Boots/AbberathsHooves.png","name":"Abberath's Hooves","namespace":"UNIQUE","refName":"Abberath's Hooves","unique":{"base":"Goathide Boots"}}
-{"craftable":{"category":"Divination Cards"},"domain":43,"dropLevel":75,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheDoctor","name":"The Doctor","namespace":"DIVINATION_CARD","refName":"The Doctor","w":1}
-{"craftable":{"category":"Stackable Currency"},"domain":43,"dropLevel":12,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollRare","name":"Chaos Orb","namespace":"ITEM","refName":"Chaos Orb","w":1}
+{"craftable":{"category":"Divination Cards"},"domain":45,"dropLevel":75,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheDoctor","name":"The Doctor","namespace":"DIVINATION_CARD","refName":"The Doctor","w":1}
+{"craftable":{"category":"Stackable Currency"},"domain":45,"dropLevel":12,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollRare","name":"Chaos Orb","namespace":"ITEM","refName":"Chaos Orb","w":1}
 {"armour":{"ar":[65,71],"es":[14,15]},"craftable":{"category":"Boots"},"domain":1,"dropLevel":36,"h":2,"metadataId":"Metadata/Items/Armours/Boots/BootsStrInt4","name":"Riveted Boots","namespace":"ITEM","refName":"Riveted Boots","w":2}
 {"art":"Art/2DItems/Armours/Boots/RalakeshsImpatience.png","name":"Ralakesh's Impatience","namespace":"UNIQUE","refName":"Ralakesh's Impatience","unique":{"base":"Riveted Boots"}}
 {"craftable":{"category":"Jewels"},"domain":10,"dropLevel":20,"h":1,"metadataId":"Metadata/Items/Jewels/JewelStr","name":"Crimson Jewel","namespace":"ITEM","refName":"Crimson Jewel","w":1}
@@ -24,29 +24,29 @@
 {"art":"Art/2DItems/Flasks/StormbloodSapphire.png","name":"Stormblood","namespace":"UNIQUE","refName":"Stormblood","unique":{"base":"Topaz Flask"}}
 {"art":"Art/2DItems/Flasks/StormbloodSapphire.png","name":"Stormblood","namespace":"UNIQUE","refName":"Stormblood","unique":{"base":"Sapphire Flask"}}
 {"art":"Art/2DItems/Flasks/VinktarFlask.png","name":"Vessel of Vinktar","namespace":"UNIQUE","refName":"Vessel of Vinktar","unique":{"base":"Topaz Flask"}}
-{"craftable":{"category":"Divination Cards"},"domain":43,"dropLevel":62,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheBlazingFire","name":"The Blazing Fire","namespace":"DIVINATION_CARD","refName":"The Blazing Fire","w":1}
-{"craftable":{"category":"Stackable Currency"},"domain":43,"dropLevel":26,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyEssenceHatred3","name":"Weeping Essence of Hatred","namespace":"ITEM","refName":"Weeping Essence of Hatred","w":1}
-{"craftable":{"category":"Support Gems"},"domain":43,"dropLevel":38,"h":1,"metadataId":"Metadata/Items/Gems/SupportGemAdditionalLevel","name":"Empower Support","namespace":"GEM","refName":"Empower Support","w":1}
-{"craftable":{"category":"Skill Gems"},"domain":43,"dropLevel":28,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemTornadoShot","name":"Tornado Shot","namespace":"GEM","refName":"Tornado Shot","w":1}
-{"craftable":{"category":"Skill Gems"},"domain":43,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemVaalBlight","name":"Vaal Blight","namespace":"GEM","refName":"Vaal Blight","w":1}
+{"craftable":{"category":"Divination Cards"},"domain":45,"dropLevel":62,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardTheBlazingFire","name":"The Blazing Fire","namespace":"DIVINATION_CARD","refName":"The Blazing Fire","w":1}
+{"craftable":{"category":"Stackable Currency"},"domain":45,"dropLevel":26,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyEssenceHatred3","name":"Weeping Essence of Hatred","namespace":"ITEM","refName":"Weeping Essence of Hatred","w":1}
+{"craftable":{"category":"Support Gems"},"domain":45,"dropLevel":38,"h":1,"metadataId":"Metadata/Items/Gems/SupportGemAdditionalLevel","name":"Empower Support","namespace":"GEM","refName":"Empower Support","w":1}
+{"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":28,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemTornadoShot","name":"Tornado Shot","namespace":"GEM","refName":"Tornado Shot","w":1}
+{"craftable":{"category":"Skill Gems"},"domain":45,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Gems/SkillGemVaalBlight","name":"Vaal Blight","namespace":"GEM","refName":"Vaal Blight","w":1}
 {"name":"Raise Zombie of Falling","namespace":"GEM","refName":"Raise Zombie of Falling","tradeDisc":"alt_y","tradeName":"Raise Zombie"}
 {"craftable":{"category":"Chart"},"domain":39,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Deepwater/ChartCoralReef","name":"Coral Reef Chart","namespace":"ITEM","refName":"Coral Reef Chart","w":1}
 {"name":"SeafloorRidges","namespace":"ITEM","refName":"SeafloorRidges","tradeDisc":"chart"}
 {"name":"Wild Hellion Alpha","namespace":"CAPTURED_BEAST","refName":"Wild Hellion Alpha"}
 {"name":"Chrome-touched Croaker","namespace":"CAPTURED_BEAST","refName":"Chrome-touched Croaker"}
 {"name":"Farric Goliath","namespace":"CAPTURED_BEAST","refName":"Farric Goliath"}
-{"craftable":{"category":"Misc Map Items"},"domain":43,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Ultimatum/ItemisedTrial","name":"Inscribed Ultimatum","namespace":"ITEM","refName":"Inscribed Ultimatum","w":1}
-{"craftable":{"category":"Stackable Currency"},"domain":43,"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyModValues","name":"Divine Orb","namespace":"ITEM","refName":"Divine Orb","w":1}
+{"craftable":{"category":"Misc Map Items"},"domain":45,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Ultimatum/ItemisedTrial","name":"Inscribed Ultimatum","namespace":"ITEM","refName":"Inscribed Ultimatum","w":1}
+{"craftable":{"category":"Stackable Currency"},"domain":45,"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyModValues","name":"Divine Orb","namespace":"ITEM","refName":"Divine Orb","w":1}
 {"art":"Art/2DItems/Weapons/TwoHandWeapons/Staves/MartyrInnocence.png","name":"Martyr of Innocence","namespace":"UNIQUE","refName":"Martyr of Innocence","unique":{"base":"Highborn Staff"}}
 {"art":"Art/2DItems/Belts/InjectorBelt.png","name":"Mageblood","namespace":"UNIQUE","refName":"Mageblood","unique":{"base":"Heavy Belt"}}
-{"craftable":{"category":"Divination Cards"},"domain":43,"dropLevel":23,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardBlindVenture","name":"Blind Venture","namespace":"DIVINATION_CARD","refName":"Blind Venture","w":1}
-{"craftable":{"category":"Stackable Currency"},"domain":43,"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollUnique","name":"Ancient Orb","namespace":"ITEM","refName":"Ancient Orb","w":1}
+{"craftable":{"category":"Divination Cards"},"domain":45,"dropLevel":23,"exchange":true,"h":1,"metadataId":"Metadata/Items/DivinationCards/DivinationCardBlindVenture","name":"Blind Venture","namespace":"DIVINATION_CARD","refName":"Blind Venture","w":1}
+{"craftable":{"category":"Stackable Currency"},"domain":45,"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRerollUnique","name":"Ancient Orb","namespace":"ITEM","refName":"Ancient Orb","w":1}
 {"craftable":{"category":"Contracts"},"domain":22,"dropLevel":55,"h":1,"metadataId":"Metadata/Items/Heist/HeistContractRobotTunnels","name":"Contract: Tunnels","namespace":"ITEM","refName":"Contract: Tunnels","w":1}
 {"craftable":{"category":"Blueprints"},"domain":22,"dropLevel":55,"h":1,"metadataId":"Metadata/Items/Heist/HeistBlueprintRobotTunnels","name":"Blueprint: Tunnels","namespace":"ITEM","refName":"Blueprint: Tunnels","w":1}
 {"craftable":{"category":"Blueprints"},"domain":22,"dropLevel":50,"h":1,"metadataId":"Metadata/Items/Heist/HeistBlueprintCourts","name":"Blueprint: Records Office","namespace":"ITEM","refName":"Blueprint: Records Office","w":1}
-{"craftable":{"category":"Contracts"},"domain":43,"dropLevel":80,"h":1,"metadataId":"Metadata/Items/Heist/QuestContracts/HeistContractQuestWhakanoRepeatable","name":"Vigilante Contract","namespace":"ITEM","refName":"Vigilante Contract","w":1}
+{"craftable":{"category":"Contracts"},"domain":45,"dropLevel":80,"h":1,"metadataId":"Metadata/Items/Heist/QuestContracts/HeistContractQuestWhakanoRepeatable","name":"Vigilante Contract","namespace":"ITEM","refName":"Vigilante Contract","w":1}
 {"art":"Art/2DItems/Currency/Heist/SlaveMerchantFightContract.png","name":"Contract: The Slaver King","namespace":"UNIQUE","refName":"Contract: The Slaver King","unique":{"base":"Vigilante Contract"}}
-{"craftable":{"category":"Sanctum Research"},"domain":43,"dropLevel":68,"h":1,"metadataId":"Metadata/Items/Sanctum/SanctumFloor2","name":"Sanctum Vaults Research","namespace":"ITEM","refName":"Sanctum Vaults Research","w":1}
+{"craftable":{"category":"Sanctum Research"},"domain":45,"dropLevel":68,"h":1,"metadataId":"Metadata/Items/Sanctum/SanctumFloor2","name":"Sanctum Vaults Research","namespace":"ITEM","refName":"Sanctum Vaults Research","w":1}
 {"craftable":{"category":"Expedition Logbooks"},"domain":5,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Expedition/ExpeditionLogbook","name":"Expedition Logbook","namespace":"ITEM","refName":"Expedition Logbook","w":1}
 {"art":"Art/2DItems/Armours/Helmets/TheDarkMonarch.png","name":"The Dark Monarch","namespace":"UNIQUE","refName":"The Dark Monarch","unique":{"base":"Lich's Circlet"}}
 {"armour":{"es":[117,134]},"craftable":{"category":"Helmets"},"domain":1,"dropLevel":84,"h":2,"metadataId":"Metadata/Items/Armours/Helmets/HelmetInt14","name":"Lich's Circlet","namespace":"ITEM","refName":"Lich's Circlet","w":2}

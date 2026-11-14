@@ -435,10 +435,12 @@ TEST_CASE("a pool entry is matched on its rendered wordings and on its affix nam
 
 TEST_CASE("what a map printed is keyed on the pool entry covering it") {
     const auto gd = fixture();
-    // The one-wording affix keys as itself, since the domain-5 entry grants nothing else.
+    // A one-line affix keys with the Atlas Drops every 3.30 map affix also grants and never
+    // prints — the entry, not the line, is the decision.
     CHECK(pool_refs_for({"Monsters have #% chance to Hinder on Hit with Spells"}, kMapDomain,
                         gd.get()) ==
-          std::vector<std::string>{"Monsters have #% chance to Hinder on Hit with Spells"});
+          std::vector<std::string>{"#% increased Atlas Drops in this Area",
+                                   "Monsters have #% chance to Hinder on Hit with Spells"});
 
     // The case the expansion exists for: an affix grants two wordings and the item printed one
     // of them, so the printed line alone is not the key a rating in Settings was written under.
@@ -471,7 +473,8 @@ TEST_CASE("a map's rolled affixes are rated, its implicits are printed and left 
     // The record's `ref`, not the `Monsters Hinder on Hit with Spells` the item printed: a
     // wording is language-dependent and a key is not.
     CHECK(rows[0].refs ==
-          std::vector<std::string>{"Monsters have #% chance to Hinder on Hit with Spells"});
+          std::vector<std::string>{"#% increased Atlas Drops in this Area",
+                                   "Monsters have #% chance to Hinder on Hit with Spells"});
     CHECK(rows[0].verdict == Verdict::Unrated);
     CHECK(assess(tally(rows)) == Outlook::Unrated);
 
@@ -565,14 +568,14 @@ TEST_CASE("an affix two pools both grant is one row, because it is one decision"
     const auto gd = fixture();
     const std::vector<PoolGroup> groups = pool_groups(*gd);
 
-    // The slice holds thirteen entries in eleven groups: `of Impedance` is in it twice — the
-    // map's and the chart's, identically worded — and `Area has patches of Burning Ground` three
-    // times, of which the map's and one contract's are the same set. The store keys on the ref
-    // set with no domain in it, so entries sharing one can never hold different verdicts and
-    // drawing them apart is drawing one decision twice.
-    CHECK(groups.size() == 11);
+    // The slice holds thirteen entries in twelve groups: `Area has patches of Burning Ground`
+    // is in it three times, of which the map's and one contract's are the same set. The store
+    // keys on the ref set with no domain in it, so entries sharing one can never hold different
+    // verdicts and drawing them apart is drawing one decision twice.
+    CHECK(groups.size() == 12);
     const auto flames = std::find_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
-        return g.refs == std::vector<std::string>{"Area has patches of Burning Ground"};
+        return g.refs == std::vector<std::string>{"#% increased Atlas Drops in this Area",
+                                                  "Area has patches of Burning Ground"};
     });
     REQUIRE(flames != groups.end());
     // Across two *different* pools this time, and the map's still leads.
@@ -587,32 +590,32 @@ TEST_CASE("an affix two pools both grant is one row, because it is one decision"
               return g.mod->domain == kHeistDomain;
           }) == 6);
 
-    const auto imp = std::find_if(groups.begin(), groups.end(), [](const PoolGroup& g) {
-        return g.mod->name == "of Impedance";
-    });
-    REQUIRE(imp != groups.end());
-    CHECK(imp->all.size() == 2);
-    // The map's entry leads, because `kDomains` is asked in order and a map is what the reader
-    // is nearly always deciding about.
-    CHECK(imp->mod->domain == kMapDomain);
-    CHECK(imp->all[1]->domain == kChartDomain);
+    // `of Impedance` is worded identically on a map and a chart and was one group until 3.30
+    // gave the map's the Atlas Drops a chart's does not have. A different set is a different
+    // decision, and the map's comes first because `kDomains` is asked in order.
+    std::vector<const PoolGroup*> imps;
+    for (const PoolGroup& g : groups)
+        if (g.mod->name == "of Impedance") imps.push_back(&g);
+    REQUIRE(imps.size() == 2);
+    CHECK(imps[0]->mod->domain == kMapDomain);
+    CHECK(imps[1]->mod->domain == kChartDomain);
 
     // Rating the row writes the one key both entries share.
     Profile p("Softcore");
-    p.set(imp->refs, Verdict::Deadly);
-    CHECK(p.verdict_of(pool_key_refs(*imp->all[0])) == Verdict::Deadly);
-    CHECK(p.verdict_of(pool_key_refs(*imp->all[1])) == Verdict::Deadly);
+    p.set(flames->refs, Verdict::Deadly);
+    CHECK(p.verdict_of(pool_key_refs(*flames->all[0])) == Verdict::Deadly);
+    CHECK(p.verdict_of(pool_key_refs(*flames->all[1])) == Verdict::Deadly);
 
     // And a term is asked about every entry's rendering, not only the one on show: the two
     // pools roll different ranges and a number a term names may be in either.
-    const std::vector<std::string> lines = group_lines(*imp, gd.get());
-    CHECK(SearchFilter("hinder").matches(lines));
-    CHECK(std::count(lines.begin(), lines.end(), "of Impedance") == 1); // unioned, not repeated
+    const std::vector<std::string> lines = group_lines(*flames, gd.get());
+    CHECK(SearchFilter("burning").matches(lines));
+    CHECK(std::count(lines.begin(), lines.end(), "of Flames") == 1); // unioned, not repeated
 }
 
 TEST_CASE("an implicit is a row like any other, because some of them roll") {
     const auto gd = fixture();
-    const ppc::item::Item map = resolved(*gd, "map-rare-t16-corrupted.txt");
+    const ppc::item::Item map = resolved(*gd, "map-rare-t16-corrupted-baran.txt");
 
     const TempDir tmp("implicit");
     Store store;

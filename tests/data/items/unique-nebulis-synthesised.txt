@@ -5,34 +5,34 @@ Synthesised Void Sceptre
 --------
 Sceptre
 Physical Damage: 50-76
-Critical Strike Chance: 8.83% (augmented)
+Chaos Damage: 10-24 (augmented)
+Critical Strike Chance: 7.30%
 Attacks per Second: 1.25
 Weapon Range: 1.1 metres
 --------
 Requirements:
-Level: 68
-Str: 104 (unmet)
-Int: 122 (unmet)
+Level: 68 (unmet)
+Str: 104
+Int: 122
 --------
-Sockets: W W W
+Sockets: W 
 --------
 Item Level: 87
 --------
-{ Implicit Modifier — Attack, Critical  — 118% Increased }
-10(9-10)% increased Critical Strike Chance
-{ Implicit Modifier — Damage, Chaos  — 118% Increased }
-20(18-20)% increased Chaos Damage
-{ Implicit Modifier — Damage, Physical, Attack, Ailment  — 118% Increased }
-Bleeding you inflict deals Damage 16(15-20)% faster
-(They will deal the same total damage over a shorter duration)
+{ Implicit Modifier — Gem  — 103% Increased }
++4(4-6)% to Quality of Socketed Melee Gems
+{ Implicit Modifier — Damage, Chaos, Ailment  — 103% Increased }
+Poisons you inflict deal Damage 18(15-20)% Faster
+{ Implicit Modifier — Damage, Chaos, Attack  — 103% Increased }
+Adds 5(4-9) to 12(11-21) Chaos Damage
 --------
 { Unique Modifier }
-118(60-120)% increased Implicit Modifier magnitudes
+103(60-120)% increased Implicit Modifier magnitudes — Unscalable Value
 (Implicit Modifiers are those that come from an item's type, rather than its random properties)
 { Unique Modifier — Caster, Speed }
-20(15-20)% increased Cast Speed
+18(15-20)% increased Cast Speed
 { Unique Modifier — Damage }
-8(6-8)% increased Elemental Damage per 1% Fire, Cold, or Lightning Resistance above 75%
+7(6-8)% increased Elemental Damage per 1% Fire, Cold, or Lightning Resistance above 75%
 --------
 The vastness of the cosmos holds energies beyond comprehension,
 should one have the fortitude to grasp them.
