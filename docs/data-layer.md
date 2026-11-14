@@ -96,6 +96,16 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   is by exact wording, so they are per-language in the same way the rest of this table is — and
   because keeping the join in the lexicon is what keeps a compiled-in list of the four expedition
   factions out of the parser. See [strategy-logbook.md](strategy-logbook.md).
+  **`item_states` is the one key with no compiled-in counterpart**: an array of
+  `{text, trade_filter, filter}`, each a flag line the client prints — Dredge, Hinekora's Lock,
+  Contraband — that this build has no field for. The parser keeps such a line in `Item::states`
+  instead of losing it to the modifier sections; the plan ticks `misc_filters.<trade_filter>`
+  when `filter` is set, says nothing when a filter is named but not set (a word recognised and
+  deliberately not asked for, like Fated), and notes that the line was not searched when there
+  is no filter at all. A line the parser already has a field for (Twice Corrupted, Imbued) keeps
+  it, and a state never adds a second filter for an option the plan already has. It exists so a
+  new league's flag is a data build: the data repo derives the list from the client's
+  `ItemPopup*` strings, and an app too old to read the key ignores it.
   **An empty entry never matches**, deliberately: `starts_with("")` is true of every line, and
   `ModType::Explicit` has no generation word of its own.
   `parse_item` and `looks_like_item` **take a lexicon and have no default**. The language is

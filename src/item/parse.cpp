@@ -515,6 +515,8 @@ void parse_flags(const Section& sec, Item& it, const data::Lexicon& lex) {
         if (f < 0) {
             if (const std::optional<Influence> i = influence_from_line(line, lex))
                 it.influences.push_back(*i);
+            else if (lex.item_state(line))
+                it.states.push_back(line);
             continue;
         }
         switch (static_cast<data::ItemFlag>(f)) {
@@ -538,7 +540,7 @@ void parse_flags(const Section& sec, Item& it, const data::Lexicon& lex) {
 }
 
 bool is_flag_line(const std::string& line, const data::Lexicon& lex) {
-    return lex.contains(data::TermList::Flags, line) ||
+    return lex.contains(data::TermList::Flags, line) || lex.item_state(line) != nullptr ||
            unidentified_tier(line, lex).has_value() ||
            influence_from_line(line, lex).has_value();
 }

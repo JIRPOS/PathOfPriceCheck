@@ -226,7 +226,9 @@ bundle, and only the third and fourth encode pricing judgement.
   ("Surgeon's Quicksilver Flask of the Cheetah") as the `type` matches nothing, which reads as
   nobody selling one, so an unknown base is a note instead. `BaseItem` (white, or a rare the user
   switches over) searches the base with item level and influences and enables only fractured mods and non-inherent
-  implicits; `Unique` searches the name and enables a roll the **per-unique modifier data** says comes
+  implicits — and is also the **fallback for a class this build has no rules for**, when the
+  bundle still gives it a trade category and the base resolved: every one of that base the site
+  lists, with a note saying so, beats no check at all in a league's first days; `Unique` searches the name and enables a roll the **per-unique modifier data** says comes
   from a pool (see [strategy-unique.md](strategy-unique.md)), a roll a range proves is variable, any mod *added* to the unique —
   `{ Foulborn Unique Modifier }`, i.e. `Modifier::added_unique()`,
   which not every copy of that unique carries — and anything the player *crafted onto this copy*

@@ -298,5 +298,10 @@ ppc_add_test(ratelimit_test)
 ppc_add_test(track_test)
 ppc_add_test(quickpaste_test)
 ppc_add_test(mapcheck_test)
+
+# Not a test: dumps every capture's plan and query against a bundle, for diffing two of them.
+# See docs/testing.md.
+add_executable(plan_dump tools/plan_dump.cpp)
+target_link_libraries(plan_dump PRIVATE ppc_core)
 ppc_add_test(hotkey_test)
 ppc_add_test(report_test)

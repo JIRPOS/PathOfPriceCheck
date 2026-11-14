@@ -230,6 +230,21 @@ enum class TermList : uint8_t {
     Count
 };
 
+/// A line the game prints in an item's flag section, as the bundle states it — the client's
+/// own `ItemPopup*` strings. Read so that a state the app has no code for yet is still seen:
+/// searched on where the data names a trade filter for it, said out loud where it does not.
+///
+/// Additive to `TermList::Flags`, never instead of it: a line that list knows keeps the meaning
+/// the parser gives it, and only what is left over is looked up here. That is also what makes it
+/// safe for a bundle to carry — an app older than this key reads past it.
+struct ItemState {
+    std::string text;         ///< as printed: "Twice Corrupted"
+    std::string trade_filter; ///< a `misc_filters` boolean, or empty when trade has none
+    /// Whether the search asks for it. False is a decision as much as an empty filter is — a
+    /// state whose filter would mislead (Fated, for now) is recognised and left out.
+    bool filter = false;
+};
+
 class Lexicon {
 public:
     /// The compiled-in English table. Never null, and the base every other language is laid
@@ -267,6 +282,10 @@ public:
     /// row directly and only falls back to this when it cannot.
     std::string_view class_id(std::string_view item_class) const;
 
+    /// The state the bundle says `line` is, or null. Empty for the compiled-in English, which
+    /// knows its flags through `TermList::Flags` alone.
+    const ItemState* item_state(std::string_view line) const;
+
 private:
     /// Fill this table with the English vocabulary. Every other language is this, overlaid.
     void assign_english();
@@ -280,6 +299,7 @@ private:
     std::string quality_prefix_;
     std::unordered_map<std::string, ClassKind> class_kinds_;
     std::unordered_map<std::string, std::string> class_ids_;
+    std::vector<ItemState> item_states_;
 };
 
 } // namespace ppc::data

@@ -80,6 +80,78 @@ TEST_CASE("a lexicon overlays English rather than replacing it") {
     CHECK(lex.property_key("Armour") == PropertyKey::Armour);
 }
 
+TEST_CASE("item states ride a key of their own and leave English as it was") {
+    // What a data build emits: only the new key. Every installed copy reads every data release,
+    // so nothing here may touch the keys that replace English tables outright.
+    std::string err;
+    const Lexicon lex = Lexicon::parse(R"({"language":"en","item_states":[
+        {"id":"ItemPopupDoubleCorrupted","text":"Twice Corrupted","trade_filter":"twice_corrupted","filter":true},
+        {"id":"ItemPopupDredged","text":"Dredge"},
+        {"id":"ItemPopupFated","text":"Fated","trade_filter":"fated","filter":false},
+        {"id":"Broken","trade_filter":"x","filter":true},
+        "not an object"
+    ]})", &err);
+    CHECK(err.empty());
+    CHECK(lex.language() == "en");
+
+    const data::ItemState* twice = lex.item_state("Twice Corrupted");
+    REQUIRE(twice != nullptr);
+    CHECK(twice->trade_filter == "twice_corrupted");
+    CHECK(twice->filter);
+    const data::ItemState* dredge = lex.item_state("Dredge");
+    REQUIRE(dredge != nullptr);
+    CHECK(dredge->trade_filter.empty());
+    CHECK_FALSE(dredge->filter);
+    // Recognised, with a filter trade has, and deliberately not asked for.
+    REQUIRE(lex.item_state("Fated") != nullptr);
+    CHECK_FALSE(lex.item_state("Fated")->filter);
+    CHECK(lex.item_state("Corrupted") == nullptr);
+
+    // Everything English knew, it still knows.
+    const Lexicon& en = Lexicon::english();
+    CHECK(lex.list(TermList::Flags) == en.list(TermList::Flags));
+    CHECK(lex.property_key("Item Level") == en.property_key("Item Level"));
+    CHECK(lex.class_kind("Maps") == en.class_kind("Maps"));
+    CHECK(en.item_state("Twice Corrupted") == nullptr);
+}
+
+TEST_CASE("a flag line the bundle knows as a state is read, not lost") {
+    const Lexicon lex = Lexicon::parse(
+        R"({"item_states":[{"text":"Dredge"},{"text":"Hinekora's Lock","trade_filter":"hinekora","filter":true}]})",
+        nullptr);
+    const std::optional<item::Item> it = item::parse_item(R"(Item Class: Rings
+Rarity: Rare
+Grim Loop
+Iron Ring
+--------
+Item Level: 80
+--------
+Adds 1 to 4 Physical Damage to Attacks (implicit)
+--------
+Corrupted
+--------
+Dredge
+Hinekora's Lock
+)",
+                                                          lex);
+    REQUIRE(it.has_value());
+    CHECK(it->corrupted);
+    CHECK(it->states == std::vector<std::string>{"Dredge", "Hinekora's Lock"});
+    CHECK(it->unparsed.empty());
+    // Without the bundle's states, the same lines are what they always were to this parser.
+    const std::optional<item::Item> plain = item::parse_item_en(R"(Item Class: Rings
+Rarity: Rare
+Grim Loop
+Iron Ring
+--------
+Corrupted
+--------
+Dredge
+)");
+    REQUIRE(plain.has_value());
+    CHECK(plain->states.empty());
+}
+
 TEST_CASE("an unreadable lexicon is English and says so") {
     std::string err;
     const Lexicon lex = Lexicon::parse("not json at all", &err);

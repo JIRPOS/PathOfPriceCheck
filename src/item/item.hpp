@@ -151,6 +151,9 @@ struct Item {
     bool twice_corrupted = false; ///< 3.30; always also `corrupted`
     bool fated = false;           ///< 3.30; "Fated " on an unidentified item's base line
     bool imbued = false;          ///< a gem with a built-in support; see `resolve_imbued`
+    /// Flag lines the bundle's lexicon knows as item states and the parser has no field for,
+    /// as printed. See `data::ItemState`.
+    std::vector<std::string> states;
     bool mirrored = false;
     bool split = false;
     bool synthesised = false;
