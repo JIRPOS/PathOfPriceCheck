@@ -668,17 +668,16 @@ TEST_CASE("a map's tier comes off the base line, which is otherwise the same on 
     // Every ordinary map shares one base type now, so "Map (Tier 16)" is the whole of what
     // tells one from another — and the parenthetical is not part of a name any lookup knows.
     SUBCASE("a rare, whose base line is the bare type") {
-        const Item it = parse("items", "map-rare-t16-corrupted.txt");
+        const Item it = parse("items", "map-rare-t16-corrupted-baran.txt");
         CHECK(it.item_class == "Maps");
         CHECK(it.is_map());
-        CHECK(it.name == "Graven Secrets");
+        CHECK(it.name == "Rune Hustle");
         CHECK(it.base_type == "Map");
         CHECK(it.map_tier == 16);
         CHECK(it.corrupted);
         CHECK(it.item_level == 83);
-        // Four prefixes and four suffixes, which is what corruption buys and what the search
-        // asks for as a total.
-        CHECK(it.mods.size() == 9);
+        // Two prefixes and two suffixes under the implicit.
+        CHECK(it.mods.size() == 5);
         CHECK(it.mods_of(ModType::Implicit).size() == 1);
     }
     SUBCASE("a magic, whose affixes sit between the base and the tier") {

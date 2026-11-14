@@ -1,0 +1,11 @@
+Item Class: Viscera
+Greater Spined Claws
+--------
+Upper Limb
+--------
+Item Level: 74
+--------
+{ Implicit Modifier }
+Bleeding you inflict deals Damage 11(10-15)% Faster
+--------
+Take this to the Wickerman in a town or hideout to attach it.

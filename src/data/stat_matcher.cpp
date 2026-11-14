@@ -31,6 +31,11 @@ bool strip_unscalable_suffix(std::string_view& line, const Lexicon& lex) {
     return false;
 }
 
+/// 3.30 folds a modifier's reminder text away and leaves "(...)" glued to the wording in its
+/// place — "Map contains Baran's Citadel(...) — Unscalable Value", where 3.29 printed the
+/// reminder as a second line. Punctuation, not a word, so it is not in the lexicon.
+constexpr std::string_view kFoldedReminder = "(...)";
+
 double pow10i(int n) {
     double p = 1.0;
     for (int i = 0; i < n; ++i) p *= 10.0;
@@ -65,6 +70,8 @@ std::optional<StatMatch> match_stat(const GameData& gd, std::span<const std::str
         std::string_view line = lines[end];
         if (is_reminder_text(line)) continue;
         if (strip_unscalable_suffix(line, gd.lexicon())) unscalable = true;
+        if (line.size() > kFoldedReminder.size() && line.ends_with(kFoldedReminder))
+            line.remove_suffix(kFoldedReminder.size());
         if (!join.empty()) join.push_back('\n');
         join.append(line);
 

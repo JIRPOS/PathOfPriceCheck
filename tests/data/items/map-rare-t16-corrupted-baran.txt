@@ -1,0 +1,29 @@
+Item Class: Maps
+Rarity: Rare
+Rune Hustle
+Map (Tier 16)
+--------
+Atlas Drops: +49% (augmented)
+Item Rarity: +30% (augmented)
+Monster Pack Size: +19% (augmented)
+--------
+Item Level: 83
+--------
+Monster Level: 83
+--------
+{ Implicit Modifier }
+Map contains Baran's Citadel(...) — Unscalable Value
+--------
+{ Prefix Modifier "Ceremonial" (Tier: 1) }
+Area contains many Totems — Unscalable Value
+{ Prefix Modifier "Bipedal" (Tier: 1) }
+Area is inhabited by Humanoids — Unscalable Value
+{ Suffix Modifier "of Temporal Chains" (Tier: 1) — Caster, Curse }
+Players are Cursed with Temporal Chains
+(Temporal Chains is a Hex which reduces Action Speed by 15%, or 9% on Rare or Unique targets, and makes other effects on the target expire 40% slower. It has 50% less effect on Players and lasts 5 seconds)
+{ Suffix Modifier "of Power" (Tier: 1) }
+Monsters gain a Power Charge on Hit
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 
+--------
+Corrupted

@@ -128,3 +128,6 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   `64(65-60)% reduced Effect of Curses on you during Effect` — so `NumberToken::bound_min/max` are
   ordered at parse time, not taken as printed. Negating an already-descending pair leaves it
   descending, and a filter wanting at least -60 and at most -65 matches nothing.
+  **3.30 folds some reminder text into `(...)` glued to the wording** — `Map contains Baran's
+  Citadel(...) — Unscalable Value`, where 3.29 printed the reminder as a second line. It comes off
+  after the unscalable suffix and before the join; it is punctuation, so it is not in the lexicon.

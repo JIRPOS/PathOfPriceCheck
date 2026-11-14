@@ -66,12 +66,9 @@ STATS = [
     # A map's implicit — the one thing about a map that a currency cannot re-roll, and the only
     # kind of modifier a `Strategy::Map` plan searches on.
     "Area is influenced by The Shaper",
-    # A two-line implicit, which is one stat and therefore one filter — the map's affixes are
-    # printed in exactly the same shape and must still come out as none.
-    # The game hardcodes the 20 that trade placeholds, and the record's ref is the game's
-    # wording — which is what the clipboard prints and what the fixture must key on.
-    "Map contains Baran's Citadel\n"
-    "Item Quantity increases amount of Rewards Baran drops by 20% of its value",
+    # An influenced map's implicit. Two lines before 3.30, the second carrying a 20 the game
+    # hardcoded; 3.30 prints only this one, and the trade id names the citadel (`|1`).
+    "Map contains Baran's Citadel",
     # And a map affix, which that plan must leave out without calling it unrecognised. It is
     # also half of what covers the mod pool: the same wording is in the map's pool and in the
     # chart's, under one trade id, which is what a domain-qualified index key is for.
@@ -82,7 +79,6 @@ STATS = [
     # A blighted map's implicit, both halves of it — the plan searches every implicit a map
     # has, so leaving one out of the fixture would show up as an unrecognised modifier.
     "Area is infested with Fungal Growths\n"
-    "Map's Item Quantity Modifiers also affect Blight Chest count at 50% value\n"
     "Can be Anointed up to # times",
     "Natural inhabitants of this area have been removed",
     # An Expedition Logbook's destinations. The faction and the area are `pseudo.*` stats and
@@ -110,8 +106,8 @@ STATS = [
     # out as a map's are — without them the case would pass by resolving nothing at all.
     "Players have #% to all maximum Resistances",
     "Monsters' skills Chain # additional times",
-    "+#% Monster Chaos Resistance",
-    "+#% Monster Elemental Resistances",
+    "#% Monster Chaos Resistance",
+    "#% Monster Elemental Resistances",
     "Monsters gain #% of Maximum Life as Extra Maximum Energy Shield",
     # The one modifier a Valdo map is searched on, and the only one anything is searched on in
     # **both** directions: absent, it becomes a `not` group rather than being left open.
@@ -191,9 +187,11 @@ STATS = [
     # unique-only explicits, one of them shared by no other stat in the slice at all. The case
     # for the base line's "Synthesised " prefix, which is not part of any base's own name and
     # has to come off before "Void Sceptre" resolves.
-    "#% increased Critical Strike Chance",
-    "#% increased Chaos Damage",
-    "Bleeding you inflict deals Damage #% faster",
+    "#% to Quality of Socketed Melee Gems",
+    "Poisons you inflict deal Damage #% Faster",
+    "Adds # to # Chaos Damage (Local)",
+    # A viscera's implicit, and 3.30's capital in "Faster".
+    "Bleeding you inflict deals Damage #% Faster",
     "#% increased Implicit Modifier magnitudes",
     "#% increased Cast Speed",
     "#% increased Elemental Damage per 1% Fire, Cold, or Lightning Resistance above 75%",

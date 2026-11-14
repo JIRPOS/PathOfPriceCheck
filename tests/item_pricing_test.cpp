@@ -991,7 +991,7 @@ TEST_CASE("a twice-corrupted item asks for that, and a once-corrupted one rules 
         CHECK(p.option("twice_corrupted")->shown);
     }
     {
-        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted-baran.txt"));
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
         CHECK(flag_of(p, "twice_corrupted") == std::optional<bool>(false));
         REQUIRE(p.option("twice_corrupted") != nullptr);
@@ -1499,7 +1499,7 @@ TEST_CASE("a map is priced on where it goes and what was spent on it, never on i
     auto gd = fixture();
 
     SUBCASE("a corrupted tier-16 rare") {
-        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted-baran.txt"));
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
 
         CHECK(p.strategy == Strategy::Map);
@@ -1515,25 +1515,28 @@ TEST_CASE("a map is priced on where it goes and what was spent on it, never on i
         CHECK(tier->min == 16);
         CHECK(tier->max == 16);
 
-        // Quantity and pack size are what the map is run for; rarity is a preference, and
-        // imposing it would drop the cheaper copies of the same map.
-        REQUIRE(numeric_for(p, "map_iiq") != nullptr);
-        CHECK(numeric_for(p, "map_iiq")->enabled);
-        CHECK(numeric_for(p, "map_iiq")->min == 104);
+        // Pack size is what the map is run for; rarity is a preference, and imposing it would
+        // drop the cheaper copies of the same map. 3.30 prints Atlas Drops where quantity was,
+        // offered and unticked while trade indexes it on no map.
+        CHECK(numeric_for(p, "map_iiq") == nullptr);
+        REQUIRE(numeric_for(p, "map_bonus") != nullptr);
+        CHECK(numeric_for(p, "map_bonus")->min == 49);
+        CHECK_FALSE(numeric_for(p, "map_bonus")->enabled);
         REQUIRE(numeric_for(p, "map_packsize") != nullptr);
         CHECK(numeric_for(p, "map_packsize")->enabled);
+        CHECK(numeric_for(p, "map_packsize")->min == 19);
         REQUIRE(numeric_for(p, "map_iir") != nullptr);
         CHECK_FALSE(numeric_for(p, "map_iir")->enabled);
 
-        // Four prefixes and four suffixes: eight, which only corruption allows and which is
-        // most of what this map is worth. Trade indexes it as a total, not as the affixes.
+        // Corrupted, so the affix count is fixed for good and is asked as a total, not as the
+        // affixes: two prefixes and two suffixes here.
         const StatFilter* count = filter_for(p, "pseudo.pseudo_number_of_affix_mods");
         REQUIRE(count != nullptr);
         CHECK(count->enabled);
-        CHECK(count->min == 8);
+        CHECK(count->min == 4);
         CHECK_FALSE(count->mod_index.has_value());
 
-        // Not one of those eight is part of the search, and not one is a note either: they are
+        // Not one of those four is part of the search, and not one is a note either: they are
         // left out deliberately, and "unrecognised modifier" would charge the check with
         // failing at it. They are `hidden` rather than absent — a row behind the expandable
         // section, unticked, so that a buyer who does want to name one can.
@@ -1560,11 +1563,12 @@ TEST_CASE("a map is priced on where it goes and what was spent on it, never on i
     }
 
     SUBCASE("a fixed number is not a bound, only the modifier's presence is") {
-        // The number in "…drops by 20% of its value" says 20 on every Baran map, and the one
-        // behind "Area is influenced by The Elder" is not in the clipboard at all — it is the
-        // constant the matcher substitutes for the influence. Neither is what trade indexes
-        // the stat on: asking for them returned 0 listings against 1705 and 10000.
-        const Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        // A Baran map's implicit says the same on every copy — 3.29 printed a fixed "20% of its
+        // value" under it, 3.30 folds that away to "(...)" — and the number behind "Area is
+        // influenced by The Elder" is not in the clipboard at all: it is the constant the
+        // matcher substitutes for the influence. Neither is what trade indexes the stat on:
+        // asking for them returned 0 listings against 1705 and 10000.
+        const Item it = resolved(*gd, capture("map-rare-t16-corrupted-baran.txt"));
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
         const StatFilter* baran = filter_for(p, "implicit.stat_2563183002|1");
         REQUIRE(baran != nullptr);
@@ -1634,7 +1638,7 @@ TEST_CASE("a map is priced on where it goes and what was spent on it, never on i
     }
 
     SUBCASE("without Advanced Mod Descriptions there is no affix count to give") {
-        Item it = resolved(*gd, capture("map-rare-t16-corrupted.txt"));
+        Item it = resolved(*gd, capture("map-rare-t16-corrupted-baran.txt"));
         for (Modifier& m : it.mods) m.affix = Affix::Unknown;
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
         CHECK(filter_for(p, "pseudo.pseudo_number_of_affix_mods") == nullptr);
@@ -1660,8 +1664,8 @@ TEST_CASE("blight is a filter on the ordinary map base, not a type of its own") 
     CHECK(p.option("map_uberblighted") == nullptr);
 
     REQUIRE(numeric_for(p, "map_tier") != nullptr);
-    CHECK(numeric_for(p, "map_tier")->min == 12);
-    CHECK(numeric_for(p, "map_tier")->max == 12);
+    CHECK(numeric_for(p, "map_tier")->min == 8);
+    CHECK(numeric_for(p, "map_tier")->max == 8);
     // Its implicit is searched like any map's, and neither half of it goes unrecognised.
     CHECK(shown_stats(p).size() == 2);
     CHECK(p.notes.empty());
@@ -2614,13 +2618,10 @@ TEST_CASE("an Expedition Logbook is priced on one of its destinations at a time"
                 CHECK_FALSE(f.enabled);
                 ++hidden;
             }
-        // Three of the five, and the two missing ones are a data gap rather than this rule:
-        // "+25% Monster Chaos Resistance" and "+40% Monster Elemental Resistances" are
-        // published with the leading sign inside the matcher ("+#% Monster Chaos Resistance"),
-        // and `placeholder_form` replaces the sign along with the digits — so nothing the
-        // clipboard prints can reach them. 34 of the bundle's 15,148 matchers are shaped that
-        // way and none of them is a logbook's. Fix that and this becomes 5.
-        CHECK(hidden == 3);
+        // All five. Until 3.30's data the two monster resistances were published with the sign
+        // inside the matcher ("+#% Monster Chaos Resistance"), which `placeholder_form` cannot
+        // reach, and this was 3.
+        CHECK(hidden == 5);
         // And not one of them is a note: they were left out on purpose, and the reader has
         // them on the item card beside the panel.
         CHECK(p.notes.empty());
@@ -2791,6 +2792,8 @@ TEST_CASE("a synthesised base resolves under the name beneath its prefix") {
     CHECK(p.type == "Void Sceptre");
     for (const std::string& n : p.notes)
         CHECK(n.find("unrecognised modifier") == std::string::npos);
+    // On a weapon the added chaos is the local stat — the slice's one `(Local)` record.
+    CHECK(filter_for(p, "implicit.stat_2223678961") != nullptr);
 }
 
 TEST_CASE("a modifier with no roll at all is not read past its em-dash unscalable suffix") {
@@ -2830,7 +2833,8 @@ TEST_CASE("Heist Gear's own boilerplate lines are not unrecognised modifiers") {
     CHECK(filter_for(p, "implicit.stat_2162876159") != nullptr); // Projectile Attack Damage
     CHECK(filter_for(p, "explicit.stat_2162876159") != nullptr); // the Poacher's prefix
     CHECK(filter_for(p, "explicit.stat_2697534676") != nullptr); // the Buzzing prefix
-    CHECK(filter_for(p, "explicit.stat_4193390599") != nullptr); // Grants Level 10 Purity of Ice
+    // 3.30's trade data dropped the second id this used to carry, `explicit.stat_4193390599`.
+    CHECK(filter_for(p, "explicit.stat_151975117") != nullptr); // Grants Level 10 Purity of Ice
 
     // "of Personality"'s reduced Hiring Fee is real and still unmatched: the bundle only names
     // job-specific variants ("... for Deception Jobs", "... of Rogues"), not a bare one, and
@@ -2842,3 +2846,15 @@ TEST_CASE("Heist Gear's own boilerplate lines are not unrecognised modifiers") {
     CHECK(hiring_fee_noted);
 }
 
+
+TEST_CASE("3.30 capitalises the bleed modifier's Faster, and the capture says so too") {
+    // A 3.30 capture; the 3.29 wording was "faster", which no longer matches.
+    auto gd = fixture();
+    const Item it = resolved(*gd, capture("viscera-greater-spined-claws.txt"));
+    // And the game's own "Upper Limb", where the slot words were otherwise from listings.
+    CHECK(it.viscera_slot == std::optional<int>(1));
+    REQUIRE(it.mods.size() == 1);
+    REQUIRE(it.mods[0].match);
+    REQUIRE(it.mods[0].match->stat != nullptr);
+    CHECK(it.mods[0].match->stat->ref == "Bleeding you inflict deals Damage #% Faster");
+}
