@@ -512,6 +512,31 @@ TEST_CASE("a map fragment is priced like currency, out of the overview its name 
     }
 }
 
+TEST_CASE("a corpse is priced by its name, out of the corpse overview") {
+    const ninja::Overview currency = load("currency.json", ninja::Feed::Exchange, "Currency");
+    const ninja::Overview corpses = load("corpse.json", ninja::Feed::StashItem, "Corpse");
+    const item::Item it = parse_capture("items/corpse-perfect-fiery-cannibal.txt");
+    item::SearchPlan plan;
+    plan.strategy = item::default_strategy(it);
+    plan.category = "corpse";
+    CHECK(plan.strategy == item::Strategy::Currency); // it prints "Rarity: Currency"
+
+    const ninja::Query q = ninja::query_for(it, plan, "Allflame");
+    const std::vector<ninja::Key> keys = ninja::keys_for(q);
+    REQUIRE(keys.size() == 2);
+    CHECK(keys[1].type == "Corpse");
+    REQUIRE(ninja::category("Corpse") != nullptr);
+    CHECK(ninja::category("Corpse")->feed == ninja::Feed::StashItem);
+
+    // The overview also has "Imperfect Fiery Cannibal" and "Fiery Cannibal": the whole name
+    // picks the line, not a part of it.
+    const ninja::Reference r = ninja::reference_for(q, {&currency, &corpses});
+    CHECK(r.state == ninja::Reference::State::Priced);
+    CHECK(r.price.amount == doctest::Approx(1.0));
+    CHECK(r.listings == 109);
+    CHECK(r.url == "https://poe.ninja/poe1/economy/allflame/corpses/perfect-fiery-cannibal");
+}
+
 TEST_CASE("a league poe.ninja has no economy for says so") {
     // An unknown league answers 200 with a well-formed but empty payload, which is the
     // difference between "no prices here" and "the response was broken".

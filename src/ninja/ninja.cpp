@@ -21,6 +21,9 @@ namespace {
 /// Deliberately not the whole list: what is missing is what nothing here can reach. A map is
 /// priced by a trade search on its tier and never gets this far (`Strategy::Map`), and the rest —
 /// incubators, beasts, memories, temples — has no strategy behind it either.
+///
+/// A corpse is priced by name alone: the overview carries no level, and the name already says
+/// which monster it is.
 constexpr Category kCategories[] = {
     {Feed::Exchange, "Currency", "currency"},
     {Feed::Exchange, "Fragment", "fragments"},
@@ -52,6 +55,7 @@ constexpr Category kCategories[] = {
     {Feed::StashItem, "UniqueRelic", "unique-relics"},
     {Feed::StashItem, "SkillGem", "skill-gems"},
     {Feed::StashItem, "BaseType", "base-types"},
+    {Feed::StashItem, "Corpse", "corpses"},
 };
 
 /// The exchange overview a currency-like item is in, when the currency market itself does not
@@ -680,6 +684,8 @@ std::vector<Key> keys_for(const Query& q) {
             type = "Fossil";
         } else if (q.category == "currency.resonator") {
             type = "Resonator";
+        } else if (q.category == "corpse") {
+            type = "Corpse";
         } else {
             type = keyword_type(q);
         }

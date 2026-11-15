@@ -1,0 +1,97 @@
+{
+ "lines": [
+  {
+   "id": 169154,
+   "name": "Perfect Fiery Cannibal",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQXptZXJpL0ZpcmVGdXJ5Q29ycHNlIiwidyI6MywiaCI6Miwic2NhbGUiOjF9XQ/458c4ab871/FireFuryCorpse.png",
+   "itemClass": 5,
+   "sparkLine": {
+    "totalChange": -50,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     0,
+     -50
+    ]
+   },
+   "chaosValue": 1.0,
+   "exaltedValue": 2.1,
+   "divineValue": 0.01,
+   "count": 109,
+   "detailsId": "perfect-fiery-cannibal",
+   "tradeFilter": {
+    "query": {
+     "type": {
+      "option": "Perfect Fiery Cannibal"
+     }
+    }
+   },
+   "listingCount": 109
+  },
+  {
+   "id": 169165,
+   "name": "Imperfect Fiery Cannibal",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQXptZXJpL0ZpcmVGdXJ5Q29ycHNlIiwidyI6MywiaCI6Miwic2NhbGUiOjF9XQ/458c4ab871/FireFuryCorpse.png",
+   "itemClass": 5,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     0,
+     0
+    ]
+   },
+   "chaosValue": 1.0,
+   "exaltedValue": 2.1,
+   "divineValue": 0.01,
+   "count": 77,
+   "detailsId": "imperfect-fiery-cannibal",
+   "tradeFilter": {
+    "query": {
+     "type": {
+      "option": "Imperfect Fiery Cannibal"
+     }
+    }
+   },
+   "listingCount": 77
+  },
+  {
+   "id": 169212,
+   "name": "Fiery Cannibal",
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQXptZXJpL0ZpcmVGdXJ5Q29ycHNlIiwidyI6MywiaCI6Miwic2NhbGUiOjF9XQ/458c4ab871/FireFuryCorpse.png",
+   "itemClass": 5,
+   "sparkLine": {
+    "totalChange": 0,
+    "data": [
+     null,
+     null,
+     null,
+     null,
+     null,
+     0,
+     0
+    ]
+   },
+   "chaosValue": 1.0,
+   "exaltedValue": 2.1,
+   "divineValue": 0.01,
+   "count": 62,
+   "detailsId": "fiery-cannibal",
+   "tradeFilter": {
+    "query": {
+     "type": {
+      "option": "Fiery Cannibal"
+     }
+    }
+   },
+   "listingCount": 62
+  }
+ ]
+}

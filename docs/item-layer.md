@@ -362,13 +362,16 @@ bundle, and only the third and fourth encode pricing judgement.
   instead of several, so less is better and it is a **ceiling** — left unticked, since a buyer
   who will not craft on the item does not care what it accrued. **Stored Experience** is the one
   thing telling two copies of a Facetor's Lens apart.
-  That last one is why **the Facetor's Lens is the one currency item with a trade search**. Every
+  That last one is why **the Facetor's Lens is a currency item with a trade search**. Every
   copy holds a different number, so they are listed individually rather than traded by the stack,
   and naming the type is all a search needs — the same shape as the map fragment that prints an
   item level: what says a currency item is not interchangeable is that it prints something no
   other copy of it does. The strategy stays `Currency` (poe.ninja still prices it in the currency
   market, which is the floor under the search) and `trade::searchable` reads the `type` the plan
-  filled in, exactly as it does for a gem.
+  filled in, exactly as it does for a gem. **A corpse** (trade category `corpse`) is the other
+  one: it prints `Rarity: Currency` but is listed one at a time, and is searched on its name and
+  nothing else. Its corpse level follows its item level and no buyer asks for either, and the
+  monster's abilities printed on it are fixed by the name and have no stat record to search on.
 - **`item/plan`'s beast strategy** (`plan_beast`) is the shortest one here, and every line of it
   is a thing not asked for. An itemised beast is bought to be released into the menagerie and
   spent on a beastcrafting recipe, and a recipe names the **species** and nothing else — so the

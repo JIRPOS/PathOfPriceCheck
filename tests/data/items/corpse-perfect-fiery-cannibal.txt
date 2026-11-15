@@ -1,0 +1,17 @@
+Item Class: Corpses
+Rarity: Currency
+Perfect Fiery Cannibal
+--------
+Corpse Level: 79
+Monster Category: Humanoid
+--------
+Item Level: 79
+--------
+Casts Firestorm
+Casts Flame Dash
+Becomes Empowered if allied Frozen Cannibal nearby
+Casts Cremation while Empowered
+Uses Molten Strike while Empowered
+Casts Purity of Fire
+--------
+Right click this item to create this corpse.
