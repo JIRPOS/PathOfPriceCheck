@@ -307,6 +307,8 @@ ITEMS = [
     "CAPTURED_BEAST::Wild Hellion Alpha",
     "CAPTURED_BEAST::Chrome-touched Croaker",
     "CAPTURED_BEAST::Farric Goliath",
+    # A corpse, which prints "Rarity: Currency" and is still bought by name through a listing.
+    "ITEM::Perfect Fiery Cannibal",
     # An Inscribed Ultimatum, and the items two of the captures stake or pay out. All three are
     # looked up to be *confirmed*, because the trade site fails a search outright on a required
     # item or a reward unique it does not know. "Dialla's Subjugation" — the divination card the
@@ -404,7 +406,8 @@ ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency"
                 "Divination Cards", "Jewels", "Utility Flasks", "Maps::MapKey", "Skill Gems",
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
-                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items", "Shields"]
+                "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items", "Shields",
+                "Corpses"]
 
 LANG = "en"
 

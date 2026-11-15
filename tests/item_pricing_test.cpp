@@ -2039,6 +2039,20 @@ TEST_CASE("the three misc properties are filtered on the side that makes them be
         CHECK(p.option("identified") == nullptr);
     }
 
+    SUBCASE("a corpse is searched by its name and nothing else") {
+        const Item it = resolved(*gd, capture("corpse-perfect-fiery-cannibal.txt"));
+        REQUIRE(it.base != nullptr);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Currency); // poe.ninja prices it too
+        CHECK(p.category == "corpse");
+        CHECK(p.type == "Perfect Fiery Cannibal");
+        // Neither level is asked for, and the monster's abilities are not filters.
+        CHECK(numeric_for(p, "ilvl") == nullptr);
+        CHECK(p.stats.empty());
+        CHECK(p.notes.empty());
+    }
+
     SUBCASE("a currency item with nothing to tell two copies apart is still not searched") {
         const Item it = resolved(*gd, capture("currency-chaos-stack.txt"));
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));

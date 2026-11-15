@@ -155,4 +155,5 @@ against the ones it does not, `base-type.json` for the two bases the captures al
 `item_6`'s Twilight Regalia (item level 84, eldritch influences that must be ignored) and
 `item_7`'s Infiltrator Mitts (item level 78, under everything poe.ninja publishes) — and the two
 map-item feeds, `fragment.json` for the exchange half (where the line's id, `phoenix`, is not its
-page slug, `fragment-of-the-phoenix`) and `invitation.json` for the stash half.
+page slug, `fragment-of-the-phoenix`) and `invitation.json` for the stash half — and
+`corpse.json`, whose three Fiery Cannibals differ only by the prefix on the name.

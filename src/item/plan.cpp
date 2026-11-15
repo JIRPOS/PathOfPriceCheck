@@ -2017,7 +2017,13 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
             // map fragment that prints an item level: what says a currency item is not
             // interchangeable is that it prints something no other copy of it does. poe.ninja
             // still prices it in the currency market, which is the floor under the search.
-            else if (p.strategy == Strategy::Currency && property_of(it, data::PropertyKey::StoredExperience)) {
+            //
+            // **And a corpse**, which prints "Rarity: Currency" but is listed one at a time.
+            // The name is the whole question: the corpse level follows the item level and no
+            // buyer asks for one, and the monster's abilities are fixed by the name and have no
+            // stat to search on.
+            else if (p.strategy == Strategy::Currency &&
+                     (property_of(it, data::PropertyKey::StoredExperience) || p.category == "corpse")) {
                 p.type = base_wire_name(it);
                 if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
             }

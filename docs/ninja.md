@@ -96,6 +96,10 @@ to leave out. A map is the only strategy with no row at all.
   than trading it in bulk (`/stash/current/item/overview?type=Invitation`, page slug
   `invitations`). Its item level is not part of the match: poe.ninja publishes one price per
   invitation.
+- **A corpse is on the stash feed too** (`type=Corpse`, page slug `corpses`), routed off the trade
+  category `corpse`. Its lines carry a name and nothing else — no level, no variant — so the name
+  is the whole match, and the full name: "Perfect Fiery Cannibal", "Imperfect Fiery Cannibal" and
+  "Fiery Cannibal" are three lines.
 - **A stack is priced as a stack as well as per item.** `Query::stack` comes off the
   "Stack Size: 6000/20" line and takes the **count, never the maximum** — that maximum is what one
   inventory slot holds, and a currency stash tab holds five or ten thousand in a single stack, so

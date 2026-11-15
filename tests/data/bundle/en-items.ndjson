@@ -41,6 +41,7 @@
 {"name":"Wild Hellion Alpha","namespace":"CAPTURED_BEAST","refName":"Wild Hellion Alpha"}
 {"name":"Chrome-touched Croaker","namespace":"CAPTURED_BEAST","refName":"Chrome-touched Croaker"}
 {"name":"Farric Goliath","namespace":"CAPTURED_BEAST","refName":"Farric Goliath"}
+{"craftable":{"category":"Corpses"},"domain":45,"dropLevel":46,"h":2,"metadataId":"Metadata/Items/ItemisedCorpses/FirefuryHigh","name":"Perfect Fiery Cannibal","namespace":"ITEM","refName":"Perfect Fiery Cannibal","w":3}
 {"craftable":{"category":"Misc Map Items"},"domain":45,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Ultimatum/ItemisedTrial","name":"Inscribed Ultimatum","namespace":"ITEM","refName":"Inscribed Ultimatum","w":1}
 {"craftable":{"category":"Stackable Currency"},"domain":45,"dropLevel":35,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyModValues","name":"Divine Orb","namespace":"ITEM","refName":"Divine Orb","w":1}
 {"art":"Art/2DItems/Weapons/TwoHandWeapons/Staves/MartyrInnocence.png","name":"Martyr of Innocence","namespace":"UNIQUE","refName":"Martyr of Innocence","unique":{"base":"Highborn Staff"}}

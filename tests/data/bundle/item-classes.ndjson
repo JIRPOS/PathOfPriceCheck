@@ -23,3 +23,4 @@
 {"domain":45,"id":"Viscera","itemClass":"Viscera","tradeCategory":"viscera"}
 {"domain":45,"id":"CocoonedItem","itemClass":"Enshrouded Items","tradeCategory":"enshrouded"}
 {"domain":1,"id":"Shield","itemClass":"Shields","tradeCategory":"armour.shield"}
+{"domain":45,"id":"ItemisedCorpse","itemClass":"Corpses","tradeCategory":"corpse"}
