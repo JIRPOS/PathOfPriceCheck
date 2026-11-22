@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "data_version": "fixture",
-  "game_patch": "3.30.0.1.4",
+  "game_patch": "3.30.0.4",
   "languages": [
     "en"
   ],
   "source": {
     "unique_mods_attribution": "poewiki.net, CC BY-NC 3.0",
-    "exchange_items": 1206,
+    "exchange_items": 1208,
     "mod_pools": 393
   },
   "files": []

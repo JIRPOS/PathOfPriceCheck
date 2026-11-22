@@ -36,6 +36,19 @@ bool strip_unscalable_suffix(std::string_view& line, const Lexicon& lex) {
 /// reminder as a second line. Punctuation, not a word, so it is not in the lexicon.
 constexpr std::string_view kFoldedReminder = "(...)";
 
+/// Appends `line` to `out` without any folded reminder. Not only a trailing one: a named
+/// range folds the same way mid-line — "Maximum number of Sentinels of Absolution(...) is
+/// Doubled". A line that is nothing but the marker is kept as printed.
+void append_unfolded(std::string& out, std::string_view line) {
+    const size_t mark = out.size();
+    for (size_t at; (at = line.find(kFoldedReminder)) != std::string_view::npos;) {
+        out.append(line.substr(0, at));
+        line.remove_prefix(at + kFoldedReminder.size());
+    }
+    out.append(line);
+    if (out.size() == mark) out.append(kFoldedReminder);
+}
+
 double pow10i(int n) {
     double p = 1.0;
     for (int i = 0; i < n; ++i) p *= 10.0;
@@ -70,10 +83,8 @@ std::optional<StatMatch> match_stat(const GameData& gd, std::span<const std::str
         std::string_view line = lines[end];
         if (is_reminder_text(line)) continue;
         if (strip_unscalable_suffix(line, gd.lexicon())) unscalable = true;
-        if (line.size() > kFoldedReminder.size() && line.ends_with(kFoldedReminder))
-            line.remove_suffix(kFoldedReminder.size());
         if (!join.empty()) join.push_back('\n');
-        join.append(line);
+        append_unfolded(join, line);
 
         for (const std::string& cand : candidates(join)) {
             const Stat* s = gd.find_stat(cand, ctx.mod_type);

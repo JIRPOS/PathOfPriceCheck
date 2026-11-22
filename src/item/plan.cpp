@@ -1475,6 +1475,32 @@ void add_enchant_count(const data::GameData& gd, const Item& it, SearchPlan& p) 
     p.stats.push_back(std::move(f));
 }
 
+/// A cluster jewel's enchant, ticked and asked for exactly.
+///
+/// The enchant is what the jewel *is* — how many passives it adds, how many of them are
+/// sockets, what the small ones grant — fixed when it drops and not a roll to be beaten: a
+/// Large Cluster adding 8 is the sought-after one and 9 is not "better". Left to the base-item
+/// rule every row came unticked, which priced every cluster of that size as one.
+void pin_cluster_enchants(const Item& it, SearchPlan& p) {
+    if (p.category != "jewel.cluster") return;
+    for (StatFilter& f : p.stats) {
+        if (f.type != data::ModType::Enchant || !f.mod_index) continue;
+        const Modifier& m = it.mods[*f.mod_index];
+        if (!m.match) continue;
+        // An option id ("enchant.stat_3948993189|9") already names the grant, and trade
+        // matches nothing when it is also given a value.
+        if (f.id.find('|') != std::string::npos) {
+            f.min.reset();
+            f.max.reset();
+        } else if (const Roll roll = roll_for(*m.match); roll.value) {
+            f.min = *roll.value;
+            f.max = *roll.value;
+        }
+        f.tiered = false;
+        f.enabled = true;
+    }
+}
+
 /// A Putrid Seed nobody has anointed yet: asked to have **no** enchants, ticked.
 ///
 /// What anointing grows on one is the whole of what sets it apart, and an anointed seed carries
@@ -1911,7 +1937,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                       std::optional<Strategy> force, const RangeMatch& rm) {
     SearchPlan p;
     p.strategy = force.value_or(default_strategy(it));
-    p.category = std::string(gd.trade_category_for(it.item_class));
+    p.category = std::string(gd.trade_category_for(it.base, it.item_class));
     // A class nothing here has rules for, but which the bundle files under a trade category and
     // whose base it knows: a new league's item, most likely. The base in its category is a real
     // search, and coarse, which is said — "not implemented" would price nothing until a release.
@@ -2027,6 +2053,18 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
                 p.type = base_wire_name(it);
                 if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
             }
+            // **And a Blood-filled Vessel**, which only exists filled — the empty one is a
+            // Ritual Vessel, a stackable on the exchange. Each holds the monsters of one Ritual
+            // and is listed on its own; their level is what trade takes as the map area level,
+            // a floor. How many it holds is printed as one "Monsters" total while trade splits
+            // unique from non-unique, so the count is not asked for.
+            else if (p.strategy == Strategy::Currency &&
+                     property_of(it, data::PropertyKey::MonsterLevel)) {
+                p.type = base_wire_name(it);
+                if (it.base && !it.base->trade_disc.empty()) p.discriminator = it.base->trade_disc;
+                const Property* lvl = property_of(it, data::PropertyKey::MonsterLevel);
+                if (lvl->num) add_numeric(p, "area_level", lvl->label, *lvl->num, true);
+            }
             break;
     }
 
@@ -2106,6 +2144,7 @@ SearchPlan build_plan(const data::GameData& gd, const Item& it, const Derived& d
         // `mod_index`, and merging is what makes one filter stand for several modifiers. It is
         // also what tells the merge which rows are alternatives rather than repeats.
         if (p.strategy == Strategy::Logbook) group_logbook_mods(it, p);
+        pin_cluster_enchants(it, p);
         merge_same_stat(p.stats);
         add_enchant_count(gd, it, p);
     }

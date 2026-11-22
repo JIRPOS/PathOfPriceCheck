@@ -161,6 +161,13 @@ STATS = [
     "#% increased Light Radius",
     "Maximum number of Sentinels of Purity is Doubled\n"
     "Cannot have Minions other than Sentinels of Purity",
+    # The same stat as 3.30 prints it, the named range folded to "(...)" mid-line.
+    "Maximum number of Sentinels of Absolution is Doubled\n"
+    "Cannot have Minions other than Sentinels of Absolution",
+    # A Large Cluster Jewel's enchant, which is the jewel's identity rather than a roll.
+    "Adds # Passive Skills",
+    "# Added Passive Skills are Jewel Sockets",
+    "Added Small Passive Skills grant: #% increased Attack Damage",
     # Replica Dragonfang's Flight, the other shape of a named range: the pool is every skill
     # gem, so the wording carries the roll *and* a number, and the parenthesis follows a word
     # with no space in front of it.
@@ -357,6 +364,11 @@ ITEMS = [
     # lines ("Any Heist member can equip this item.", "Can only be equipped to Heist members.")
     # reading as usage text rather than as unmatched modifiers.
     "ITEM::Precise Arrowhead",
+    # A cluster base, which names its own trade category: its class, Jewels, says jewel.base.
+    "ITEM::Large Cluster Jewel",
+    # A filled vessel is listed on trade; the empty one is a different item on the exchange.
+    "ITEM::Blood-filled Vessel",
+    "ITEM::Ritual Vessel",
 ]
 
 UNIQUE_MODS = [
@@ -407,7 +419,7 @@ ITEM_CLASSES = ["Rings", "Boots", "Gloves", "Body Armours", "Stackable Currency"
                 "Support Gems", "Chart", "Misc Map Items", "Contracts", "Blueprints",
                 "Sanctum Research", "Expedition Logbooks", "Helmets", "Amulets", "Belts",
                 "Sceptres", "Heist Gear", "Viscera", "Enshrouded Items", "Shields",
-                "Corpses"]
+                "Corpses", "Map Fragments"]
 
 LANG = "en"
 
@@ -427,24 +439,33 @@ def read_ndjson(path: Path) -> list[tuple[bytes, dict]]:
     return out
 
 
-def pick(records: list[tuple[bytes, dict]], wanted: list[str], key) -> list[tuple[bytes, dict]]:
+def pick(sources: list[list[tuple[bytes, dict]]], wanted: list[str],
+         key) -> list[tuple[bytes, dict]]:
     """The wanted records, in the order listed above — the fixture's line order is ours.
+
+    `sources` is the main bundle first, then any `--fallback`: a key is taken from the first
+    source that has it, so a wording a newer patch retired can still be sliced from an older
+    build while everything else comes from the current one.
 
     `key` returns every name a record answers to, because one name can address two records: a
     unique is its name *and* its base, and Stormblood drops on both the Sapphire and the Topaz
-    Flask. A wanted key that names more than one record is refused rather than resolved —
-    taking either would put a record in the fixture that nobody asked for.
+    Flask. A wanted key that names more than one record in its source is refused rather than
+    resolved — taking either would put a record in the fixture that nobody asked for.
     """
-    by_key: dict[str, list[tuple[bytes, dict]]] = {}
-    for line, r in records:
-        for k in key(r):
-            by_key.setdefault(k, []).append((line, r))
-    if missing := [w for w in wanted if w not in by_key]:
+    by_source: list[dict[str, list[tuple[bytes, dict]]]] = []
+    for records in sources:
+        by_key: dict[str, list[tuple[bytes, dict]]] = {}
+        for line, r in records:
+            for k in key(r):
+                by_key.setdefault(k, []).append((line, r))
+        by_source.append(by_key)
+    found = {w: next((b[w] for b in by_source if w in b), None) for w in wanted}
+    if missing := [w for w, hits in found.items() if hits is None]:
         sys.exit(f"not in the source bundle: {', '.join(missing)}")
-    if several := [w for w in wanted if len(by_key[w]) > 1]:
+    if several := [w for w, hits in found.items() if len(hits) > 1]:
         sys.exit("names more than one record, so qualify it with the base or the id "
                  f"(\"UNIQUE::Stormblood::Topaz Flask\"): {', '.join(several)}")
-    return [by_key[w][0] for w in wanted]
+    return [found[w][0] for w in wanted]
 
 
 def item_keys(r: dict) -> list[str]:
@@ -481,18 +502,24 @@ def main() -> int:
     ap.add_argument("source", type=Path, help="a built bundle directory (the data repo's out/)")
     ap.add_argument("--out", type=Path,
                     default=Path(__file__).resolve().parent.parent / "tests" / "data" / "bundle")
+    ap.add_argument("--fallback", type=Path, action="append", default=[],
+                    help="an older bundle to take a key from when the source lacks it")
     args = ap.parse_args()
     src, out = args.source, args.out
+    dirs = [src, *args.fallback]
+
+    def load(name: str) -> list[list[tuple[bytes, dict]]]:
+        return [read_ndjson(d / name) for d in dirs]
     out.mkdir(parents=True, exist_ok=True)
 
-    stats = pick(read_ndjson(src / f"{LANG}-stats.ndjson"), STATS, lambda r: [r["ref"]])
+    stats = pick(load(f"{LANG}-stats.ndjson"), STATS, lambda r: [r["ref"]])
     offsets = write_ndjson(out / f"{LANG}-stats.ndjson", stats)
     write_index(out / f"{LANG}-stats-ref.index.bin",
                 [(r["ref"], off) for (_, r), off in zip(stats, offsets)])
     write_index(out / f"{LANG}-stats-matcher.index.bin",
                 [(m["string"], off) for (_, r), off in zip(stats, offsets) for m in r["matchers"]])
 
-    items = pick(read_ndjson(src / f"{LANG}-items.ndjson"), ITEMS, item_keys)
+    items = pick(load(f"{LANG}-items.ndjson"), ITEMS, item_keys)
     offsets = write_ndjson(out / f"{LANG}-items.ndjson", items)
     write_index(out / f"{LANG}-items-name.index.bin",
                 [(f"{r['namespace']}::{r['name']}", off) for (_, r), off in zip(items, offsets)])
@@ -502,13 +529,13 @@ def main() -> int:
                 [(f"UNIQUE::{r['unique']['base']}", off) for (_, r), off in zip(items, offsets)
                  if r["namespace"] == "UNIQUE" and r.get("unique", {}).get("base")])
 
-    uniques = pick(read_ndjson(src / f"{LANG}-unique-mods.ndjson"), UNIQUE_MODS,
+    uniques = pick(load(f"{LANG}-unique-mods.ndjson"), UNIQUE_MODS,
                    lambda r: [r["name"]])
     offsets = write_ndjson(out / f"{LANG}-unique-mods.ndjson", uniques)
     write_index(out / f"{LANG}-unique-mods-name.index.bin",
                 [(f"UNIQUE::{r['name']}", off) for (_, r), off in zip(uniques, offsets)])
 
-    pools = pick(read_ndjson(src / f"{LANG}-mod-pools.ndjson"), MOD_POOLS,
+    pools = pick(load(f"{LANG}-mod-pools.ndjson"), MOD_POOLS,
                  lambda r: [r["mods"][0]])
     offsets = write_ndjson(out / f"{LANG}-mod-pools.ndjson", pools)
     # One key per wording, qualified by domain: a map and a chart share wordings and are
@@ -517,7 +544,7 @@ def main() -> int:
                 [(f"{r['domain']}::{s['ref']}", off) for (_, r), off in zip(pools, offsets)
                  for s in r["stats"]])
 
-    classes = pick(read_ndjson(src / "item-classes.ndjson"), ITEM_CLASSES, class_keys)
+    classes = pick(load("item-classes.ndjson"), ITEM_CLASSES, class_keys)
     write_ndjson(out / "item-classes.ndjson", classes)
 
     # Not the source's manifest: the fixture is not a release, and nothing may mistake it for

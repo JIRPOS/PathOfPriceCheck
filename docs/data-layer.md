@@ -141,3 +141,5 @@ downloaded at runtime from **[JIRPOS/PathOfPriceCheck-Data](https://github.com/J
   **3.30 folds some reminder text into `(...)` glued to the wording** — `Map contains Baran's
   Citadel(...) — Unscalable Value`, where 3.29 printed the reminder as a second line. It comes off
   after the unscalable suffix and before the join; it is punctuation, so it is not in the lexicon.
+  It comes off **wherever it sits**, not only at the end: a named range folds the same way
+  mid-line, as in `Maximum number of Sentinels of Absolution(...) is Doubled`.

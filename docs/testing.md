@@ -80,7 +80,10 @@ under every lookup and fails as null lookups rather than as a diff. Keep the ndj
 byte-exact**; `.gitattributes` pins that down and those entries must stay. A key naming more than
 one record is refused rather than resolved, so a unique that drops on two bases is asked for by
 both — `"UNIQUE::Stormblood::Topaz Flask"` — and an item class two game classes print the name of
-by its id, `"Maps::MapKey"`.
+by its id, `"Maps::MapKey"`. **`--fallback <older bundle>`** (repeatable) supplies a key the
+source no longer carries. A patch can retire a wording that a test still pins to an older capture,
+and the CDN stops serving old patches, so the fallback may be the only build that has it. Each key
+is taken from the first source that has it.
 
 The slice has **one `(Local)` stat record**, `Adds # to # Chaos Damage (Local)`, which the
 synthesised Nebulis's implicit resolves to on its Void Sceptre — the local/global disambiguation in
