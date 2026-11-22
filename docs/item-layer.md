@@ -372,6 +372,12 @@ bundle, and only the third and fourth encode pricing judgement.
   one: it prints `Rarity: Currency` but is listed one at a time, and is searched on its name and
   nothing else. Its corpse level follows its item level and no buyer asks for either, and the
   monster's abilities printed on it are fixed by the name and have no stat record to search on.
+  **A Blood-filled Vessel** is the third. It only exists filled (the empty one is a Ritual
+  Vessel, a stackable on the exchange), holds one Ritual's monsters, and is listed one at a time.
+  It is searched on its name, with its printed **Monster Level** as a floor on the map
+  `area_level`, which is the filter trade takes it as. The single "Monsters" total it prints is not
+  asked for, because trade splits that count into unique and non-unique pseudos and the clipboard
+  does not.
 - **`item/plan`'s beast strategy** (`plan_beast`) is the shortest one here, and every line of it
   is a thing not asked for. An itemised beast is bought to be released into the menagerie and
   spent on a beastcrafting recipe, and a recipe names the **species** and nothing else — so the
@@ -384,7 +390,9 @@ bundle, and only the third and fourth encode pricing judgement.
   is a **floor** rather than a window: a recipe wanting one wants at least that much, and a
   higher beast still answers.
   The one thing that is not a matter of judgement is the **category**, and it is the single
-  place a category is not the bundle's answer for the item class. A beast's class is "Stackable
+  place a category is not the bundle's answer. (A cluster jewel's category is the bundle's
+  too, but it comes from the base record's own `tradeCategory` rather than the class's: every cluster
+  prints "Item Class: Jewels", which is `jewel.base`, where trade lists none.) A beast's class is "Stackable
   Currency" and the bundle maps that to `currency`, which is right for every orb that prints it
   and wrong here: trade files beasts under `monster.beast`. Measured, because the site accepts
   either and a wrong category comes back as nobody selling one rather than as an error —
@@ -515,7 +523,11 @@ bundle, and only the third and fourth encode pricing judgement.
   `pseudo.pseudo_number_of_enchant_mods` (`add_enchant_count`). Trade counts modifiers, not
   lines: 719 Covens Putrid Seeds have exactly four. **Not on a cluster jewel**, whose enchant is
   one affix over several lines; trade counts none above two, and without Advanced Mod
-  Descriptions nothing says where its affix ends. Trade cannot count to zero (`max: 0` matches
+  Descriptions nothing says where its affix ends. A cluster's enchant lines are instead each
+  ticked and **exact** (`pin_cluster_enchants`): they are what the jewel is, fixed at drop, and
+  a Large Cluster adding 9 passives is not a better one adding 8. The grant line is an option id
+  (`enchant.stat_3948993189|9`), which already names what it grants and is sent with no value:
+  given one, trade matches nothing. Trade cannot count to zero (`max: 0` matches
   nothing), so an unanointed Putrid Seed asks for the same pseudo in a `not` group instead.
 - **`item/plan`'s unique strategy** — the per-unique modifier join (`apply_unique_mods`) and
   the unidentified case (`plan_unidentified`) are [strategy-unique.md](strategy-unique.md).

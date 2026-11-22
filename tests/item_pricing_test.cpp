@@ -2053,12 +2053,69 @@ TEST_CASE("the three misc properties are filtered on the side that makes them be
         CHECK(p.notes.empty());
     }
 
+    SUBCASE("a Blood-filled Vessel is searched by name, its monsters' level a floor") {
+        // Only ever filled — the empty one is a Ritual Vessel — and listed one at a time.
+        const Item it = resolved(*gd, capture("fragment-blood-filled-vessel.txt"));
+        REQUIRE(it.base != nullptr);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+        CHECK(p.strategy == Strategy::Currency);
+        CHECK(p.category == "map.fragment");
+        CHECK(p.type == "Blood-filled Vessel");
+        const NumericFilter* f = numeric_for(p, "area_level");
+        REQUIRE(f != nullptr);
+        CHECK(f->enabled);
+        CHECK(f->min == 81);
+        CHECK_FALSE(f->max.has_value());
+    }
+
+    SUBCASE("an empty Ritual Vessel is a stackable on the exchange, not a search") {
+        const Item it = resolved(*gd, capture("currency-ritual-vessel.txt"));
+        REQUIRE(it.base != nullptr);
+        CHECK(it.base->exchange);
+        const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+        CHECK(p.type.empty());
+        CHECK(numeric_for(p, "area_level") == nullptr);
+    }
+
     SUBCASE("a currency item with nothing to tell two copies apart is still not searched") {
         const Item it = resolved(*gd, capture("currency-chaos-stack.txt"));
         const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
         CHECK(p.type.empty());
         CHECK(numeric_for(p, "stored_experience") == nullptr);
     }
+}
+
+TEST_CASE("a cluster jewel is searched among cluster jewels, its enchant exact") {
+    const std::shared_ptr<GameData> gd = fixture();
+    // The clipboard says "Item Class: Jewels", which is jewel.base, where trade lists no
+    // cluster jewel at all — the base record's own category is what finds them.
+    const Item it = resolved(*gd, capture("jewel-cluster-large.txt"));
+    REQUIRE(it.base != nullptr);
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+    CHECK(p.strategy == Strategy::BaseItem);
+    CHECK(p.category == "jewel.cluster");
+    CHECK(p.type == "Large Cluster Jewel");
+
+    // The enchant is what the jewel is, so every line of it is ticked and asked for exactly.
+    for (const auto& [id, value] : {std::pair{"enchant.stat_3086156145", 8.0},
+                                    std::pair{"enchant.stat_4079888060", 2.0}}) {
+        const StatFilter* f = filter_for(p, id);
+        REQUIRE_MESSAGE(f != nullptr, id);
+        CHECK_MESSAGE(f->enabled, id);
+        CHECK_MESSAGE(f->min == value, id);
+        CHECK_MESSAGE(f->max == value, id);
+    }
+    // The grant is an option id, which names it outright: given a value too, trade matches
+    // nothing (maintainer, on the site, 2026-11-22).
+    const StatFilter* grant = filter_for(p, "enchant.stat_3948993189|9");
+    REQUIRE(grant != nullptr);
+    CHECK(grant->enabled);
+    CHECK_FALSE(grant->min.has_value());
+    CHECK_FALSE(grant->max.has_value());
+    // And no enchant count: trade counts none above two on a cluster.
+    CHECK(filter_for(p, "pseudo.pseudo_number_of_enchant_mods") == nullptr);
 }
 
 TEST_CASE("a chart is a map: the area it covers, its shape, and its voyage modifier") {
@@ -2756,6 +2813,20 @@ TEST_CASE("a modifier that rolls over a list of names resolves as one modifier")
     REQUIRE(es != nullptr);
     CHECK(es->roll_min == doctest::Approx(50));
     CHECK(es->roll_max == doctest::Approx(100));
+}
+
+TEST_CASE("a named range 3.30 folds to \"(...)\" mid-line still resolves") {
+    auto gd = fixture();
+    // "Maximum number of Sentinels of Absolution(...) is Doubled": the marker sits inside the
+    // first line, not at its end, so stripping only a trailing one left the join unmatched.
+    const Item it = resolved(*gd, capture("unique-dark-monarch-absolution-folded.txt"));
+    const SearchPlan p = build_plan(*gd, it, derive(gd.get(), it));
+
+    for (const std::string& n : p.notes)
+        CHECK(n.find("unrecognised modifier") == std::string::npos);
+    const StatFilter* doubled = filter_for(p, "explicit.stat_56473917|8");
+    REQUIRE(doubled != nullptr);
+    CHECK(doubled->enabled);
 }
 
 TEST_CASE("a named range needs no space in front of it, and the pool can be every gem") {

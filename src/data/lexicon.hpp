@@ -52,6 +52,9 @@ enum class PropertyKey : uint8_t {
     MemoryStrands,
     Intangibility,
     StoredExperience,
+    /// What a filled Blood-filled Vessel's stored monsters spawn at — trade takes it as the
+    /// map `area_level`. The empty one is a different item (a Ritual Vessel) and prints none.
+    MonsterLevel,
     /// What an item pays out: a Valdo map's unique, and an Inscribed Ultimatum's reward. The
     /// only map that prints one, and the two are told apart by the item rather than by the key.
     Reward,

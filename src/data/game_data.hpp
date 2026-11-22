@@ -144,6 +144,9 @@ public:
     /// a translated client's class is found through the lexicon's `class_id` instead. The
     /// printed name is still tried first: it is what every bundle published so far answers to.
     std::string_view trade_category_for(std::string_view item_class) const;
+    /// The same, for a resolved item: the base's own `trade_category` wins where the bundle
+    /// states one, since a class can span two trade categories (Jewels: base and cluster).
+    std::string_view trade_category_for(const BaseType* base, std::string_view item_class) const;
     const ItemClass* item_class(std::string_view item_class) const;
 
     std::string_view data_version() const { return data_version_; }

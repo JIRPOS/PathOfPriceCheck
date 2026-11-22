@@ -261,6 +261,7 @@ const BaseType* GameData::base_at(uint32_t offset) const {
                 .value_or(Namespace::Item);
     b->trade_disc = j.value("tradeDisc", std::string());
     b->trade_name = j.value("tradeName", std::string());
+    b->trade_category = j.value("tradeCategory", std::string());
     b->metadata_id = j.value("metadataId", std::string());
     b->mod_domain = j.value("domain", 0);
     b->exchange = j.value("exchange", false);
@@ -512,6 +513,11 @@ const ItemClass* GameData::item_class(std::string_view cls) const {
 std::string_view GameData::trade_category_for(std::string_view cls) const {
     const ItemClass* ic = item_class(cls);
     return ic ? std::string_view(ic->trade_category) : std::string_view();
+}
+
+std::string_view GameData::trade_category_for(const BaseType* base, std::string_view cls) const {
+    if (base && !base->trade_category.empty()) return base->trade_category;
+    return trade_category_for(cls);
 }
 
 } // namespace ppc::data

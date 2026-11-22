@@ -64,3 +64,6 @@
 {"craftable":{"category":"Sceptres"},"domain":1,"dropLevel":68,"h":3,"metadataId":"Metadata/Items/Weapons/OneHandWeapons/OneHandMaces/Sceptre22","name":"Void Sceptre","namespace":"ITEM","refName":"Void Sceptre","w":2}
 {"art":"Art/2DItems/Weapons/OneHandWeapons/Scepters/SceptreOfMemories.png","name":"Nebulis","namespace":"UNIQUE","refName":"Nebulis","unique":{"base":"Void Sceptre"}}
 {"craftable":{"category":"Heist Gear"},"domain":23,"dropLevel":83,"h":2,"metadataId":"Metadata/Items/Heist/HeistEquipmentRanged4","name":"Precise Arrowhead","namespace":"ITEM","refName":"Precise Arrowhead","w":2}
+{"craftable":{"category":"Jewels"},"domain":21,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/Jewels/JewelPassiveTreeExpansionLarge","name":"Large Cluster Jewel","namespace":"ITEM","refName":"Large Cluster Jewel","tradeCategory":"jewel.cluster","w":1}
+{"craftable":{"category":"Map Fragments"},"domain":45,"dropLevel":1,"h":1,"metadataId":"Metadata/Items/MapFragments/RitualFragment","name":"Blood-filled Vessel","namespace":"ITEM","refName":"Blood-filled Vessel","w":1}
+{"craftable":{"category":"Stackable Currency"},"domain":45,"dropLevel":1,"exchange":true,"h":1,"metadataId":"Metadata/Items/Currency/CurrencyRitualStone","name":"Ritual Vessel","namespace":"ITEM","refName":"Ritual Vessel","w":1}

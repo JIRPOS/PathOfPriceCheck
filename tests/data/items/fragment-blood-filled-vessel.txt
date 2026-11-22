@@ -1,0 +1,13 @@
+Item Class: Map Fragments
+Rarity: Normal
+Blood-filled Vessel
+--------
+Monsters: 81
+Monster Level: 81
+From: Overgrown Shrine
+--------
+Rituals have 20% improved Favour Rewards
+Rituals spawn Monsters 20% faster
+Rituals have 20% more maximum monsters alive
+--------
+Can be used in a personal Map Device alongside a Map with Ritual Threads applied to add the monsters stored from a previous Ritual Altar to a Ritual Altar in that Map.

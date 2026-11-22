@@ -70,6 +70,11 @@ struct BaseType {
     /// printed matches nothing. Empty everywhere else, and on every bundle published before
     /// the field existed, so nothing may depend on it being there.
     std::string trade_name;
+    /// The trade `category` option for this base, where its item class cannot answer for it:
+    /// every cluster jewel prints "Item Class: Jewels", which maps to `jewel.base`, and trade
+    /// lists them under `jewel.cluster`. Empty everywhere else and on every bundle published
+    /// before the field existed — ask `GameData::trade_category_for(base, class)`.
+    std::string trade_category;
     /// The game's own `Metadata/Items/...` path for this base, and the only key GGG's
     /// currency-exchange feed states an item by — that feed publishes no names at all. Empty
     /// on a unique, on anything the build could not match to game data, and on every bundle
